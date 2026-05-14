@@ -1,0 +1,4 @@
+/* Common reset for OBS Browser Source overlays */
+html, body { margin: 0; padding: 0; background: transparent; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; color: #fff; overflow: hidden; }
+* { box-sizing: border-box; }
+img { display: block; max-width: 100%; }

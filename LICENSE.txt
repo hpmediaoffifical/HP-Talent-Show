@@ -1,0 +1,13 @@
+HP Talent Show — Internal-use license
+
+Copyright (c) 2026 HP Media
+
+Phần mềm này được cấp phép cho mục đích sử dụng nội bộ trong việc tổ chức
+Talent Show trên nền tảng TikTok LIVE. Cấm phân phối lại, bán lại, hoặc
+reverse-engineer để tạo phiên bản phái sinh thương mại mà không có sự
+đồng ý bằng văn bản của HP Media.
+
+Phần mềm sử dụng thư viện bên thứ ba `tiktok-live-connector` (MIT) —
+là một dự án reverse-engineering không chính thức, không có sự bảo đảm
+hoặc support từ TikTok / ByteDance. Người dùng tự chịu trách nhiệm về việc
+sử dụng đúng theo Điều Khoản Dịch Vụ của TikTok.

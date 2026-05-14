@@ -1,0 +1,63 @@
+{
+  "name": "hp-talent-show",
+  "version": "0.1.0",
+  "description": "HP Talent Show — phần mềm tổ chức Talent Show TikTok: PK đôi, BXH, tính điểm, overlay OBS",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "author": "HP Media",
+  "license": "ISC",
+  "build": {
+    "appId": "com.hp.talentshow",
+    "productName": "HP Talent Show",
+    "directories": {
+      "output": "release"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "config/**",
+      "assets/**",
+      "logo/**"
+    ],
+    "files": [
+      "src/**",
+      "renderer/**",
+      "config/**",
+      "logo/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "icon": "logo/hp-logo.ico",
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "artifactName": "HP-Talent-Show-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HP Talent Show",
+      "installerIcon": "logo/hp-logo.ico",
+      "uninstallerIcon": "logo/hp-logo.ico",
+      "installerHeaderIcon": "logo/hp-logo.ico"
+    }
+  },
+  "dependencies": {
+    "tiktok-live-connector": "2.1.1-beta1"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

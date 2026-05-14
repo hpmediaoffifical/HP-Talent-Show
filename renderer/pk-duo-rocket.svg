@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 74" role="img" aria-label="rocket">
+  <defs>
+    <linearGradient id="body" x1="54" y1="37" x2="142" y2="37" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d8e0ef"/>
+      <stop offset="0.52" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#8bd3ff"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="16" y1="37" x2="58" y2="37" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff2d55" stop-opacity="0"/>
+      <stop offset="0.42" stop-color="#ff7a18"/>
+      <stop offset="1" stop-color="#fff2a8"/>
+    </linearGradient>
+    <filter id="glow" x="-35%" y="-80%" width="190%" height="260%">
+      <feGaussianBlur stdDeviation="3.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow)">
+    <path d="M18 37 C30 24 45 26 61 32 L61 42 C45 48 30 50 18 37Z" fill="url(#flame)">
+      <animate attributeName="d" dur=".28s" repeatCount="indefinite" values="M18 37 C30 24 45 26 61 32 L61 42 C45 48 30 50 18 37Z;M5 37 C25 18 45 27 62 31 L62 43 C45 47 25 56 5 37Z;M18 37 C30 24 45 26 61 32 L61 42 C45 48 30 50 18 37Z"/>
+      <animate attributeName="opacity" dur=".28s" repeatCount="indefinite" values=".72;1;.72"/>
+    </path>
+  </g>
+  <path d="M59 23 L35 8 L45 34Z" fill="#ff4d7d" stroke="#7f1d1d" stroke-width="2"/>
+  <path d="M59 51 L35 66 L45 40Z" fill="#25f4ee" stroke="#155e75" stroke-width="2"/>
+  <path d="M45 25 C70 5 121 9 160 37 C121 65 70 69 45 49 C53 42 53 32 45 25Z" fill="url(#body)" stroke="#7c8798" stroke-width="3"/>
+  <path d="M139 25 C150 29 158 33 169 37 C158 41 150 45 139 49 C145 41 145 33 139 25Z" fill="#ff6b6b" stroke="#7f1d1d" stroke-width="2"/>
+  <circle cx="111" cy="37" r="13" fill="#dff7ff" stroke="#2563eb" stroke-width="4"/>
+  <circle cx="111" cy="37" r="6" fill="#5eead4">
+    <animate attributeName="opacity" values=".45;1;.45" dur=".9s" repeatCount="indefinite"/>
+  </circle>
+  <path d="M68 37 h-34" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity=".7">
+    <animate attributeName="x1" values="68;58;68" dur=".35s" repeatCount="indefinite"/>
+  </path>
+</svg>

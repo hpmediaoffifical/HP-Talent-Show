@@ -1,0 +1,9 @@
+node_modules/
+release/
+dist/
+config/settings.json
+config/creators.json
+config/groups.json
+*.log
+.DS_Store
+Thumbs.db
