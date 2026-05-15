@@ -4,9 +4,22 @@ const root = document.getElementById('scoreRoot');
 const audio = document.getElementById('scoreSound');
 
 let lastStatus = '';
+let lastRunKey = '';
+let playedWarning = false;
+let playedGoal = false;
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('en-US'); }
+function shortText(s, max = 28) {
+  const text = String(s || '').trim();
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+function mediaUrl(url) {
+  const s = String(url || '').trim();
+  if (!s || s === '../logo/hp-logo.png' || /logo\/hp-logo\.(png|ico)$/i.test(s)) return '/logo.png';
+  if (/^https?:\/\//i.test(s)) return `/avatar?url=${encodeURIComponent(s)}`;
+  return s;
+}
 
 function scoreStatusText(status, timeText) {
   if (status === 'prestart') return timeText || 'CHUẨN BỊ';
@@ -15,10 +28,15 @@ function scoreStatusText(status, timeText) {
   return timeText || '03:00';
 }
 
-function playIfNew(soundUrl, status) {
-  if (!soundUrl || status === lastStatus) return;
+function playSound(soundUrl) {
+  if (!soundUrl) return;
   audio.src = soundUrl;
+  audio.currentTime = 0;
   audio.play().catch(() => {});
+}
+
+function runKey(state) {
+  return String(state.runStartedAt || state.prestartUntil || 'idle');
 }
 
 function render(state = {}) {
@@ -28,9 +46,16 @@ function render(state = {}) {
   const pct = Math.max(0, Math.min(100, (score / target) * 100));
   const popLeft = Math.max(11, Math.min(88, pct));
   const status = state.status || 'idle';
-  const avatar = state.creatorAvatar || '';
+  const key = runKey(state);
+  if (key !== lastRunKey) {
+    lastRunKey = key;
+    playedWarning = false;
+    playedGoal = false;
+  }
+  const avatar = mediaUrl(state.creatorAvatar || '');
   const creator = state.creatorName || 'Creator';
-  const content = state.content || 'Kêu gọi điểm';
+  const shortCreator = shortText(creator, 28);
+  const content = state.content || '';
   const statusText = scoreStatusText(status, state.timeText);
   const activeRunner = ['running', 'grace'].includes(status) && !!state.lastAdd;
   const runnerUser = state.showGiftUser !== false && state.lastAddUser ? `${state.lastAddUser} ` : '';
@@ -39,25 +64,29 @@ function render(state = {}) {
   const remainingMs = Number(state.remainingMs) || 0;
   const urgent = ['running', 'grace'].includes(status) && remainingMs <= 10000 && remainingMs > 0;
   const nearGoal = ['running', 'grace'].includes(status) && pct >= 80 && score < target;
-  const milestoneValues = Array.isArray(state.customMilestoneValues) ? state.customMilestoneValues : [];
+  const goalMet = score >= target;
+  const milestoneValues = [];
   const milestones = milestoneValues.map(v => `<span class="score-marker ${score >= v ? 'reached' : ''}" style="left:${Math.max(0, Math.min(100, (v / target) * 100))}%"></span>`).join('');
+  const reachedMilestones = milestoneValues.filter(v => score >= v).length;
   const topUsers = Array.isArray(state.topUsers) ? state.topUsers : [];
   const topText = topUsers.length ? topUsers.map(u => `${esc(u.user || '?')} ${fmt(u.points)}`).join(' | ') : '';
-  const elapsedMs = state.runStartedAt ? Math.max(0, Date.now() - Number(state.runStartedAt)) : 0;
-  const avgPerMin = elapsedMs > 5000 ? Math.round(score / (elapsedMs / 60000)) : 0;
-  const projected = avgPerMin && remainingMs ? Math.round(score + avgPerMin * (remainingMs / 60000)) : 0;
-  const predictionText = avgPerMin ? (projected >= target ? `Dự kiến đạt ~${fmt(projected)}` : `Cần tăng tốc (dự kiến ${fmt(projected)})`) : 'Đang tính tốc độ';
-  root.className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${activeRunner ? ' has-add' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}`;
+  root.className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${state.milestoneGradientEnabled ? ' milestone-gradient' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}`;
   root.style.setProperty('--score-time-color', state.timeColor || '#ffffff');
   root.style.setProperty('--score-content-color', state.contentColor || '#f0eef6');
   root.style.setProperty('--score-over-color', state.overColor || '#ff0000');
   root.style.setProperty('--score-bar-color-1', state.barColor1 || '#b93678');
   root.style.setProperty('--score-bar-color-2', state.barColor2 || '#ff8ed1');
   root.style.setProperty('--score-wave-color', state.waveColor || '#ffffff');
+  const stageColors = ['#ff4f9a', '#ffb84f', '#ffe66d', '#35ffcf', '#7aa7ff', '#c79cff'];
+  const usedColors = stageColors.slice(0, Math.max(2, Math.min(stageColors.length, reachedMilestones + 2)));
+  root.style.setProperty('--score-fill-gradient', state.milestoneGradientEnabled && reachedMilestones > 0
+    ? `linear-gradient(90deg, ${usedColors.join(', ')})`
+    : `linear-gradient(90deg, ${state.barColor1 || '#b93678'} 0%, ${state.barColor2 || '#ff8ed1'} 100%)`);
   root.innerHTML = `
     <div class="score-time">${esc(statusText)}</div>
     <div class="score-bar" style="--score-pct:${pct}%">
       <div class="score-fill" style="width:${pct}%"></div>
+      <div class="score-sheen" style="width:${pct}%"></div>
       <div class="score-flash"></div>
       <div class="score-wave"></div>
       ${milestones}
@@ -66,19 +95,29 @@ function render(state = {}) {
       <div class="score-flag">⚑</div>
     </div>
     <div class="score-meta">
-      ${state.hideAvatar ? '' : `<div class="score-avatar">${avatar ? `<img src="${esc(avatar)}" />` : '👤'}</div>`}
-      ${state.hideCreator ? '' : `<div class="score-creator">${esc(creator)}</div>`}
-      <div class="score-content">${esc(content)}</div>
+      <div class="score-person">
+        ${state.hideAvatar ? '' : `<div class="score-avatar">${avatar ? `<img src="${esc(avatar)}" onerror="this.onerror=null;this.src='/logo.png'" />` : '👤'}</div>`}
+        ${state.hideCreator ? '' : `<div class="score-creator" title="${esc(creator)}">${esc(shortCreator)}</div>`}
+      </div>
       <div class="score-points">${fmt(score)}/${fmt(target)}</div>
     </div>
-    ${state.showTopUsers !== false && topText ? `<div class="score-extra">Top: ${topText}</div>` : ''}
-    ${state.showSpeed !== false && ['running', 'grace'].includes(status) ? `<div class="score-extra">${esc(predictionText)}</div>` : ''}`;
+    ${content ? `<div class="score-content-line"><div class="score-content">${esc(content)}</div></div>` : ''}
+    ${false && state.showTopUsers !== false && topText ? `<div class="score-extra">Top: ${topText}</div>` : ''}
+    `;
 
-  // Sound triggers
+  // Sound triggers are guarded per run so OBS/SSE refreshes do not replay them.
   if (status !== lastStatus) {
-    if (status === 'prestart') playIfNew(state.startSound, status);
-    if (status === 'success') playIfNew(state.successSound, status);
-    if (status === 'failed') playIfNew(state.failSound, status);
+    if (status === 'prestart' || (status === 'running' && lastStatus === 'idle')) playSound(state.startSound);
+    if (status === 'success') playSound(state.successSound);
+    if (status === 'failed') playSound(state.failSound);
+  }
+  if (!playedWarning && ['running', 'grace'].includes(status) && remainingMs <= 10000 && remainingMs > 0) {
+    playedWarning = true;
+    playSound(state.warningSound);
+  }
+  if (!playedGoal && ['running', 'grace'].includes(status) && score >= target) {
+    playedGoal = true;
+    playSound(state.goalSound);
   }
   lastStatus = status;
 }

@@ -64,6 +64,28 @@ let currentEditingCreator = null;
 let currentEditingGroup = null;
 let stats = { gifts: 0, diamond: 0, donors: new Set(), viewers: 0 };
 let ttConnected = false;
+let liveUsername = '';
+let scoreLinkRanking = false;
+let scoreLinkVoteLock = false;
+let latestScoreState = null;
+let scoreDurationSyncing = false;
+let scoreTargetSyncing = false;
+let scoreAutoRoundHandled = false;
+let scoreStoppedManually = false;
+let scoreConfigAutoTimer = null;
+let pkConfigAutoTimer = null;
+let scoreSoundAudio = null;
+let scoreSoundRunKey = '';
+let scoreSoundLastStatus = '';
+let scoreSoundInitialized = false;
+let scoreSoundWarningPlayed = false;
+let scoreSoundGoalPlayed = false;
+let scoreSoundResultPlayed = false;
+let settingsPreviewAudio = null;
+let bannerItems = [];
+let bannerIndex = 0;
+let bannerTimer = null;
+let tickerItems = [];
 const collapsedCreatorGroups = new Set();
 let chatFontSize = 18;
 const userAvatarCache = new Map();
@@ -115,6 +137,104 @@ function setSoundInput(id, value) {
 function soundValue(id) {
   const input = $('#' + id);
   return input.dataset.path || input.value.trim();
+}
+
+function gameplaySoundEnabled() {
+  const el = $('#gameSoundEnabled');
+  return !el || el.checked;
+}
+
+function gameplaySoundValue(id) {
+  return gameplaySoundEnabled() ? soundValue(id) : '';
+}
+
+function creatorAvatarValue(creator) {
+  return creator?.avatar || '../logo/hp-logo.png';
+}
+
+function safeAvatarUrl(value) {
+  const s = String(value || '').trim();
+  return s || '../logo/hp-logo.png';
+}
+
+function testSoundValue(value) {
+  const soundUrl = String(value || '').trim();
+  if (!soundUrl) {
+    toast('Chưa chọn file âm thanh', 'error');
+    return;
+  }
+  const audio = new Audio(soundUrl);
+  audio.currentTime = 0;
+  audio.play().catch(() => toast('Không phát được âm thanh này', 'error'));
+}
+
+function playSettingsSound(id, volumeId) {
+  const soundUrl = String(soundValue(id) || '').trim();
+  if (!soundUrl) {
+    toast('Chưa chọn file âm thanh', 'error');
+    return;
+  }
+  stopSettingsSound();
+  settingsPreviewAudio = new Audio(soundUrl);
+  settingsPreviewAudio.volume = Math.max(0, Math.min(1, (Number($('#' + volumeId)?.value) || 0) / 100));
+  settingsPreviewAudio.play().catch(() => toast('Không phát được âm thanh này', 'error'));
+}
+
+function stopSettingsSound() {
+  if (!settingsPreviewAudio) return;
+  settingsPreviewAudio.pause();
+  settingsPreviewAudio.currentTime = 0;
+  settingsPreviewAudio = null;
+}
+
+function playScoreSound(value) {
+  const soundUrl = String(value || '').trim();
+  if (!soundUrl) return;
+  try {
+    if (!scoreSoundAudio) scoreSoundAudio = new Audio();
+    scoreSoundAudio.pause();
+    scoreSoundAudio.src = soundUrl;
+    scoreSoundAudio.currentTime = 0;
+    scoreSoundAudio.play().catch(() => {});
+  } catch {}
+}
+
+function scoreRunKey(st = {}) {
+  return String(st.runStartedAt || st.endAt || 'idle');
+}
+
+function handleScoreGameplaySound(st = {}, prevStatus = '') {
+  const status = st.status || 'idle';
+  if (!scoreSoundInitialized) {
+    scoreSoundInitialized = true;
+    scoreSoundLastStatus = status;
+    scoreSoundRunKey = ['prestart', 'running', 'grace'].includes(status) ? scoreRunKey(st) : 'idle';
+    return;
+  }
+  const key = ['prestart', 'running', 'grace'].includes(status) ? scoreRunKey(st) : 'idle';
+  if (key !== scoreSoundRunKey) {
+    scoreSoundRunKey = key;
+    scoreSoundWarningPlayed = false;
+    scoreSoundGoalPlayed = false;
+    scoreSoundResultPlayed = false;
+  }
+  if (status !== scoreSoundLastStatus) {
+    if (['prestart', 'running'].includes(status) && !['prestart', 'running', 'grace'].includes(prevStatus)) playScoreSound(st.startSound);
+    if (status === 'success' && !scoreSoundResultPlayed) { scoreSoundResultPlayed = true; playScoreSound(st.successSound); }
+    if (status === 'failed' && !scoreSoundResultPlayed) { scoreSoundResultPlayed = true; playScoreSound(st.failSound); }
+  }
+  const remainingMs = Number(st.remainingMs) || 0;
+  if (!scoreSoundWarningPlayed && ['running', 'grace'].includes(status) && remainingMs <= 10000 && remainingMs > 0) {
+    scoreSoundWarningPlayed = true;
+    playScoreSound(st.warningSound);
+  }
+  const target = Math.max(1, Number(st.target) || 1);
+  const score = Math.max(0, Number(st.score) || 0);
+  if (!scoreSoundGoalPlayed && ['running', 'grace'].includes(status) && score >= target) {
+    scoreSoundGoalPlayed = true;
+    playScoreSound(st.goalSound);
+  }
+  scoreSoundLastStatus = status;
 }
 
 async function loadAudioOutputs(selectedId = 'default') {
@@ -294,6 +414,73 @@ async function init() {
   wireScoreTab();
   wireOverlaysTab();
   wireSettingsTab();
+  loadLiveBanners();
+  loadLiveTicker();
+}
+
+async function loadLiveBanners() {
+  const box = $('#liveBanner');
+  if (!box || !window.api.banner?.list) return;
+  try {
+    const res = await window.api.banner.list();
+    bannerItems = res?.banners || [];
+    bannerIndex = 0;
+    renderLiveBanner();
+    clearInterval(bannerTimer);
+    if (bannerItems.length > 1) bannerTimer = setInterval(() => {
+      bannerIndex = (bannerIndex + 1) % bannerItems.length;
+      renderLiveBanner();
+    }, 8000);
+  } catch {
+    renderLiveBannerError();
+  }
+}
+
+function renderLiveBannerError() {
+  const box = $('#liveBanner');
+  if (!box) return;
+  box.className = 'live-banner-placeholder';
+  box.innerHTML = '<strong>Chưa tải được banner</strong><span>Kiểm tra quyền chia sẻ Google Sheet.</span>';
+}
+
+function renderLiveBanner() {
+  const box = $('#liveBanner');
+  if (!box) return;
+  const item = bannerItems[bannerIndex];
+  if (!item) {
+    box.className = 'live-banner-placeholder';
+    box.innerHTML = '<strong>Banner vinh danh / thông tin</strong><span>Thêm ảnh tại sheet Banner, cột A.</span>';
+    return;
+  }
+  box.className = `live-banner${item.link ? ' clickable' : ''}`;
+  box.innerHTML = `
+    <img src="${escapeAttr(item.image)}" alt="${escapeAttr(item.note || 'Banner')}" />
+    ${item.note ? `<span>${escapeHtml(item.note)}</span>` : ''}
+  `;
+  box.onclick = item.link ? () => window.api.shell.openExternal(item.link) : null;
+}
+
+async function loadLiveTicker() {
+  const box = $('#liveTicker');
+  const track = $('#liveTickerTrack');
+  if (!box || !track || !window.api.ticker?.list) return;
+  try {
+    const res = await window.api.ticker.list();
+    tickerItems = res?.tickers || [];
+    renderLiveTicker();
+  } catch {
+    tickerItems = [];
+    renderLiveTicker();
+  }
+}
+
+function renderLiveTicker() {
+  const box = $('#liveTicker');
+  const track = $('#liveTickerTrack');
+  if (!box || !track) return;
+  const text = tickerItems.map(t => t.text).filter(Boolean).join('     •     ');
+  box.hidden = !text;
+  track.textContent = text ? `${text}     •     ${text}` : '';
 }
 
 // ============================================================
@@ -311,6 +498,7 @@ function wireTtEvents() {
     if ($('#hostHandle')) $('#hostHandle').textContent = '@' + info.username + (info.roomId ? ` · room ${info.roomId}` : '');
     if ($('#hostTitle')) $('#hostTitle').textContent = info.title || '';
     ttConnected = true;
+    liveUsername = info.username || $('#ttUsername').value.trim();
     $('#btnConnect').disabled = false;
     $('#btnConnect').textContent = '■ Ngắt';
     $('#btnConnect').classList.remove('primary');
@@ -322,6 +510,7 @@ function wireTtEvents() {
     $('#connLabel').textContent = 'Đã ngắt';
     $('#connHost').textContent = '';
     ttConnected = false;
+    liveUsername = '';
     $('#btnConnect').disabled = false;
     $('#btnConnect').textContent = '▶ Kết nối';
     $('#btnConnect').classList.add('primary');
@@ -332,6 +521,7 @@ function wireTtEvents() {
     $('#connLabel').textContent = 'Lỗi';
     toast('⚠ ' + (info.message || 'Lỗi kết nối'), 'error');
     ttConnected = false;
+    liveUsername = '';
     $('#btnConnect').disabled = false;
     $('#btnConnect').textContent = '▶ Kết nối';
     $('#btnConnect').classList.add('primary');
@@ -518,6 +708,11 @@ function wireConnectTab() {
   $('#chatFontUp').addEventListener('click', () => setChatFontSize(chatFontSize + 1));
   $('#userPopupClose').addEventListener('click', closeUserPopup);
   $('#userPopup').addEventListener('mousedown', e => { if (e.target === $('#userPopup')) closeUserPopup(); });
+  $('#connDot').addEventListener('click', () => {
+    const username = String(liveUsername || $('#ttUsername').value || '').trim().replace(/^@/, '');
+    if (!ttConnected || !username) return;
+    window.api.shell.openExternal(`https://tiktok.com/@${encodeURIComponent(username)}/live`);
+  });
   ['chatList', 'giftList'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener('mouseenter', () => markLogInteraction(id));
@@ -555,6 +750,7 @@ async function refreshCreators() {
   renderCreators();
   renderCreatorGroupSelect();
   renderPkCreatorSelects?.();
+  renderScoreCreatorSelect?.();
 }
 
 function renderCreators() {
@@ -802,6 +998,7 @@ async function refreshGroups() {
   renderCreatorGroupSelect();
   renderCreators();
   renderPkCreatorSelects?.();
+  renderScoreCreatorSelect?.();
 }
 
 function renderGroups() {
@@ -1060,7 +1257,6 @@ function applyPkCreator(side) {
   team.creatorName = creator?.nickname || creator?.tiktokId || '';
   team.creatorAvatar = creator?.avatar || '../logo/hp-logo.png';
   if (group?.color) team.color = group.color;
-  if (creator) team.name = creator.nickname || creator.tiktokId || team.name;
   if (creator && pkCfg?.joinMode) {
     const gift = creatorDefaultGift(creator);
     if (gift) {
@@ -1092,21 +1288,61 @@ function normalizeHexColor(value, fallback) {
 function renderPkGifts() {
   for (const side of ['A', 'B']) {
     const wrap = $(`#pk${side}gifts`);
+    wrap.dataset.team = side;
     wrap.innerHTML = '';
     const team = side === 'A' ? pkCfg.teamA : pkCfg.teamB;
     (team.gifts || []).forEach((g, i) => {
       const chip = document.createElement('span');
       chip.className = 'chip';
       chip.title = g.giftName || g.giftId || '';
-      chip.innerHTML = `${g.icon ? `<img src="${escapeAttr(g.icon)}" />` : '🎁'}<button>×</button>`;
+      chip.draggable = true;
+      chip.dataset.side = side;
+      chip.dataset.index = String(i);
+      chip.innerHTML = `${g.icon ? `<img src="${escapeAttr(g.icon)}" />` : '🎁'}<button type="button">×</button>`;
+      chip.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('application/x-pk-gift', JSON.stringify({ side, index: i }));
+        chip.classList.add('dragging');
+      });
+      chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
       chip.querySelector('button').addEventListener('click', () => {
         team.gifts.splice(i, 1);
         savePkActiveGifts();
         renderPkGifts();
+        schedulePkAutoSave();
       });
       wrap.appendChild(chip);
     });
   }
+}
+
+function pkDropIndex(zone, e) {
+  const chips = Array.from(zone.querySelectorAll('.chip:not(.dragging)'));
+  for (const chip of chips) {
+    const rect = chip.getBoundingClientRect();
+    const isAfter = e.clientY > rect.top + rect.height / 2 || (Math.abs(e.clientY - (rect.top + rect.height / 2)) < rect.height / 2 && e.clientX > rect.left + rect.width / 2);
+    if (e.clientY < rect.bottom && e.clientX < rect.right) return Number(chip.dataset.index || 0) + (isAfter ? 1 : 0);
+  }
+  return chips.length;
+}
+
+function movePkGift(fromSide, toSide, index, toIndex = null) {
+  if (!['A', 'B'].includes(fromSide) || !['A', 'B'].includes(toSide)) return false;
+  const fromTeam = getTeam(fromSide);
+  const toTeam = getTeam(toSide);
+  const gift = fromTeam.gifts?.[index];
+  if (!gift) return false;
+  toTeam.gifts = toTeam.gifts || [];
+  const giftId = String(gift.giftId || gift.id || '');
+  if (fromSide !== toSide && giftId && toTeam.gifts.some(g => String(g.giftId || g.id || '') === giftId)) return false;
+  fromTeam.gifts.splice(index, 1);
+  let insertAt = Number.isFinite(Number(toIndex)) ? Number(toIndex) : toTeam.gifts.length;
+  if (fromSide === toSide && insertAt > index) insertAt -= 1;
+  insertAt = Math.max(0, Math.min(toTeam.gifts.length, insertAt));
+  toTeam.gifts.splice(insertAt, 0, gift);
+  savePkActiveGifts();
+  renderPkGifts();
+  return { moved: true, reordered: fromSide === toSide };
 }
 
 function pkGiftIds(side) {
@@ -1132,6 +1368,15 @@ function addPkGifts(side, gifts) {
   return added;
 }
 
+function schedulePkAutoSave() {
+  clearTimeout(pkConfigAutoTimer);
+  pkConfigAutoTimer = setTimeout(async () => {
+    try {
+      if (pkCfg) await window.api.pkduo.setConfig(collectPkCfg());
+    } catch {}
+  }, 250);
+}
+
 function wirePkDuoTab() {
   $('#pkJoinMode').addEventListener('change', () => {
     savePkActiveGifts();
@@ -1142,6 +1387,7 @@ function wirePkDuoTab() {
       applyPkCreator('B');
     }
     renderPkGifts();
+    schedulePkAutoSave();
     toast(pkCfg.joinMode ? 'Đang chỉnh bảng quà Chọn Phe' : 'Đang chỉnh bảng quà Cố định');
   });
 
@@ -1150,8 +1396,12 @@ function wirePkDuoTab() {
       getTeam(side).groupId = $(`#pk${side}group`).value;
       renderPkCreatorSelect(side);
       applyPkCreator(side);
+      schedulePkAutoSave();
     });
-    $(`#pk${side}creator`).addEventListener('change', () => applyPkCreator(side));
+    $(`#pk${side}creator`).addEventListener('change', () => {
+      applyPkCreator(side);
+      schedulePkAutoSave();
+    });
   }
 
   $$('.pk-pick-master').forEach(btn => btn.addEventListener('click', async () => {
@@ -1166,15 +1416,47 @@ function wirePkDuoTab() {
     const added = addPkGifts(side, selected);
     savePkActiveGifts();
     renderPkGifts();
+    schedulePkAutoSave();
     toast(`Đã thêm ${added.length} quà cho Đội ${side}`, added.length ? 'success' : 'error');
   }));
 
+  $$('.pk-gifts').forEach(zone => {
+    zone.addEventListener('dragover', (e) => {
+      if (!Array.from(e.dataTransfer.types || []).includes('application/x-pk-gift')) return;
+      e.preventDefault();
+      zone.classList.add('drag-over');
+      e.dataTransfer.dropEffect = 'move';
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      try {
+        const data = JSON.parse(e.dataTransfer.getData('application/x-pk-gift') || '{}');
+        const result = movePkGift(data.side, zone.dataset.team, Number(data.index), pkDropIndex(zone, e));
+        if (result?.moved) {
+          schedulePkAutoSave();
+          toast(result.reordered ? `Đã sắp xếp quà Team ${zone.dataset.team}` : `Đã chuyển quà sang Team ${zone.dataset.team}`, 'success');
+        }
+      } catch {}
+    });
+  });
+
   $$('.pk-sound-file').forEach(btn => btn.addEventListener('click', async () => {
     const file = await window.api.shell.pickAudio();
-    if (file) setSoundInput(btn.dataset.target, filePathToUrl(file));
+    if (file) {
+      setSoundInput(btn.dataset.target, filePathToUrl(file));
+      await window.api.pkduo.setConfig(collectPkCfg());
+      toast('Đã lưu âm thanh PK Đôi', 'success');
+    }
   }));
 
   $('#pkBgOpacity').addEventListener('input', () => { $('#pkBgOpacityValue').textContent = `${$('#pkBgOpacity').value}%`; });
+  ['pkContent','pkAname','pkBname','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode'].forEach(id => {
+    const el = $('#' + id);
+    if (!el) return;
+    el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', schedulePkAutoSave);
+  });
 
   $('#pkSaveCfg').addEventListener('click', async () => {
     await updatePkConfig();
@@ -1231,11 +1513,11 @@ function collectPkCfg() {
     giftDisplayMode: $('#pkGiftDisplayMode').value,
     textSize: Number($('#pkTextSize').value),
     content: $('#pkContent').value.trim() || 'PK ĐÔI',
-    startSound: soundValue('pkSndStart'),
-    warningSound: soundValue('pkSndWarn'),
-    teamASound: soundValue('pkSndAwin'),
-    teamBSound: soundValue('pkSndBwin'),
-    drawSound: soundValue('pkSndDraw'),
+    startSound: gameplaySoundValue('scSndStart'),
+    warningSound: gameplaySoundValue('scSndWarn'),
+    teamASound: gameplaySoundValue('scSndSuccess'),
+    teamBSound: gameplaySoundValue('scSndSuccess'),
+    drawSound: gameplaySoundValue('scSndFail'),
   };
 }
 
@@ -1336,7 +1618,7 @@ function wireRankingTab() {
   });
   $('#rkSaveCfg').addEventListener('click', async () => {
     await window.api.ranking.setConfig(collectRkCfg());
-    toast('Đã cập nhật BXH', 'success');
+    toast('Đã cập nhật Thi đấu nhóm', 'success');
   });
   $('#rkStartRound').addEventListener('click', async () => {
     const round = await window.api.ranking.startRound();
@@ -1353,7 +1635,7 @@ function wireRankingTab() {
     toast('RESET ROUND: R0', 'success');
   });
   $('#rkReset').addEventListener('click', async () => {
-    if (confirm('Reset toàn bộ điểm BXH?')) {
+    if (confirm('Reset toàn bộ điểm Thi đấu nhóm?')) {
       await window.api.ranking.reset();
       await refreshCreators();
       const st = await window.api.ranking.getState();
@@ -1363,15 +1645,160 @@ function wireRankingTab() {
   });
   $('#rkCopyUrl').addEventListener('click', async () => {
     const url = await window.api.ranking.getUrl(); await window.api.shell.copyText(url);
-    toast('📋 BXH DỌC', 'success');
+    toast('📋 THI ĐẤU DỌC', 'success');
   });
   $('#rkCopyGridUrl').addEventListener('click', async () => {
     const url = await window.api.ranking.getGridUrl(); await window.api.shell.copyText(url);
-    toast('📋 BXH NGANG', 'success');
+    toast('📋 THI ĐẤU NGANG', 'success');
+  });
+  $('#rkScoreToggle').addEventListener('click', async () => {
+    const c = getVotedCreator();
+    if (!c) { toast('Chưa chọn Creator VOTE', 'error'); return; }
+    const running = ['prestart', 'running', 'grace'].includes(latestScoreState?.status);
+    if (running) {
+      scoreStoppedManually = true;
+      await window.api.score.stop();
+      toast('■ Đã dừng Tính điểm', 'success');
+    } else {
+      await syncScoreDurationFromBridge();
+      await syncScoreToCreator(c);
+      scoreAutoRoundHandled = false;
+      scoreStoppedManually = false;
+      await window.api.score.start();
+      toast(`▶ Tính điểm: ${c.nickname || c.tiktokId}`, 'success');
+    }
+  });
+  $('#rkScoreReset').addEventListener('click', async () => {
+    await window.api.score.reset();
+    toast('↺ Đã reset Tính điểm', 'success');
+  });
+  ['rkScoreMin', 'rkScoreSec'].forEach(id => $('#' + id).addEventListener('input', syncScoreDurationFromBridge));
+  $('#rkScoreTarget').addEventListener('input', syncScoreTargetFromBridge);
+  $('#rkLockVoteRunning').addEventListener('change', async () => {
+    scoreLinkVoteLock = $('#rkLockVoteRunning').checked;
+    await window.api.settings.set({ scoreLinkVoteLock });
+    renderScoreBridge();
+    const st = await window.api.ranking.getState();
+    renderRkPreview(st);
+    toast(scoreLinkVoteLock ? 'Đã bật Khóa VOTE' : 'Đã tắt Khóa VOTE', 'success');
   });
 }
 
-async function updateRankingCreator(id, patch, message = 'Đã cập nhật BXH') {
+function getVotedCreator() {
+  return creators.find(c => !!c.voteActive) || null;
+}
+
+async function syncScoreToCreator(c) {
+  const cfg = collectScoreCfg();
+  cfg.creatorName = c.nickname || c.tiktokId || '';
+  cfg.creatorAvatar = c.avatar || '';
+  $('#scCreatorName').value = cfg.creatorName;
+  $('#scCreatorAvatar').value = cfg.creatorAvatar;
+  if ($('#scCreatorSelect')) $('#scCreatorSelect').value = c.id || '';
+  await window.api.score.setConfig(cfg);
+}
+
+function getRequiredTargetForCreator(creatorId) {
+  const rows = Array.from(document.querySelectorAll('#rkPreview .rk-row'));
+  const idx = rows.findIndex(row => row.querySelector('[data-rk-points]')?.dataset.rkPoints === String(creatorId));
+  if (idx <= 0) return Math.max(1, Number($('#scTarget').value) || 1000);
+  const current = parseNumberInput(rows[idx].querySelector('[data-rk-points]')?.value || '0');
+  const above = parseNumberInput(rows[idx - 1].querySelector('[data-rk-points]')?.value || '0');
+  return Math.max(1, above - current + 1);
+}
+
+async function applyAutoTargetForVote(c) {
+  if (!scoreLinkRanking || !c) return;
+  const target = getRequiredTargetForCreator(c.id || c.tiktokId);
+  scoreTargetSyncing = true;
+  $('#rkScoreTarget').value = formatNumber(target);
+  $('#scTarget').value = target;
+  scoreTargetSyncing = false;
+  await window.api.score.setConfig(collectScoreCfg());
+}
+
+async function syncScoreTargetFromBridge() {
+  if (scoreTargetSyncing) return;
+  const target = Math.max(1, parseNumberInput($('#rkScoreTarget').value) || 1000);
+  scoreTargetSyncing = true;
+  $('#scTarget').value = target;
+  scoreTargetSyncing = false;
+  await window.api.score.setConfig(collectScoreCfg());
+}
+
+async function syncScoreTargetFromScoreTab() {
+  if (scoreTargetSyncing) return;
+  const target = Math.max(1, Number($('#scTarget').value) || 1000);
+  scoreTargetSyncing = true;
+  $('#rkScoreTarget').value = formatNumber(target);
+  scoreTargetSyncing = false;
+  scheduleScoreAutoSave();
+}
+
+async function syncScoreDurationFromBridge() {
+  if (scoreDurationSyncing) return;
+  const m = Math.max(0, Number($('#rkScoreMin').value) || 0);
+  const s = Math.max(0, Math.min(59, Number($('#rkScoreSec').value) || 0));
+  scoreDurationSyncing = true;
+  $('#scDurH').value = 0;
+  $('#scDurM').value = m;
+  $('#scDurS').value = s;
+  scoreDurationSyncing = false;
+  await window.api.score.setConfig(collectScoreCfg());
+}
+
+async function syncScoreDurationFromScoreTab() {
+  if (scoreDurationSyncing) return;
+  const h = Number($('#scDurH').value) || 0;
+  const m = Number($('#scDurM').value) || 0;
+  const s = Number($('#scDurS').value) || 0;
+  const total = h * 3600 + m * 60 + s;
+  scoreDurationSyncing = true;
+  $('#rkScoreMin').value = Math.floor(total / 60);
+  $('#rkScoreSec').value = total % 60;
+  scoreDurationSyncing = false;
+  scheduleScoreAutoSave();
+}
+
+function renderScoreBridge() {
+  const box = $('#rkScoreBridge');
+  if (!box) return;
+  const c = getVotedCreator();
+  box.hidden = !scoreLinkRanking;
+  $('#rkScoreBridgeName').textContent = c ? `Đang VOTE: ${c.nickname || c.tiktokId}` : 'Chọn VOTE một Creator để điều khiển';
+  const running = ['prestart', 'running', 'grace'].includes(latestScoreState?.status);
+  const toggle = $('#rkScoreToggle');
+  toggle.textContent = running ? '■ DỪNG' : '▶ BẮT ĐẦU';
+  toggle.classList.toggle('warn', running);
+  toggle.classList.toggle('primary', !running);
+  ['rkScoreToggle', 'rkScoreReset', 'rkScoreTarget', 'rkScoreMin', 'rkScoreSec'].forEach(id => { const b = $('#' + id); if (b) b.disabled = !c; });
+  const lock = $('#rkLockVoteRunning');
+  if (lock) lock.checked = scoreLinkVoteLock;
+  applyVoteLockState();
+}
+
+function isLinkedScoreRunning() {
+  return scoreLinkRanking && scoreLinkVoteLock && ['prestart', 'running', 'grace'].includes(latestScoreState?.status);
+}
+
+function applyVoteLockState() {
+  const locked = isLinkedScoreRunning();
+  document.querySelectorAll('[data-rk-toggle="voteActive"]').forEach(btn => {
+    btn.disabled = locked;
+  });
+}
+
+async function bumpVotedCreatorRound() {
+  const c = getVotedCreator();
+  if (!c) return;
+  const nextRound = (Number(c.voteRound) || 0) + 1;
+  await updateRankingCreator(c.id || c.tiktokId, {
+    voteRound: nextRound,
+    __history: { at: Date.now(), label: `Auto round R${nextRound}` },
+  }, `Round ${c.nickname || c.tiktokId}: R${nextRound}`);
+}
+
+async function updateRankingCreator(id, patch, message = 'Đã cập nhật Thi đấu nhóm') {
   const c = creators.find(x => x.id === id || x.tiktokId === id);
   if (!c) return;
   const historyEntry = patch.__history;
@@ -1386,6 +1813,7 @@ async function updateRankingCreator(id, patch, message = 'Đã cập nhật BXH'
   await refreshCreators();
   const st = await window.api.ranking.getState();
   renderRkPreview(st);
+  renderScoreBridge();
   toast(message, 'success');
 }
 
@@ -1504,7 +1932,7 @@ function renderRkPreview(st) {
     <div class="rk-row${r.active ? ' is-active' : ''}${r.lost ? ' is-lost' : ''}${r.hideObs ? ' is-hidden-obs' : ''}">
       <div class="rk-left">
         ${st.showRank === false ? '' : `<span class="rk-rank">${rankLabel(r.rank, r.hideObs)}</span>`}
-        ${st.showAvatar === false ? '' : (r.avatar ? `<img class="rk-avatar" src="${escapeAttr(r.avatar)}" />` : `<span class="rk-initials">${escapeHtml(r.initials || '?')}</span>`)}
+        ${st.showAvatar === false ? '' : `<img class="rk-avatar" src="${escapeAttr(safeAvatarUrl(r.avatar))}" onerror="this.onerror=null;this.src='../logo/hp-logo.png'" />`}
         <div class="rk-person">
           <span class="rk-name">${escapeHtml(r.name)}</span>
           <span class="rk-group">${r.groupName ? escapeHtml(r.groupName) : 'Chưa nhóm'}</span>
@@ -1515,7 +1943,7 @@ function renderRkPreview(st) {
         <input class="rk-mini-input" data-rk-points="${escapeAttr(r.id)}" type="text" inputmode="numeric" value="${formatNumber(r.points)}" title="Điểm thi đấu" />
         <span class="rk-round-chip">R<input data-rk-round="${escapeAttr(r.id)}" type="number" min="0" value="${Number(r.round) || 0}" title="Round" /></span>
         <div class="rk-actions">
-          <button class="rk-pill${r.voteActive ? ' on' : ''}" data-rk-toggle="voteActive" data-id="${escapeAttr(r.id)}" type="button">VOTE</button>
+          <button class="rk-pill${r.voteActive ? ' on' : ''}" data-rk-toggle="voteActive" data-id="${escapeAttr(r.id)}" type="button" ${scoreLinkRanking && scoreLinkVoteLock && ['prestart','running','grace'].includes(latestScoreState?.status) ? 'disabled' : ''}>VOTE</button>
           <button class="rk-pill${r.lost ? ' on danger' : ''}" data-rk-toggle="lost" data-id="${escapeAttr(r.id)}" type="button">THUA</button>
           <button class="rk-pill${r.hideScore ? ' on' : ''}" data-rk-toggle="hideScore" data-id="${escapeAttr(r.id)}" type="button">Ẩn điểm</button>
           <button class="rk-pill${r.hideObs ? ' on' : ''}" data-rk-toggle="hideObs" data-id="${escapeAttr(r.id)}" type="button">${r.hideObs ? 'Hiện OBS' : 'Ẩn OBS'}</button>
@@ -1551,6 +1979,11 @@ function renderRkPreview(st) {
     const c = creators.find(x => x.id === btn.dataset.id || x.tiktokId === btn.dataset.id);
     if (!c) return;
     const key = btn.dataset.rkToggle;
+    if (key === 'voteActive' && isLinkedScoreRunning()) {
+      toast('Đang chạy Tính điểm liên kết, VOTE đang bị khóa', 'error');
+      applyVoteLockState();
+      return;
+    }
     if (key === 'voteActive') {
       await window.api.ranking.setActive('');
     }
@@ -1563,12 +1996,18 @@ function renderRkPreview(st) {
       [key]: !c[key],
       __history: { at: Date.now(), label: `${btn.textContent.trim()} ${!c[key] ? 'ON' : 'OFF'}` },
     }, `Đã cập nhật ${btn.textContent.trim()}`);
+    if (key === 'voteActive' && !c.voteActive && scoreLinkRanking) {
+      const fresh = creators.find(x => x.id === c.id || x.tiktokId === c.tiktokId) || c;
+      await applyAutoTargetForVote({ ...fresh, voteActive: true });
+      await syncScoreToCreator({ ...fresh, voteActive: true });
+    }
   }));
   el.querySelectorAll('[data-rk-clear-history]').forEach(btn => btn.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (!await askConfirm('Xóa toàn bộ lịch sử gameplay của Creator này?', 'Xóa lịch sử')) return;
     await updateRankingCreator(btn.dataset.rkClearHistory, { gameplayHistory: [] }, 'Đã xóa lịch sử');
   }));
+  renderScoreBridge();
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1582,7 +2021,8 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 async function loadScoreConfig() {
   const st = await window.api.score.getState();
-  $('#scTarget').value = st.target || 30000;
+  $('#scTarget').value = st.target || 1000;
+  $('#rkScoreTarget').value = formatNumber(st.target || 1000);
   const dMs = Number(st.durationMs) || 180000;
   const dSec = Math.floor(dMs / 1000);
   $('#scDurH').value = Math.floor(dSec / 3600);
@@ -1590,18 +2030,20 @@ async function loadScoreConfig() {
   $('#scDurS').value = dSec % 60;
   $('#scPrep').value = st.prepSec ?? 3;
   $('#scDelay').value = Math.floor((st.delayMs ?? 5000) / 1000);
-  $('#scContent').value = st.content || 'Kêu gọi điểm';
+  $('#scContent').value = st.content || '';
   $('#scCreatorName').value = st.creatorName || '';
   $('#scCreatorAvatar').value = st.creatorAvatar || '';
+  renderScoreCreatorSelect(st);
   $('#scTheme').value = st.themePreset || 'douyin';
   $('#scSize').value = st.overlaySize || 'medium';
   $('#scBarStyle').value = st.barStyle || 'pill';
-  $('#scCompact').checked = !!st.compactMode;
+  $('#scCompact').checked = false;
   $('#scHideAvatar').checked = !!st.hideAvatar;
   $('#scHideCreator').checked = !!st.hideCreator;
-  $('#scShowGiftUser').checked = st.showGiftUser !== false;
-  $('#scShowTopUsers').checked = st.showTopUsers !== false;
-  $('#scShowSpeed').checked = st.showSpeed !== false;
+  $('#scMilestoneGradient').checked = false;
+  $('#scShowGiftUser').checked = false;
+  $('#scShowTopUsers').checked = false;
+  $('#scShowSpeed').checked = false;
   $('#scTimeColor').value = st.timeColor || '#ffffff';
   $('#scContentColor').value = st.contentColor || '#f0eef6';
   $('#scOverColor').value = st.overColor || '#ff0000';
@@ -1610,13 +2052,16 @@ async function loadScoreConfig() {
   $('#scWaveColor').value = st.waveColor || '#ffffff';
   $('#scBigThreshold').value = st.bigGiftThreshold || 500;
   $('#scPointsBy').value = st.pointsBy || 'diamond';
-  $('#scMilestones').value = (st.customMilestoneValues || [10000, 20000, 30000, 40000, 50000]).join(', ');
-  $('#scSndStart').value = st.startSound || '';
-  $('#scSndWarn').value = st.warningSound || '';
-  $('#scSndGoal').value = st.goalSound || '';
-  $('#scSndSuccess').value = st.successSound || '';
-  $('#scSndFail').value = st.failSound || '';
+  $('#scMilestones').value = '';
+  setSoundInput('scSndStart', st.startSound || '');
+  setSoundInput('scSndWarn', st.warningSound || '');
+  setSoundInput('scSndGoal', st.goalSound || '');
+  setSoundInput('scSndSuccess', st.successSound || '');
+  setSoundInput('scSndFail', st.failSound || '');
   renderScPreview(st);
+  const total = Math.floor((Number(st.durationMs) || 180000) / 1000);
+  $('#rkScoreMin').value = Math.floor(total / 60);
+  $('#rkScoreSec').value = total % 60;
 }
 
 function collectScoreCfg() {
@@ -1625,31 +2070,25 @@ function collectScoreCfg() {
   const s = Number($('#scDurS').value) || 0;
   const durationMs = Math.max(5000, (h * 3600 + m * 60 + s) * 1000);
   // Parse milestones
-  const msRaw = $('#scMilestones').value || '';
-  const milestones = msRaw.split(',').map(x => parseInt(x.trim(), 10)).filter(n => Number.isFinite(n) && n > 0);
-  // Validate ascending
-  let ok = true;
-  for (let i = 1; i < milestones.length; i++) {
-    if (milestones[i] <= milestones[i - 1]) { ok = false; break; }
-  }
-  if (!ok) toast('⚠ Milestones phải tăng dần — đã giữ lại các giá trị hợp lệ', 'error');
+  const milestones = [];
   return {
-    target: Math.max(1, Number($('#scTarget').value) || 30000),
+    target: Math.max(1, Number($('#scTarget').value) || 1000),
     durationMs,
     prepSec: Number($('#scPrep').value) || 0,
     delayMs: Math.max(0, Number($('#scDelay').value) || 0) * 1000,
-    content: $('#scContent').value.trim() || 'Kêu gọi điểm',
+    content: $('#scContent').value.trim(),
     creatorName: $('#scCreatorName').value.trim(),
     creatorAvatar: $('#scCreatorAvatar').value.trim(),
     themePreset: $('#scTheme').value,
     overlaySize: $('#scSize').value,
     barStyle: $('#scBarStyle').value,
-    compactMode: $('#scCompact').checked,
+    compactMode: false,
     hideAvatar: $('#scHideAvatar').checked,
     hideCreator: $('#scHideCreator').checked,
-    showGiftUser: $('#scShowGiftUser').checked,
-    showTopUsers: $('#scShowTopUsers').checked,
-    showSpeed: $('#scShowSpeed').checked,
+    milestoneGradientEnabled: false,
+    showGiftUser: false,
+    showTopUsers: false,
+    showSpeed: false,
     timeColor: $('#scTimeColor').value,
     contentColor: $('#scContentColor').value,
     overColor: $('#scOverColor').value,
@@ -1659,12 +2098,47 @@ function collectScoreCfg() {
     bigGiftThreshold: Math.max(1, Number($('#scBigThreshold').value) || 500),
     pointsBy: $('#scPointsBy').value,
     customMilestoneValues: milestones,
-    startSound: $('#scSndStart').value.trim(),
-    warningSound: $('#scSndWarn').value.trim(),
-    goalSound: $('#scSndGoal').value.trim(),
-    successSound: $('#scSndSuccess').value.trim(),
-    failSound: $('#scSndFail').value.trim(),
+    startSound: gameplaySoundValue('scSndStart'),
+    warningSound: gameplaySoundValue('scSndWarn'),
+    goalSound: gameplaySoundValue('scSndGoal'),
+    successSound: gameplaySoundValue('scSndSuccess'),
+    failSound: gameplaySoundValue('scSndFail'),
   };
+}
+
+function renderScoreCreatorSelect(st = latestScoreState || {}) {
+  const sel = $('#scCreatorSelect');
+  if (!sel) return;
+  const currentName = st.creatorName || $('#scCreatorName')?.value || '';
+  const currentAvatar = st.creatorAvatar || $('#scCreatorAvatar')?.value || '';
+  const current = creators.find(c => {
+    const nameMatches = (c.nickname || c.tiktokId || '') === currentName;
+    const avatarMatches = !currentAvatar || currentAvatar === '../logo/hp-logo.png' || c.avatar === currentAvatar;
+    return nameMatches && avatarMatches;
+  })?.id || '';
+  sel.innerHTML = '<option value="">— Chọn Creator —</option>' + creators
+    .slice()
+    .sort((a, b) => (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi'))
+    .map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.nickname || c.tiktokId)}</option>`)
+    .join('');
+  sel.value = current;
+}
+
+function applyScoreCreatorSelect() {
+  const c = creators.find(x => x.id === $('#scCreatorSelect').value);
+  $('#scCreatorName').value = c ? (c.nickname || c.tiktokId || '') : '';
+  $('#scCreatorAvatar').value = c ? creatorAvatarValue(c) : '';
+  renderScPreview({ ...(latestScoreState || collectScoreCfg()), ...collectScoreCfg(), score: latestScoreState?.score || 0, status: latestScoreState?.status || 'idle', timeText: latestScoreState?.timeText || '00:00' });
+  scheduleScoreAutoSave();
+}
+
+function scheduleScoreAutoSave() {
+  clearTimeout(scoreConfigAutoTimer);
+  scoreConfigAutoTimer = setTimeout(async () => {
+    try {
+      await window.api.score.setConfig(collectScoreCfg());
+    } catch {}
+  }, 250);
 }
 
 function wireScoreTab() {
@@ -1686,18 +2160,66 @@ function wireScoreTab() {
       $('#scOverColor').value = THEMES[t][3];
     }
   });
+  $('#scTarget').addEventListener('input', syncScoreTargetFromScoreTab);
+  ['scDurH', 'scDurM', 'scDurS'].forEach(id => $('#' + id).addEventListener('input', syncScoreDurationFromScoreTab));
+  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scHideAvatar','scHideCreator','scTimeColor','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
+    const el = $('#' + id);
+    if (!el) return;
+    el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', scheduleScoreAutoSave);
+  });
+  $('#scCreatorSelect').addEventListener('change', applyScoreCreatorSelect);
+  $$('.score-sound-file').forEach(btn => btn.addEventListener('click', async () => {
+    const file = await window.api.shell.pickAudio();
+    if (file) {
+      setSoundInput(btn.dataset.target, filePathToUrl(file));
+      await window.api.settings.set({ audio: {
+        gameSoundEnabled: gameplaySoundEnabled(),
+        startSound: soundValue('scSndStart'),
+        warningSound: soundValue('scSndWarn'),
+        goalSound: soundValue('scSndGoal'),
+        successSound: soundValue('scSndSuccess'),
+        failSound: soundValue('scSndFail'),
+      } });
+      await window.api.score.setConfig(collectScoreCfg());
+      await window.api.pkduo.setConfig(collectPkCfg());
+      toast('Đã lưu âm thanh Score', 'success');
+    }
+  }));
+  $$('.score-sound-test').forEach(btn => btn.addEventListener('click', () => {
+    testSoundValue(soundValue(btn.dataset.target));
+  }));
   $('#scSaveCfg').addEventListener('click', async () => {
     await window.api.score.setConfig(collectScoreCfg());
     toast('💾 Đã lưu Score', 'success');
   });
-  $('#scStart').addEventListener('click', async () => {
-    await window.api.score.setConfig(collectScoreCfg());
-    await window.api.score.start();
-    toast('▶ Score: bắt đầu', 'success');
+  $('#scLinkRanking').addEventListener('change', async () => {
+    scoreLinkRanking = $('#scLinkRanking').checked;
+    await window.api.settings.set({ scoreLinkRanking });
+    renderScoreBridge();
+    toast(scoreLinkRanking ? 'Đã bật liên kết Thi đấu nhóm ↔ Tính điểm' : 'Đã tắt liên kết Thi đấu nhóm ↔ Tính điểm', 'success');
   });
-  $('#scStop').addEventListener('click', async () => { await window.api.score.stop(); toast('■ Đã dừng', 'success'); });
+  $('#scStart').addEventListener('click', async () => {
+    const running = ['prestart', 'running', 'grace'].includes(latestScoreState?.status);
+    if (running) {
+      scoreStoppedManually = true;
+      await window.api.score.stop();
+      toast('■ Đã dừng', 'success');
+    } else {
+      await window.api.score.setConfig(collectScoreCfg());
+      scoreAutoRoundHandled = false;
+      scoreStoppedManually = false;
+      await window.api.score.start();
+      toast('▶ Score: bắt đầu', 'success');
+    }
+  });
   $('#scReset').addEventListener('click', async () => {
     if (confirm('Reset điểm về 0?')) { await window.api.score.reset(); toast('↺ Reset', 'success'); }
+  });
+  $('#scTestPlus').addEventListener('click', async () => {
+    await window.api.score.addPoints(Math.max(1, Number($('#scTestPoints').value) || 100), { uniqueId: 'test-user', nickname: 'Test user', avatar: '../logo/hp-logo.png' });
+  });
+  $('#scTestMinus').addEventListener('click', async () => {
+    await window.api.score.addPoints(-Math.max(1, Number($('#scTestPoints').value) || 100), { uniqueId: 'test-user', nickname: 'Test user', avatar: '../logo/hp-logo.png' });
   });
   $('#scCopyUrl').addEventListener('click', async () => {
     const url = await window.api.score.getUrl(); await window.api.shell.copyText(url);
@@ -1706,10 +2228,32 @@ function wireScoreTab() {
 }
 
 function renderScPreview(st) {
+  const prevStatus = latestScoreState?.status;
+  latestScoreState = st;
+  handleScoreGameplaySound(st, prevStatus);
+  if (scoreLinkRanking && !scoreStoppedManually && !scoreAutoRoundHandled && ['running', 'grace'].includes(prevStatus) && ['success', 'failed'].includes(st.status)) {
+    scoreAutoRoundHandled = true;
+    bumpVotedCreatorRound().catch(() => {});
+  }
+  if (['idle', 'prestart', 'running'].includes(st.status)) {
+    scoreAutoRoundHandled = false;
+    if (st.status !== 'idle') scoreStoppedManually = false;
+  }
+  renderScoreBridge();
+  applyVoteLockState();
   const target = Math.max(1, Number(st.target) || 1);
   const score = Math.max(0, Number(st.score) || 0);
   const pct = Math.min(100, Math.round((score / target) * 100));
+  const barColor1 = st.barColor1 || '#ff6aa9';
+  const barColor2 = st.barColor2 || '#8eb6ff';
   const status = st.status || 'idle';
+  const running = ['prestart', 'running', 'grace'].includes(status);
+  const startBtn = $('#scStart');
+  if (startBtn) {
+    startBtn.textContent = running ? '■ DỪNG' : '▶ BẮT ĐẦU';
+    startBtn.classList.toggle('warn', running);
+    startBtn.classList.toggle('primary', !running);
+  }
   const statusLabel =
     status === 'prestart' ? '⏳ Chuẩn bị' :
     status === 'running' ? '▶ Đang chạy' :
@@ -1717,19 +2261,68 @@ function renderScPreview(st) {
     status === 'success' ? '🏆 THÀNH CÔNG' :
     status === 'failed' ? '❌ Không hoàn thành' :
     '⏸ Chờ bắt đầu';
+  const recent = Array.isArray(st.recentGifts) ? st.recentGifts : [];
+  const topUsers = Array.isArray(st.topUsers) ? st.topUsers : [];
+  const visibleRecent = recent.slice(0, 5);
+  const visibleTopUsers = topUsers.slice(0, 5);
   $('#scPreview').innerHTML = `
-    <div class="sc-row">
-      <div>
-        <div style="font-size:12px;color:var(--tt-ink-3)">${escapeHtml(statusLabel)} · ${escapeHtml(st.timeText || '00:00')}</div>
-        <div class="sc-num">${formatNumber(score)}<span style="font-size:18px;color:var(--tt-ink-3)"> / ${formatNumber(target)}</span></div>
+    <div class="score-review-card${score >= target ? ' kpi-met' : ''}">
+      <div class="score-review-time">${escapeHtml(st.timeText || '00:00')}</div>
+      <div class="score-review-progress" style="--score-review-fill:linear-gradient(90deg, ${escapeAttr(barColor1)}, ${escapeAttr(barColor2)})"><i style="width:${pct}%"></i><span class="score-review-sheen" style="width:${pct}%"></span><b>⚑</b></div>
+      <div class="score-review-head">
+        <div class="score-review-creator">
+          ${st.creatorAvatar ? `<img src="${escapeAttr(st.creatorAvatar)}" />` : '<span>HP</span>'}
+          <strong>${escapeHtml(st.creatorName || 'Creator')}</strong>
+        </div>
+        <div class="score-review-score">Điểm: ${formatNumber(score)}/${formatNumber(target)}</div>
       </div>
-      <div class="sc-meta" style="text-align:right">
-        ${st.lastAddUser ? `🎁 +${formatNumber(st.lastAdd)} (${escapeHtml(st.lastAddUser)})<br/>` : ''}
-        ${(st.topUsers || []).slice(0, 3).map(u => `${escapeHtml(u.user)} ${formatNumber(u.points)}`).join('<br/>')}
+      <div class="score-review-status">${escapeHtml(statusLabel)}</div>
+      <div class="score-review-columns">
+        <section>
+          <div class="score-review-section-head"><b>Quà vừa tính điểm</b><span>mới nhất ở trên</span></div>
+          <div class="score-review-list">
+            ${visibleRecent.length ? visibleRecent.map(g => `<div class="score-review-gift">${g.giftIcon ? `<img src="${escapeAttr(g.giftIcon)}" />` : '<em>🎁</em>'}<div><b>${escapeHtml(g.user)}</b><span>${escapeHtml(g.giftName)} x${formatCompact(g.repeat)} · +${formatNumber(g.points)}</span></div></div>`).join('') : '<div class="score-review-empty">Chưa có quà nào được tính điểm trong phiên này.</div>'}
+          </div>
+        </section>
+        <section>
+          <div class="score-review-section-head"><b>Tổng điểm theo user</b><span>cao nhất ở trên</span></div>
+          <div class="score-review-total">Tổng số người tặng: ${formatNumber(topUsers.length)}</div>
+          <div class="score-review-list">
+            ${visibleTopUsers.length ? visibleTopUsers.map((u, i) => `<div class="score-review-user"><b>${i + 1}</b>${u.avatar ? `<img src="${escapeAttr(u.avatar)}" />` : '<em>👤</em>'}<span><strong>${escapeHtml(u.nickname || u.user || '?')}</strong><small>@${escapeHtml(u.user || '?')}</small></span><mark>${formatNumber(u.points)}</mark></div>`).join('') : '<div class="score-review-empty">Chưa có user nào tặng điểm trong vòng đấu.</div>'}
+          </div>
+        </section>
       </div>
     </div>
-    <div class="sc-progress"><i style="width:${pct}%"></i></div>
   `;
+  wireScoreReviewListDrag();
+}
+
+function wireScoreReviewListDrag() {
+  $$('#scPreview .score-review-list').forEach(list => {
+    let dragging = false;
+    let startY = 0;
+    let startTop = 0;
+    list.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      startY = e.clientY;
+      startTop = list.scrollTop;
+      list.classList.add('dragging');
+      list.setPointerCapture?.(e.pointerId);
+    });
+    list.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      e.preventDefault();
+      list.scrollTop = startTop - (e.clientY - startY);
+    });
+    const stop = (e) => {
+      dragging = false;
+      list.classList.remove('dragging');
+      if (e?.pointerId != null) list.releasePointerCapture?.(e.pointerId);
+    };
+    list.addEventListener('pointerup', stop);
+    list.addEventListener('pointercancel', stop);
+    list.addEventListener('pointerleave', stop);
+  });
 }
 
 // ============================================================
@@ -1772,6 +2365,11 @@ function wireOverlaysTab() {
 async function loadSettings() {
   const s = await window.api.settings.get();
   if (s.lastUsername) $('#ttUsername').value = s.lastUsername;
+  scoreLinkRanking = !!s.scoreLinkRanking;
+  scoreLinkVoteLock = !!s.scoreLinkVoteLock;
+  if ($('#scLinkRanking')) $('#scLinkRanking').checked = scoreLinkRanking;
+  if ($('#rkLockVoteRunning')) $('#rkLockVoteRunning').checked = scoreLinkVoteLock;
+  renderScoreBridge();
   // Overlay settings
   const ov = s.overlay || {};
   $('#ovlW').value = (ov.width === 1080 && ov.height === 1920) ? 2160 : (ov.width || 2160);
@@ -1780,6 +2378,7 @@ async function loadSettings() {
   $('#ovlChroma').value = ov.chroma || '#00FF00';
   $('#ovlShowHost').checked = !!ov.showHost;
   const audio = s.audio || {};
+  if ($('#gameSoundEnabled')) $('#gameSoundEnabled').checked = audio.gameSoundEnabled !== false;
   await loadAudioOutputs(audio.outputDeviceId || 'default');
   $('#waitingSoundName').dataset.path = audio.waitingSound || '';
   $('#waitingSoundName').value = soundNameFromValue(audio.waitingSound || '');
@@ -1787,6 +2386,11 @@ async function loadSettings() {
   $('#preEffectSoundName').dataset.path = audio.preEffectSound || '';
   $('#preEffectSoundName').value = soundNameFromValue(audio.preEffectSound || '');
   $('#preEffectVolume').value = audio.preEffectVolume ?? 100;
+  if (audio.startSound) setSoundInput('scSndStart', audio.startSound);
+  if (audio.warningSound) setSoundInput('scSndWarn', audio.warningSound);
+  if (audio.goalSound) setSoundInput('scSndGoal', audio.goalSound);
+  if (audio.successSound) setSoundInput('scSndSuccess', audio.successSound);
+  if (audio.failSound) setSoundInput('scSndFail', audio.failSound);
 }
 
 function wireSettingsTab() {
@@ -1799,10 +2403,25 @@ function wireSettingsTab() {
     const file = await window.api.shell.pickAudio();
     if (file) setSoundInput('preEffectSoundName', filePathToUrl(file));
   });
+  $('#btnPlayWaitingSound')?.addEventListener('click', () => playSettingsSound('waitingSoundName', 'waitingVolume'));
+  $('#btnStopWaitingSound')?.addEventListener('click', stopSettingsSound);
+  $('#btnPlayPreEffectSound')?.addEventListener('click', () => playSettingsSound('preEffectSoundName', 'preEffectVolume'));
+  $('#btnStopPreEffectSound')?.addEventListener('click', stopSettingsSound);
+  $('#gameSoundEnabled')?.addEventListener('change', async () => {
+    await window.api.settings.set({ audio: { gameSoundEnabled: gameplaySoundEnabled() } });
+    scheduleScoreAutoSave();
+    schedulePkAutoSave();
+  });
   $('#btnSaveSettings').addEventListener('click', async () => {
     await window.api.settings.set({
       audio: {
         outputDeviceId: $('#audioOutput').value || 'default',
+        gameSoundEnabled: gameplaySoundEnabled(),
+        startSound: soundValue('scSndStart'),
+        warningSound: soundValue('scSndWarn'),
+        goalSound: soundValue('scSndGoal'),
+        successSound: soundValue('scSndSuccess'),
+        failSound: soundValue('scSndFail'),
         waitingSound: soundValue('waitingSoundName'),
         waitingVolume: Number($('#waitingVolume').value) || 0,
         preEffectSound: soundValue('preEffectSoundName'),

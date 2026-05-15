@@ -1,6 +1,6 @@
 {
   "teamA": {
-    "name": "NPC Thư Ký•Peoiu🫶🏻🐆",
+    "name": "NPC Kyder🐺",
     "color": "#fe2c55",
     "gifts": [
       {
@@ -16,15 +16,15 @@
         "diamond": 10
       },
       {
-        "giftName": "RnB",
-        "giftId": "9875",
-        "icon": "https://hpvn.media/quatiktok/9875.png",
-        "diamond": 10
-      },
-      {
         "giftName": "Fan",
         "giftId": "10138",
         "icon": "https://hpvn.media/quatiktok/10138.png",
+        "diamond": 10
+      },
+      {
+        "giftName": "RnB",
+        "giftId": "9875",
+        "icon": "https://hpvn.media/quatiktok/9875.png",
         "diamond": 10
       },
       {
@@ -48,15 +48,15 @@
         "diamond": 10
       },
       {
-        "giftName": "RnB",
-        "giftId": "9875",
-        "icon": "https://hpvn.media/quatiktok/9875.png",
-        "diamond": 10
-      },
-      {
         "giftName": "Fan",
         "giftId": "10138",
         "icon": "https://hpvn.media/quatiktok/10138.png",
+        "diamond": 10
+      },
+      {
+        "giftName": "RnB",
+        "giftId": "9875",
+        "icon": "https://hpvn.media/quatiktok/9875.png",
         "diamond": 10
       },
       {
@@ -76,12 +76,12 @@
     ],
     "groupId": "g_mp5rwwkweth2v",
     "groupName": "HP•BlueBell 💙",
-    "creatorId": "c_mp5t67ksg698h",
-    "creatorName": "NPC Thư Ký•Peoiu🫶🏻🐆",
-    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/47c87a22b72c0030f38689232a17f7d8~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=65589dcc&x-expires=1778954400&x-signature=O0uxTUpMH%2F3NI46b3pliehDMWE8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
+    "creatorId": "c_mp60g2a1b5w41",
+    "creatorName": "NPC Kyder🐺",
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/75ef42036cf48decb49acac92d83d1d0~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=65d39f22&x-expires=1778965200&x-signature=r5qi5N3eDglA87XL%2B%2FDgEY4MdSk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
   },
   "teamB": {
-    "name": "🍉NPC Habi Cowgirl 🍉",
+    "name": "🍉NPC Habi🍉",
     "color": "#25f4ee",
     "gifts": [
       {
@@ -156,25 +156,25 @@
       }
     ],
     "groupId": "g_mp5rx1zjf48zh",
-    "groupName": "HP• LOLLIPOP | TUYỂN IDOL",
+    "groupName": "HP• LOLLIPOP",
     "creatorId": "c_mp5tjxiz14gz3",
-    "creatorName": "🍉NPC Habi Cowgirl 🍉",
-    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/36061e0e7dd6969858d34ed8778f6af9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=2762dfd0&x-expires=1778954400&x-signature=sabsVI%2B%2FxJ2AEfbV1CO%2B%2B%2FBV37g%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
+    "creatorName": "🍉NPC Habi🍉",
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/36061e0e7dd6969858d34ed8778f6af9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=40e58376&x-expires=1778968800&x-signature=JsO9VUQnhcHRbnV76CK20C0KeRs%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
   },
   "durationSec": 90,
   "prepSec": 3,
   "delaySec": 5,
   "joinMode": false,
   "pointsBy": "diamond",
-  "content": "PK ĐÔI",
+  "content": "CHIẾN THẦN PK",
   "bgColor": "#000000",
-  "bgOpacity": 88,
+  "bgOpacity": 60,
   "giftSize": 55,
-  "textSize": 21,
+  "textSize": 20,
   "startSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/b%E1%BA%AFt%20%C4%91%E1%BA%A7u%20pk.mp3",
   "warningSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/10s%20cu%E1%BB%91i.mp3",
   "teamASound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/th%E1%BA%AFng%20%C4%91i%E1%BB%83m.mp3",
-  "teamBSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/thua%20%C4%91i%E1%BB%83m.mp3",
-  "drawSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/x2.mp3",
+  "teamBSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/th%E1%BA%AFng%20%C4%91i%E1%BB%83m.mp3",
+  "drawSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/thua%20%C4%91i%E1%BB%83m.mp3",
   "giftDisplayMode": "scroll"
 }

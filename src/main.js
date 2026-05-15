@@ -4,7 +4,7 @@
 // - Persistent store: creators, groups, settings, pkDuo cfg, ranking cfg, score cfg
 // - Engines: PkDuoEngine, RankingEngine, ScoreEngine (đều ăn gift events từ TikTok)
 
-const { app, BrowserWindow, ipcMain, shell, clipboard, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, clipboard, nativeImage, dialog, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -24,6 +24,8 @@ const PK_DUO_PATH = path.join(CONFIG_DIR, 'pk-duo.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
 const SHIPPED_GIFT_MASTER_PATH = path.join(SHIPPED_CONFIG_DIR, 'gift-master.json');
 const GIFT_MASTER_SHEET = 'https://docs.google.com/spreadsheets/d/1Fv9Jdno_pPMTx_-tnwSfRObm1r1wKds_gaMBnfCDm4M/gviz/tq?tqx=out:csv&sheet=DANH%20SACH%20QUA';
+const BANNER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=Banner';
+const TICKER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=CH%E1%BB%AE%20TH%C3%94NG%20B%C3%81O';
 
 try { fs.mkdirSync(CONFIG_DIR, { recursive: true }); } catch {}
 
@@ -49,6 +51,10 @@ let pkDuoEngine = null;
 let rankingEngine = null;
 let scoreEngine = null;
 let settings = loadSettings();
+let creatorAvatarRefreshTimer = null;
+let creatorAvatarRefreshRunning = false;
+const CREATOR_AVATAR_TTL_MS = 6 * 60 * 60 * 1000;
+const CREATOR_AVATAR_RETRY_MS = 10 * 60 * 1000;
 
 // =================================================================
 // JSON store helpers
@@ -80,12 +86,112 @@ function loadSettings() {
       showHost: false,
     },
     ranking: null,
+    score: null,
+    scoreLinkRanking: false,
+    scoreLinkVoteLock: false,
+    audio: {
+      gameSoundEnabled: true,
+      startSound: '',
+      warningSound: '',
+      goalSound: '',
+      successSound: '',
+      failSound: '',
+      outputDeviceId: 'default',
+      waitingSound: '',
+      waitingVolume: 100,
+      preEffectSound: '',
+      preEffectVolume: 100,
+    },
   };
   const raw = loadJson(SETTINGS_PATH, null);
   if (!raw) { saveJson(SETTINGS_PATH, def); return def; }
   return { ...def, ...raw };
 }
+
+function isDefaultAvatar(value) {
+  const s = String(value || '').trim();
+  return !s || s === '../logo/hp-logo.png' || s === '/logo.png' || /logo[\\/]hp-logo\.(png|ico)$/i.test(s);
+}
+
+function creatorAvatarNeedsRefresh(c, now = Date.now()) {
+  const id = String(c?.tiktokId || '').trim().replace(/^@/, '');
+  if (!id) return false;
+  if (c.avatarFetchFailedAt && now - Number(c.avatarFetchFailedAt) < CREATOR_AVATAR_RETRY_MS) return false;
+  if (isDefaultAvatar(c.avatar)) return true;
+  if (!c.avatarFetchedAt) return true;
+  return now - Number(c.avatarFetchedAt) > CREATOR_AVATAR_TTL_MS;
+}
+
+function scheduleCreatorAvatarRefresh(delay = 80) {
+  clearTimeout(creatorAvatarRefreshTimer);
+  creatorAvatarRefreshTimer = setTimeout(() => refreshCreatorAvatars().catch(() => {}), delay);
+}
+
+async function refreshCreatorAvatars() {
+  if (creatorAvatarRefreshRunning || !ttClient) return;
+  creatorAvatarRefreshRunning = true;
+  try {
+    let list = loadCreators();
+    const now = Date.now();
+    const targets = list.filter(c => creatorAvatarNeedsRefresh(c, now));
+    if (!targets.length) return;
+    let changed = false;
+    for (const c of targets) {
+      const id = String(c.tiktokId || '').trim().replace(/^@/, '');
+      if (!id) continue;
+      try {
+        const p = await ttClient.fetchProfile(id);
+        const idx = list.findIndex(x => x.id === c.id);
+        if (idx < 0) continue;
+        if (p?.found && p.avatar) {
+          list[idx] = {
+            ...list[idx],
+            avatar: p.avatar,
+            channelName: p.nickname || list[idx].channelName || list[idx].nickname || id,
+            avatarFetchedAt: Date.now(),
+            avatarSource: p.source || 'profile',
+            avatarFetchFailedAt: 0,
+          };
+          changed = true;
+        } else {
+          list[idx] = { ...list[idx], avatarFetchFailedAt: Date.now() };
+          changed = true;
+        }
+      } catch {
+        const idx = list.findIndex(x => x.id === c.id);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], avatarFetchFailedAt: Date.now() };
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      saveCreators(list);
+      rankingEngine?._emit();
+      scoreEngine?._emit?.();
+    }
+  } finally {
+    creatorAvatarRefreshRunning = false;
+  }
+}
 function saveSettings() { saveJson(SETTINGS_PATH, settings); }
+
+function isUsableWindowBounds(bounds) {
+  if (!bounds || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y) || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return false;
+  const rect = { x: bounds.x, y: bounds.y, width: Math.max(80, bounds.width), height: Math.max(80, bounds.height) };
+  return screen.getAllDisplays().some(d => {
+    const a = d.workArea;
+    return rect.x < a.x + a.width && rect.x + rect.width > a.x && rect.y < a.y + a.height && rect.y + rect.height > a.y;
+  });
+}
+
+function rememberWindowBounds() {
+  if (!win || win.isDestroyed() || win.isMinimized()) return;
+  try {
+    settings.windowBounds = win.getBounds();
+    saveSettings();
+  } catch {}
+}
 
 // =================================================================
 // Creators / Groups store
@@ -182,6 +288,85 @@ function parseGiftCsv(text) {
   return out;
 }
 
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [], field = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (c === '"') { inQ = false; }
+      else { field += c; }
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\r') {}
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else { field += c; }
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function normalizeImageUrl(url) {
+  const s = String(url || '').trim();
+  if (!s) return '';
+  const driveFile = s.match(/drive\.google\.com\/file\/d\/([^/]+)/i)?.[1];
+  if (driveFile) return `https://drive.google.com/uc?export=view&id=${driveFile}`;
+  const driveOpen = s.match(/[?&]id=([^&]+)/i)?.[1];
+  if (/drive\.google\.com/i.test(s) && driveOpen) return `https://drive.google.com/uc?export=view&id=${driveOpen}`;
+  return s;
+}
+
+async function fetchBanners() {
+  const res = await fetch(BANNER_SHEET);
+  if (!res.ok) throw new Error('Banner Sheet HTTP ' + res.status);
+  const rows = parseCsvRows(await res.text());
+  return rows.slice(1).map((r, i) => ({
+    id: `banner-${i}`,
+    image: normalizeImageUrl(r[0]),
+    link: String(r[1] || '').trim(),
+    note: String(r[2] || '').trim(),
+  })).filter(b => b.image);
+}
+
+function truthySheetFlag(value) {
+  const s = String(value || '').trim().toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'x', '✓', '✔', 'checked', 'duyet', 'duyệt'].includes(s);
+}
+
+function parseSheetDate(value, endOfDay = false) {
+  const s = String(value || '').trim();
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) {
+    const year = Number(m[3].length === 2 ? `20${m[3]}` : m[3]);
+    const date = new Date(year, Number(m[2]) - 1, Number(m[1]));
+    if (endOfDay) date.setHours(23, 59, 59, 999);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const date = new Date(s);
+  if (Number.isNaN(date.getTime())) return null;
+  if (endOfDay && /^\d{4}-\d{1,2}-\d{1,2}$/.test(s)) date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+async function fetchTickers() {
+  const res = await fetch(TICKER_SHEET);
+  if (!res.ok) throw new Error('Ticker Sheet HTTP ' + res.status);
+  const rows = parseCsvRows(await res.text());
+  const now = new Date();
+  return rows.slice(1).map((r, i) => {
+    const text = String(r[0] || '').trim();
+    const start = parseSheetDate(r[1]);
+    const end = parseSheetDate(r[2], true);
+    const quick = truthySheetFlag(r[3]);
+    const inDateRange = (!start || now >= start) && (!end || now <= end);
+    return { id: `ticker-${i}`, text, active: quick || inDateRange };
+  }).filter(t => t.text && t.active);
+}
+
 async function refreshGiftMaster() {
   const res = await fetch(GIFT_MASTER_SHEET);
   if (!res.ok) throw new Error('Sheet HTTP ' + res.status);
@@ -241,6 +426,7 @@ class PkDuoEngine {
     return {
       status: this.state.status,
       remainingMs: this.state.remainingMs,
+      startedAt: this.state.startedAt,
       scoreA: this.state.scoreA,
       scoreB: this.state.scoreB,
       teamA: this.config.teamA,
@@ -543,13 +729,13 @@ class ScoreEngine {
   constructor({ onState }) {
     this.onState = onState;
     this.config = {
-      target: 30000,
+      target: 1000,
       durationMs: 180000, // 3 phút mặc định
       prepSec: 3,
       delayMs: 5000,
       creatorName: '',
       creatorAvatar: '',
-      content: 'Kêu gọi điểm',
+      content: '',
       themePreset: 'douyin',
       overlaySize: 'medium',
       barStyle: 'pill',
@@ -563,10 +749,11 @@ class ScoreEngine {
       bigGiftThreshold: 500,
       showGiftUser: true,
       showTopUsers: true,
-      showSpeed: true,
+      showSpeed: false,
       hideAvatar: false,
       hideCreator: false,
-      customMilestoneValues: [10000, 20000, 30000, 40000, 50000],
+      milestoneGradientEnabled: false,
+      customMilestoneValues: [],
       startSound: '',
       warningSound: '',
       goalSound: '',
@@ -581,27 +768,19 @@ class ScoreEngine {
       runStartedAt: 0,
       lastAdd: 0,
       lastAddUser: '',
+      recentGifts: [],
       topUsers: [], // [{ user, points }]
       resultAt: 0,
     };
     this._tick = null;
   }
   setConfig(patch) {
-    if (patch.themePreset && patch.themePreset !== 'custom') {
-      const T = SCORE_THEMES[patch.themePreset];
-      if (T) {
-        patch = {
-          ...patch,
-          barColor1: T[0], barColor2: T[1], waveColor: T[2], overColor: T[3],
-        };
-      }
-    }
     this.config = { ...this.config, ...patch };
     this._emit();
   }
   reset() {
     this._clearTicker();
-    this.state = { score: 0, status: 'idle', endAt: 0, runStartedAt: 0, lastAdd: 0, lastAddUser: '', topUsers: [], resultAt: 0 };
+    this.state = { score: 0, status: 'idle', endAt: 0, runStartedAt: 0, lastAdd: 0, lastAddUser: '', recentGifts: [], topUsers: [], resultAt: 0 };
     this._emit();
   }
   start() {
@@ -610,6 +789,7 @@ class ScoreEngine {
     this.state.score = 0;
     this.state.lastAdd = 0;
     this.state.lastAddUser = '';
+    this.state.recentGifts = [];
     this.state.topUsers = [];
     this.state.endAt = Date.now() + (this.config.prepSec || 0) * 1000;
     this.state.runStartedAt = 0;
@@ -621,6 +801,31 @@ class ScoreEngine {
     this.state.resultAt = Date.now();
     this._emit();
   }
+  addPoints(points, user = {}) {
+    const pts = Number(points) || 0;
+    if (!pts) return;
+    this.state.score = Math.max(0, this.state.score + pts);
+    this.state.lastAdd = pts;
+    this.state.lastAddUser = user.nickname || user.uniqueId || 'Test user';
+    this.state.recentGifts = [{
+      user: user.nickname || user.uniqueId || 'Test user',
+      userId: user.uniqueId || 'test-user',
+      avatar: user.avatar || '../logo/hp-logo.png',
+      giftName: pts > 0 ? 'Test cộng điểm' : 'Test trừ điểm',
+      giftIcon: '',
+      repeat: 1,
+      points: pts,
+      at: Date.now(),
+    }, ...(this.state.recentGifts || [])].slice(0, 6);
+    const userKey = user.uniqueId || user.nickname || 'test-user';
+    let top = this.state.topUsers.find(t => t.user === userKey);
+    if (!top) { top = { user: userKey, nickname: user.nickname || 'Test user', avatar: user.avatar || '../logo/hp-logo.png', points: 0 }; this.state.topUsers.push(top); }
+    top.points = Math.max(0, top.points + pts);
+    top.nickname = user.nickname || top.nickname || userKey;
+    top.avatar = user.avatar || top.avatar || '../logo/hp-logo.png';
+    this.state.topUsers = this.state.topUsers.filter(t => t.points > 0).sort((a, b) => b.points - a.points).slice(0, 5);
+    this._emit();
+  }
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
     const pts = this.config.pointsBy === 'diamond'
@@ -629,12 +834,24 @@ class ScoreEngine {
     this.state.score += pts;
     this.state.lastAdd = pts;
     this.state.lastAddUser = ev.nickname || ev.uniqueId || '';
+    this.state.recentGifts = [{
+      user: ev.nickname || ev.uniqueId || 'Ẩn danh',
+      userId: ev.uniqueId || '',
+      avatar: ev.avatar || '',
+      giftName: ev.giftName || 'Quà',
+      giftIcon: ev.giftIcon || '',
+      repeat: Math.max(1, Number(ev.repeatCount) || 1),
+      points: pts,
+      at: Date.now(),
+    }, ...(this.state.recentGifts || [])].slice(0, 6);
     // Top users
     const userKey = ev.uniqueId || ev.nickname;
     if (userKey) {
       let top = this.state.topUsers.find(t => t.user === userKey);
-      if (!top) { top = { user: userKey, points: 0 }; this.state.topUsers.push(top); }
+      if (!top) { top = { user: userKey, nickname: ev.nickname || userKey, avatar: ev.avatar || '', points: 0 }; this.state.topUsers.push(top); }
       top.points += pts;
+      top.nickname = ev.nickname || top.nickname || userKey;
+      top.avatar = ev.avatar || top.avatar || '';
       this.state.topUsers.sort((a, b) => b.points - a.points);
       this.state.topUsers = this.state.topUsers.slice(0, 5);
     }
@@ -696,6 +913,7 @@ class ScoreEngine {
       runStartedAt: this.state.runStartedAt,
       lastAdd: this.state.lastAdd,
       lastAddUser: this.state.lastAddUser,
+      recentGifts: this.state.recentGifts,
       topUsers: this.state.topUsers,
       resultAt: this.state.resultAt,
       timeText,
@@ -719,7 +937,7 @@ const SCORE_THEMES = {
 // Window + IPC
 // =================================================================
 function createWindow() {
-  const bounds = settings.windowBounds || {};
+  const bounds = isUsableWindowBounds(settings.windowBounds) ? settings.windowBounds : {};
   win = new BrowserWindow({
     width: bounds.width || 1480,
     height: bounds.height || 920,
@@ -739,13 +957,14 @@ function createWindow() {
   win.removeMenu();
   win.loadFile(path.join(ROOT, 'renderer', 'index.html'));
 
-  win.on('close', () => {
-    try {
-      const b = win.getBounds();
-      settings.windowBounds = b;
-      saveSettings();
-    } catch {}
-  });
+  let boundsTimer = null;
+  const scheduleBoundsSave = () => {
+    clearTimeout(boundsTimer);
+    boundsTimer = setTimeout(rememberWindowBounds, 250);
+  };
+  win.on('move', scheduleBoundsSave);
+  win.on('resize', scheduleBoundsSave);
+  win.on('close', rememberWindowBounds);
 
   if (process.argv.includes('--dev')) win.webContents.openDevTools({ mode: 'detach' });
 }
@@ -772,12 +991,14 @@ function bootstrapEngines() {
     getGroups: loadGroups,
   });
   if (settings.ranking) rankingEngine.setConfig(settings.ranking);
+  scheduleCreatorAvatarRefresh(500);
   scoreEngine = new ScoreEngine({
     onState: (st) => {
       overlayServer?.sendScore(st);
       broadcast('score:state', st);
     },
   });
+  if (settings.score) scoreEngine.setConfig(settings.score);
 
   // Phát state khởi tạo cho overlay khi mới connect
   pkDuoEngine._emit();
@@ -839,7 +1060,10 @@ function registerIpc() {
   ipcMain.handle('tt:fetchProfile', async (_e, { username }) => ttClient.fetchProfile(username));
 
   // Creators
-  ipcMain.handle('creators:list', () => loadCreators());
+  ipcMain.handle('creators:list', () => {
+    scheduleCreatorAvatarRefresh();
+    return loadCreators();
+  });
   ipcMain.handle('creators:upsert', (_e, creator) => {
     const list = loadCreators();
     const cid = creator.id;
@@ -848,6 +1072,7 @@ function registerIpc() {
     if (idx >= 0) list[idx] = { ...list[idx], ...creator, id: cid };
     else list.push({ createdAt: now, ...creator, id: uid('c_') });
     saveCreators(list);
+    scheduleCreatorAvatarRefresh();
     rankingEngine?._emit();
     return list;
   });
@@ -893,11 +1118,15 @@ function registerIpc() {
   ipcMain.handle('pkduo:getUrl', () => overlayServer.getPkDuoUrl());
 
   // Ranking
-  ipcMain.handle('ranking:getState', () => rankingEngine.getStateForOverlay());
+  ipcMain.handle('ranking:getState', () => {
+    scheduleCreatorAvatarRefresh();
+    return rankingEngine.getStateForOverlay();
+  });
   ipcMain.handle('ranking:setConfig', (_e, cfg) => {
     rankingEngine.setConfig(cfg);
     settings.ranking = { ...rankingEngine.config };
     saveSettings();
+    scheduleCreatorAvatarRefresh();
     return rankingEngine.config;
   });
   ipcMain.handle('ranking:reset', () => {
@@ -927,10 +1156,11 @@ function registerIpc() {
 
   // Score
   ipcMain.handle('score:getState', () => scoreEngine.getStateForOverlay());
-  ipcMain.handle('score:setConfig', (_e, cfg) => { scoreEngine.setConfig(cfg); return scoreEngine.config; });
+  ipcMain.handle('score:setConfig', (_e, cfg) => { scoreEngine.setConfig(cfg); settings.score = scoreEngine.config; saveSettings(); return scoreEngine.config; });
   ipcMain.handle('score:start', () => { scoreEngine.start(); return true; });
   ipcMain.handle('score:stop', () => { scoreEngine.stop(); return true; });
   ipcMain.handle('score:reset', () => { scoreEngine.reset(); return true; });
+  ipcMain.handle('score:addPoints', (_e, { points, user } = {}) => { scoreEngine.addPoints(points, user); return true; });
   ipcMain.handle('score:getUrl', () => overlayServer.getScoreUrl());
 
   // Settings
@@ -941,6 +1171,9 @@ function registerIpc() {
     ttTargetIdc: settings.ttTargetIdc,
     overlayPort: settings.overlayPort,
     overlay: { ...(settings.overlay || {}) },
+    audio: { ...(settings.audio || {}) },
+    scoreLinkRanking: !!settings.scoreLinkRanking,
+    scoreLinkVoteLock: !!settings.scoreLinkVoteLock,
   }));
   ipcMain.handle('settings:set', (_e, patch) => {
     if (patch && typeof patch === 'object') {
@@ -950,6 +1183,11 @@ function registerIpc() {
       if (patch.overlay && typeof patch.overlay === 'object') {
         settings.overlay = { ...(settings.overlay || {}), ...patch.overlay };
       }
+      if (patch.audio && typeof patch.audio === 'object') {
+        settings.audio = { ...(settings.audio || {}), ...patch.audio };
+      }
+      if (typeof patch.scoreLinkRanking === 'boolean') settings.scoreLinkRanking = patch.scoreLinkRanking;
+      if (typeof patch.scoreLinkVoteLock === 'boolean') settings.scoreLinkVoteLock = patch.scoreLinkVoteLock;
       saveSettings();
     }
     return true;
@@ -968,6 +1206,24 @@ function registerIpc() {
       return { ok: true, ...r };
     } catch (e) {
       return { ok: false, error: e.message || String(e) };
+    }
+  });
+
+  ipcMain.handle('banner:list', async () => {
+    try {
+      const banners = await fetchBanners();
+      return { ok: true, banners };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e), banners: [] };
+    }
+  });
+
+  ipcMain.handle('ticker:list', async () => {
+    try {
+      const tickers = await fetchTickers();
+      return { ok: true, tickers };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e), tickers: [] };
     }
   });
 

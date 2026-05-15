@@ -65,22 +65,22 @@
       <div class="brand" title="HP Talent Show">
         <img src="../logo/hp-logo.png" alt="HP" />
         <div class="brand-text">
-          <strong>HP Talent Show</strong>
-          <span>HP Media</span>
+          <strong>HP TALENT SHOW</strong>
+          <span>HP MEDIA</span>
         </div>
       </div>
       <nav class="nav">
-        <button class="nav-btn active" data-tab="connect">🔗 <span>Kết nối LIVE</span></button>
-        <button class="nav-btn" data-tab="creators">👤 <span>Hồ sơ Creator</span></button>
-        <button class="nav-btn" data-tab="groups">👥 <span>Hồ Sơ Nhóm</span></button>
-        <button class="nav-btn" data-tab="pkduo">⚔️ <span>PK Đôi</span></button>
-        <button class="nav-btn" data-tab="ranking">👑 <span>Bảng Xếp Hạng</span></button>
-        <button class="nav-btn" data-tab="score">🎯 <span>Tính điểm</span></button>
-        <button class="nav-btn" data-tab="overlays">🪟 <span>Overlay OBS</span></button>
+        <button class="nav-btn active" data-tab="connect">💬 <span>TƯƠNG TÁC</span></button>
+        <button class="nav-btn" data-tab="score">🎯 <span>TÍNH ĐIỂM</span></button>
+        <button class="nav-btn" data-tab="pkduo">⚔️ <span>PK ĐÔI</span></button>
+        <button class="nav-btn" data-tab="ranking">🏆 <span>THI ĐẤU NHÓM</span></button>
+        <button class="nav-btn" data-tab="overlays">🪟 <span>OVERLAY OBS</span></button>
+        <button class="nav-btn" data-tab="creators">👤 <span>HỒ SƠ CREATOR</span></button>
+        <button class="nav-btn" data-tab="groups">👥 <span>HỒ SƠ NHÓM</span></button>
       </nav>
       <div class="sidebar-foot">
-        <button class="nav-btn" data-tab="settings">⚙️ <span>Cài đặt</span></button>
-        <span class="ver">Phiên bản: v0.1.0</span>
+        <button class="nav-btn" data-tab="settings">⚙️ <span>CÀI ĐẶT</span></button>
+        <span class="ver">PHIÊN BẢN: V0.1.0</span>
       </div>
     </aside>
 
@@ -95,6 +95,9 @@
           <span class="conn-label" id="connLabel">Chưa kết nối</span>
           <span class="conn-host" id="connHost"></span>
         </div>
+        <div class="live-ticker topbar-ticker" id="liveTicker" hidden>
+          <div class="live-ticker-track" id="liveTickerTrack"></div>
+        </div>
         <div class="stats">
           <span title="Người xem">👁 <b id="stViewers">0</b></span>
           <span title="Lượt gift">🎁 <b id="stGifts">0</b></span>
@@ -106,7 +109,7 @@
       <section class="panel active" data-panel="connect">
         <div class="live-layout">
           <div class="card live-banner-card">
-            <div class="live-banner-placeholder">
+            <div class="live-banner-placeholder" id="liveBanner">
               <strong>Banner vinh danh / thông tin</strong>
               <span>Sẽ lấy ảnh hoặc video từ Google Sheet</span>
             </div>
@@ -125,7 +128,7 @@
       <section class="panel" data-panel="creators">
         <div class="creator-sticky-head">
           <h1>👤 Hồ sơ Creator</h1>
-          <p class="sub">Nhập <b>TikTok ID</b> — avatar, tên kênh tự lấy. Mỗi creator có thể được gán <b>quà mặc định</b> để chấm điểm BXH.</p>
+          <p class="sub">Nhập <b>TikTok ID</b> — avatar, tên kênh tự lấy. Mỗi creator có thể được gán <b>quà mặc định</b> để chấm điểm thi đấu nhóm.</p>
 
           <div class="card row-form creator-form">
             <div class="rf-avatar">
@@ -218,17 +221,47 @@
             <div class="pk-preview" id="pkPreview"></div>
           </div>
 
+          <div class="pk-teams">
+            <div class="pk-team" data-team="A">
+              <h3>CHỌN QUÀ TEAM A</h3>
+              <div class="pk-gifts" id="pkAgifts"></div>
+              <button class="primary tiny pk-pick-master" data-team="A" type="button">+ Thêm quà</button>
+            </div>
+            <div class="pk-team" data-team="B">
+              <h3>CHỌN QUÀ TEAM B</h3>
+              <div class="pk-gifts" id="pkBgifts"></div>
+              <button class="primary tiny pk-pick-master" data-team="B" type="button">+ Thêm quà</button>
+            </div>
+          </div>
+
+          <div class="form-actions pk-action-row">
+            <button id="pkStart" class="primary" type="button">▶ BẮT ĐẦU</button>
+            <button id="pkReset" class="ghost" type="button">↺ Reset</button>
+            <button id="pkSaveCfg" class="ghost" type="button">🔄 Cập nhật</button>
+            <button id="pkAddA" class="ghost tiny" type="button">+1 A</button>
+            <button id="pkAddB" class="ghost tiny" type="button">+1 B</button>
+            <button id="pkCopyUrl" class="ghost" type="button">📋 Copy link OBS</button>
+          </div>
+
           <div class="form-grid">
             <label class="full">Nội dung hiển thị <input id="pkContent" placeholder="PK ĐÔI" maxlength="30" /></label>
 
-            <label>Tên đội A <input id="pkAname" maxlength="20" /></label>
-            <label>Màu đội A <input id="pkAcolor" type="color" value="#FE2C55" /></label>
-            <label>Tên đội B <input id="pkBname" maxlength="20" /></label>
-            <label>Màu đội B <input id="pkBcolor" type="color" value="#25F4EE" /></label>
-            <label>Nhóm A <select id="pkAgroup"><option value="">— Chọn nhóm —</option></select></label>
-            <label>Creator A <select id="pkAcreator"><option value="">— Chọn creator —</option></select></label>
-            <label>Nhóm B <select id="pkBgroup"><option value="">— Chọn nhóm —</option></select></label>
-            <label>Creator B <select id="pkBcreator"><option value="">— Chọn creator —</option></select></label>
+            <div class="pk-team-configs full">
+              <div class="pk-team-config pk-team-config-a">
+                <div class="pk-team-config-head"><b>TEAM A</b></div>
+                <label>Nhóm A <select id="pkAgroup"><option value="">— Chọn nhóm —</option></select></label>
+                <label>Creator A <select id="pkAcreator"><option value="">— Chọn creator —</option></select></label>
+                <label>Tên hiển thị A <input id="pkAname" maxlength="20" /></label>
+                <label>Màu đội A <input id="pkAcolor" type="color" value="#FE2C55" /></label>
+              </div>
+              <div class="pk-team-config pk-team-config-b">
+                <div class="pk-team-config-head"><b>TEAM B</b></div>
+                <label>Nhóm B <select id="pkBgroup"><option value="">— Chọn nhóm —</option></select></label>
+                <label>Creator B <select id="pkBcreator"><option value="">— Chọn creator —</option></select></label>
+                <label>Tên hiển thị B <input id="pkBname" maxlength="20" /></label>
+                <label>Màu đội B <input id="pkBcolor" type="color" value="#25F4EE" /></label>
+              </div>
+            </div>
 
             <label class="full">Thời gian chạy
               <div class="inline tight">
@@ -260,7 +293,7 @@
                 <span id="pkBgOpacityValue" class="prefix">88%</span>
               </div>
             </label>
-            <label>Cỡ chữ (px) <input id="pkTextSize" type="number" min="14" max="42" value="21" /></label>
+            <label>Cỡ chữ Creator (px) <input id="pkTextSize" type="number" min="14" max="42" value="21" /></label>
             <label>Cỡ icon quà (px) <input id="pkGiftSize" type="number" min="28" max="90" value="46" /></label>
             <label>Hiển thị quà OBS
               <select id="pkGiftDisplayMode">
@@ -270,49 +303,19 @@
             </label>
           </div>
 
-          <div class="pk-teams">
-            <div class="pk-team" data-team="A">
-              <h3>CHỌN QUÀ TEAM A</h3>
-              <div class="pk-gifts" id="pkAgifts"></div>
-              <button class="primary tiny pk-pick-master" data-team="A" type="button">+ Thêm quà</button>
-            </div>
-            <div class="pk-team" data-team="B">
-              <h3>CHỌN QUÀ TEAM B</h3>
-              <div class="pk-gifts" id="pkBgifts"></div>
-              <button class="primary tiny pk-pick-master" data-team="B" type="button">+ Thêm quà</button>
-            </div>
-          </div>
+          <input id="pkSndStart" type="hidden" /><input id="pkSndWarn" type="hidden" /><input id="pkSndAwin" type="hidden" /><input id="pkSndBwin" type="hidden" /><input id="pkSndDraw" type="hidden" />
 
-          <details class="pk-sound-row">
-            <summary>🔊 Âm thanh (tuỳ chọn)</summary>
-            <div class="form-grid">
-              <label>Bắt đầu <input id="pkSndStart" type="text" placeholder="Chưa chọn âm thanh" readonly /><button class="ghost tiny pk-sound-file" data-target="pkSndStart" type="button">Chọn file</button></label>
-              <label>Cảnh báo 10s cuối <input id="pkSndWarn" type="text" placeholder="Chưa chọn âm thanh" readonly /><button class="ghost tiny pk-sound-file" data-target="pkSndWarn" type="button">Chọn file</button></label>
-              <label>Đội A thắng <input id="pkSndAwin" type="text" placeholder="Chưa chọn âm thanh" readonly /><button class="ghost tiny pk-sound-file" data-target="pkSndAwin" type="button">Chọn file</button></label>
-              <label>Đội B thắng <input id="pkSndBwin" type="text" placeholder="Chưa chọn âm thanh" readonly /><button class="ghost tiny pk-sound-file" data-target="pkSndBwin" type="button">Chọn file</button></label>
-              <label>Hoà <input id="pkSndDraw" type="text" placeholder="Chưa chọn âm thanh" readonly /><button class="ghost tiny pk-sound-file" data-target="pkSndDraw" type="button">Chọn file</button></label>
-            </div>
-          </details>
-
-          <div class="form-actions">
-            <button id="pkStart" class="primary" type="button">▶ BẮT ĐẦU</button>
-            <button id="pkReset" class="ghost" type="button">↺ Reset</button>
-            <button id="pkSaveCfg" class="ghost" type="button">🔄 Cập nhật</button>
-            <button id="pkAddA" class="ghost tiny" type="button">+1 A</button>
-            <button id="pkAddB" class="ghost tiny" type="button">+1 B</button>
-            <button id="pkCopyUrl" class="ghost" type="button">📋 Copy link OBS</button>
-          </div>
         </div>
       </section>
 
       <section class="panel" data-panel="ranking">
-        <h1>👑 Bảng Xếp Hạng</h1>
-        <p class="sub">Xếp hạng theo từng <b>Creator</b> (dựa vào quà mặc định mỗi creator) hoặc theo <b>Nhóm</b>. Hỗ trợ 2 layout: <b>vertical</b> và <b>grid</b>.</p>
+        <h1>🏆 THI ĐẤU NHÓM</h1>
+        <p class="sub">Thi đấu theo từng <b>Creator</b> (dựa vào quà mặc định mỗi creator) hoặc theo <b>Nhóm</b>. Hỗ trợ 2 layout: <b>vertical</b> và <b>grid</b>.</p>
 
         <div class="card ranking-config-card">
           <div class="rk-config-layout">
             <fieldset class="rk-config-section rk-main-section">
-              <legend>Thiết lập BXH</legend>
+              <legend>Thiết lập thi đấu nhóm</legend>
               <div class="rk-fields two">
                 <label>Tiêu đề <input id="rkTitle" value="TOP IDOL" maxlength="30" /></label>
                 <label>Chế độ
@@ -333,6 +336,19 @@
                     <option value="count">Số lượng quà</option>
                   </select>
                 </label>
+              </div>
+              <div class="rk-grid-inline">
+                <b>Grid OBS</b>
+                <div class="rk-fields compact-three">
+                  <label>Cột <input id="rkGridCols" type="number" min="1" max="10" value="3" /></label>
+                  <label>Hàng <input id="rkGridRows" type="number" min="1" max="20" value="3" /></label>
+                  <label>Sắp xếp
+                    <select id="rkGridFlow">
+                      <option value="row">Theo hàng</option>
+                      <option value="column">Theo cột</option>
+                    </select>
+                  </label>
+                </div>
               </div>
             </fieldset>
 
@@ -362,27 +378,23 @@
               </div>
             </fieldset>
 
-            <fieldset class="rk-config-section">
-              <legend>Grid OBS</legend>
-              <div class="rk-fields compact-three">
-                <label>Hàng <input id="rkGridRows" type="number" min="1" max="20" value="3" /></label>
-                <label>Cột <input id="rkGridCols" type="number" min="1" max="10" value="3" /></label>
-                <label>Sắp xếp
-                  <select id="rkGridFlow">
-                    <option value="row">Theo hàng</option>
-                    <option value="column">Theo cột</option>
-                  </select>
-                </label>
-              </div>
-            </fieldset>
           </div>
           <div class="form-actions">
             <button id="rkSaveCfg" class="primary" type="button">CẬP NHẬT</button>
             <button id="rkStartRound" class="ghost" type="button" title="Tăng round + reset điểm">🔄 NEW ROUND</button>
             <button id="rkResetRound" class="ghost" type="button" title="Đưa round toàn bộ Creator về 0">RESET ROUND</button>
             <button id="rkReset" class="warn" type="button">↺ RESET ĐIỂM</button>
-            <button id="rkCopyUrl" class="ghost" type="button">📋 BXH DỌC</button>
-            <button id="rkCopyGridUrl" class="ghost" type="button">📋 BXH NGANG</button>
+            <button id="rkCopyUrl" class="ghost" type="button">📋 THI ĐẤU DỌC</button>
+            <button id="rkCopyGridUrl" class="ghost" type="button">📋 THI ĐẤU NGANG</button>
+          </div>
+          <div class="rk-score-bridge" id="rkScoreBridge" hidden>
+            <div><b>🎯 Tính điểm liên kết</b><span id="rkScoreBridgeName">Chưa chọn VOTE</span></div>
+            <label>Mục tiêu <input id="rkScoreTarget" type="text" inputmode="numeric" value="30000" /></label>
+            <label>Phút <input id="rkScoreMin" type="number" min="0" max="999" value="3" /></label>
+            <label>Giây <input id="rkScoreSec" type="number" min="0" max="59" value="0" /></label>
+            <label class="rk-lock-vote"><input id="rkLockVoteRunning" type="checkbox" /> Khóa VOTE</label>
+            <button id="rkScoreToggle" class="primary" type="button">▶ BẮT ĐẦU</button>
+            <button id="rkScoreReset" class="ghost" type="button">↺ RESET</button>
           </div>
           <div class="rk-preview" id="rkPreview"></div>
         </div>
@@ -393,95 +405,108 @@
         <p class="sub">Thử thách đạt điểm 🪙 mục tiêu trong thời gian giới hạn. Có theme preset, big-gift highlight, runner, milestones.</p>
 
         <div class="card">
-          <div class="form-grid">
-            <label>Mục tiêu điểm <input id="scTarget" type="number" min="1" max="9999999" value="30000" /></label>
-            <label class="full">Thời gian chạy
-              <div class="inline tight">
-                <input id="scDurH" type="number" min="0" max="24" value="0" style="max-width:80px" /> <span class="prefix">h</span>
-                <input id="scDurM" type="number" min="0" max="59" value="3" style="max-width:80px" /> <span class="prefix">m</span>
-                <input id="scDurS" type="number" min="0" max="59" value="0" style="max-width:80px" /> <span class="prefix">s</span>
+          <div class="score-link-toggle">
+            <label><input id="scLinkRanking" type="checkbox" /> Liên kết với 🏆 THI ĐẤU NHÓM</label>
+            <span>Khi bật, chọn VOTE ở Thi đấu nhóm sẽ điều khiển đúng Creator trong Tính điểm.</span>
+          </div>
+
+          <div class="score-command-panel">
+            <div class="sc-preview" id="scPreview"></div>
+            <div class="score-command-actions">
+              <label class="score-command-creator">CHỌN CREATOR
+                <select id="scCreatorSelect">
+                  <option value="">— Chọn Creator —</option>
+                </select>
+                <input id="scCreatorName" type="hidden" />
+                <input id="scCreatorAvatar" type="hidden" />
+              </label>
+              <button id="scStart" class="primary" type="button">▶ BẮT ĐẦU</button>
+              <button id="scReset" class="ghost" type="button">↺ Reset</button>
+              <button id="scSaveCfg" class="ghost" type="button">💾 Lưu cấu hình</button>
+              <button id="scCopyUrl" class="ghost" type="button">📋 Copy link OBS</button>
+              <div class="score-command-test">
+                <span>TEST THANH MÁU</span>
+                <div class="score-test-row">
+                  <input id="scTestPoints" type="number" min="1" max="999999" value="100" />
+                  <button id="scTestMinus" class="ghost" type="button">-</button>
+                  <button id="scTestPlus" class="primary" type="button">+</button>
+                </div>
               </div>
-            </label>
-            <label>Chuẩn bị (giây) <input id="scPrep" type="number" min="0" max="120" value="3" /></label>
-            <label>Delay grace (giây) <input id="scDelay" type="number" min="0" max="60" value="5" /></label>
-            <label class="full">Nội dung hiển thị <input id="scContent" maxlength="40" placeholder="Kêu gọi điểm" /></label>
-
-            <label>Creator name <input id="scCreatorName" placeholder="Tên creator" /></label>
-            <label>Creator avatar URL <input id="scCreatorAvatar" placeholder="https://..." /></label>
-
-            <label>Theme preset
-              <select id="scTheme">
-                <option value="douyin">Douyin (hồng)</option>
-                <option value="vip">VIP (vàng)</option>
-                <option value="neon">Neon (cyan)</option>
-                <option value="battle">Battle (đỏ)</option>
-                <option value="luxury">Luxury (tím)</option>
-                <option value="minimal">Minimal (xám)</option>
-                <option value="custom">Custom (giữ màu user)</option>
-              </select>
-            </label>
-            <label>Kích cỡ overlay
-              <select id="scSize">
-                <option value="small">Nhỏ</option>
-                <option value="medium" selected>Vừa</option>
-                <option value="large">Lớn</option>
-              </select>
-            </label>
-            <label>Kiểu thanh
-              <select id="scBarStyle">
-                <option value="pill" selected>Pill (bo tròn)</option>
-                <option value="game">Game (góc nhẹ)</option>
-                <option value="luxury">Luxury (vuông mỏng)</option>
-                <option value="segments">Segments (đoạn rời)</option>
-              </select>
-            </label>
-            <label class="full">
-              <input id="scCompact" type="checkbox" /> Compact mode (ẩn meta)
-              <input id="scHideAvatar" type="checkbox" style="margin-left:14px" /> Ẩn avatar
-              <input id="scHideCreator" type="checkbox" style="margin-left:14px" /> Ẩn creator
-              <input id="scShowGiftUser" type="checkbox" checked style="margin-left:14px" /> Hiện user khi tặng quà
-              <input id="scShowTopUsers" type="checkbox" checked style="margin-left:14px" /> Hiện Top users
-              <input id="scShowSpeed" type="checkbox" checked style="margin-left:14px" /> Hiện tốc độ
-            </label>
-
-            <label>Màu Time <input id="scTimeColor" type="color" value="#ffffff" /></label>
-            <label>Màu Content <input id="scContentColor" type="color" value="#f0eef6" /></label>
-            <label>Màu Over <input id="scOverColor" type="color" value="#ff0000" /></label>
-            <label>Bar màu 1 <input id="scBarColor1" type="color" value="#b93678" /></label>
-            <label>Bar màu 2 <input id="scBarColor2" type="color" value="#ff8ed1" /></label>
-            <label>Wave màu <input id="scWaveColor" type="color" value="#ffffff" /></label>
-
-            <label>Big-gift threshold <input id="scBigThreshold" type="number" min="1" max="99999" value="500" /></label>
-            <label>Tính điểm theo
-              <select id="scPointsBy">
-                <option value="diamond">🪙 Coin</option>
-                <option value="count">Số lượng quà</option>
-              </select>
-            </label>
-            <label class="full">Milestones (cách nhau dấu phẩy, tăng dần)
-              <input id="scMilestones" placeholder="10000, 20000, 30000, 40000, 50000" />
-            </label>
-          </div>
-
-          <details class="pk-sound-row">
-            <summary>🔊 Âm thanh (tuỳ chọn)</summary>
-            <div class="form-grid">
-              <label>Start <input id="scSndStart" placeholder="https://..." /></label>
-              <label>Warning 10s <input id="scSndWarn" placeholder="..." /></label>
-              <label>Goal đạt <input id="scSndGoal" placeholder="..." /></label>
-              <label>Success <input id="scSndSuccess" placeholder="..." /></label>
-              <label>Fail <input id="scSndFail" placeholder="..." /></label>
             </div>
-          </details>
-
-          <div class="form-actions">
-            <button id="scStart" class="primary" type="button">▶ BẮT ĐẦU</button>
-            <button id="scStop" class="warn" type="button">■ DỪNG</button>
-            <button id="scReset" class="ghost" type="button">↺ Reset</button>
-            <button id="scSaveCfg" class="ghost" type="button">💾 Lưu cấu hình</button>
-            <button id="scCopyUrl" class="ghost" type="button">📋 Copy link OBS</button>
           </div>
-          <div class="sc-preview" id="scPreview"></div>
+
+          <div class="score-ops-grid">
+            <fieldset class="score-config-card score-main-config">
+              <legend>Thiết lập phiên</legend>
+              <div class="form-grid compact">
+                <label>Mục tiêu điểm <input id="scTarget" type="number" min="1" max="9999999" value="1000" /></label>
+                <label>Chuẩn bị (giây) <input id="scPrep" type="number" min="0" max="120" value="3" /></label>
+                <label>Delay grace (giây) <input id="scDelay" type="number" min="0" max="60" value="5" /></label>
+                <label class="full">Thời gian chạy
+                  <div class="inline tight score-duration-row">
+                    <input id="scDurH" type="number" min="0" max="24" value="0" /> <span class="prefix">h</span>
+                    <input id="scDurM" type="number" min="0" max="59" value="3" /> <span class="prefix">m</span>
+                    <input id="scDurS" type="number" min="0" max="59" value="0" /> <span class="prefix">s</span>
+                  </div>
+                </label>
+                <input id="scContent" type="hidden" value="" />
+              </div>
+            </fieldset>
+
+            <fieldset class="score-config-card">
+              <legend>Giao diện OBS</legend>
+              <div class="form-grid compact">
+                <label>Theme preset
+                  <select id="scTheme">
+                    <option value="douyin">Douyin (hồng)</option>
+                    <option value="vip">VIP (vàng)</option>
+                    <option value="neon">Neon (cyan)</option>
+                    <option value="battle">Battle (đỏ)</option>
+                    <option value="luxury">Luxury (tím)</option>
+                    <option value="minimal">Minimal (xám)</option>
+                    <option value="custom">Custom (giữ màu user)</option>
+                  </select>
+                </label>
+                <label>Kích cỡ overlay
+                  <select id="scSize">
+                    <option value="small">Nhỏ</option>
+                    <option value="medium" selected>Vừa</option>
+                    <option value="large">Lớn</option>
+                  </select>
+                </label>
+                <label>Kiểu thanh
+                  <select id="scBarStyle">
+                    <option value="pill" selected>Pill (bo tròn)</option>
+                    <option value="game">Game (góc nhẹ)</option>
+                    <option value="luxury">Luxury (vuông mỏng)</option>
+                    <option value="segments">Segments (đoạn rời)</option>
+                  </select>
+                </label>
+                <label>Màu Time <input id="scTimeColor" type="color" value="#ffffff" /></label>
+                <input id="scContentColor" type="hidden" value="#f0eef6" />
+                <label>Màu Over <input id="scOverColor" type="color" value="#ff0000" /></label>
+                <label>Bar màu 1 <input id="scBarColor1" type="color" value="#b93678" /></label>
+                <label>Bar màu 2 <input id="scBarColor2" type="color" value="#ff8ed1" /></label>
+                <label>Wave màu <input id="scWaveColor" type="color" value="#ffffff" /></label>
+                <input id="scCompact" type="checkbox" hidden />
+                <input id="scShowGiftUser" type="checkbox" hidden />
+                <input id="scShowTopUsers" type="checkbox" hidden />
+                <input id="scShowSpeed" type="checkbox" hidden />
+                <label>Avatar/Creator
+                  <div class="option-pills">
+                    <span><input id="scHideAvatar" type="checkbox" /> Ẩn avatar</span>
+                    <span><input id="scHideCreator" type="checkbox" /> Ẩn creator</span>
+                  </div>
+                </label>
+              </div>
+            </fieldset>
+
+            <input id="scBigThreshold" type="hidden" value="500" />
+            <select id="scPointsBy" hidden><option value="diamond">Coin</option><option value="count">Số lượng quà</option></select>
+            <input id="scMilestones" type="hidden" value="" />
+            <input id="scMilestoneGradient" type="checkbox" hidden />
+          </div>
+
         </div>
       </section>
 
@@ -520,7 +545,7 @@
             <button class="primary" data-copy="urlPk" type="button">📋 Copy</button>
           </div>
           <div class="ovl-row">
-            <label>👑 BXH</label>
+            <label>🏆 THI ĐẤU NHÓM</label>
             <input id="urlRk" readonly />
             <button class="primary" data-copy="urlRk" type="button">📋 Copy</button>
           </div>
@@ -536,30 +561,51 @@
         <h1>⚙️ Cài đặt</h1>
         <p class="sub">Khu vực chuẩn bị cho cài đặt âm thanh và tuỳ chọn vận hành LIVE.</p>
         <div class="card audio-settings-card">
+          <h3>🔊 Âm thanh Gameplay</h3>
           <div class="form-grid">
-            <label>Thiết bị phát
+            <label class="score-switch full"><input id="gameSoundEnabled" type="checkbox" checked /> Bật âm thanh gameplay chung</label>
+            <label>Start <span class="inline"><input id="scSndStart" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndStart" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndStart" type="button">Nghe</button></span></label>
+            <label>Warning 10s <span class="inline"><input id="scSndWarn" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndWarn" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndWarn" type="button">Nghe</button></span></label>
+            <label>Goal đạt <span class="inline"><input id="scSndGoal" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndGoal" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndGoal" type="button">Nghe</button></span></label>
+            <label>Success/Thắng <span class="inline"><input id="scSndSuccess" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndSuccess" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndSuccess" type="button">Nghe</button></span></label>
+            <label>Fail/Thua <span class="inline"><input id="scSndFail" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndFail" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndFail" type="button">Nghe</button></span></label>
+          </div>
+        </div>
+
+        <div class="card audio-settings-card">
+          <h3>🎧 Thiết bị phát</h3>
+          <div class="audio-device-layout">
+            <label class="audio-device-row audio-device-output"><span>Thiết bị phát</span>
               <select id="audioOutput">
                 <option value="default">Thiết bị phát mặc định</option>
               </select>
             </label>
-            <label>Nhạc chờ
-              <div class="inline tight">
-                <input id="waitingSoundName" type="text" placeholder="Chưa chọn âm thanh" readonly />
-                <button id="btnPickWaitingSound" class="ghost tiny" type="button">Chọn file</button>
-              </div>
-            </label>
-            <label>Âm lượng nhạc chờ
-              <input id="waitingVolume" type="range" min="0" max="100" value="100" />
-            </label>
-            <label>Âm thanh trước khi phát hiệu ứng
-              <div class="inline tight">
-                <input id="preEffectSoundName" type="text" placeholder="Chưa chọn âm thanh" readonly />
-                <button id="btnPickPreEffectSound" class="ghost tiny" type="button">Chọn file</button>
-              </div>
-            </label>
-            <label>Âm lượng âm thanh trước hiệu ứng
-              <input id="preEffectVolume" type="range" min="0" max="100" value="100" />
-            </label>
+            <div class="audio-device-row">
+              <label><span>Nhạc chờ</span>
+                <div class="inline tight">
+                  <input id="waitingSoundName" type="text" placeholder="Chưa chọn âm thanh" readonly />
+                  <button id="btnPickWaitingSound" class="ghost tiny" type="button">Chọn file</button>
+                  <button id="btnPlayWaitingSound" class="ghost tiny" type="button">Play</button>
+                  <button id="btnStopWaitingSound" class="ghost tiny" type="button">Dừng</button>
+                </div>
+              </label>
+              <label><span>Âm lượng nhạc chờ</span>
+                <input id="waitingVolume" type="range" min="0" max="100" value="100" />
+              </label>
+            </div>
+            <div class="audio-device-row">
+              <label><span>Âm thanh trước khi phát hiệu ứng</span>
+                <div class="inline tight">
+                  <input id="preEffectSoundName" type="text" placeholder="Chưa chọn âm thanh" readonly />
+                  <button id="btnPickPreEffectSound" class="ghost tiny" type="button">Chọn file</button>
+                  <button id="btnPlayPreEffectSound" class="ghost tiny" type="button">Play</button>
+                  <button id="btnStopPreEffectSound" class="ghost tiny" type="button">Dừng</button>
+                </div>
+              </label>
+              <label><span>Âm lượng âm thanh trước hiệu ứng</span>
+                <input id="preEffectVolume" type="range" min="0" max="100" value="100" />
+              </label>
+            </div>
           </div>
           <div class="form-actions">
             <button id="btnSaveSettings" class="primary" type="button">💾 Lưu cài đặt</button>

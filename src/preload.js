@@ -51,6 +51,7 @@ const api = {
     start: () => ipcRenderer.invoke('score:start'),
     stop: () => ipcRenderer.invoke('score:stop'),
     reset: () => ipcRenderer.invoke('score:reset'),
+    addPoints: (points, user) => ipcRenderer.invoke('score:addPoints', { points, user }),
     getUrl: () => ipcRenderer.invoke('score:getUrl'),
   },
 
@@ -59,6 +60,14 @@ const api = {
     list: () => ipcRenderer.invoke('gifts:list'),
     byId: (idOrName) => ipcRenderer.invoke('gifts:byId', idOrName),
     refresh: () => ipcRenderer.invoke('gifts:refresh'),
+  },
+
+  banner: {
+    list: () => ipcRenderer.invoke('banner:list'),
+  },
+
+  ticker: {
+    list: () => ipcRenderer.invoke('ticker:list'),
   },
 
   // ===== Settings =====

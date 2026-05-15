@@ -129,7 +129,7 @@ class ObsOverlayServer {
 
   _serveAvatar(reqUrl, res) {
     const url = reqUrl.searchParams.get('url') || '';
-    const allowed = /^https?:\/\/(?:[^\/\s]+\.)?(?:tiktokcdn|tiktokcdn-us|byteoversea|bytecdn|akamaized|hpvn\.media)\/[^\s]+$/i;
+    const allowed = /^https?:\/\/[^\/\s]*(?:tiktokcdn|tiktokcdn-us|byteoversea|bytecdn|akamaized|muscdn|tiktokv|hpvn\.media)[^\/\s]*\/[^\s]+$/i;
     if (!allowed.test(url)) {
       return this._reject(res, 400, 'bad avatar url');
     }

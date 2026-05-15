@@ -11,6 +11,17 @@ function hexToRgb(hex, fb = '42,45,55') {
   const n = parseInt(m[1], 16);
   return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
 }
+function mediaUrl(value) {
+  const s = String(value || '').trim();
+  if (!s || s === '../logo/hp-logo.png' || /logo[\\/]hp-logo\.(png|ico)$/i.test(s)) return '/logo.png';
+  if (/^https?:\/\//i.test(s)) return `/avatar?url=${encodeURIComponent(s)}`;
+  if (/^file:\/\//i.test(s)) return s;
+  return s;
+}
+function avatarHtml(url, initials = '?') {
+  const src = mediaUrl(url);
+  return `<img src="${esc(src)}" alt="${esc(initials || '')}" onerror="this.onerror=null;this.src='/logo.png'" />`;
+}
 function nameHtml(name, className) {
   const text = String(name || 'Idol');
   const longClass = text.length > 12 ? ' long' : '';
@@ -25,7 +36,7 @@ function rowHtml(row, state) {
   const groupColor = row.groupColor || 'transparent';
   return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}" style="--row-group-color:${esc(groupColor)}">
     ${state.showRank === false ? '' : `<div class="ranking-rank">${rankEmoji}</div>`}
-    ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${row.avatar ? `<img src="${esc(row.avatar)}" />` : esc(row.initials || '?')}</div>`}
+    ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${avatarHtml(row.avatar, row.initials)}</div>`}
     <div class="ranking-main">
       ${nameHtml(row.name || 'Idol', 'ranking-name')}
       ${row.groupName ? `<div class="ranking-group">${esc(row.groupName)}</div>` : ''}
@@ -37,14 +48,18 @@ function rowHtml(row, state) {
 }
 
 function render(state = {}) {
+  const gridRows = Math.max(1, Number(state.gridRows) || 3);
+  const gridCols = Math.max(1, Number(state.gridCols) || 3);
+  const gridFlow = state.gridFlow === 'column' ? 'column' : 'row';
   const rows = Array.isArray(state.rows) ? state.rows : [];
+  const visibleRows = layoutGrid ? rows.slice(0, gridRows * gridCols) : rows;
   const compactClass =
     (state.showRank === false ? ' hide-rank' : '') +
     (state.showAvatar === false ? ' hide-avatar' : '') +
     (state.showGift === false ? ' hide-gift' : '') +
     (state.showRound === false ? ' hide-round' : '') +
     ` cols-${[state.showRank !== false, state.showAvatar !== false, state.showGift !== false, state.showRound !== false].filter(Boolean).length}`;
-  const layoutClass = layoutGrid ? ' layout-grid' : '';
+  const layoutClass = layoutGrid ? ` layout-grid flow-${gridFlow}` : '';
   const activeName = state.active ? esc(state.active.name || 'Idol') : '';
   const activePoints = state.active ? fmt(state.active.points) : '';
   const activeLong = state.active && `${state.active.name || 'Idol'} ${activePoints}`.length > 18;
@@ -53,14 +68,14 @@ function render(state = {}) {
     --ranking-card-bg-rgb:${hexToRgb(state.overlayBgColor || '#2a2d37')};
     --ranking-card-bg-opacity:${((Number(state.overlayBgOpacity ?? 74)) / 100).toFixed(2)};
     --ranking-streak-color:${esc(state.streakColor || '#67e8f9')};
-    --rk-rows:${Number(state.gridRows) || 3};
-    --rk-cols:${Number(state.gridCols) || 3};
-    --rk-flow:${esc(state.gridFlow || 'row')}
+    --rk-rows:${gridRows};
+    --rk-cols:${gridCols};
+    --rk-flow:${gridFlow}
   ">
     <div class="ranking-title">${esc(state.title || 'TOP IDOL')}</div>
-    <div class="ranking-list">${rows.length === 0 ? '<div class="ranking-empty">Chưa có dữ liệu BXH</div>' : rows.map(r => rowHtml(r, state)).join('')}</div>
-    ${state.active && !layoutGrid ? `<div class="ranking-active-name ${activeLong ? 'long' : ''}">
-      <div class="ranking-active-avatar">${state.active.avatar ? `<img src="${esc(state.active.avatar)}" />` : esc(state.active.initials || '?')}</div>
+    <div class="ranking-list">${visibleRows.length === 0 ? '<div class="ranking-empty">Chưa có dữ liệu thi đấu nhóm</div>' : visibleRows.map(r => rowHtml(r, state)).join('')}</div>
+    ${state.active ? `<div class="ranking-active-name ${activeLong ? 'long' : ''}">
+      <div class="ranking-active-avatar">${avatarHtml(state.active.avatar, state.active.initials)}</div>
       <div class="ranking-active-main"><div>${activeName}</div><b>${activePoints}</b></div>
     </div>` : ''}
   </div>`;
