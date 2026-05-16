@@ -1,13 +1,20 @@
 /* Score overlay — port verbatim từ BIGO Action với theme presets + state machine */
 html, body { margin:0; width:100%; height:100%; background:transparent; overflow:hidden; font-family:'Inter','Segoe UI', Arial, sans-serif; }
-.score-obs { width:min(620px,96vw); margin:0 auto; padding:8px 12px 10px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.75); box-sizing:border-box; }
+.score-obs { width:min(620px,96vw); margin:0 auto; padding:8px 12px 10px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.75); box-sizing:border-box; transform:scale(var(--score-scale,1)); transform-origin:top center; }
 .score-obs.hidden { display:none; }
 .score-obs.size-small { width:min(480px,96vw); }
 .score-obs.size-large { width:min(760px,98vw); }
-.score-time { height:46px; margin:0 0 7px; color:var(--score-time-color,#fff); font-size:29px; font-weight:900; line-height:46px; letter-spacing:.02em; text-align:center; transform-origin:center; }
+.score-time { height:54px; margin:0 0 9px; color:var(--score-time-color,#fff); font-size:34px; font-weight:950; line-height:54px; letter-spacing:.02em; text-align:center; transform-origin:center; display:flex; align-items:center; justify-content:center; gap:10px; }
+.score-time-icon { position:relative; width:28px; height:28px; flex:0 0 auto; border:3px solid currentColor; border-radius:50%; filter:drop-shadow(0 2px 3px rgba(0,0,0,.36)); }
+.score-time-icon.clock::before { content:''; position:absolute; left:50%; top:50%; width:3px; height:9px; border-radius:999px; background:currentColor; transform:translate(-50%,-100%); }
+.score-time-icon.clock::after { content:''; position:absolute; left:50%; top:50%; width:9px; height:3px; border-radius:999px; background:currentColor; transform:translate(0,-50%); }
+.score-time-icon.off::before { content:''; position:absolute; left:50%; top:50%; width:3px; height:9px; border-radius:999px; background:currentColor; transform:translate(-50%,-100%); }
+.score-time-icon.off::after { content:''; position:absolute; left:50%; top:50%; width:36px; height:4px; border-radius:999px; background:#ff6b6b; box-shadow:0 0 8px rgba(255,80,80,.48); transform:translate(-50%,-50%) rotate(-38deg); }
 .status-prestart .score-time { color:#ffd166; animation:scorePrepPulse .72s ease-in-out infinite; }
-.size-small .score-time { height:38px; font-size:23px; line-height:38px; }
-.size-large .score-time { height:56px; font-size:36px; line-height:56px; }
+.size-small .score-time { height:44px; font-size:27px; line-height:44px; }
+.size-small .score-time-icon { width:23px; height:23px; }
+.size-large .score-time { height:64px; font-size:42px; line-height:64px; }
+.size-large .score-time-icon { width:34px; height:34px; }
 .score-bar { --score-pct:0%; position:relative; height:30px; border-radius:999px; overflow:hidden; background:linear-gradient(180deg,rgba(130,130,130,.72),rgba(62,62,62,.78)); border:1px solid rgba(255,255,255,.24); box-shadow:0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.15); }
 .size-small .score-bar { height:22px; }
 .size-large .score-bar { height:40px; }

@@ -68,9 +68,9 @@
     ],
     "joinGifts": [
       {
-        "giftName": "A Shard of Hope",
-        "giftId": "59881",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/34207c50c472435d7d582ef5c1ca8ff2.png~tplv-obj.webp",
+        "giftName": "Cute",
+        "giftId": "5655",
+        "icon": "https://hpvn.media/quatiktok/5655.png",
         "diamond": 1
       }
     ],
@@ -78,7 +78,7 @@
     "groupName": "HP•BlueBell 💙",
     "creatorId": "c_mp60g2a1b5w41",
     "creatorName": "NPC Kyder🐺",
-    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/75ef42036cf48decb49acac92d83d1d0~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=65d39f22&x-expires=1778965200&x-signature=r5qi5N3eDglA87XL%2B%2FDgEY4MdSk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/75ef42036cf48decb49acac92d83d1d0~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=089cd364&x-expires=1779040800&x-signature=Y96cuQQZh3P3xp5hLqX3ZHVKcsA%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
   },
   "teamB": {
     "name": "🍉NPC Habi🍉",
@@ -159,7 +159,7 @@
     "groupName": "HP• LOLLIPOP",
     "creatorId": "c_mp5tjxiz14gz3",
     "creatorName": "🍉NPC Habi🍉",
-    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/36061e0e7dd6969858d34ed8778f6af9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=40e58376&x-expires=1778968800&x-signature=JsO9VUQnhcHRbnV76CK20C0KeRs%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/36061e0e7dd6969858d34ed8778f6af9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=c0b42ca0&x-expires=1779040800&x-signature=s9UK4pH889ky1xyW%2Fv72n8LgPD0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
   },
   "durationSec": 90,
   "prepSec": 3,
@@ -171,6 +171,7 @@
   "bgOpacity": 60,
   "giftSize": 55,
   "textSize": 20,
+  "overlayScale": 255,
   "startSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/b%E1%BA%AFt%20%C4%91%E1%BA%A7u%20pk.mp3",
   "warningSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/10s%20cu%E1%BB%91i.mp3",
   "teamASound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/th%E1%BA%AFng%20%C4%91i%E1%BB%83m.mp3",

@@ -55,6 +55,7 @@ function render(state = {}) {
     status === 'finished' ? '🏁 Kết thúc' :
     status === 'grace' ? 'ĐANG TÍNH ĐIỂM' :
     '';
+  const statusIcon = status === 'finished' ? 'off' : (statusText ? 'clock' : '');
 
   const aWidth = Math.max(8, Math.min(92, 50 + Number(state.push || 0)));
   const urgent = status === 'running' && sec <= 10 && sec > 0;
@@ -70,15 +71,22 @@ function render(state = {}) {
   const giftDelay = -((Date.now() % 9000) / 1000).toFixed(3);
 
   const giftMode = state.giftDisplayMode === 'wrap' ? 'wrap' : 'scroll';
+  const singleGiftMode = !!state.joinMode;
+  const giftLaneHtml = (gifts) => singleGiftMode || giftMode !== 'scroll'
+    ? (gifts || []).map(giftHtml).join('')
+    : giftTrack(gifts);
   const contentText = String(state.content || '').trim();
   const contentLong = contentText.length > 18;
-  root.innerHTML = `<div class="pkduo-board status-${esc(status)} gift-${giftMode}${urgent ? ' urgent' : ''}" style="
+  const overlayScale = Math.max(.8, Math.min(3, (parseInt(state.overlayScale, 10) || 100) / 100));
+  root.style.setProperty('--pk-scale', overlayScale);
+  root.innerHTML = `<div class="pkduo-board status-${esc(status)} gift-${giftMode}${singleGiftMode ? ' gift-single' : ''}${urgent ? ' urgent' : ''}" style="
     --pk-a:${esc(a.color || '#FE2C55')};
     --pk-b:${esc(b.color || '#25F4EE')};
     --pk-bg:${hexToRgb(state.bgColor || '#000000')};
     --pk-bg-opacity:${((Number(state.bgOpacity ?? 82)) / 100).toFixed(2)};
     --pk-gift:${Math.max(28, Math.min(90, parseInt(state.giftSize, 10) || 46))}px;
     --pk-text:${Math.max(14, Math.min(42, parseInt(state.textSize, 10) || 21))}px;
+    --pk-scale:${overlayScale};
     --pk-a-width:${aWidth}%;
     --pk-sweep-delay:${sweepDelay}s;
     --pk-gift-delay:${giftDelay}s
@@ -86,13 +94,13 @@ function render(state = {}) {
     ${contentText ? `<div class="pkduo-content${contentLong ? ' is-long' : ''}">${contentLong ? `<span class="pkduo-content-track"><span>${esc(contentText)}</span><span aria-hidden="true">${esc(contentText)}</span></span>` : `<span class="pkduo-content-text">${esc(contentText)}</span>`}</div>` : ''}
     <div class="pkduo-head">
       <b><span class="pkduo-creator left">${a.creatorAvatar ? `<img src="${esc(a.creatorAvatar)}" />` : ''}<i>${esc(shortName(a.name || 'TEAM A'))}</i></span></b>
-      <span>${esc(statusText)}</span>
+      <span>${statusText ? `<i class="pkduo-time-icon ${statusIcon}" aria-hidden="true"></i><b>${esc(statusText)}</b>` : ''}</span>
       <b><span class="pkduo-creator right">${b.creatorAvatar ? `<img src="${esc(b.creatorAvatar)}" />` : ''}<i>${esc(shortName(b.name || 'TEAM B'))}</i></span></b>
     </div>
     <div class="pkduo-gifts">
-      <div class="pkduo-gift-lane left">${giftMode === 'scroll' ? giftTrack(a.gifts) : (a.gifts || []).map(giftHtml).join('')}${aResult ? `<strong class="pkduo-result ${esc(aResult.toLowerCase())}">${esc(aResult)}</strong>` : ''}</div>
+      <div class="pkduo-gift-lane left">${giftLaneHtml(a.gifts)}${aResult ? `<strong class="pkduo-result ${esc(aResult.toLowerCase())}">${esc(aResult)}</strong>` : ''}</div>
       <i></i>
-      <div class="pkduo-gift-lane right">${giftMode === 'scroll' ? giftTrack(b.gifts) : (b.gifts || []).map(giftHtml).join('')}${bResult ? `<strong class="pkduo-result ${esc(bResult.toLowerCase())}">${esc(bResult)}</strong>` : ''}</div>
+      <div class="pkduo-gift-lane right">${giftLaneHtml(b.gifts)}${bResult ? `<strong class="pkduo-result ${esc(bResult.toLowerCase())}">${esc(bResult)}</strong>` : ''}</div>
     </div>
     <div class="pkduo-bar ${barClass}">
       <strong class="score-a">${fmt(state.scoreA)}</strong>

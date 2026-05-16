@@ -1,0 +1,123 @@
+{
+  "content": "PK NHÓM",
+  "groupId": "g_mp5rx6gm6xrzy",
+  "layoutMode": "joined",
+  "playMode": "fixed",
+  "pointsBy": "diamond",
+  "noteEnabled": true,
+  "noteText": "Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy",
+  "noteBgColor": "#000000",
+  "noteTextColor": "#ffea00",
+  "noteSpeedSec": 20,
+  "noteEffect": "neon",
+  "separatedGap": 20,
+  "autoTextContrast": true,
+  "durationSec": 15,
+  "prepSec": 3,
+  "delaySec": 5,
+  "textSize": 26,
+  "giftSize": 45,
+  "overlayScale": 215,
+  "participants": [
+    {
+      "id": "c_mp5tjhwlvryus",
+      "creatorId": "c_mp5tjhwlvryus",
+      "tiktokId": "iam_richel102",
+      "name": "Rachel",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/e1c1a10e7615ef1166a6fc1837971860~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=bf58e235&x-expires=1779040800&x-signature=VTTU6HnxYqSJYKaBDDy8a2G%2FGt8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#ff6600",
+      "gifts": [
+        {
+          "giftName": "Melon Juice",
+          "giftId": "17046",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/912d29e708fe00d72487908114803e77.png~tplv-obj.webp",
+          "diamond": 199
+        }
+      ],
+      "score": 0,
+      "streak": 0
+    },
+    {
+      "id": "c_mp60g9r38aaof",
+      "creatorId": "c_mp60g9r38aaof",
+      "tiktokId": "xiiu012",
+      "name": "Chỉ là 1 PhNhi",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/d343e9d6ffca09f4e6d67f723b120b17~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=5c84817a&x-expires=1779040800&x-signature=iDIZ390wXKv8WgMY7OH7sY9CrIY%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#3cfb62",
+      "gifts": [
+        {
+          "giftName": "Cover",
+          "giftId": "5879",
+          "icon": "https://hpvn.media/quatiktok/5879.png",
+          "diamond": 30
+        }
+      ],
+      "score": 0,
+      "streak": 0
+    },
+    {
+      "id": "c_mp60ii3pgxtha",
+      "creatorId": "c_mp60ii3pgxtha",
+      "tiktokId": "imamy_vo",
+      "name": "BABY AMY ƠI ❤️‍🔥🔥",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/4d2d878f06e677b62fd54445bad3c3b2~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=7cdc0563&x-expires=1779048000&x-signature=CMMAoJFKVZoQt9cVFy%2FMzqB2oG4%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#9b9797",
+      "gifts": [
+        {
+          "giftName": "Sweet",
+          "giftId": "25340",
+          "icon": "https://hpvn.media/quatiktok/25340.png",
+          "diamond": 10
+        }
+      ],
+      "streak": 0,
+      "score": 0
+    },
+    {
+      "id": "c_mp60gfkjhd560",
+      "creatorId": "c_mp60gfkjhd560",
+      "tiktokId": "its_bonnie_babbo",
+      "name": "𝓑𝓸𝓷𝓷𝓲𝓮.𝓪 🐰",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f02c45c906a9546e357ce392883c252a~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=8cbfede0&x-expires=1779040800&x-signature=EbKRxnXXOWG2ct0BLQm3Mk%2FuPx4%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#ec4899",
+      "gifts": [
+        {
+          "giftName": "Pop",
+          "giftId": "5487",
+          "icon": "https://hpvn.media/quatiktok/5487.png",
+          "diamond": 5
+        }
+      ],
+      "streak": 0,
+      "score": 0
+    },
+    {
+      "id": "c_mp60h5pf7j9o5",
+      "creatorId": "c_mp60h5pf7j9o5",
+      "tiktokId": "tuicutenhat12",
+      "name": "CoCo neee 🥥 🐰",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/e0586c810134c7260c464b5344845679~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=3a01fd6d&x-expires=1779040800&x-signature=LnZL2JVkEry9tjID48Cn8diYVKc%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#0055ff",
+      "gifts": [
+        {
+          "giftName": "Con vẹt",
+          "giftId": "57800",
+          "icon": "https://hpvn.media/quatiktok/57800.png",
+          "diamond": 1
+        }
+      ],
+      "streak": 0,
+      "score": 0
+    }
+  ],
+  "bgColor": "#e10909",
+  "bgOpacity": 100,
+  "separatedScale": 100,
+  "creatorColors": {
+    "c_mp5tjhwlvryus": "#ff6600",
+    "c_mp60g9r38aaof": "#3cfb62",
+    "c_mp60ii3pgxtha": "#9b9797",
+    "c_mp60gfkjhd560": "#ec4899",
+    "c_mp60h5pf7j9o5": "#0055ff"
+  }
+}

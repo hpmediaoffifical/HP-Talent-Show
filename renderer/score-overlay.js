@@ -72,6 +72,7 @@ function render(state = {}) {
   const topText = topUsers.length ? topUsers.map(u => `${esc(u.user || '?')} ${fmt(u.points)}`).join(' | ') : '';
   root.className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${state.milestoneGradientEnabled ? ' milestone-gradient' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}`;
   root.style.setProperty('--score-time-color', state.timeColor || '#ffffff');
+  root.style.setProperty('--score-scale', Math.max(.8, Math.min(3, (parseInt(state.overlayScale, 10) || 100) / 100)));
   root.style.setProperty('--score-content-color', state.contentColor || '#f0eef6');
   root.style.setProperty('--score-over-color', state.overColor || '#ff0000');
   root.style.setProperty('--score-bar-color-1', state.barColor1 || '#b93678');
@@ -83,7 +84,7 @@ function render(state = {}) {
     ? `linear-gradient(90deg, ${usedColors.join(', ')})`
     : `linear-gradient(90deg, ${state.barColor1 || '#b93678'} 0%, ${state.barColor2 || '#ff8ed1'} 100%)`);
   root.innerHTML = `
-    <div class="score-time">${esc(statusText)}</div>
+    <div class="score-time"><i class="score-time-icon ${['success','failed'].includes(status) ? 'off' : 'clock'}" aria-hidden="true"></i><span>${esc(statusText)}</span></div>
     <div class="score-bar" style="--score-pct:${pct}%">
       <div class="score-fill" style="width:${pct}%"></div>
       <div class="score-sheen" style="width:${pct}%"></div>

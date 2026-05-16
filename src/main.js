@@ -21,6 +21,7 @@ const SETTINGS_PATH = path.join(CONFIG_DIR, 'settings.json');
 const CREATORS_PATH = path.join(CONFIG_DIR, 'creators.json');
 const GROUPS_PATH = path.join(CONFIG_DIR, 'groups.json');
 const PK_DUO_PATH = path.join(CONFIG_DIR, 'pk-duo.json');
+const PK_GROUP_PATH = path.join(CONFIG_DIR, 'pk-group.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
 const SHIPPED_GIFT_MASTER_PATH = path.join(SHIPPED_CONFIG_DIR, 'gift-master.json');
 const GIFT_MASTER_SHEET = 'https://docs.google.com/spreadsheets/d/1Fv9Jdno_pPMTx_-tnwSfRObm1r1wKds_gaMBnfCDm4M/gviz/tq?tqx=out:csv&sheet=DANH%20SACH%20QUA';
@@ -48,6 +49,7 @@ let win = null;
 let ttClient = null;
 let overlayServer = null;
 let pkDuoEngine = null;
+let pkGroupEngine = null;
 let rankingEngine = null;
 let scoreEngine = null;
 let settings = loadSettings();
@@ -224,6 +226,8 @@ function loadGroups() {
 function saveGroups(list) { saveJson(GROUPS_PATH, list); }
 function loadPkDuoConfig() { return loadJson(PK_DUO_PATH, null); }
 function savePkDuoConfig(cfg) { saveJson(PK_DUO_PATH, cfg); }
+function loadPkGroupConfig() { return loadJson(PK_GROUP_PATH, null); }
+function savePkGroupConfig(cfg) { saveJson(PK_GROUP_PATH, cfg); }
 
 // =================================================================
 // Gift master store — danh sách quà TikTok (id, name, icon, webm, diamond)
@@ -362,7 +366,7 @@ async function fetchTickers() {
     const start = parseSheetDate(r[1]);
     const end = parseSheetDate(r[2], true);
     const quick = truthySheetFlag(r[3]);
-    const inDateRange = (!start || now >= start) && (!end || now <= end);
+    const inDateRange = start && end && now >= start && now <= end;
     return { id: `ticker-${i}`, text, active: quick || inDateRange };
   }).filter(t => t.text && t.active);
 }
@@ -403,6 +407,7 @@ class PkDuoEngine {
       bgOpacity: 88,
       giftSize: 46,
       textSize: 21,
+      overlayScale: 100,
       startSound: '',
       warningSound: '',
       teamASound: '',
@@ -431,10 +436,16 @@ class PkDuoEngine {
       scoreB: this.state.scoreB,
       teamA: this.config.teamA,
       teamB: this.config.teamB,
+      durationSec: this.config.durationSec,
+      prepSec: this.config.prepSec,
+      delaySec: this.config.delaySec,
+      joinMode: this.config.joinMode,
+      pointsBy: this.config.pointsBy,
       bgColor: this.config.bgColor,
       bgOpacity: this.config.bgOpacity,
       giftSize: this.config.giftSize,
       textSize: this.config.textSize,
+      overlayScale: this.config.overlayScale,
       content: this.config.content,
       push: this._pushPercent(),
       startSound: this.config.startSound,
@@ -465,6 +476,7 @@ class PkDuoEngine {
   stop() {
     this.state.status = 'finished';
     this.state.remainingMs = 0;
+    this.state.userTeams = {};
     this._clearTicker();
     this._emit();
   }
@@ -527,14 +539,262 @@ class PkDuoEngine {
           // Vào grace period nếu config.delaySec > 0
           if ((this.config.delaySec || 0) > 0) {
             this.state.status = 'grace';
+            this.state.userTeams = {};
             this.state.graceElapsedMs = 0;
             this.state.remainingMs = 0;
           } else {
             this.state.status = 'finished';
+            this.state.userTeams = {};
             this._clearTicker();
           }
         } else if (this.state.status === 'grace' && Math.abs(this.state.remainingMs) >= (this.config.delaySec || 0) * 1000) {
           this.state.status = 'finished';
+          this.state.userTeams = {};
+          this._clearTicker();
+        }
+      }
+      this._emit();
+    }, 250);
+    this._emit();
+  }
+  _clearTicker() { if (this._tick) { clearInterval(this._tick); this._tick = null; } }
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
+class PkGroupEngine {
+  constructor({ onState }) {
+    this.onState = onState;
+    this.config = {
+      content: 'PK NHÓM',
+      groupId: '',
+      layoutMode: 'joined', // joined | separated
+      playMode: 'fixed', // fixed | join
+      pointsBy: 'diamond',
+      noteEnabled: false,
+      noteText: 'Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy',
+      noteBgColor: '#1f2430',
+      noteTextColor: '#ffffff',
+      noteSpeedSec: 16,
+      noteEffect: 'soft',
+      separatedGap: 180,
+      autoTextContrast: false,
+      durationSec: 90,
+      prepSec: 3,
+      delaySec: 5,
+      textSize: 20,
+      giftSize: 42,
+      overlayScale: 100,
+      participants: [],
+    };
+    this.state = {
+      status: 'idle',
+      remainingMs: 0,
+      startedAt: 0,
+      endsAt: 0,
+      scores: {},
+      userTeams: {},
+      graceElapsedMs: 0,
+      roundNo: 0,
+      lastWinnerId: '',
+      streaks: {},
+      resultHandled: false,
+      boostId: '',
+      boostAt: 0,
+      boostDir: 'right',
+    };
+    this._tick = null;
+  }
+  setConfig(patch) {
+    this.config = { ...this.config, ...(patch || {}) };
+    this.config.participants = Array.isArray(this.config.participants) ? this.config.participants : [];
+    if (!['prestart', 'running', 'grace'].includes(this.state.status)) {
+      this.state.streaks = Object.fromEntries(this.config.participants.map(p => [p.id, Number(p.streak) || 0]));
+    }
+    this._emit();
+  }
+  getStateForOverlay() {
+    const participants = this.config.participants.map(p => ({
+      ...p,
+      score: Number(this.state.scores[p.id]) || 0,
+      streak: Number(this.state.streaks[p.id]) || 0,
+    }));
+    return {
+      status: this.state.status,
+      remainingMs: this.state.remainingMs,
+      startedAt: this.state.startedAt,
+      participants,
+      boostId: this.state.boostId,
+      boostAt: this.state.boostAt,
+      boostDir: this.state.boostDir,
+      content: this.config.content,
+      groupId: this.config.groupId,
+      layoutMode: this.config.layoutMode,
+      playMode: this.config.playMode,
+      pointsBy: this.config.pointsBy,
+      noteEnabled: this.config.noteEnabled,
+      noteText: this.config.noteText,
+      noteBgColor: this.config.noteBgColor,
+      noteTextColor: this.config.noteTextColor,
+      noteSpeedSec: this.config.noteSpeedSec,
+      noteEffect: this.config.noteEffect,
+      separatedGap: this.config.separatedGap,
+      autoTextContrast: this.config.autoTextContrast,
+      durationSec: this.config.durationSec,
+      prepSec: this.config.prepSec,
+      delaySec: this.config.delaySec,
+      textSize: this.config.textSize,
+      giftSize: this.config.giftSize,
+      overlayScale: this.config.overlayScale,
+    };
+  }
+  start() {
+    if (this.state.status === 'running' || this.state.status === 'prestart') return;
+    const scores = {};
+    for (const p of this.config.participants || []) scores[p.id] = 0;
+    this.state.status = 'prestart';
+    this.state.remainingMs = (this.config.prepSec || 0) * 1000;
+    this.state.startedAt = Date.now();
+    this.state.endsAt = 0;
+    this.state.scores = scores;
+    if ((Number(this.state.roundNo) || 0) <= 0) {
+      this.state.streaks = Object.fromEntries((this.config.participants || []).map(p => [p.id, Number(p.streak) || 0]));
+    }
+    this.state.userTeams = {};
+    this.state.graceElapsedMs = 0;
+    this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
+    this.state.resultHandled = false;
+    this._runTicker();
+  }
+  stop() {
+    this._finalizeRound();
+    this.state.status = 'finished';
+    this.state.remainingMs = 0;
+    this.state.userTeams = {};
+    this._clearTicker();
+    this._emit();
+  }
+  reset() {
+    this._clearTicker();
+    this.state = {
+      status: 'idle',
+      remainingMs: 0,
+      startedAt: 0,
+      endsAt: 0,
+      scores: {},
+      userTeams: {},
+      graceElapsedMs: 0,
+      roundNo: 0,
+      lastWinnerId: '',
+      streaks: {},
+      resultHandled: false,
+      boostId: '',
+      boostAt: 0,
+      boostDir: 'right',
+    };
+    this._emit();
+  }
+  addPoints(id, points) {
+    if (!id) return;
+    const beforeScores = { ...(this.state.scores || {}) };
+    const beforeRank = this._rankIndex(id, beforeScores);
+    const beforeScore = Number(beforeScores[id]) || 0;
+    this.state.scores[id] = (Number(this.state.scores[id]) || 0) + (Number(points) || 0);
+    const afterScore = Number(this.state.scores[id]) || 0;
+    const afterRank = this._rankIndex(id, this.state.scores);
+    if ((Number(points) || 0) > 0 && afterRank >= 0 && beforeRank >= 0 && afterRank < beforeRank) {
+      const participants = this.config.participants || [];
+      const selfIndex = participants.findIndex(p => p.id === id);
+      const passed = participants
+        .map((p, order) => ({ id: p.id, order, score: Number(beforeScores[p.id]) || 0 }))
+        .filter(p => p.id !== id && p.score > beforeScore && p.score <= afterScore)
+        .sort((a, b) => b.score - a.score)[0];
+      this.state.boostId = id;
+      this.state.boostAt = Date.now();
+      this.state.boostDir = passed && selfIndex >= 0 && passed.order < selfIndex ? 'left' : 'right';
+    }
+    this._emit();
+  }
+  _rankIndex(id, scores) {
+    const ranked = (this.config.participants || []).map((p, order) => ({ id: p.id, score: Number(scores?.[p.id]) || 0, order }))
+      .sort((a, b) => b.score - a.score || a.order - b.order);
+    return ranked.findIndex(x => x.id === id);
+  }
+  testGift(id) {
+    const participant = (this.config.participants || []).find(p => p.id === id || p.creatorId === id);
+    if (!participant) return false;
+    const gift = (participant.gifts || [])[0] || {};
+    const points = this.config.pointsBy === 'diamond'
+      ? Math.max(1, Number(gift.diamond) || 1)
+      : 1;
+    this.addPoints(participant.id, points);
+    return { points, giftName: gift.giftName || gift.name || '' };
+  }
+  routeGift(ev) {
+    if (this.state.status !== 'running') return;
+    const participants = this.config.participants || [];
+    if (!participants.length) return;
+    const pts = this.config.pointsBy === 'diamond'
+      ? Math.max(1, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1)
+      : Math.max(1, Number(ev.repeatCount) || 1);
+    let target = participants.find(p => (p.gifts || []).some(g => giftMatches(g, ev))) || null;
+    if (this.config.playMode === 'join') {
+      const user = ev.uniqueId || ev.userId;
+      if (user) {
+        if (target) {
+          if (this.state.userTeams[user] === target.id) delete this.state.userTeams[user];
+          else this.state.userTeams[user] = target.id;
+          this._emit();
+          return;
+        }
+        target = participants.find(p => p.id === this.state.userTeams[user]) || null;
+      }
+    }
+    if (!target) return;
+    this.addPoints(target.id, pts);
+  }
+  _finalizeRound() {
+    if (this.state.resultHandled) return;
+    this.state.resultHandled = true;
+    const entries = (this.config.participants || []).map(p => ({ id: p.id, score: Number(this.state.scores[p.id]) || 0 }));
+    const max = Math.max(0, ...entries.map(x => x.score));
+    const winners = entries.filter(x => x.score > 0 && x.score === max);
+    if (winners.length !== 1) return;
+    const winnerId = winners[0].id;
+    const streaks = {};
+    streaks[winnerId] = (Number(this.state.streaks[winnerId]) || 0) + 1;
+    this.state.streaks = streaks;
+    this.config.participants = (this.config.participants || []).map(p => ({ ...p, streak: Number(streaks[p.id]) || 0 }));
+    this.state.lastWinnerId = winnerId;
+  }
+  _runTicker() {
+    this._clearTicker();
+    this._tick = setInterval(() => {
+      if (this.state.status === 'grace') {
+        this.state.graceElapsedMs = Math.min((this.config.delaySec || 0) * 1000, (this.state.graceElapsedMs || 0) + 250);
+        this.state.remainingMs = -this.state.graceElapsedMs;
+      } else {
+        this.state.remainingMs = Math.max(0, this.state.remainingMs - 250);
+      }
+      if (this.state.remainingMs <= 0) {
+        if (this.state.status === 'prestart') {
+          this.state.status = 'running';
+          this.state.remainingMs = (this.config.durationSec || 300) * 1000;
+          this.state.endsAt = Date.now() + this.state.remainingMs;
+        } else if (this.state.status === 'running') {
+          this._finalizeRound();
+          if ((this.config.delaySec || 0) > 0) {
+            this.state.status = 'grace';
+            this.state.userTeams = {};
+            this.state.graceElapsedMs = 0;
+            this.state.remainingMs = 0;
+          } else {
+            this.state.status = 'finished';
+            this.state.userTeams = {};
+            this._clearTicker();
+          }
+        } else if (this.state.status === 'grace' && Math.abs(this.state.remainingMs) >= (this.config.delaySec || 0) * 1000) {
+          this.state.status = 'finished';
+          this.state.userTeams = {};
           this._clearTicker();
         }
       }
@@ -595,6 +855,7 @@ class RankingEngine {
       gridRows: 3,
       gridCols: 3,
       gridFlow: 'row',
+      overlayScale: 100,
     };
     // Snapshot scores tích lũy theo round
     this.round = 0;
@@ -716,6 +977,7 @@ class RankingEngine {
       gridRows: this.config.gridRows,
       gridCols: this.config.gridCols,
       gridFlow: this.config.gridFlow,
+      overlayScale: this.config.overlayScale,
       rows,
       active: activeRow ? { name: activeRow.name, avatar: activeRow.avatar, initials: activeRow.initials, points: activeRow.points } : null,
     };
@@ -760,6 +1022,7 @@ class ScoreEngine {
       successSound: '',
       failSound: '',
       pointsBy: 'diamond',
+      overlayScale: 100,
     };
     this.state = {
       score: 0,
@@ -982,6 +1245,14 @@ function bootstrapEngines() {
   });
   const savedPk = loadPkDuoConfig();
   if (savedPk) pkDuoEngine.setConfig(savedPk);
+  pkGroupEngine = new PkGroupEngine({
+    onState: (st) => {
+      overlayServer?.sendPkGroup(st);
+      broadcast('pkgroup:state', st);
+    },
+  });
+  const savedPkGroup = loadPkGroupConfig();
+  if (savedPkGroup) pkGroupEngine.setConfig(savedPkGroup);
   rankingEngine = new RankingEngine({
     onState: (st) => {
       overlayServer?.sendRanking(st);
@@ -1002,6 +1273,7 @@ function bootstrapEngines() {
 
   // Phát state khởi tạo cho overlay khi mới connect
   pkDuoEngine._emit();
+  pkGroupEngine._emit();
   rankingEngine._emit();
   scoreEngine._emit();
 }
@@ -1017,6 +1289,7 @@ function bootstrapTikTok() {
     // Route vào engines (chỉ route khi streak kết thúc để tránh double-count khi user combo)
     if (d.shouldProcess) {
       pkDuoEngine?.routeGift(d);
+      pkGroupEngine?.routeGift(d);
       rankingEngine?.routeGift(d);
       scoreEngine?.routeGift(d);
     }
@@ -1116,6 +1389,16 @@ function registerIpc() {
   ipcMain.handle('pkduo:reset', () => { pkDuoEngine.reset(); return true; });
   ipcMain.handle('pkduo:addPoints', (_e, { side, points }) => { pkDuoEngine.addPoints(side, points); return true; });
   ipcMain.handle('pkduo:getUrl', () => overlayServer.getPkDuoUrl());
+
+  // PK Group
+  ipcMain.handle('pkgroup:getState', () => pkGroupEngine.getStateForOverlay());
+  ipcMain.handle('pkgroup:setConfig', (_e, cfg) => { pkGroupEngine.setConfig(cfg); savePkGroupConfig(pkGroupEngine.config); return pkGroupEngine.config; });
+  ipcMain.handle('pkgroup:start', () => { pkGroupEngine.start(); return true; });
+  ipcMain.handle('pkgroup:stop', () => { pkGroupEngine.stop(); return true; });
+  ipcMain.handle('pkgroup:reset', () => { pkGroupEngine.reset(); return true; });
+  ipcMain.handle('pkgroup:addPoints', (_e, { id, points }) => { pkGroupEngine.addPoints(id, points); return true; });
+  ipcMain.handle('pkgroup:testGift', (_e, { id }) => pkGroupEngine.testGift(id));
+  ipcMain.handle('pkgroup:getUrl', () => overlayServer.getPkGroupUrl());
 
   // Ranking
   ipcMain.handle('ranking:getState', () => {

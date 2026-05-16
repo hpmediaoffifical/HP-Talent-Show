@@ -63,6 +63,8 @@ function render(state = {}) {
   const activeName = state.active ? esc(state.active.name || 'Idol') : '';
   const activePoints = state.active ? fmt(state.active.points) : '';
   const activeLong = state.active && `${state.active.name || 'Idol'} ${activePoints}`.length > 18;
+  const overlayScale = Math.max(.8, Math.min(3, (parseInt(state.overlayScale, 10) || 100) / 100));
+  root.style.setProperty('--rk-scale', overlayScale);
 
   root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}" style="
     --ranking-card-bg-rgb:${hexToRgb(state.overlayBgColor || '#2a2d37')};
@@ -70,7 +72,8 @@ function render(state = {}) {
     --ranking-streak-color:${esc(state.streakColor || '#67e8f9')};
     --rk-rows:${gridRows};
     --rk-cols:${gridCols};
-    --rk-flow:${gridFlow}
+    --rk-flow:${gridFlow};
+    --rk-scale:${overlayScale}
   ">
     <div class="ranking-title">${esc(state.title || 'TOP IDOL')}</div>
     <div class="ranking-list">${visibleRows.length === 0 ? '<div class="ranking-empty">Chưa có dữ liệu thi đấu nhóm</div>' : visibleRows.map(r => rowHtml(r, state)).join('')}</div>

@@ -1,7 +1,7 @@
 /* PK Đôi overlay — port từ BIGO Action với một số adapt cho HP Talent Show */
 html, body { margin:0; width:100%; height:100%; background:transparent; overflow:hidden; font-family:'Inter','Segoe UI', Arial, sans-serif; }
 body { display:flex; justify-content:center; align-items:center; }
-#pkDuoRoot { width:max-content; max-width:100vw; box-sizing:border-box; }
+#pkDuoRoot { width:max-content; max-width:100vw; box-sizing:border-box; transform:scale(var(--pk-scale,1)); transform-origin:center; }
 
 .pkduo-board {
   position:relative; width:720px; overflow:hidden; border-radius:14px;
@@ -23,7 +23,13 @@ body { display:flex; justify-content:center; align-items:center; }
 
 .pkduo-head { display:grid; grid-template-columns:1.15fr 1fr 1.15fr; align-items:center; gap:10px; padding:14px 20px 8px; font-size:var(--pk-text, 21px); font-weight:950; }
 .pkduo-head b { min-width:0; display:flex; align-items:center; }
-.pkduo-head > span { text-align:center; font-size:calc(var(--pk-text, 21px) * 1.06); font-weight:950; letter-spacing:-.02em; white-space:nowrap; }
+.pkduo-head > span { text-align:center; font-size:calc(var(--pk-text, 21px) * 1.28); font-weight:950; letter-spacing:-.02em; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:9px; }
+.pkduo-head > span > b { font:inherit; color:inherit; }
+.pkduo-time-icon { position:relative; width:24px; height:24px; flex:0 0 auto; border:3px solid currentColor; border-radius:50%; filter:drop-shadow(0 2px 3px rgba(0,0,0,.36)); }
+.pkduo-time-icon.clock::before { content:''; position:absolute; left:50%; top:50%; width:3px; height:8px; border-radius:999px; background:currentColor; transform:translate(-50%,-100%); transform-origin:50% 100%; }
+.pkduo-time-icon.clock::after { content:''; position:absolute; left:50%; top:50%; width:8px; height:3px; border-radius:999px; background:currentColor; transform:translate(0,-50%); transform-origin:0 50%; }
+.pkduo-time-icon.off::before { content:''; position:absolute; left:50%; top:50%; width:3px; height:8px; border-radius:999px; background:currentColor; transform:translate(-50%,-100%); }
+.pkduo-time-icon.off::after { content:''; position:absolute; left:50%; top:50%; width:32px; height:4px; border-radius:999px; background:#ff6b6b; box-shadow:0 0 8px rgba(255,80,80,.48); transform:translate(-50%,-50%) rotate(-38deg); }
 .pkduo-head b:first-child { color:var(--pk-a, #FE2C55); }
 .pkduo-head b:last-child { justify-content:flex-end; text-align:right; color:var(--pk-b, #25F4EE); }
 .pkduo-creator { display:flex; align-items:center; gap:10px; min-width:0; max-width:260px; }
@@ -36,6 +42,8 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkduo-gift-lane { position:relative; overflow:hidden; min-width:0; max-height:calc(var(--pk-gift, 46px) * 2 + 10px); mask-image:linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
 .pkduo-board.gift-wrap .pkduo-gift-lane { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; }
 .pkduo-board.gift-wrap .pkduo-gift-lane.right { justify-content:flex-end; }
+.pkduo-board.gift-single .pkduo-gift-lane { display:flex; align-items:center; gap:8px; mask-image:none; }
+.pkduo-board.gift-single .pkduo-gift-lane.right { justify-content:flex-end; }
 .pkduo-gift-track { display:inline-flex; align-items:center; gap:12px; width:max-content; will-change:transform; }
 .pkduo-board.gift-scroll .pkduo-gift-lane.left .pkduo-gift-track { animation:pkDuoGiftMarquee 9s linear infinite; animation-delay:var(--pk-gift-delay, 0s); }
 .pkduo-board.gift-scroll .pkduo-gift-lane.right .pkduo-gift-track { animation:pkDuoGiftMarqueeRev 9s linear infinite; animation-delay:var(--pk-gift-delay, 0s); }
@@ -64,15 +72,15 @@ body { display:flex; justify-content:center; align-items:center; }
   filter:blur(3px); opacity:.88; pointer-events:none;
 }
 .pkduo-bar::after {
-  content:''; position:absolute; top:-30%; z-index:3; width:230px; height:160%; left:-24%; opacity:0;
-  transform:translateX(-50%) skewX(-16deg); pointer-events:none;
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,.08), rgba(255,255,255,.7), rgba(255,246,170,.54), rgba(255,255,255,.18), transparent);
-  filter:blur(.15px) drop-shadow(0 0 13px rgba(255,255,255,.62));
-  mix-blend-mode:screen;
-  animation-duration:3s; animation-delay:var(--pk-sweep-delay, 0s); animation-iteration-count:infinite; animation-timing-function:cubic-bezier(.16,.84,.22,1);
+  content:''; position:absolute; top:0; bottom:0; z-index:3; width:300px; opacity:.82; pointer-events:none; mix-blend-mode:screen;
+  display:block;
+  background-position:center; background-repeat:no-repeat; background-size:100% 100%;
+  filter:drop-shadow(0 0 8px rgba(255,255,255,.24));
+  mask-image:linear-gradient(90deg, transparent 0%, rgba(0,0,0,.25) 20%, #000 70%, #000 100%);
+  animation-duration:5s; animation-delay:0s; animation-iteration-count:infinite; animation-timing-function:cubic-bezier(.18,.82,.26,1);
 }
-.pkduo-bar.lead-a::after { animation-name:pkDuoPowerSweepA; }
-.pkduo-bar.lead-b::after { animation-name:pkDuoPowerSweepB; }
+.pkduo-bar.lead-a::after { animation-name:pkDuoChevronRight; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 42' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.34' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2 L66 21 L12 40'/%3E%3Cpath d='M70 2 L124 21 L70 40'/%3E%3Cpath d='M128 2 L182 21 L128 40'/%3E%3Cpath d='M186 2 L240 21 L186 40'/%3E%3Cpath d='M244 2 L298 21 L244 40'/%3E%3C/g%3E%3C/svg%3E"); }
+.pkduo-bar.lead-b::after { animation-name:pkDuoChevronLeft; mask-image:linear-gradient(270deg, transparent 0%, rgba(0,0,0,.25) 20%, #000 70%, #000 100%); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 42' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.34' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M56 2 L2 21 L56 40'/%3E%3Cpath d='M114 2 L60 21 L114 40'/%3E%3Cpath d='M172 2 L118 21 L172 40'/%3E%3Cpath d='M230 2 L176 21 L230 40'/%3E%3Cpath d='M298 2 L244 21 L298 40'/%3E%3C/g%3E%3C/svg%3E"); }
 .pkduo-bar.neutral::after { animation:none; opacity:0; }
 
 .pkduo-bar strong { z-index:5; display:grid; place-items:center; height:100%; padding:0; font-size:25px; line-height:1; font-weight:950; text-align:center; background:transparent; }
@@ -101,8 +109,8 @@ body { display:flex; justify-content:center; align-items:center; }
 @keyframes pkDuoNeutralPulse { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.1)} }
 @keyframes pkDuoGiftMarquee { 0%{transform:translateX(0)} 100%{transform:translateX(-33.333%)} }
 @keyframes pkDuoGiftMarqueeRev { 0%{transform:translateX(-33.333%)} 100%{transform:translateX(0)} }
-@keyframes pkDuoPowerSweepA { 0%{left:-24%;opacity:0;transform:translateX(-50%) skewX(-16deg)} 6%{opacity:.95} 35%{left:124%;opacity:.9;transform:translateX(-50%) skewX(-16deg)} 44%,100%{left:124%;opacity:0;transform:translateX(-50%) skewX(-16deg)} }
-@keyframes pkDuoPowerSweepB { 0%{left:124%;opacity:0;transform:translateX(-50%) skewX(16deg)} 6%{opacity:.95} 35%{left:-24%;opacity:.9;transform:translateX(-50%) skewX(16deg)} 44%,100%{left:-24%;opacity:0;transform:translateX(-50%) skewX(16deg)} }
+@keyframes pkDuoChevronRight { 0%{left:-310px;opacity:0} 8%{opacity:.3} 18%{opacity:.82} 58%{left:var(--pk-a-width, 50%);opacity:.82} 66%,100%{left:var(--pk-a-width, 50%);opacity:0} }
+@keyframes pkDuoChevronLeft { 0%{left:calc(100% + 10px);opacity:0} 8%{opacity:.3} 18%{opacity:.82} 58%{left:calc(var(--pk-a-width, 50%) - 300px);opacity:.82} 66%,100%{left:calc(var(--pk-a-width, 50%) - 300px);opacity:0} }
 @keyframes pkDuoWatermarkOnce { 0%{opacity:0;transform:translateY(2px)} 38%{opacity:.34;transform:translateY(0)} 100%{opacity:.2;transform:translateY(0)} }
 @keyframes pkDuoContentMarquee { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
 @keyframes pkDuoWinPop { 0%,100%{transform:scale(1);filter:brightness(1)} 42%{transform:scale(1.1);filter:brightness(1.22)} 70%{transform:scale(1.03);filter:brightness(1.08)} }

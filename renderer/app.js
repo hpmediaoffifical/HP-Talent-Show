@@ -44,7 +44,7 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
   $$('.nav-btn').forEach(x => x.classList.toggle('active', x === b));
   const id = b.dataset.tab;
   $$('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === id));
-  if (id === 'overlays') refreshOverlayUrls();
+  if (id === 'settings') refreshOverlayUrls();
 }));
 
 // Open external
@@ -60,6 +60,7 @@ let creators = [];
 let groups = [];
 let giftMaster = []; // [{id, name, icon, webm, diamond}]
 let pkCfg = null;
+let pkGroupCfg = null;
 let currentEditingCreator = null;
 let currentEditingGroup = null;
 let stats = { gifts: 0, diamond: 0, donors: new Set(), viewers: 0 };
@@ -74,6 +75,7 @@ let scoreAutoRoundHandled = false;
 let scoreStoppedManually = false;
 let scoreConfigAutoTimer = null;
 let pkConfigAutoTimer = null;
+let pkGroupConfigAutoTimer = null;
 let scoreSoundAudio = null;
 let scoreSoundRunKey = '';
 let scoreSoundLastStatus = '';
@@ -86,6 +88,8 @@ let bannerItems = [];
 let bannerIndex = 0;
 let bannerTimer = null;
 let tickerItems = [];
+let tickerTimer = null;
+const TICKER_REFRESH_MS = 30_000;
 const collapsedCreatorGroups = new Set();
 let chatFontSize = 18;
 const userAvatarCache = new Map();
@@ -307,6 +311,7 @@ const GiftPicker = (() => {
       case 'dia-desc': filtered.sort((a, b) => b.diamond - a.diamond); break;
       case 'id-asc': filtered.sort((a, b) => Number(a.id) - Number(b.id)); break;
     }
+    filtered.sort((a, b) => Number(selectedIds.has(String(b.id))) - Number(selectedIds.has(String(a.id))));
     const grid = $('#gpGrid');
     if (filtered.length === 0) {
       grid.innerHTML = '<div class="gp-empty">Không tìm thấy quà phù hợp.</div>';
@@ -401,6 +406,7 @@ async function init() {
   await refreshCreators();
   await refreshGroups();
   await loadPkConfig();
+  await loadPkGroupConfig();
   await loadRankingConfig();
   await loadScoreConfig();
   await refreshOverlayUrls();
@@ -410,12 +416,19 @@ async function init() {
   wireCreatorTab();
   wireGroupTab();
   wirePkDuoTab();
+  wirePkGroupTab();
   wireRankingTab();
   wireScoreTab();
   wireOverlaysTab();
   wireSettingsTab();
   loadLiveBanners();
+  startLiveTickerAutoRefresh();
+}
+
+function startLiveTickerAutoRefresh() {
   loadLiveTicker();
+  if (tickerTimer) clearInterval(tickerTimer);
+  tickerTimer = setInterval(loadLiveTicker, TICKER_REFRESH_MS);
 }
 
 async function loadLiveBanners() {
@@ -582,6 +595,7 @@ function wireTtEvents() {
   window.api.on('tt:roomUser', (d) => { stats.viewers = d.viewerCount || 0; refreshStats(); });
 
   window.api.on('pkduo:state', (st) => renderPkPreview(st));
+  window.api.on('pkgroup:state', (st) => renderPkGroupPreview(st));
   window.api.on('ranking:state', (st) => renderRkPreview(st));
   window.api.on('score:state', (st) => renderScPreview(st));
 }
@@ -750,6 +764,7 @@ async function refreshCreators() {
   renderCreators();
   renderCreatorGroupSelect();
   renderPkCreatorSelects?.();
+  renderPkGroupMembers?.();
   renderScoreCreatorSelect?.();
 }
 
@@ -998,6 +1013,8 @@ async function refreshGroups() {
   renderCreatorGroupSelect();
   renderCreators();
   renderPkCreatorSelects?.();
+  renderPkGroupGroupSelect?.();
+  renderPkGroupMembers?.();
   renderScoreCreatorSelect?.();
 }
 
@@ -1163,6 +1180,7 @@ async function loadPkConfig() {
     joinMode: !!st.joinMode, pointsBy: st.pointsBy || 'diamond',
     bgColor: st.bgColor || '#000000', bgOpacity: st.bgOpacity ?? 88,
     giftSize: st.giftSize || 46, textSize: st.textSize || 21,
+    overlayScale: st.overlayScale || 100,
     giftDisplayMode: st.giftDisplayMode || 'scroll',
     content: st.content || 'PK ĐÔI',
     startSound: st.startSound || '', warningSound: st.warningSound || '', teamASound: st.teamASound || '', teamBSound: st.teamBSound || '', drawSound: st.drawSound || '',
@@ -1195,6 +1213,8 @@ async function loadPkConfig() {
   $('#pkGiftSize').value = pkCfg.giftSize;
   $('#pkGiftDisplayMode').value = pkCfg.giftDisplayMode || 'scroll';
   $('#pkTextSize').value = pkCfg.textSize;
+  $('#pkOverlayScale').value = pkCfg.overlayScale;
+  $('#pkOverlayScaleValue').textContent = `${$('#pkOverlayScale').value}%`;
   setSoundInput('pkSndStart', pkCfg.startSound || '');
   setSoundInput('pkSndWarn', pkCfg.warningSound || '');
   setSoundInput('pkSndAwin', pkCfg.teamASound || '');
@@ -1215,14 +1235,18 @@ function normalizePkTeam(team, fallback) {
 function syncPkActiveGifts() {
   if (!pkCfg) return;
   const key = pkCfg.joinMode ? 'joinGifts' : 'fixedGifts';
+  if (pkCfg.joinMode) {
+    pkCfg.teamA.joinGifts = (pkCfg.teamA.joinGifts || []).slice(0, 1);
+    pkCfg.teamB.joinGifts = (pkCfg.teamB.joinGifts || []).slice(0, 1);
+  }
   pkCfg.teamA.gifts = pkCfg.teamA[key] || [];
   pkCfg.teamB.gifts = pkCfg.teamB[key] || [];
 }
 
 function savePkActiveGifts() {
   const key = pkGiftModeKey();
-  pkCfg.teamA[key] = pkCfg.teamA.gifts || [];
-  pkCfg.teamB[key] = pkCfg.teamB.gifts || [];
+  pkCfg.teamA[key] = pkCfg.joinMode ? (pkCfg.teamA.gifts || []).slice(0, 1) : (pkCfg.teamA.gifts || []);
+  pkCfg.teamB[key] = pkCfg.joinMode ? (pkCfg.teamB.gifts || []).slice(0, 1) : (pkCfg.teamB.gifts || []);
 }
 
 function renderPkCreatorSelects() {
@@ -1247,7 +1271,7 @@ function renderPkCreatorSelect(side) {
   sel.value = filtered.some(c => c.id === current) ? current : '';
 }
 
-function applyPkCreator(side) {
+function applyPkCreator(side, opts = {}) {
   const team = getTeam(side);
   const group = groups.find(g => g.id === $(`#pk${side}group`).value);
   const creator = creators.find(c => c.id === $(`#pk${side}creator`).value);
@@ -1257,7 +1281,7 @@ function applyPkCreator(side) {
   team.creatorName = creator?.nickname || creator?.tiktokId || '';
   team.creatorAvatar = creator?.avatar || '../logo/hp-logo.png';
   if (group?.color) team.color = group.color;
-  if (creator && pkCfg?.joinMode) {
+  if (creator && pkCfg?.joinMode && (opts.applyDefaultGift || !(team.joinGifts || []).length)) {
     const gift = creatorDefaultGift(creator);
     if (gift) {
       team.joinGifts = [gift];
@@ -1286,6 +1310,7 @@ function normalizeHexColor(value, fallback) {
 }
 
 function renderPkGifts() {
+  const joinMode = !!pkCfg?.joinMode;
   for (const side of ['A', 'B']) {
     const wrap = $(`#pk${side}gifts`);
     wrap.dataset.team = side;
@@ -1295,16 +1320,18 @@ function renderPkGifts() {
       const chip = document.createElement('span');
       chip.className = 'chip';
       chip.title = g.giftName || g.giftId || '';
-      chip.draggable = true;
+      chip.draggable = !joinMode;
       chip.dataset.side = side;
       chip.dataset.index = String(i);
       chip.innerHTML = `${g.icon ? `<img src="${escapeAttr(g.icon)}" />` : '🎁'}<button type="button">×</button>`;
-      chip.addEventListener('dragstart', (e) => {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('application/x-pk-gift', JSON.stringify({ side, index: i }));
-        chip.classList.add('dragging');
-      });
-      chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+      if (!joinMode) {
+        chip.addEventListener('dragstart', (e) => {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('application/x-pk-gift', JSON.stringify({ side, index: i }));
+          chip.classList.add('dragging');
+        });
+        chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+      }
       chip.querySelector('button').addEventListener('click', () => {
         team.gifts.splice(i, 1);
         savePkActiveGifts();
@@ -1314,6 +1341,9 @@ function renderPkGifts() {
       wrap.appendChild(chip);
     });
   }
+  $$('.pk-pick-master').forEach(btn => {
+    btn.textContent = joinMode ? 'Chọn quà kích hoạt' : '+ Thêm quà';
+  });
 }
 
 function pkDropIndex(zone, e) {
@@ -1354,6 +1384,16 @@ function addPkGifts(side, gifts) {
   const team = side === 'A' ? pkCfg.teamA : pkCfg.teamB;
   const other = side === 'A' ? pkCfg.teamB : pkCfg.teamA;
   team.gifts = team.gifts || [];
+  if (pkCfg.joinMode) {
+    const first = gifts?.[0];
+    if (!first) return [];
+    const pkGift = first.giftName ? first : giftToPkGift(first);
+    const id = String(pkGift.giftId || pkGift.id || '');
+    if (id && (other.gifts || []).some(g => String(g.giftId || g.id || '') === id)) return [];
+    team.gifts = [pkGift];
+    team.joinGifts = team.gifts;
+    return [pkGift];
+  }
   const existing = new Set(team.gifts.map(g => String(g.giftId)));
   const blocked = new Set((other.gifts || []).map(g => String(g.giftId)));
   const added = [];
@@ -1383,8 +1423,8 @@ function wirePkDuoTab() {
     pkCfg.joinMode = $('#pkJoinMode').value === 'true';
     syncPkActiveGifts();
     if (pkCfg.joinMode) {
-      applyPkCreator('A');
-      applyPkCreator('B');
+      applyPkCreator('A', { applyDefaultGift: !(pkCfg.teamA.joinGifts || []).length });
+      applyPkCreator('B', { applyDefaultGift: !(pkCfg.teamB.joinGifts || []).length });
     }
     renderPkGifts();
     schedulePkAutoSave();
@@ -1395,11 +1435,11 @@ function wirePkDuoTab() {
     $(`#pk${side}group`).addEventListener('change', () => {
       getTeam(side).groupId = $(`#pk${side}group`).value;
       renderPkCreatorSelect(side);
-      applyPkCreator(side);
+      applyPkCreator(side, { applyDefaultGift: true });
       schedulePkAutoSave();
     });
     $(`#pk${side}creator`).addEventListener('change', () => {
-      applyPkCreator(side);
+      applyPkCreator(side, { applyDefaultGift: true });
       schedulePkAutoSave();
     });
   }
@@ -1407,17 +1447,18 @@ function wirePkDuoTab() {
   $$('.pk-pick-master').forEach(btn => btn.addEventListener('click', async () => {
     const side = btn.dataset.team;
     const selected = await GiftPicker.open({
-      title: `🎁 Chọn nhiều quà cho Đội ${side}`,
-      multi: true,
+      title: pkCfg.joinMode ? `🎁 Chọn 1 quà kích hoạt cho Đội ${side}` : `🎁 Chọn nhiều quà cho Đội ${side}`,
+      multi: !pkCfg.joinMode,
       excludeIds: [...pkGiftIds(side === 'A' ? 'B' : 'A')],
       selected: [...pkGiftIds(side)],
     });
-    if (!selected || !selected.length) return;
-    const added = addPkGifts(side, selected);
+    const picked = Array.isArray(selected) ? selected : (selected ? [selected] : []);
+    if (!picked.length) return;
+    const added = addPkGifts(side, picked);
     savePkActiveGifts();
     renderPkGifts();
     schedulePkAutoSave();
-    toast(`Đã thêm ${added.length} quà cho Đội ${side}`, added.length ? 'success' : 'error');
+    toast(pkCfg.joinMode ? `Đã chọn quà kích hoạt cho Đội ${side}` : `Đã thêm ${added.length} quà cho Đội ${side}`, added.length ? 'success' : 'error');
   }));
 
   $$('.pk-gifts').forEach(zone => {
@@ -1452,6 +1493,10 @@ function wirePkDuoTab() {
   }));
 
   $('#pkBgOpacity').addEventListener('input', () => { $('#pkBgOpacityValue').textContent = `${$('#pkBgOpacity').value}%`; });
+  $('#pkOverlayScale').addEventListener('input', () => {
+    $('#pkOverlayScaleValue').textContent = `${$('#pkOverlayScale').value}%`;
+    schedulePkAutoSave();
+  });
   ['pkContent','pkAname','pkBname','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
@@ -1495,6 +1540,7 @@ function collectPkCfg() {
   savePkActiveGifts();
   applyPkCreator('A');
   applyPkCreator('B');
+  savePkActiveGifts();
   const h = Number($('#pkDurH').value) || 0;
   const m = Number($('#pkDurM').value) || 0;
   const s = Number($('#pkDurS').value) || 0;
@@ -1512,6 +1558,7 @@ function collectPkCfg() {
     giftSize: Number($('#pkGiftSize').value),
     giftDisplayMode: $('#pkGiftDisplayMode').value,
     textSize: Number($('#pkTextSize').value),
+    overlayScale: Math.max(80, Math.min(300, Number($('#pkOverlayScale').value) || 100)),
     content: $('#pkContent').value.trim() || 'PK ĐÔI',
     startSound: gameplaySoundValue('scSndStart'),
     warningSound: gameplaySoundValue('scSndWarn'),
@@ -1558,6 +1605,365 @@ function renderPkPreview(st) {
 }
 
 // ============================================================
+// PK Nhóm
+// ============================================================
+async function loadPkGroupConfig() {
+  const st = await window.api.pkgroup.getState();
+  pkGroupCfg = {
+    content: st.content || 'PK NHÓM',
+    groupId: st.groupId || '',
+    layoutMode: st.layoutMode || 'joined',
+    playMode: st.playMode || 'fixed',
+    pointsBy: st.pointsBy || 'diamond',
+    noteEnabled: !!st.noteEnabled,
+    noteText: st.noteText || 'Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy',
+    noteBgColor: st.noteBgColor || '#1f2430',
+    noteTextColor: st.noteTextColor || '#ffffff',
+    noteSpeedSec: st.noteSpeedSec || 16,
+    noteEffect: st.noteEffect || 'soft',
+    separatedGap: st.separatedGap ?? 180,
+    autoTextContrast: !!st.autoTextContrast,
+    durationSec: st.durationSec || 90,
+    prepSec: st.prepSec ?? 3,
+    delaySec: st.delaySec ?? 5,
+    textSize: st.textSize || 20,
+    giftSize: st.giftSize || 42,
+    overlayScale: st.overlayScale || 100,
+    creatorColors: st.creatorColors || {},
+    participants: Array.isArray(st.participants) ? st.participants : [],
+  };
+  renderPkGroupGroupSelect();
+  $('#pkgContent').value = pkGroupCfg.content;
+  $('#pkgGroup').value = pkGroupCfg.groupId;
+  $('#pkgLayoutMode').value = pkGroupCfg.layoutMode;
+  $('#pkgPlayMode').value = pkGroupCfg.playMode;
+  $('#pkgPointsBy').value = pkGroupCfg.pointsBy;
+  $('#pkgNoteEnabled').checked = !!pkGroupCfg.noteEnabled;
+  $('#pkgNoteText').value = pkGroupCfg.noteText || '';
+  $('#pkgNoteBg').value = pkGroupCfg.noteBgColor || '#1f2430';
+  $('#pkgNoteColor').value = pkGroupCfg.noteTextColor || '#ffffff';
+  $('#pkgNoteSpeed').value = pkGroupCfg.noteSpeedSec || 16;
+  $('#pkgNoteEffect').value = pkGroupCfg.noteEffect || 'soft';
+  $('#pkgSeparatedGap').value = pkGroupCfg.separatedGap ?? 180;
+  $('#pkgSeparatedGapValue').textContent = `${$('#pkgSeparatedGap').value}px`;
+  const d = pkGroupCfg.durationSec || 300;
+  $('#pkgDurH').value = Math.floor(d / 3600);
+  $('#pkgDurM').value = Math.floor((d % 3600) / 60);
+  $('#pkgDurS').value = d % 60;
+  $('#pkgPrep').value = pkGroupCfg.prepSec;
+  $('#pkgDelay').value = pkGroupCfg.delaySec;
+  $('#pkgTextSize').value = pkGroupCfg.textSize;
+  $('#pkgGiftSize').value = pkGroupCfg.giftSize;
+  $('#pkgOverlayScale').value = Math.max(80, Math.min(300, pkGroupCfg.overlayScale));
+  $('#pkgOverlayScaleValue').textContent = `${$('#pkgOverlayScale').value}%`;
+  renderPkGroupMembers();
+  renderPkGroupPreview(st);
+}
+
+function renderPkGroupGroupSelect() {
+  const sel = $('#pkgGroup');
+  if (!sel) return;
+  const current = sel.value || pkGroupCfg?.groupId || '';
+  sel.innerHTML = '<option value="">— Chọn nhóm —</option>' + groups.map(g => `<option value="${escapeAttr(g.id)}">${escapeHtml(groupInfoText(g, g.name))}</option>`).join('');
+  sel.value = groups.some(g => g.id === current) ? current : '';
+}
+
+function pkGroupParticipantForCreator(c) {
+  const old = pkGroupCfg.participants.find(p => p.creatorId === c.id || p.id === c.id) || {};
+  const gift = old.gifts?.[0] || creatorDefaultGift(c);
+  const palette = ['#FE2C55', '#25F4EE', '#A855F7', '#F59E0B', '#22C55E', '#3B82F6', '#EC4899', '#14B8A6'];
+  const color = palette[Math.abs(String(c.id || c.tiktokId || '').split('').reduce((n, ch) => n + ch.charCodeAt(0), 0)) % palette.length];
+  const savedColor = pkGroupCfg?.creatorColors?.[c.id] || pkGroupCfg?.creatorColors?.[c.tiktokId];
+  return {
+    id: old.id || c.id,
+    creatorId: c.id,
+    tiktokId: c.tiktokId || '',
+    name: old.name || c.nickname || c.tiktokId || 'Creator',
+    avatar: c.avatar || old.avatar || '../logo/hp-logo.png',
+    color: normalizeHexColor(old.color, normalizeHexColor(savedColor, normalizeHexColor(c.color, color))),
+    gifts: old.gifts || (gift ? [gift] : []),
+    streak: Number(old.streak) || 0,
+  };
+}
+
+function renderPkGroupMembers() {
+  const wrap = $('#pkgMembers');
+  if (!wrap || !pkGroupCfg) return;
+  const groupId = $('#pkgGroup')?.value || pkGroupCfg.groupId || '';
+  const members = creators.filter(c => c.groupId === groupId);
+  const selected = new Map((pkGroupCfg.participants || []).map(p => [p.creatorId || p.id, p]));
+  if (!groupId) {
+    wrap.innerHTML = '<div class="hint">Chọn một nhóm để hiện danh sách creator.</div>';
+    return;
+  }
+  if (!members.length) {
+    wrap.innerHTML = '<div class="hint">Nhóm này chưa có creator.</div>';
+    return;
+  }
+  const order = new Map((pkGroupCfg.participants || []).map((p, i) => [p.creatorId || p.id, i]));
+  const displayMembers = members.slice().sort((a, b) => {
+    const ai = order.has(a.id) ? order.get(a.id) : Number.MAX_SAFE_INTEGER;
+    const bi = order.has(b.id) ? order.get(b.id) : Number.MAX_SAFE_INTEGER;
+    if (ai !== bi) return ai - bi;
+    return (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi');
+  });
+  wrap.innerHTML = displayMembers.map(c => {
+    const p = selected.get(c.id) || pkGroupParticipantForCreator(c);
+    const checked = selected.has(c.id) ? 'checked' : '';
+    const gift = p.gifts?.[0];
+    return `<div class="pkg-member" data-id="${escapeAttr(c.id)}">
+      <div class="pkg-order-tools"><button class="ghost tiny pkg-move-up" type="button">↑</button><button class="ghost tiny pkg-move-down" type="button">↓</button></div>
+      <label class="pkg-member-check"><input type="checkbox" ${checked} /> <img src="${escapeAttr(c.avatar || '../logo/hp-logo.png')}" /><b>${escapeHtml(c.nickname || c.tiktokId)}</b></label>
+      <input class="pkg-name" value="${escapeAttr(p.name || '')}" maxlength="20" placeholder="Tên hiển thị" />
+      <input class="pkg-color" type="color" value="${escapeAttr(normalizeHexColor(p.color, '#FE2C55'))}" />
+      <input class="pkg-streak-input" type="number" min="0" max="999" value="${Number(p.streak) || 0}" title="MVP chuỗi" />
+      <button class="ghost tiny pkg-pick-gift" type="button">${gift?.icon ? `<img src="${escapeAttr(gift.icon)}" />` : '🎁'} ${escapeHtml(gift?.giftName || gift?.name || 'Chọn quà')}</button>
+      <button class="primary tiny pkg-test-gift" type="button">Test quà</button>
+      <button class="ghost tiny pkg-add-point" type="button">+1</button>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.pkg-member').forEach(row => {
+    const creator = creators.find(c => c.id === row.dataset.id);
+    row.querySelector('input[type="checkbox"]').addEventListener('change', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers(); });
+    row.querySelector('.pkg-name').addEventListener('input', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); });
+    row.querySelector('.pkg-color').addEventListener('change', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); });
+    row.querySelector('.pkg-streak-input').addEventListener('input', () => {
+      enforcePkGroupMvpInput(row);
+      syncPkGroupMembersFromDom();
+      window.api.pkgroup.setConfig(collectPkGroupCfg()).catch(() => {});
+    });
+    row.querySelector('.pkg-pick-gift').addEventListener('click', async () => {
+      syncPkGroupMembersFromDom();
+      const p = pkGroupCfg.participants.find(x => x.creatorId === creator.id || x.id === creator.id) || pkGroupParticipantForCreator(creator);
+      const picked = await GiftPicker.open({
+        title: `🎁 Chọn quà cho ${p.name}`,
+        multi: pkGroupCfg.playMode === 'fixed',
+        selected: (p.gifts || []).map(g => String(g.giftId || g.id || '')),
+      });
+      const gifts = Array.isArray(picked) ? picked : (picked ? [picked] : []);
+      if (!gifts.length) return;
+      p.gifts = gifts.map(g => g.giftName ? g : giftToPkGift(g));
+      const idx = pkGroupCfg.participants.findIndex(x => x.creatorId === p.creatorId || x.id === p.id);
+      if (idx >= 0) pkGroupCfg.participants[idx] = p;
+      else pkGroupCfg.participants.push(p);
+      renderPkGroupMembers();
+      schedulePkGroupAutoSave();
+    });
+    row.querySelector('.pkg-add-point').addEventListener('click', async () => {
+      syncPkGroupMembersFromDom();
+      const p = pkGroupCfg.participants.find(x => x.creatorId === creator.id || x.id === creator.id);
+      if (p) await window.api.pkgroup.addPoints(p.id, 1);
+    });
+    row.querySelector('.pkg-test-gift').addEventListener('click', async () => {
+      await window.api.pkgroup.setConfig(collectPkGroupCfg());
+      const p = pkGroupCfg.participants.find(x => x.creatorId === creator.id || x.id === creator.id);
+      if (!p) { toast('Cần tích chọn thành viên trước', 'error'); return; }
+      const res = await window.api.pkgroup.testGift(p.id);
+      if (!res) { toast('Không test được quà thành viên này', 'error'); return; }
+      toast(`Test ${p.name}: +${formatNumber(res.points)}${res.giftName ? ` (${res.giftName})` : ''}`, 'success');
+    });
+    row.querySelector('.pkg-move-up').addEventListener('click', () => movePkGroupParticipant(creator.id, -1));
+    row.querySelector('.pkg-move-down').addEventListener('click', () => movePkGroupParticipant(creator.id, 1));
+  });
+}
+
+function movePkGroupParticipant(creatorId, dir) {
+  syncPkGroupMembersFromDom();
+  const idx = pkGroupCfg.participants.findIndex(p => (p.creatorId || p.id) === creatorId);
+  if (idx < 0) { toast('Cần tích chọn thành viên trước', 'error'); return; }
+  const next = idx + dir;
+  if (next < 0 || next >= pkGroupCfg.participants.length) return;
+  const [item] = pkGroupCfg.participants.splice(idx, 1);
+  pkGroupCfg.participants.splice(next, 0, item);
+  renderPkGroupMembers();
+  schedulePkGroupAutoSave();
+}
+
+function enforcePkGroupMvpInput(changedRow) {
+  const changedInput = changedRow.querySelector('.pkg-streak-input');
+  const changedValue = Math.max(0, Number(changedInput?.value) || 0);
+  if (changedInput) changedInput.value = changedValue;
+  if (changedValue <= 0) return;
+  const changedId = changedRow.dataset.id;
+  const activeOwner = (pkGroupCfg?.participants || []).find(p => Number(p.streak) > 0);
+  if (!activeOwner || (activeOwner.creatorId || activeOwner.id) === changedId) return;
+  changedInput.value = 0;
+  const activeName = activeOwner.name || activeOwner.tiktokId || 'Creator đang MVP';
+  toast(`Cần đưa MVP của ${activeName} về 0 trước khi chuyển MVP`, 'error');
+}
+
+function normalizePkGroupMvpInputs() {
+  const activeRows = $$('#pkgMembers .pkg-member').filter(row => (Number(row.querySelector('.pkg-streak-input')?.value) || 0) > 0);
+  if (activeRows.length <= 1) return true;
+  const activeOwner = (pkGroupCfg?.participants || []).find(p => Number(p.streak) > 0);
+  const keepId = activeOwner ? (activeOwner.creatorId || activeOwner.id) : activeRows[0].dataset.id;
+  activeRows.forEach(row => {
+    if (row.dataset.id !== keepId) row.querySelector('.pkg-streak-input').value = 0;
+  });
+  toast('Chỉ được có 1 Creator MVP > 0. Hãy đưa MVP hiện tại về 0 trước khi chuyển.', 'error');
+  return false;
+}
+
+function syncPkGroupMembersFromDom() {
+  if (!pkGroupCfg) return;
+  normalizePkGroupMvpInputs();
+  pkGroupCfg.creatorColors = { ...(pkGroupCfg.creatorColors || {}) };
+  const prev = new Map((pkGroupCfg.participants || []).map(p => [p.creatorId || p.id, p]));
+  const participants = [];
+  $$('#pkgMembers .pkg-member').forEach(row => {
+    const checked = row.querySelector('input[type="checkbox"]')?.checked;
+    if (!checked) return;
+    const c = creators.find(x => x.id === row.dataset.id);
+    if (!c) return;
+    const old = prev.get(c.id) || pkGroupParticipantForCreator(c);
+    const color = normalizeHexColor(row.querySelector('.pkg-color')?.value, old.color || '#FE2C55');
+    pkGroupCfg.creatorColors[c.id] = color;
+    participants.push({
+      ...old,
+      id: old.id || c.id,
+      creatorId: c.id,
+      tiktokId: c.tiktokId || '',
+      avatar: c.avatar || old.avatar || '../logo/hp-logo.png',
+      name: row.querySelector('.pkg-name')?.value.trim() || c.nickname || c.tiktokId || 'Creator',
+      color,
+      gifts: old.gifts || [],
+      streak: Math.max(0, Number(row.querySelector('.pkg-streak-input')?.value) || 0),
+    });
+  });
+  pkGroupCfg.participants = participants;
+}
+
+function schedulePkGroupAutoSave() {
+  clearTimeout(pkGroupConfigAutoTimer);
+  pkGroupConfigAutoTimer = setTimeout(async () => {
+    try { if (pkGroupCfg) await window.api.pkgroup.setConfig(collectPkGroupCfg()); } catch {}
+  }, 250);
+}
+
+function wirePkGroupTab() {
+  $('#pkgGroup').addEventListener('change', () => {
+    pkGroupCfg.groupId = $('#pkgGroup').value;
+    pkGroupCfg.participants = [];
+    renderPkGroupMembers();
+    schedulePkGroupAutoSave();
+  });
+  $('#pkgSeparatedGap').addEventListener('input', async () => {
+    $('#pkgSeparatedGapValue').textContent = `${$('#pkgSeparatedGap').value}px`;
+    syncPkGroupMembersFromDom();
+    if (pkGroupCfg) {
+      pkGroupCfg.separatedGap = Math.max(0, Math.min(800, Number($('#pkgSeparatedGap').value) || 0));
+      try { await window.api.pkgroup.setConfig(collectPkGroupCfg()); } catch {}
+    }
+  });
+  $('#pkgOverlayScale').addEventListener('input', async () => {
+    $('#pkgOverlayScaleValue').textContent = `${$('#pkgOverlayScale').value}%`;
+    syncPkGroupMembersFromDom();
+    if (pkGroupCfg) {
+      pkGroupCfg.overlayScale = Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 100));
+      try { await window.api.pkgroup.setConfig(collectPkGroupCfg()); } catch {}
+    }
+  });
+  ['pkgContent','pkgLayoutMode','pkgPlayMode','pkgPointsBy','pkgNoteEnabled','pkgNoteText','pkgNoteBg','pkgNoteColor','pkgNoteSpeed','pkgNoteEffect','pkgDurH','pkgDurM','pkgDurS','pkgPrep','pkgDelay','pkgTextSize','pkgGiftSize'].forEach(id => {
+    const el = $('#' + id);
+    el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers(); });
+  });
+  $('#pkgSaveCfg').addEventListener('click', updatePkGroupConfig);
+  $('#pkgStart').addEventListener('click', async () => {
+    if ($('#pkgStart').dataset.running === 'true') { await window.api.pkgroup.stop(); return; }
+    const cfg = collectPkGroupCfg();
+    if (!cfg.participants.length) { toast('Cần tích ít nhất 1 creator', 'error'); return; }
+    await window.api.pkgroup.setConfig(cfg);
+    await window.api.pkgroup.start();
+  });
+  $('#pkgReset').addEventListener('click', async () => { await window.api.pkgroup.reset(); });
+  $('#pkgCopyUrl').addEventListener('click', async () => {
+    const url = await window.api.pkgroup.getUrl();
+    await window.api.shell.copyText(url);
+    toast('📋 Đã copy link PK Nhóm', 'success');
+  });
+}
+
+async function updatePkGroupConfig() {
+  await window.api.pkgroup.setConfig(collectPkGroupCfg());
+  toast('🔄 Đã cập nhật PK Nhóm', 'success');
+}
+
+function collectPkGroupCfg() {
+  syncPkGroupMembersFromDom();
+  const h = Number($('#pkgDurH').value) || 0;
+  const m = Number($('#pkgDurM').value) || 0;
+  const s = Number($('#pkgDurS').value) || 0;
+  return {
+    ...pkGroupCfg,
+    content: $('#pkgContent').value.trim() || 'PK NHÓM',
+    groupId: $('#pkgGroup').value,
+    layoutMode: $('#pkgLayoutMode').value,
+    playMode: $('#pkgPlayMode').value,
+    pointsBy: $('#pkgPointsBy').value,
+    noteEnabled: $('#pkgNoteEnabled').checked,
+    noteText: $('#pkgNoteText').value.trim(),
+    noteBgColor: $('#pkgNoteBg').value,
+    noteTextColor: $('#pkgNoteColor').value,
+    noteSpeedSec: Math.max(6, Number($('#pkgNoteSpeed').value) || 16),
+    noteEffect: $('#pkgNoteEffect').value,
+    separatedGap: Math.max(0, Math.min(800, Number($('#pkgSeparatedGap').value) || 0)),
+    autoTextContrast: !!$('#ovlAutoTextContrast')?.checked,
+    durationSec: Math.max(5, h * 3600 + m * 60 + s),
+    prepSec: Number($('#pkgPrep').value) || 0,
+    delaySec: Number($('#pkgDelay').value) || 0,
+    textSize: Number($('#pkgTextSize').value),
+    giftSize: Number($('#pkgGiftSize').value),
+    overlayScale: Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 100)),
+    creatorColors: pkGroupCfg.creatorColors || {},
+  };
+}
+
+function renderPkGroupPreview(st = {}) {
+  const participants = st.participants || pkGroupCfg?.participants || [];
+  if (pkGroupCfg && Array.isArray(st.participants) && ['grace', 'finished'].includes(st.status)) {
+    const streakById = new Map(st.participants.map(p => [p.id || p.creatorId, Number(p.streak) || 0]));
+    pkGroupCfg.participants = (pkGroupCfg.participants || []).map(p => ({ ...p, streak: streakById.get(p.id) ?? streakById.get(p.creatorId) ?? 0 }));
+    $$('#pkgMembers .pkg-member').forEach(row => {
+      const p = pkGroupCfg.participants.find(x => (x.creatorId || x.id) === row.dataset.id);
+      const input = row.querySelector('.pkg-streak-input');
+      if (input && p) input.value = Number(p.streak) || 0;
+    });
+  }
+  const sec = Math.ceil((st.remainingMs || 0) / 1000);
+  const statusText = st.status === 'prestart' ? `Sắp bắt đầu — ${sec}s`
+    : st.status === 'running' ? `Đang đấu — ${sec}s`
+    : st.status === 'grace' ? 'ĐANG TÍNH ĐIỂM'
+    : st.status === 'finished' ? 'Đã kết thúc'
+    : 'Chờ bắt đầu';
+  const running = st.status === 'prestart' || st.status === 'running' || st.status === 'grace';
+  const startBtn = $('#pkgStart');
+  if (startBtn) {
+    startBtn.dataset.running = running ? 'true' : 'false';
+    startBtn.textContent = running ? '■ DỪNG' : '▶ BẮT ĐẦU';
+    startBtn.classList.toggle('primary', !running);
+    startBtn.classList.toggle('warn', running);
+  }
+  const total = participants.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
+  const max = Math.max(1, ...participants.map(p => Number(p.score) || 0));
+  $('#pkgPreview').innerHTML = `<div class="pkg-preview-box"><b>${escapeHtml(statusText)}</b>${participants.map(p => {
+    const score = Number(p.score) || 0;
+    const width = (st.layoutMode || pkGroupCfg?.layoutMode) === 'separated' ? Math.max(4, score / max * 100) : Math.max(4, total ? score / total * 100 : 100 / Math.max(1, participants.length));
+    const scoreColor = width >= 50 ? textColorForPreview(p.color || '#FE2C55') : '#111827';
+    return `<div class="pkg-preview-row"><span style="color:${escapeAttr(p.color || '#FE2C55')}">${escapeHtml(p.name || 'Creator')}</span><div><i style="width:${width}%;background:${escapeAttr(p.color || '#FE2C55')}"></i><b style="color:${escapeAttr(scoreColor)}">${formatNumber(score)}</b></div></div>`;
+  }).join('')}</div>`;
+}
+
+function textColorForPreview(bg) {
+  const m = String(bg || '').trim().match(/^#([0-9a-f]{6})$/i);
+  if (!m) return '#ffffff';
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return ((0.299 * r + 0.587 * g + 0.114 * b) / 255) > 0.62 ? '#111827' : '#ffffff';
+}
+
+// ============================================================
 // Ranking
 // ============================================================
 async function loadRankingConfig() {
@@ -1580,6 +1986,8 @@ async function loadRankingConfig() {
   $('#rkGridRows').value = st.gridRows || 3;
   $('#rkGridCols').value = st.gridCols || 3;
   $('#rkGridFlow').value = st.gridFlow || 'row';
+  $('#rkOverlayScale').value = st.overlayScale || 100;
+  $('#rkOverlayScaleValue').textContent = `${$('#rkOverlayScale').value}%`;
   renderRkPreview(st);
 }
 
@@ -1604,7 +2012,9 @@ function wireRankingTab() {
     gridRows: Number($('#rkGridRows').value) || 3,
     gridCols: Number($('#rkGridCols').value) || 3,
     gridFlow: $('#rkGridFlow').value,
+    overlayScale: Math.max(80, Math.min(300, Number($('#rkOverlayScale').value) || 100)),
   });
+  $('#rkOverlayScale').addEventListener('input', () => { $('#rkOverlayScaleValue').textContent = `${$('#rkOverlayScale').value}%`; updateRkRealtime(); });
   const updateRkRealtime = () => {
     clearTimeout(rkTimer);
     rkTimer = setTimeout(async () => {
@@ -2052,6 +2462,8 @@ async function loadScoreConfig() {
   $('#scWaveColor').value = st.waveColor || '#ffffff';
   $('#scBigThreshold').value = st.bigGiftThreshold || 500;
   $('#scPointsBy').value = st.pointsBy || 'diamond';
+  $('#scOverlayScale').value = st.overlayScale || 100;
+  $('#scOverlayScaleValue').textContent = `${$('#scOverlayScale').value}%`;
   $('#scMilestones').value = '';
   setSoundInput('scSndStart', st.startSound || '');
   setSoundInput('scSndWarn', st.warningSound || '');
@@ -2097,6 +2509,7 @@ function collectScoreCfg() {
     waveColor: $('#scWaveColor').value,
     bigGiftThreshold: Math.max(1, Number($('#scBigThreshold').value) || 500),
     pointsBy: $('#scPointsBy').value,
+    overlayScale: Math.max(80, Math.min(300, Number($('#scOverlayScale').value) || 100)),
     customMilestoneValues: milestones,
     startSound: gameplaySoundValue('scSndStart'),
     warningSound: gameplaySoundValue('scSndWarn'),
@@ -2162,6 +2575,7 @@ function wireScoreTab() {
   });
   $('#scTarget').addEventListener('input', syncScoreTargetFromScoreTab);
   ['scDurH', 'scDurM', 'scDurS'].forEach(id => $('#' + id).addEventListener('input', syncScoreDurationFromScoreTab));
+  $('#scOverlayScale').addEventListener('input', () => { $('#scOverlayScaleValue').textContent = `${$('#scOverlayScale').value}%`; scheduleScoreAutoSave(); });
   ['scPrep','scDelay','scTheme','scSize','scBarStyle','scHideAvatar','scHideCreator','scTimeColor','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
@@ -2329,10 +2743,10 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, rk, sc] = await Promise.all([
-    window.api.pkduo.getUrl(), window.api.ranking.getUrl(), window.api.score.getUrl(),
+  const [pk, pkg, rk, sc] = await Promise.all([
+    window.api.pkduo.getUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.score.getUrl(),
   ]);
-  $('#urlPk').value = pk; $('#urlRk').value = rk; $('#urlSc').value = sc;
+  $('#urlPk').value = pk; $('#urlPkg').value = pkg; $('#urlRk').value = rk; $('#urlSc').value = sc;
 }
 
 function wireOverlaysTab() {
@@ -2352,8 +2766,13 @@ function wireOverlaysTab() {
         bg: $('#ovlBg').value,
         chroma: $('#ovlChroma').value,
         showHost: $('#ovlShowHost').checked,
+        autoTextContrast: $('#ovlAutoTextContrast').checked,
       },
     });
+    if (pkGroupCfg) {
+      pkGroupCfg.autoTextContrast = $('#ovlAutoTextContrast').checked;
+      await window.api.pkgroup.setConfig(collectPkGroupCfg());
+    }
     $('#ovlW').value = w; $('#ovlH').value = h;
     toast('💾 Đã lưu cấu hình overlay (' + w + '×' + h + ')', 'success');
   });
@@ -2377,6 +2796,7 @@ async function loadSettings() {
   $('#ovlBg').value = ov.bg || 'transparent';
   $('#ovlChroma').value = ov.chroma || '#00FF00';
   $('#ovlShowHost').checked = !!ov.showHost;
+  $('#ovlAutoTextContrast').checked = !!ov.autoTextContrast;
   const audio = s.audio || {};
   if ($('#gameSoundEnabled')) $('#gameSoundEnabled').checked = audio.gameSoundEnabled !== false;
   await loadAudioOutputs(audio.outputDeviceId || 'default');

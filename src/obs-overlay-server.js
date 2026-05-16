@@ -26,9 +26,11 @@ class ObsOverlayServer {
     this.onLog = onLog || (() => {});
     this.server = null;
     this.pkDuoClients = new Set();
+    this.pkGroupClients = new Set();
     this.rankingClients = new Set();
     this.scoreClients = new Set();
     this.pkDuoState = {};
+    this.pkGroupState = {};
     this.rankingState = {};
     this.scoreState = {};
   }
@@ -44,7 +46,7 @@ class ObsOverlayServer {
   }
 
   stop() {
-    for (const set of [this.pkDuoClients, this.rankingClients, this.scoreClients]) {
+    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients]) {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
     }
@@ -53,10 +55,12 @@ class ObsOverlayServer {
   }
 
   getPkDuoUrl() { return `http://127.0.0.1:${this.port}/pk-duo?token=${encodeURIComponent(this.token)}`; }
+  getPkGroupUrl() { return `http://127.0.0.1:${this.port}/pk-group?token=${encodeURIComponent(this.token)}`; }
   getRankingUrl() { return `http://127.0.0.1:${this.port}/ranking?token=${encodeURIComponent(this.token)}`; }
   getScoreUrl() { return `http://127.0.0.1:${this.port}/score?token=${encodeURIComponent(this.token)}`; }
 
   sendPkDuo(state) { this.pkDuoState = state || {}; this._broadcast(this.pkDuoClients, 'pkduo', this.pkDuoState); }
+  sendPkGroup(state) { this.pkGroupState = state || {}; this._broadcast(this.pkGroupClients, 'pkgroup', this.pkGroupState); }
   sendRanking(state) { this.rankingState = state || {}; this._broadcast(this.rankingClients, 'ranking', this.rankingState); }
   sendScore(state) { this.scoreState = state || {}; this._broadcast(this.scoreClients, 'score', this.scoreState); }
 
@@ -76,6 +80,8 @@ class ObsOverlayServer {
     const staticMap = {
       '/pk-duo-overlay.js': 'renderer/pk-duo-overlay.js',
       '/pk-duo-overlay.css': 'renderer/pk-duo-overlay.css',
+      '/pk-group-overlay.js': 'renderer/pk-group-overlay.js',
+      '/pk-group-overlay.css': 'renderer/pk-group-overlay.css',
       '/ranking-overlay.js': 'renderer/ranking-overlay.js',
       '/ranking-overlay.css': 'renderer/ranking-overlay.css',
       '/score-overlay.js': 'renderer/score-overlay.js',
@@ -100,6 +106,9 @@ class ObsOverlayServer {
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo') {
       return this._serveFile(path.join(this.root, 'renderer', 'pk-duo-overlay.html'), res);
     }
+    if (req.method === 'GET' && reqUrl.pathname === '/pk-group') {
+      return this._serveFile(path.join(this.root, 'renderer', 'pk-group-overlay.html'), res);
+    }
     if (req.method === 'GET' && reqUrl.pathname === '/ranking') {
       return this._serveFile(path.join(this.root, 'renderer', 'ranking-overlay.html'), res);
     }
@@ -109,6 +118,7 @@ class ObsOverlayServer {
 
     // SSE event streams
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo-events') return this._sse(req, res, this.pkDuoClients, 'pkduo', this.pkDuoState);
+    if (req.method === 'GET' && reqUrl.pathname === '/pk-group-events') return this._sse(req, res, this.pkGroupClients, 'pkgroup', this.pkGroupState);
     if (req.method === 'GET' && reqUrl.pathname === '/ranking-events') return this._sse(req, res, this.rankingClients, 'ranking', this.rankingState);
     if (req.method === 'GET' && reqUrl.pathname === '/score-events') return this._sse(req, res, this.scoreClients, 'score', this.scoreState);
 

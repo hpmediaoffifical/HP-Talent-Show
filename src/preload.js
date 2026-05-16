@@ -32,6 +32,18 @@ const api = {
     getUrl: () => ipcRenderer.invoke('pkduo:getUrl'),
   },
 
+  // ===== PK Nhóm =====
+  pkgroup: {
+    getState: () => ipcRenderer.invoke('pkgroup:getState'),
+    setConfig: (cfg) => ipcRenderer.invoke('pkgroup:setConfig', cfg),
+    start: () => ipcRenderer.invoke('pkgroup:start'),
+    stop: () => ipcRenderer.invoke('pkgroup:stop'),
+    reset: () => ipcRenderer.invoke('pkgroup:reset'),
+    addPoints: (id, points) => ipcRenderer.invoke('pkgroup:addPoints', { id, points }),
+    testGift: (id) => ipcRenderer.invoke('pkgroup:testGift', { id }),
+    getUrl: () => ipcRenderer.invoke('pkgroup:getUrl'),
+  },
+
   // ===== Ranking (BXH) =====
   ranking: {
     getState: () => ipcRenderer.invoke('ranking:getState'),
@@ -81,7 +93,7 @@ const api = {
     const allowed = new Set([
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
-      'pkduo:state', 'ranking:state', 'score:state',
+      'pkduo:state', 'pkgroup:state', 'ranking:state', 'score:state',
       'log',
     ]);
     if (!allowed.has(channel)) return () => {};
