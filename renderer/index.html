@@ -10,6 +10,18 @@
 <body>
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
+  <div id="licenseOverlay" class="license-overlay" hidden>
+    <div class="license-card" role="dialog" aria-modal="true">
+      <img src="../logo/hp-logo.png" alt="" />
+      <h2>HP Talent Show</h2>
+      <p class="sub">Nhập KEY bản quyền để sử dụng ứng dụng.</p>
+      <input id="licenseKeyInput" placeholder="Ví dụ: HPSTUDIO_01" autocomplete="off" />
+      <button id="licenseActivateBtn" class="primary" type="button">Kích hoạt</button>
+      <div id="licenseOverlayStatus" class="license-status muted">KEY được kiểm tra từ Google Sheet KEY_TALENT_SHOW.</div>
+      <small id="licenseDeviceId"></small>
+    </div>
+  </div>
+
   <div id="userPopup" class="user-popup-overlay" hidden>
     <div class="user-popup" role="dialog" aria-modal="true">
       <button id="userPopupClose" class="user-popup-close" type="button">×</button>
@@ -80,7 +92,7 @@
       </nav>
       <div class="sidebar-foot">
         <button class="nav-btn" data-tab="settings">⚙️ <span>CÀI ĐẶT</span></button>
-        <span class="ver">PHIÊN BẢN: V0.1.0</span>
+        <span class="ver">PHIÊN BẢN: V<span id="appVersionText">0.1.0</span></span>
       </div>
     </aside>
 
@@ -647,6 +659,29 @@
             <button id="btnSaveOverlay" class="primary" type="button">💾 Lưu cấu hình Overlay</button>
           </div>
           <div class="hint">💡 Khuyến nghị OBS Browser Source: <b>2160×3840</b> cho overlay dọc rõ nét hơn. Nếu stream ngang, có thể crop/scale trong OBS.</div>
+        </div>
+
+        <div class="card license-settings-card">
+          <h3>🔐 Bản quyền & Cập nhật</h3>
+          <div class="license-info-grid">
+            <label>KEY bản quyền
+              <input id="licenseKeySettings" placeholder="HPSTUDIO_01" autocomplete="off" />
+            </label>
+            <label>Thiết bị
+              <input id="licenseDeviceSettings" readonly />
+            </label>
+            <div class="license-box"><span>VIP</span><b id="licenseVipText">—</b></div>
+            <div class="license-box"><span>Hạn sử dụng</span><b id="licenseExpireText">—</b></div>
+            <div class="license-box"><span>Trạng thái</span><b id="licenseStatusText">Chưa kiểm tra</b></div>
+            <div class="license-box"><span>Phiên bản</span><b id="licenseVersionText">—</b></div>
+          </div>
+          <div class="form-actions">
+            <button id="licenseActivateSettings" class="primary" type="button">Kích hoạt / Kiểm tra KEY</button>
+            <button id="licenseClearSettings" class="ghost" type="button">Xóa KEY máy này</button>
+            <button id="btnCheckUpdate" class="ghost" type="button">Kiểm tra cập nhật</button>
+            <button id="btnInstallUpdate" class="primary" type="button" hidden>Tải & cài bản mới</button>
+          </div>
+          <div id="updateStatus" class="hint">Ứng dụng sẽ tự kiểm tra bản mới từ GitHub Releases khi mở app.</div>
         </div>
 
         <div class="card overlay-links">

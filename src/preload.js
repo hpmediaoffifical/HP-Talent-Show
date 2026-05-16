@@ -88,6 +88,22 @@ const api = {
     set: (patch) => ipcRenderer.invoke('settings:set', patch),
   },
 
+  license: {
+    get: () => ipcRenderer.invoke('license:get'),
+    activate: (key) => ipcRenderer.invoke('license:activate', key),
+    check: () => ipcRenderer.invoke('license:check'),
+    clear: () => ipcRenderer.invoke('license:clear'),
+  },
+
+  updates: {
+    check: () => ipcRenderer.invoke('updates:check'),
+    install: (info) => ipcRenderer.invoke('updates:install', info),
+  },
+
+  app: {
+    getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  },
+
   // ===== Events from main =====
   on: (channel, handler) => {
     const allowed = new Set([

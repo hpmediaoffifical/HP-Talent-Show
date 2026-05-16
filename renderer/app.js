@@ -95,6 +95,7 @@ let chatFontSize = 18;
 const userAvatarCache = new Map();
 const giftDonors = new Set();
 const logInteractAt = { chatList: 0, giftList: 0 };
+let latestUpdateInfo = null;
 
 function giftToPkGift(g) {
   return { giftName: g.name, giftId: g.id, icon: g.icon, diamond: g.diamond };
@@ -402,6 +403,7 @@ async function loadGiftMaster() {
 // Init
 // ============================================================
 async function init() {
+  await initLicenseGate();
   await loadGiftMaster();
   await refreshCreators();
   await refreshGroups();
@@ -423,6 +425,120 @@ async function init() {
   wireSettingsTab();
   loadLiveBanners();
   startLiveTickerAutoRefresh();
+  checkUpdatesOnStartup();
+}
+
+async function initLicenseGate() {
+  wireLicenseUi();
+  const version = await window.api.app.getVersion().catch(() => '0.1.0');
+  $('#appVersionText').textContent = version;
+  const st = await window.api.license.check().catch(e => ({ ok: false, error: e.message || String(e), license: {} }));
+  renderLicenseState(st);
+  if (!st.ok) showLicenseOverlay(st.error || 'Chưa kích hoạt KEY bản quyền.');
+}
+
+function showLicenseOverlay(message = '') {
+  const ov = $('#licenseOverlay');
+  if (!ov) return;
+  ov.hidden = false;
+  $('#licenseOverlayStatus').textContent = message;
+  $('#licenseKeyInput').focus();
+}
+
+function hideLicenseOverlay() {
+  const ov = $('#licenseOverlay');
+  if (ov) ov.hidden = true;
+}
+
+function renderLicenseState(st = {}) {
+  const license = st.license || st || {};
+  const key = license.key || '';
+  if ($('#licenseKeyInput') && key) $('#licenseKeyInput').value = key;
+  if ($('#licenseKeySettings')) $('#licenseKeySettings').value = key;
+  if ($('#licenseDeviceId')) $('#licenseDeviceId').textContent = `Thiết bị: ${license.deviceId || ''}`;
+  if ($('#licenseDeviceSettings')) $('#licenseDeviceSettings').value = license.deviceId || '';
+  if ($('#licenseVipText')) $('#licenseVipText').textContent = license.vip || '—';
+  if ($('#licenseExpireText')) $('#licenseExpireText').textContent = license.expiresAt || '—';
+  if ($('#licenseStatusText')) $('#licenseStatusText').textContent = st.ok ? (st.offline ? 'Hợp lệ (offline)' : 'Hợp lệ') : (st.error || license.status || 'Không hợp lệ');
+  if ($('#licenseVersionText')) $('#licenseVersionText').textContent = license.appVersion || $('#appVersionText')?.textContent || '—';
+}
+
+async function activateLicenseFrom(inputId) {
+  const key = $('#' + inputId)?.value.trim();
+  const btn = inputId === 'licenseKeyInput' ? $('#licenseActivateBtn') : $('#licenseActivateSettings');
+  if (btn) btn.disabled = true;
+  try {
+    const st = await window.api.license.activate(key);
+    renderLicenseState(st);
+    if (!st.ok) {
+      $('#licenseOverlayStatus').textContent = st.error || 'KEY không hợp lệ.';
+      toast(st.error || 'KEY không hợp lệ', 'error');
+      return;
+    }
+    hideLicenseOverlay();
+    toast('Đã kích hoạt bản quyền', 'success');
+  } catch (e) {
+    const msg = e.message || String(e);
+    $('#licenseOverlayStatus').textContent = msg;
+    toast(msg, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function wireLicenseUi() {
+  $('#licenseActivateBtn')?.addEventListener('click', () => activateLicenseFrom('licenseKeyInput'));
+  $('#licenseKeyInput')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') activateLicenseFrom('licenseKeyInput'); });
+  $('#licenseActivateSettings')?.addEventListener('click', () => activateLicenseFrom('licenseKeySettings'));
+  $('#licenseClearSettings')?.addEventListener('click', async () => {
+    if (!await askConfirm('Xóa KEY đã lưu trên máy này?', 'Xóa KEY')) return;
+    const st = await window.api.license.clear();
+    renderLicenseState(st);
+    showLicenseOverlay('Đã xóa KEY. Vui lòng kích hoạt lại.');
+  });
+  $('#btnCheckUpdate')?.addEventListener('click', () => checkForUpdate(true));
+  $('#btnInstallUpdate')?.addEventListener('click', installLatestUpdate);
+}
+
+async function checkForUpdate(manual = false) {
+  const status = $('#updateStatus');
+  if (status) status.textContent = 'Đang kiểm tra bản cập nhật...';
+  try {
+    latestUpdateInfo = await window.api.updates.check();
+    if (latestUpdateInfo.hasUpdate) {
+      if (status) status.textContent = `Có bản mới ${latestUpdateInfo.latest}. Bản hiện tại ${latestUpdateInfo.current}.`;
+      $('#btnInstallUpdate').hidden = false;
+      toast(`Có bản mới ${latestUpdateInfo.latest}`, 'success');
+    } else {
+      if (status) status.textContent = `Đang dùng bản mới nhất (${latestUpdateInfo.current}).`;
+      $('#btnInstallUpdate').hidden = true;
+      if (manual) toast('Đang dùng bản mới nhất', 'success');
+    }
+  } catch (e) {
+    const msg = e.message || String(e);
+    if (status) status.textContent = `Không kiểm tra được cập nhật: ${msg}`;
+    if (manual) toast(msg, 'error');
+  }
+}
+
+function checkUpdatesOnStartup() {
+  setTimeout(() => checkForUpdate(false), 1800);
+}
+
+async function installLatestUpdate() {
+  if (!latestUpdateInfo) await checkForUpdate(true);
+  if (!latestUpdateInfo?.hasUpdate) return;
+  $('#btnInstallUpdate').disabled = true;
+  $('#updateStatus').textContent = 'Đang tải bản cập nhật, vui lòng chờ...';
+  try {
+    await window.api.updates.install(latestUpdateInfo);
+    $('#updateStatus').textContent = 'Đã mở installer. Ứng dụng sẽ tự đóng để cập nhật.';
+  } catch (e) {
+    $('#btnInstallUpdate').disabled = false;
+    const msg = e.message || String(e);
+    $('#updateStatus').textContent = `Cập nhật thất bại: ${msg}`;
+    toast(msg, 'error');
+  }
 }
 
 function startLiveTickerAutoRefresh() {

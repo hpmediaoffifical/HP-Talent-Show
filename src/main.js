@@ -8,6 +8,7 @@ const { app, BrowserWindow, ipcMain, shell, clipboard, nativeImage, dialog, scre
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const os = require('os');
 const { TikTokClient } = require('./tiktok-client');
 const { ObsOverlayServer } = require('./obs-overlay-server');
 
@@ -25,6 +26,9 @@ const PK_GROUP_PATH = path.join(CONFIG_DIR, 'pk-group.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
 const SHIPPED_GIFT_MASTER_PATH = path.join(SHIPPED_CONFIG_DIR, 'gift-master.json');
 const GIFT_MASTER_SHEET = 'https://docs.google.com/spreadsheets/d/1Fv9Jdno_pPMTx_-tnwSfRObm1r1wKds_gaMBnfCDm4M/gviz/tq?tqx=out:csv&sheet=DANH%20SACH%20QUA';
+const LICENSE_SHEET = 'https://docs.google.com/spreadsheets/d/1Fv9Jdno_pPMTx_-tnwSfRObm1r1wKds_gaMBnfCDm4M/gviz/tq?tqx=out:csv&sheet=KEY_TALENT_SHOW';
+const GITHUB_RELEASES_API = 'https://api.github.com/repos/hpmediaoffifical/HP-Talent-Show/releases/latest';
+const GITHUB_RELEASES_URL = 'https://github.com/hpmediaoffifical/HP-Talent-Show/releases/latest';
 const BANNER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=Banner';
 const TICKER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=CH%E1%BB%AE%20TH%C3%94NG%20B%C3%81O';
 
@@ -104,6 +108,15 @@ function loadSettings() {
       preEffectSound: '',
       preEffectVolume: 100,
     },
+    license: {
+      key: '',
+      vip: '',
+      expiresAt: '',
+      status: '',
+      activatedAt: 0,
+      checkedAt: 0,
+      deviceId: '',
+    },
   };
   const raw = loadJson(SETTINGS_PATH, null);
   if (!raw) { saveJson(SETTINGS_PATH, def); return def; }
@@ -177,6 +190,128 @@ async function refreshCreatorAvatars() {
   }
 }
 function saveSettings() { saveJson(SETTINGS_PATH, settings); }
+
+function getDeviceId() {
+  const raw = [os.hostname(), os.userInfo().username, USER_DATA_DIR].join('|');
+  return crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16).toUpperCase();
+}
+
+function parseLicenseDate(value) {
+  const s = String(value || '').trim();
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 23, 59, 59, 999);
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function normalizeSheetStatus(value) {
+  return String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+async function fetchLicenseRows() {
+  const res = await fetch(LICENSE_SHEET, { headers: { 'User-Agent': 'HP Talent Show' } });
+  if (!res.ok) throw new Error('License Sheet HTTP ' + res.status);
+  const rows = parseCsvRows(await res.text());
+  return rows.slice(1).map(r => ({
+    key: String(r[0] || '').trim(),
+    expiresText: String(r[1] || '').trim(),
+    vip: String(r[2] || '').trim(),
+    status: String(r[3] || '').trim(),
+  })).filter(r => r.key);
+}
+
+async function validateLicenseKey(key) {
+  const cleanKey = String(key || '').trim();
+  if (!cleanKey) return { ok: false, error: 'Vui lòng nhập KEY bản quyền.' };
+  const rows = await fetchLicenseRows();
+  const row = rows.find(r => r.key.toLowerCase() === cleanKey.toLowerCase());
+  if (!row) return { ok: false, error: 'KEY không tồn tại trong Google Sheet.' };
+  const statusNorm = normalizeSheetStatus(row.status);
+  if (/(khoa|lock|block|tam dung|vo hieu|huy)/.test(statusNorm)) return { ok: false, error: `KEY đang bị khóa hoặc vô hiệu: ${row.status}` };
+  const expires = parseLicenseDate(row.expiresText);
+  if (!expires) return { ok: false, error: 'Ngày hết hạn KEY không hợp lệ.' };
+  if (expires.getTime() < Date.now()) return { ok: false, error: `KEY đã hết hạn: ${row.expiresText}` };
+  const license = {
+    key: row.key,
+    vip: row.vip || '',
+    expiresAt: row.expiresText,
+    status: row.status || '',
+    activatedAt: settings.license?.activatedAt || Date.now(),
+    checkedAt: Date.now(),
+    deviceId: getDeviceId(),
+  };
+  settings.license = license;
+  saveSettings();
+  return { ok: true, license };
+}
+
+async function checkStoredLicense() {
+  const key = settings.license?.key || '';
+  if (!key) return { ok: false, activated: false, error: 'Chưa kích hoạt KEY bản quyền.', license: { ...(settings.license || {}), deviceId: getDeviceId() } };
+  try {
+    return await validateLicenseKey(key);
+  } catch (e) {
+    const expires = parseLicenseDate(settings.license?.expiresAt);
+    const offlineOk = expires && expires.getTime() >= Date.now();
+    return {
+      ok: !!offlineOk,
+      offline: true,
+      error: offlineOk ? 'Không kiểm tra được sheet, dùng trạng thái bản quyền đã lưu.' : (e.message || String(e)),
+      license: { ...(settings.license || {}), deviceId: getDeviceId() },
+    };
+  }
+}
+
+function versionParts(v) {
+  return String(v || '').replace(/^v/i, '').split(/[.-]/).map(x => parseInt(x, 10) || 0);
+}
+
+function compareVersions(a, b) {
+  const av = versionParts(a), bv = versionParts(b);
+  for (let i = 0; i < Math.max(av.length, bv.length); i++) {
+    const d = (av[i] || 0) - (bv[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+async function checkForUpdate() {
+  const current = app.getVersion();
+  const res = await fetch(GITHUB_RELEASES_API, { headers: { 'User-Agent': 'HP Talent Show' } });
+  if (!res.ok) throw new Error('GitHub Releases HTTP ' + res.status);
+  const release = await res.json();
+  const latest = String(release.tag_name || release.name || '').replace(/^v/i, '') || current;
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  const asset = assets.find(a => /HP-Talent-Show-Setup-.*\.exe$/i.test(a.name || '')) || assets.find(a => /\.exe$/i.test(a.name || '')) || null;
+  return {
+    ok: true,
+    current,
+    latest,
+    hasUpdate: compareVersions(latest, current) > 0,
+    name: release.name || release.tag_name || '',
+    notes: release.body || '',
+    pageUrl: release.html_url || GITHUB_RELEASES_URL,
+    downloadUrl: asset?.browser_download_url || '',
+    assetName: asset?.name || '',
+  };
+}
+
+async function downloadAndInstallUpdate(downloadUrl, assetName = '') {
+  if (!downloadUrl) {
+    await shell.openExternal(GITHUB_RELEASES_URL);
+    return { ok: false, opened: true, error: 'Không tìm thấy file installer, đã mở trang release.' };
+  }
+  const dir = path.join(USER_DATA_DIR, 'updates');
+  fs.mkdirSync(dir, { recursive: true });
+  const safeName = String(assetName || path.basename(new URL(downloadUrl).pathname) || 'HP-Talent-Show-Setup.exe').replace(/[\\/:*?"<>|]/g, '_');
+  const file = path.join(dir, safeName);
+  const res = await fetch(downloadUrl, { headers: { 'User-Agent': 'HP Talent Show' } });
+  if (!res.ok) throw new Error('Không tải được bản cập nhật HTTP ' + res.status);
+  fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+  await shell.openPath(file);
+  setTimeout(() => app.quit(), 1200);
+  return { ok: true, file };
+}
 
 function isUsableWindowBounds(bounds) {
   if (!bounds || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y) || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return false;
@@ -1475,6 +1610,19 @@ function registerIpc() {
     }
     return true;
   });
+
+  // License + updates
+  ipcMain.handle('license:get', () => ({ ...(settings.license || {}), deviceId: getDeviceId(), appVersion: app.getVersion() }));
+  ipcMain.handle('license:activate', async (_e, key) => validateLicenseKey(key));
+  ipcMain.handle('license:check', async () => checkStoredLicense());
+  ipcMain.handle('license:clear', () => {
+    settings.license = { key: '', vip: '', expiresAt: '', status: '', activatedAt: 0, checkedAt: 0, deviceId: getDeviceId() };
+    saveSettings();
+    return { ok: true, license: settings.license };
+  });
+  ipcMain.handle('app:getVersion', () => app.getVersion());
+  ipcMain.handle('updates:check', async () => checkForUpdate());
+  ipcMain.handle('updates:install', async (_e, info = {}) => downloadAndInstallUpdate(info.downloadUrl, info.assetName));
 
   // Gift Master
   ipcMain.handle('gifts:list', () => ({
