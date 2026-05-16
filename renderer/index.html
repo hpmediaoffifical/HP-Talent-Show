@@ -92,7 +92,7 @@
       </nav>
       <div class="sidebar-foot">
         <button class="nav-btn" data-tab="settings">⚙️ <span>CÀI ĐẶT</span></button>
-        <span class="ver">PHIÊN BẢN: V<span id="appVersionText">0.1.0</span></span>
+        <button id="versionCheckBtn" class="ver version-check" type="button" title="Bấm để kiểm tra cập nhật">PHIÊN BẢN: V<span id="appVersionText">0.1.0</span></button>
       </div>
     </aside>
 
@@ -687,23 +687,35 @@
         <div class="card overlay-links">
           <div class="ovl-row">
             <label>⚔️ PK Đôi</label>
+            <span class="obs-size">OBS 1600×720</span>
             <input id="urlPk" readonly />
             <button class="primary" data-copy="urlPk" type="button">📋 Copy</button>
+            <button class="ghost" data-review-toggle="pkduo" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="pkduo" type="button">📌 Nổi</button>
           </div>
           <div class="ovl-row">
             <label>🧩 PK NHÓM</label>
+            <span class="obs-size">OBS 2284×1150</span>
             <input id="urlPkg" readonly />
             <button class="primary" data-copy="urlPkg" type="button">📋 Copy</button>
+            <button class="ghost" data-review-toggle="pkgroup" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="pkgroup" type="button">📌 Nổi</button>
           </div>
           <div class="ovl-row">
             <label>🏆 THI ĐẤU NHÓM</label>
+            <span class="obs-size">OBS 900×1600</span>
             <input id="urlRk" readonly />
             <button class="primary" data-copy="urlRk" type="button">📋 Copy</button>
+            <button class="ghost" data-review-toggle="ranking" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="ranking" type="button">📌 Nổi</button>
           </div>
           <div class="ovl-row">
             <label>🎯 Score</label>
+            <span class="obs-size">OBS 1400×520</span>
             <input id="urlSc" readonly />
             <button class="primary" data-copy="urlSc" type="button">📋 Copy</button>
+            <button class="ghost" data-review-toggle="score" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="score" type="button">📌 Nổi</button>
           </div>
         </div>
         <div class="card audio-settings-card">

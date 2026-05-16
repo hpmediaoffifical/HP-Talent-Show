@@ -1,5 +1,6 @@
 // PK Đôi overlay — adapt từ BIGO Action
 const token = new URLSearchParams(location.search).get('token') || '';
+if (new URLSearchParams(location.search).get('review') === '1') document.body.classList.add('overlay-review');
 const root = document.getElementById('pkDuoRoot');
 const audio = document.getElementById('pkSound');
 

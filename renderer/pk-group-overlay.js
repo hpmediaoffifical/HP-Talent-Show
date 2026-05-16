@@ -1,4 +1,5 @@
 const token = new URLSearchParams(location.search).get('token') || '';
+if (new URLSearchParams(location.search).get('review') === '1') document.body.classList.add('overlay-review');
 const root = document.getElementById('pkGroupRoot');
 let noteEl = null;
 let noteKey = '';

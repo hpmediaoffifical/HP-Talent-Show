@@ -89,7 +89,7 @@ let bannerIndex = 0;
 let bannerTimer = null;
 let tickerItems = [];
 let tickerTimer = null;
-const TICKER_REFRESH_MS = 30_000;
+const TICKER_REFRESH_MS = 60_000;
 const collapsedCreatorGroups = new Set();
 let chatFontSize = 18;
 const userAvatarCache = new Map();
@@ -498,6 +498,7 @@ function wireLicenseUi() {
   });
   $('#btnCheckUpdate')?.addEventListener('click', () => checkForUpdate(true));
   $('#btnInstallUpdate')?.addEventListener('click', installLatestUpdate);
+  $('#versionCheckBtn')?.addEventListener('click', () => checkForUpdate(true));
 }
 
 async function checkForUpdate(manual = false) {
@@ -2863,6 +2864,23 @@ async function refreshOverlayUrls() {
     window.api.pkduo.getUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.score.getUrl(),
   ]);
   $('#urlPk').value = pk; $('#urlPkg').value = pkg; $('#urlRk').value = rk; $('#urlSc').value = sc;
+  await refreshReviewButtons();
+}
+
+async function refreshReviewButtons() {
+  const state = await window.api.review.getState().catch(() => ({}));
+  $$('[data-review-toggle]').forEach(btn => {
+    const type = btn.dataset.reviewToggle;
+    const open = !!state[type]?.open;
+    btn.classList.toggle('is-on', open);
+    btn.textContent = open ? 'Đóng Review' : '🖥 Review';
+  });
+  $$('[data-review-top]').forEach(btn => {
+    const type = btn.dataset.reviewTop;
+    const on = state[type]?.alwaysOnTop !== false;
+    btn.classList.toggle('is-on', on);
+    btn.textContent = on ? '📌 Nổi bật' : '📍 Thường';
+  });
 }
 
 function wireOverlaysTab() {
@@ -2870,6 +2888,24 @@ function wireOverlaysTab() {
     const v = $('#' + b.dataset.copy).value;
     await window.api.shell.copyText(v);
     toast('📋 Đã copy', 'success');
+  }));
+
+  $$('[data-review-toggle]').forEach(btn => btn.addEventListener('click', async () => {
+    const type = btn.dataset.reviewToggle;
+    const state = await window.api.review.getState().catch(() => ({}));
+    const r = state[type]?.open ? await window.api.review.close(type) : await window.api.review.open(type);
+    if (!r?.ok) { toast(r?.error || 'Không thao tác được Overlay Review', 'error'); return; }
+    await refreshReviewButtons();
+    toast(state[type]?.open ? 'Đã đóng Overlay Review' : 'Đã mở Overlay Review', 'success');
+  }));
+
+  $$('[data-review-top]').forEach(btn => btn.addEventListener('click', async () => {
+    const type = btn.dataset.reviewTop;
+    const state = await window.api.review.getState().catch(() => ({}));
+    const next = state[type]?.alwaysOnTop === false;
+    await window.api.review.setAlwaysOnTop(type, next);
+    await refreshReviewButtons();
+    toast(next ? 'Overlay Review luôn nổi' : 'Overlay Review không luôn nổi', 'success');
   }));
 
   $('#btnSaveOverlay').addEventListener('click', async () => {

@@ -57,6 +57,7 @@ let pkGroupEngine = null;
 let rankingEngine = null;
 let scoreEngine = null;
 let settings = loadSettings();
+const reviewWindows = new Map();
 let creatorAvatarRefreshTimer = null;
 let creatorAvatarRefreshRunning = false;
 const CREATOR_AVATAR_TTL_MS = 6 * 60 * 60 * 1000;
@@ -108,6 +109,7 @@ function loadSettings() {
       preEffectSound: '',
       preEffectVolume: 100,
     },
+    reviewWindows: {},
     license: {
       key: '',
       vip: '',
@@ -328,6 +330,114 @@ function rememberWindowBounds() {
     settings.windowBounds = win.getBounds();
     saveSettings();
   } catch {}
+}
+
+const REVIEW_META = {
+  pkduo: { title: 'Review PK Đôi', getUrl: () => overlayServer?.getPkDuoUrl(), width: 900, height: 320 },
+  pkgroup: { title: 'Review PK Nhóm', getUrl: () => overlayServer?.getPkGroupUrl(), width: 1280, height: 420 },
+  score: { title: 'Review Tính điểm', getUrl: () => overlayServer?.getScoreUrl(), width: 900, height: 300 },
+  ranking: { title: 'Review Thi đấu', getUrl: () => overlayServer?.getRankingUrl(), width: 420, height: 900 },
+};
+
+function reviewUrlFor(type) {
+  const base = REVIEW_META[type]?.getUrl?.();
+  if (!base) return '';
+  const u = new URL(base);
+  u.searchParams.set('review', '1');
+  return u.toString();
+}
+
+function saveReviewBounds(type, rw) {
+  if (!rw || rw.isDestroyed()) return;
+  settings.reviewWindows = settings.reviewWindows || {};
+  settings.reviewWindows[type] = {
+    ...(settings.reviewWindows[type] || {}),
+    bounds: rw.getBounds(),
+    alwaysOnTop: rw.isAlwaysOnTop(),
+  };
+  saveSettings();
+}
+
+function openReviewWindow(type) {
+  const meta = REVIEW_META[type];
+  if (!meta) return { ok: false, error: 'Overlay Review không hợp lệ.' };
+  const existing = reviewWindows.get(type);
+  if (existing && !existing.isDestroyed()) {
+    existing.show();
+    existing.focus();
+    return { ok: true, open: true, alwaysOnTop: existing.isAlwaysOnTop() };
+  }
+  const saved = settings.reviewWindows?.[type] || {};
+  const bounds = isUsableWindowBounds(saved.bounds) ? saved.bounds : {};
+  const rw = new BrowserWindow({
+    width: bounds.width || meta.width,
+    height: bounds.height || meta.height,
+    x: bounds.x,
+    y: bounds.y,
+    minWidth: 220,
+    minHeight: 120,
+    frame: false,
+    transparent: true,
+    resizable: true,
+    movable: true,
+    skipTaskbar: false,
+    hasShadow: false,
+    alwaysOnTop: saved.alwaysOnTop !== false,
+    title: meta.title,
+    backgroundColor: '#00000000',
+    icon: APP_ICON || undefined,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  reviewWindows.set(type, rw);
+  rw.setMenu(null);
+  rw.loadURL(reviewUrlFor(type));
+  let timer = null;
+  const scheduleSave = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => saveReviewBounds(type, rw), 250);
+  };
+  rw.on('move', scheduleSave);
+  rw.on('resize', scheduleSave);
+  rw.on('close', () => saveReviewBounds(type, rw));
+  rw.on('closed', () => reviewWindows.delete(type));
+  return { ok: true, open: true, alwaysOnTop: rw.isAlwaysOnTop() };
+}
+
+function closeReviewWindow(type) {
+  const rw = reviewWindows.get(type);
+  if (rw && !rw.isDestroyed()) rw.close();
+  return { ok: true, open: false };
+}
+
+function setReviewAlwaysOnTop(type, value) {
+  const rw = reviewWindows.get(type);
+  const on = !!value;
+  settings.reviewWindows = settings.reviewWindows || {};
+  settings.reviewWindows[type] = { ...(settings.reviewWindows[type] || {}), alwaysOnTop: on };
+  if (rw && !rw.isDestroyed()) {
+    rw.setAlwaysOnTop(on, on ? 'screen-saver' : 'normal');
+    saveReviewBounds(type, rw);
+  } else {
+    saveSettings();
+  }
+  return { ok: true, alwaysOnTop: on, open: !!(rw && !rw.isDestroyed()) };
+}
+
+function getReviewState() {
+  const state = {};
+  for (const type of Object.keys(REVIEW_META)) {
+    const rw = reviewWindows.get(type);
+    state[type] = {
+      open: !!(rw && !rw.isDestroyed()),
+      alwaysOnTop: rw && !rw.isDestroyed() ? rw.isAlwaysOnTop() : settings.reviewWindows?.[type]?.alwaysOnTop !== false,
+      bounds: rw && !rw.isDestroyed() ? rw.getBounds() : settings.reviewWindows?.[type]?.bounds || null,
+    };
+  }
+  return state;
 }
 
 // =================================================================
@@ -1580,6 +1690,12 @@ function registerIpc() {
   ipcMain.handle('score:reset', () => { scoreEngine.reset(); return true; });
   ipcMain.handle('score:addPoints', (_e, { points, user } = {}) => { scoreEngine.addPoints(points, user); return true; });
   ipcMain.handle('score:getUrl', () => overlayServer.getScoreUrl());
+
+  // Overlay Review windows
+  ipcMain.handle('review:open', (_e, type) => openReviewWindow(type));
+  ipcMain.handle('review:close', (_e, type) => closeReviewWindow(type));
+  ipcMain.handle('review:alwaysOnTop', (_e, { type, value }) => setReviewAlwaysOnTop(type, value));
+  ipcMain.handle('review:getState', () => getReviewState());
 
   // Settings
   ipcMain.handle('settings:get', () => ({

@@ -67,6 +67,13 @@ const api = {
     getUrl: () => ipcRenderer.invoke('score:getUrl'),
   },
 
+  review: {
+    open: (type) => ipcRenderer.invoke('review:open', type),
+    close: (type) => ipcRenderer.invoke('review:close', type),
+    setAlwaysOnTop: (type, value) => ipcRenderer.invoke('review:alwaysOnTop', { type, value }),
+    getState: () => ipcRenderer.invoke('review:getState'),
+  },
+
   // ===== Gift Master =====
   gifts: {
     list: () => ipcRenderer.invoke('gifts:list'),

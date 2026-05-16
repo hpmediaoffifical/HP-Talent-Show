@@ -1,6 +1,7 @@
 // Ranking overlay — port từ BIGO, hỗ trợ vertical + grid (?grid=1)
 const token = new URLSearchParams(location.search).get('token') || '';
 const layoutGrid = new URLSearchParams(location.search).get('grid') === '1';
+if (new URLSearchParams(location.search).get('review') === '1') document.body.classList.add('overlay-review');
 const root = document.getElementById('rankingRoot');
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
