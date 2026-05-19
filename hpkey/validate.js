@@ -23,6 +23,7 @@ async function validateLicenseKey(key, deviceId) {
     license: {
       key: p.k,
       vip: p.r || 'ADMIN',           // role ADMIN/VIP/CREATOR
+      allowedIds: Array.isArray(p.ids) ? p.ids : [], // VIP: chỉ kết nối các ID này (rỗng = không giới hạn)
       expiresAt: fmtDmy(p.exp),
       status: 'active',
       activatedAt: Date.now(),

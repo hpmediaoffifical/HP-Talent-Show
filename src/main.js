@@ -1589,6 +1589,15 @@ async function bootstrapOverlay() {
 function registerIpc() {
   // TikTok
   ipcMain.handle('tt:connect', async (_e, { username, opts }) => {
+    // === VIP allow-list: chỉ cho kết nối các TikTok ID trong danh sách của key ===
+    const _lic = settings.license || {};
+    if (String(_lic.vip || '').toUpperCase() === 'VIP'
+        && Array.isArray(_lic.allowedIds) && _lic.allowedIds.length) {
+      const _u = String(username || '').replace(/^@/, '').toLowerCase().trim();
+      if (_lic.allowedIds.indexOf(_u) < 0) {
+        return { ok: false, error: 'TikTok ID này không nằm trong danh sách được phép của key VIP.\nLIÊN HỆ HP MEDIA ĐỂ ĐƯỢC HỖ TRỢ', _vipNotAllowed: true };
+      }
+    }
     const merged = {
       signApiKey: settings.signApiKey || undefined,
       sessionId: settings.sessionId || undefined,
