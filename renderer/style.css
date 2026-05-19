@@ -746,10 +746,12 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .overlay-links { display: flex; flex-direction: column; gap: 10px; }
 .ovl-row { display: flex; gap: 8px; align-items: center; }
 .ovl-row label { min-width: 118px; font-weight: 600; font-size: 13px; }
-.obs-size { flex:0 0 auto; min-width:118px; padding:7px 9px; border-radius:999px; background:linear-gradient(135deg,#eefbff,#fff7fb); border:1px solid rgba(37,244,238,.22); color:var(--tt-ink-2); font-size:12px; font-weight:900; text-align:center; white-space:nowrap; }
 .ovl-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--tt-border); border-radius: var(--r-sm); font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--tt-bg-2); color: var(--tt-ink-2); }
 .ovl-row button { flex:0 0 auto; padding:8px 10px; white-space:nowrap; }
 .ovl-row button.is-on { background:linear-gradient(135deg,#fff4cc,#ffe08a); border-color:#f59e0b; color:#7a4b00; }
+.ovl-row .review-bg-picker { flex:0 0 38px; width:38px; min-width:38px; height:34px; padding:3px; cursor:pointer; }
+.ovl-row .review-bg-picker.is-transparent { background:linear-gradient(45deg,#ddd 25%,transparent 25% 75%,#ddd 75%),linear-gradient(45deg,#ddd 25%,#fff 25% 75%,#ddd 75%); background-size:10px 10px; background-position:0 0,5px 5px; }
+.ovl-row .review-bg-alpha { flex:0 0 86px; width:86px; min-width:86px; height:34px; padding:0; accent-color:#25f4ee; }
 
 /* ===== Toast ===== */
 .toast-container {

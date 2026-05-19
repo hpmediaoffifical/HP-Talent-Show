@@ -3,5 +3,5 @@ html, body { margin: 0; padding: 0; background: transparent; font-family: 'Inter
 * { box-sizing: border-box; }
 img { display: block; max-width: 100%; image-rendering: auto; }
 #pkDuoRoot, #pkGroupRoot, #rankingRoot, #scoreRoot { transform: translateZ(0); backface-visibility: hidden; }
-body.overlay-review { -webkit-app-region: drag; user-select: none; cursor: move; }
+body.overlay-review { -webkit-app-region: drag; user-select: none; cursor: move; background: var(--review-bg, transparent); }
 body.overlay-review * { -webkit-app-region: drag; }

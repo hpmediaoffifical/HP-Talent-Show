@@ -339,11 +339,34 @@ const REVIEW_META = {
   ranking: { title: 'Review Thi đấu', getUrl: () => overlayServer?.getRankingUrl(), width: 420, height: 900 },
 };
 
+function normalizeReviewBg(value) {
+  const s = String(value || '').trim();
+  return /^#[0-9a-f]{6}$/i.test(s) ? s : 'transparent';
+}
+
+function normalizeReviewAlpha(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(0, Math.min(1, n));
+}
+
+function reviewCssBackground(type) {
+  const saved = settings.reviewWindows?.[type] || {};
+  const bg = normalizeReviewBg(saved.background);
+  if (bg === 'transparent') return 'transparent';
+  const alpha = normalizeReviewAlpha(saved.backgroundAlpha ?? 1);
+  const r = parseInt(bg.slice(1, 3), 16);
+  const g = parseInt(bg.slice(3, 5), 16);
+  const b = parseInt(bg.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function reviewUrlFor(type) {
   const base = REVIEW_META[type]?.getUrl?.();
   if (!base) return '';
   const u = new URL(base);
   u.searchParams.set('review', '1');
+  u.searchParams.set('reviewBg', reviewCssBackground(type));
   return u.toString();
 }
 
@@ -394,6 +417,8 @@ function openReviewWindow(type) {
   });
   reviewWindows.set(type, rw);
   rw.setMenu(null);
+  rw.setAlwaysOnTop(saved.alwaysOnTop !== false, saved.alwaysOnTop !== false ? 'screen-saver' : 'normal');
+  rw.setIgnoreMouseEvents(!!saved.clickThrough, { forward: true });
   rw.loadURL(reviewUrlFor(type));
   let timer = null;
   const scheduleSave = () => {
@@ -427,6 +452,29 @@ function setReviewAlwaysOnTop(type, value) {
   return { ok: true, alwaysOnTop: on, open: !!(rw && !rw.isDestroyed()) };
 }
 
+function setReviewClickThrough(type, value) {
+  if (!REVIEW_META[type]) return { ok: false, error: 'Overlay Review không hợp lệ.' };
+  const on = !!value;
+  const rw = reviewWindows.get(type);
+  settings.reviewWindows = settings.reviewWindows || {};
+  settings.reviewWindows[type] = { ...(settings.reviewWindows[type] || {}), clickThrough: on };
+  if (rw && !rw.isDestroyed()) rw.setIgnoreMouseEvents(on, { forward: true });
+  saveSettings();
+  return { ok: true, clickThrough: on, open: !!(rw && !rw.isDestroyed()) };
+}
+
+function setReviewBackground(type, value, alpha) {
+  if (!REVIEW_META[type]) return { ok: false, error: 'Overlay Review không hợp lệ.' };
+  const background = normalizeReviewBg(value);
+  const backgroundAlpha = background === 'transparent' ? 0 : normalizeReviewAlpha(alpha ?? settings.reviewWindows?.[type]?.backgroundAlpha ?? 1);
+  const rw = reviewWindows.get(type);
+  settings.reviewWindows = settings.reviewWindows || {};
+  settings.reviewWindows[type] = { ...(settings.reviewWindows[type] || {}), background, backgroundAlpha };
+  saveSettings();
+  if (rw && !rw.isDestroyed()) rw.loadURL(reviewUrlFor(type));
+  return { ok: true, background, backgroundAlpha, open: !!(rw && !rw.isDestroyed()) };
+}
+
 function getReviewState() {
   const state = {};
   for (const type of Object.keys(REVIEW_META)) {
@@ -434,6 +482,9 @@ function getReviewState() {
     state[type] = {
       open: !!(rw && !rw.isDestroyed()),
       alwaysOnTop: rw && !rw.isDestroyed() ? rw.isAlwaysOnTop() : settings.reviewWindows?.[type]?.alwaysOnTop !== false,
+      clickThrough: !!settings.reviewWindows?.[type]?.clickThrough,
+      background: normalizeReviewBg(settings.reviewWindows?.[type]?.background),
+      backgroundAlpha: normalizeReviewAlpha(settings.reviewWindows?.[type]?.backgroundAlpha ?? (settings.reviewWindows?.[type]?.background ? 1 : 0)),
       bounds: rw && !rw.isDestroyed() ? rw.getBounds() : settings.reviewWindows?.[type]?.bounds || null,
     };
   }
@@ -1695,6 +1746,8 @@ function registerIpc() {
   ipcMain.handle('review:open', (_e, type) => openReviewWindow(type));
   ipcMain.handle('review:close', (_e, type) => closeReviewWindow(type));
   ipcMain.handle('review:alwaysOnTop', (_e, { type, value }) => setReviewAlwaysOnTop(type, value));
+  ipcMain.handle('review:clickThrough', (_e, { type, value }) => setReviewClickThrough(type, value));
+  ipcMain.handle('review:background', (_e, { type, value, alpha }) => setReviewBackground(type, value, alpha));
   ipcMain.handle('review:getState', () => getReviewState());
 
   // Settings

@@ -1,6 +1,10 @@
 // Score overlay — port từ BIGO với state machine + theme presets + top users + milestones + runner
 const token = new URLSearchParams(location.search).get('token') || '';
-if (new URLSearchParams(location.search).get('review') === '1') document.body.classList.add('overlay-review');
+if (new URLSearchParams(location.search).get('review') === '1') {
+  document.body.classList.add('overlay-review');
+  const bg = new URLSearchParams(location.search).get('reviewBg') || 'transparent';
+  if (/^(#[0-9a-f]{6}|rgba\(\d{1,3},\d{1,3},\d{1,3},(?:0|1|0?\.\d+)\))$/i.test(bg)) document.body.style.setProperty('--review-bg', bg);
+}
 const root = document.getElementById('scoreRoot');
 const audio = document.getElementById('scoreSound');
 

@@ -96,6 +96,7 @@ const userAvatarCache = new Map();
 const giftDonors = new Set();
 const logInteractAt = { chatList: 0, giftList: 0 };
 let latestUpdateInfo = null;
+let reviewStateTimer = null;
 
 function giftToPkGift(g) {
   return { giftName: g.name, giftId: g.id, icon: g.icon, diamond: g.diamond };
@@ -2881,9 +2882,32 @@ async function refreshReviewButtons() {
     btn.classList.toggle('is-on', on);
     btn.textContent = on ? '📌 Nổi bật' : '📍 Thường';
   });
+  $$('[data-review-click]').forEach(btn => {
+    const type = btn.dataset.reviewClick;
+    const on = !!state[type]?.clickThrough;
+    btn.classList.toggle('is-on', on);
+    btn.textContent = on ? '🖱 Đang xuyên' : '🖱 Xuyên';
+  });
+  $$('[data-review-bg]').forEach(input => {
+    const type = input.dataset.reviewBg;
+    const bg = state[type]?.background || 'transparent';
+    input.value = /^#[0-9a-f]{6}$/i.test(bg) ? bg : '#000000';
+    input.classList.toggle('is-transparent', bg === 'transparent');
+  });
+  $$('[data-review-alpha]').forEach(input => {
+    const type = input.dataset.reviewAlpha;
+    input.value = Math.round((Number(state[type]?.backgroundAlpha) || 0) * 100);
+    input.disabled = (state[type]?.background || 'transparent') === 'transparent';
+  });
+  $$('[data-review-bg-clear]').forEach(btn => {
+    const type = btn.dataset.reviewBgClear;
+    btn.classList.toggle('is-on', (state[type]?.background || 'transparent') === 'transparent');
+  });
 }
 
 function wireOverlaysTab() {
+  if (!reviewStateTimer) reviewStateTimer = setInterval(refreshReviewButtons, 1000);
+
   $$('[data-copy]').forEach(b => b.addEventListener('click', async () => {
     const v = $('#' + b.dataset.copy).value;
     await window.api.shell.copyText(v);
@@ -2906,6 +2930,37 @@ function wireOverlaysTab() {
     await window.api.review.setAlwaysOnTop(type, next);
     await refreshReviewButtons();
     toast(next ? 'Overlay Review luôn nổi' : 'Overlay Review không luôn nổi', 'success');
+  }));
+
+  $$('[data-review-click]').forEach(btn => btn.addEventListener('click', async () => {
+    const type = btn.dataset.reviewClick;
+    const state = await window.api.review.getState().catch(() => ({}));
+    const next = !state[type]?.clickThrough;
+    const r = await window.api.review.setClickThrough(type, next);
+    if (!r?.ok) { toast(r?.error || 'Không bật được xuyên chuột', 'error'); return; }
+    await refreshReviewButtons();
+    toast(next ? 'Review cho chuột xuyên qua lớp dưới' : 'Review nhận chuột/kéo thả lại', 'success');
+  }));
+
+  $$('[data-review-bg]').forEach(input => input.addEventListener('input', async () => {
+    const alpha = Number($(`[data-review-alpha="${input.dataset.reviewBg}"]`)?.value || 100) / 100;
+    const r = await window.api.review.setBackground(input.dataset.reviewBg, input.value, alpha);
+    if (!r?.ok) { toast(r?.error || 'Không đổi được màu nền Review', 'error'); return; }
+    await refreshReviewButtons();
+  }));
+
+  $$('[data-review-alpha]').forEach(input => input.addEventListener('input', async () => {
+    const color = $(`[data-review-bg="${input.dataset.reviewAlpha}"]`)?.value || '#000000';
+    const r = await window.api.review.setBackground(input.dataset.reviewAlpha, color, Number(input.value) / 100);
+    if (!r?.ok) { toast(r?.error || 'Không đổi được độ trong suốt Review', 'error'); return; }
+    await refreshReviewButtons();
+  }));
+
+  $$('[data-review-bg-clear]').forEach(btn => btn.addEventListener('click', async () => {
+    const r = await window.api.review.setBackground(btn.dataset.reviewBgClear, 'transparent', 0);
+    if (!r?.ok) { toast(r?.error || 'Không đổi được màu nền Review', 'error'); return; }
+    await refreshReviewButtons();
+    toast('Review trở về nền trong suốt', 'success');
   }));
 
   $('#btnSaveOverlay').addEventListener('click', async () => {
