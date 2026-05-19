@@ -26,7 +26,6 @@ const PK_GROUP_PATH = path.join(CONFIG_DIR, 'pk-group.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
 const SHIPPED_GIFT_MASTER_PATH = path.join(SHIPPED_CONFIG_DIR, 'gift-master.json');
 const GIFT_MASTER_SHEET = 'https://docs.google.com/spreadsheets/d/1Fv9Jdno_pPMTx_-tnwSfRObm1r1wKds_gaMBnfCDm4M/gviz/tq?tqx=out:csv&sheet=DANH%20SACH%20QUA';
-const LICENSE_SHEET = 'https://docs.google.com/spreadsheets/d/1Fv9Jdno_pPMTx_-tnwSfRObm1r1wKds_gaMBnfCDm4M/gviz/tq?tqx=out:csv&sheet=KEY_TALENT_SHOW';
 const GITHUB_RELEASES_API = 'https://api.github.com/repos/hpmediaoffifical/HP-Talent-Show/releases/latest';
 const GITHUB_RELEASES_URL = 'https://github.com/hpmediaoffifical/HP-Talent-Show/releases/latest';
 const BANNER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=Banner';
@@ -206,42 +205,19 @@ function parseLicenseDate(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function normalizeSheetStatus(value) {
-  return String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
 
-async function fetchLicenseRows() {
-  const res = await fetch(LICENSE_SHEET, { headers: { 'User-Agent': 'HP Talent Show' } });
-  if (!res.ok) throw new Error('License Sheet HTTP ' + res.status);
-  const rows = parseCsvRows(await res.text());
-  return rows.slice(1).map(r => ({
-    key: String(r[0] || '').trim(),
-    expiresText: String(r[1] || '').trim(),
-    vip: String(r[2] || '').trim(),
-    status: String(r[3] || '').trim(),
-  })).filter(r => r.key);
-}
-
+// HP KEY (hpvn.media) - thay backend Google Sheet. Cau hinh: hpkey/config.js
+// + hpkey/public-key.js. Giu nguyen shape { ok, license } => gate khong phai sua.
 async function validateLicenseKey(key) {
   const cleanKey = String(key || '').trim();
   if (!cleanKey) return { ok: false, error: 'Vui lòng nhập KEY bản quyền.' };
-  const rows = await fetchLicenseRows();
-  const row = rows.find(r => r.key.toLowerCase() === cleanKey.toLowerCase());
-  if (!row) return { ok: false, error: 'KEY không tồn tại trong Google Sheet.' };
-  const statusNorm = normalizeSheetStatus(row.status);
-  if (/(khoa|lock|block|tam dung|vo hieu|huy)/.test(statusNorm)) return { ok: false, error: `KEY đang bị khóa hoặc vô hiệu: ${row.status}` };
-  const expires = parseLicenseDate(row.expiresText);
-  if (!expires) return { ok: false, error: 'Ngày hết hạn KEY không hợp lệ.' };
-  if (expires.getTime() < Date.now()) return { ok: false, error: `KEY đã hết hạn: ${row.expiresText}` };
-  const license = {
-    key: row.key,
-    vip: row.vip || '',
-    expiresAt: row.expiresText,
-    status: row.status || '',
-    activatedAt: settings.license?.activatedAt || Date.now(),
-    checkedAt: Date.now(),
-    deviceId: getDeviceId(),
-  };
+  const r = await require('../hpkey/validate').validateLicenseKey(cleanKey, getDeviceId());
+  if (!r.ok) {
+    // Mat mang -> ném lỗi để checkStoredLicense xử lý offline grace (theo expiresAt đã lưu)
+    if (r._offline) throw new Error(r.error);
+    return r;
+  }
+  const license = { ...r.license, activatedAt: settings.license?.activatedAt || Date.now() };
   settings.license = license;
   saveSettings();
   return { ok: true, license };
