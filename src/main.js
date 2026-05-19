@@ -1849,6 +1849,22 @@ app.whenReady().then(async () => {
   await bootstrapOverlay();
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
+  // HP KEY - check key real-time: cam key tren admin -> dong app trong <= RECHECK_SECONDS
+  try {
+    require('../hpkey/core').startWatch({
+      getKey: () => settings.license?.key || '',
+      onRevoked: (reason) => {
+        try {
+          dialog.showErrorBox('Bản quyền bị thu hồi',
+            'KEY của bạn đã bị khóa/thu hồi hoặc hết hạn (' + reason + ').\n' +
+            'Ứng dụng sẽ đóng. Liên hệ HP Media để được hỗ trợ.');
+        } catch (_) {}
+        app.quit();
+        setTimeout(() => { try { app.exit(0); } catch (_) {} }, 1500);
+      },
+    });
+  } catch (e) { console.warn('[hpkey] watch init failed:', e && e.message); }
 });
 
 app.on('window-all-closed', () => {
