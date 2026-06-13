@@ -30,6 +30,10 @@ const GITHUB_RELEASES_API = 'https://api.github.com/repos/hpmediaoffifical/HP-Ta
 const GITHUB_RELEASES_URL = 'https://github.com/hpmediaoffifical/HP-Talent-Show/releases/latest';
 const BANNER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=Banner';
 const TICKER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=CH%E1%BB%AE%20TH%C3%94NG%20B%C3%81O';
+const COMPACT_UI_VERSION = 1;
+const MAIN_WINDOW_DEFAULT_BOUNDS = { width: 1120, height: 780 };
+const MAIN_WINDOW_MIN_BOUNDS = { width: 900, height: 620 };
+const MAIN_WINDOW_MAX_BOUNDS = { width: 1280, height: 860 };
 
 try { fs.mkdirSync(CONFIG_DIR, { recursive: true }); } catch {}
 
@@ -82,6 +86,7 @@ function loadSettings() {
     signApiKey: '',
     sessionId: '',
     ttTargetIdc: 'useast2a',
+    compactUiVersion: COMPACT_UI_VERSION,
     lastUsername: '',
     windowBounds: null,
     overlay: {
@@ -1472,13 +1477,22 @@ const SCORE_THEMES = {
 // Window + IPC
 // =================================================================
 function createWindow() {
-  const bounds = isUsableWindowBounds(settings.windowBounds) ? settings.windowBounds : {};
+  const compactMigration = settings.compactUiVersion !== COMPACT_UI_VERSION;
+  const savedBounds = !compactMigration && isUsableWindowBounds(settings.windowBounds) ? settings.windowBounds : {};
+  const bounds = {
+    ...savedBounds,
+    width: Math.min(MAIN_WINDOW_MAX_BOUNDS.width, Math.max(MAIN_WINDOW_MIN_BOUNDS.width, Math.round(Number(savedBounds.width) || MAIN_WINDOW_DEFAULT_BOUNDS.width))),
+    height: Math.min(MAIN_WINDOW_MAX_BOUNDS.height, Math.max(MAIN_WINDOW_MIN_BOUNDS.height, Math.round(Number(savedBounds.height) || MAIN_WINDOW_DEFAULT_BOUNDS.height))),
+  };
   win = new BrowserWindow({
-    width: bounds.width || 1480,
-    height: bounds.height || 920,
+    width: bounds.width,
+    height: bounds.height,
     x: bounds.x, y: bounds.y,
-    minWidth: 1180,
-    minHeight: 720,
+    minWidth: MAIN_WINDOW_MIN_BOUNDS.width,
+    minHeight: MAIN_WINDOW_MIN_BOUNDS.height,
+    maxWidth: MAIN_WINDOW_MAX_BOUNDS.width,
+    maxHeight: MAIN_WINDOW_MAX_BOUNDS.height,
+    maximizable: false,
     icon: APP_ICON || undefined,
     title: 'HP Talent Show',
     backgroundColor: '#ffffff',
@@ -1491,6 +1505,11 @@ function createWindow() {
   });
   win.removeMenu();
   win.loadFile(path.join(ROOT, 'renderer', 'index.html'));
+  if (compactMigration || !isUsableWindowBounds(settings.windowBounds)) {
+    settings.compactUiVersion = COMPACT_UI_VERSION;
+    settings.windowBounds = bounds;
+    saveSettings();
+  }
 
   let boundsTimer = null;
   const scheduleBoundsSave = () => {

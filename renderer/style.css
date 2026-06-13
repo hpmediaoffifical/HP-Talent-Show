@@ -856,3 +856,117 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--tt-bg-3); border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+
+/* ===== Compact desktop UI (theo tinh thần HP NPC LIVE) ===== */
+body { font-size:15px; line-height:1.38; }
+button, input, select { font-size:14.5px; }
+.sidebar { width:188px; padding:12px 9px 10px; }
+.brand { gap:8px; padding:2px 5px 12px; margin-bottom:8px; }
+.brand img { width:32px; height:32px; }
+.brand-text strong { font-size:13.5px; }
+.brand-text span { font-size:10.5px; }
+.nav { gap:1px; }
+.nav-btn { padding:8px 9px; gap:8px; font-size:13.5px; border-radius:10px; }
+.sidebar-foot { padding:10px 3px 1px; gap:7px; }
+.ver { min-width:118px; padding:4px 8px; font-size:10.5px; }
+.topbar { padding:8px 14px; min-height:52px; }
+.top-live { gap:8px; }
+.topbar-ticker { flex-basis:420px; max-width:520px; margin:0 10px; }
+.stats { gap:6px; }
+.stats span { min-width:54px; min-height:34px; padding:5px 8px; border-radius:12px; font-size:14px; }
+.stats b { font-size:16px; }
+.top-connect-row { width:238px; height:34px; border-radius:10px; }
+.top-connect-row .prefix { padding:0 8px; font-size:12.5px; }
+.top-connect-row input { padding:6px 8px; font-size:14px; }
+.top-connect-row button { min-width:76px; padding:4px 8px; margin:2px; }
+.panel { max-width:1120px; padding:14px; }
+.panel h1 { font-size:21px; }
+.panel .sub { margin-bottom:12px; font-size:13px; }
+.card { padding:12px 14px; margin-bottom:10px; border-radius:14px; }
+.card h3 { font-size:14.5px; margin-bottom:8px; }
+.grid-2 { gap:10px; }
+.form-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:10px; }
+.form-grid label { gap:4px; font-size:13px; font-weight:650; }
+.form-grid input[type="text"],
+.form-grid input[type="number"],
+.form-grid input[type="password"],
+.form-grid input:not([type]),
+.form-grid select,
+.connect-row input,
+.inline input,
+.inline select { padding:7px 9px; font-size:14px; }
+button.primary, button.ghost, button.warn { padding:7px 11px; font-size:14px; font-weight:700; }
+button.tiny { padding:4px 7px; font-size:12px; }
+.row-form { gap:9px; padding:10px 12px; }
+.creator-form { gap:10px; }
+.creator-form .rf-cell { flex-basis:220px; }
+.creator-form .rf-cell:first-of-type { flex-basis:270px; }
+.creator-form .rf-gift-cell { flex-basis:180px; }
+.rf-avatar { min-width:58px; }
+.rf-avatar img { width:52px; height:52px; }
+.rf-cell > span { font-size:11.5px; }
+.rf-cell input, .rf-cell select { padding:7px 9px; font-size:14px; }
+.rf-actions button { min-height:34px; padding:7px 11px; }
+.creator-sticky-head { top:52px; }
+.creator-sticky-head .creator-form { margin-bottom:10px; }
+.creators-grid { gap:8px; }
+.creator-group-head { padding:8px 10px; font-size:13.5px; }
+.creator-group-body { gap:7px; padding:7px; }
+.creator-card { gap:9px; padding:9px; }
+.creator-card img.cc-ava { width:44px; height:44px; }
+.creator-card .cc-body { grid-template-columns:minmax(150px, 1.2fr) minmax(145px, 1fr) minmax(130px, 1fr); gap:9px; }
+.creator-card .cc-name { font-size:14.5px; }
+.creator-card .cc-actions button { min-width:32px; min-height:32px; }
+.groups-list { grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:9px; }
+.group-card { padding:10px; gap:8px; }
+.group-card .gc-avatar { width:38px; height:38px; }
+.panel[data-panel="connect"] { height:calc(100vh - 53px); padding:14px 18px; }
+.live-layout { gap:10px; }
+.live-banner-card { padding:8px; }
+.live-banner { height:112px; }
+.live-ticker { height:34px; }
+.live-ticker-track { font-size:14px; line-height:32px; }
+.log-list { padding:9px; gap:3px; }
+.log-list .item { padding:6px 5px; }
+.pk-live-preview { top:8px; padding:10px; border-radius:18px; }
+.pk-action-row { gap:6px; padding:8px; border-radius:14px; grid-template-columns:1.1fr repeat(4, minmax(62px, .65fr)) 1.1fr; }
+.pk-action-row button { min-height:34px; }
+.pk-team-configs, .pk-teams { gap:10px; }
+.pk-team-config { gap:9px; padding:11px; border-radius:15px; }
+.pk-team { padding:12px; min-height:150px; border-radius:16px; }
+.pk-gifts { gap:7px; min-height:56px; max-height:104px; margin-bottom:9px; padding:6px; }
+.pk-gifts .chip { width:46px; height:46px; border-radius:13px; }
+.pk-gifts .chip img { width:32px; height:32px; }
+.pkg-member-list { gap:8px; margin-top:10px; }
+.pkg-member { grid-template-columns:48px minmax(170px,1.15fr) minmax(130px,.8fr) 52px 64px minmax(130px,1fr) 72px 46px; gap:7px; padding:8px; border-radius:12px; }
+.pkg-member-check { gap:7px; }
+.pkg-member-check img { width:32px; height:32px; }
+.pkg-member .pkg-name, .pkg-streak-input { padding:7px 8px; font-size:13.5px; }
+.pkg-member .pkg-color { width:48px; }
+.pkg-pick-gift img { width:22px; height:22px; }
+.pkg-note-card { margin:10px 0; padding:10px; border-radius:13px; }
+.score-command-panel { grid-template-columns:minmax(300px, 1fr) 190px; gap:9px; margin-bottom:10px; }
+.score-command-panel .sc-preview { min-height:310px; }
+.score-command-actions { gap:6px; padding:8px; border-radius:13px; }
+.score-command-actions button { min-height:38px; }
+.score-ops-grid { grid-template-columns:minmax(0,1.35fr) minmax(300px,.8fr); gap:10px; }
+.score-config-card, .rk-config-section { padding:10px; border-radius:13px; }
+.score-config-card .form-grid.compact, .rk-fields.three, .rk-fields.compact-three { gap:8px; }
+.rk-config-layout { grid-template-columns:1.25fr .95fr; gap:9px; }
+.rk-fields { gap:8px; }
+.rk-fields input[type="text"], .rk-fields input[type="number"], .rk-fields input:not([type]), .rk-fields select { padding:7px 9px; font-size:14px; }
+.overlay-links { gap:7px; }
+.ovl-row { gap:6px; }
+.ovl-row label { min-width:104px; font-size:13px; }
+.ovl-row input { padding:7px 9px; font-size:12.5px; }
+.ovl-row button { padding:7px 8px; }
+.ovl-row .review-bg-alpha { flex-basis:74px; width:74px; min-width:74px; }
+::-webkit-scrollbar { width:6px; height:6px; }
+
+@media (max-width: 1060px) {
+  .topbar { flex-wrap:wrap; gap:8px; }
+  .topbar-ticker { order:3; flex-basis:100%; max-width:none; width:100%; margin:0; }
+  .stats { margin-left:auto; }
+  .score-ops-grid, .rk-config-layout, .pk-team-configs, .pk-teams { grid-template-columns:1fr; }
+  .score-command-panel { grid-template-columns:1fr; }
+}
