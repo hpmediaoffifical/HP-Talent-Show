@@ -94,6 +94,16 @@ HP Talent Show/
 - TikTok LIVE chỉ có 1 host — BXH theo creator chỉ có ý nghĩa khi mỗi creator có **quà đại diện** khác nhau (host xướng "Hãy tặng <quà X> cho creator A", "<quà Y> cho creator B"...).
 - Avatar được proxy qua localhost (`/avatar?url=...`) để tránh CORS trong OBS Browser Source — chỉ chấp nhận host TikTok CDN.
 
+## OBS Browser Source bị dừng khi thu nhỏ OBS
+
+Overlay được phát từ tiến trình nền của App qua SSE localhost, nên thu nhỏ cửa sổ App hoặc OBS không được làm dừng dữ liệu. Nếu chỉ một máy gặp lỗi, kiểm tra theo thứ tự sau:
+
+1. Trong OBS, mở Properties của Browser Source overlay và bỏ chọn **Shutdown source when not visible**. Đảm bảo source đang thuộc scene được đưa lên Program.
+2. Bắt đầu ghi hình thử hoặc stream thử, thu nhỏ OBS, kích hoạt một hiệu ứng rồi mở lại. Preview khi OBS thu nhỏ không phải bằng chứng đáng tin cậy; cần kiểm tra file ghi/Program output.
+3. Nếu điểm/trạng thái đã đổi sau khi mở lại nhưng animation bị mất, đây là lỗi render CEF/GPU. Cập nhật OBS và driver GPU; trong `Settings > Advanced`, thử tắt **Enable Browser Source Hardware Acceleration** rồi khởi động lại OBS. Nếu không cải thiện, bật lại và đặt OBS dùng GPU hiệu năng cao trong Windows Graphics Settings.
+4. Tắt giới hạn FPS nền cho `obs64.exe`: NVIDIA Control Panel `Background Application Max Frame Rate`, NVIDIA Battery Boost/WhisperMode hoặc AMD Radeon Chill. Với laptop, cắm nguồn và đặt Power mode là Best performance khi phát sóng.
+5. Nếu trạng thái không đổi sau khi mở lại, Browser Source đã bị ngắt/treo. Nhấn `Refresh cache of current page` trên source, dán lại link overlay hiện tại từ App, rồi khởi động lại OBS. App duy trì heartbeat SSE 15 giây và Browser Source sẽ tự kết nối lại sau khoảng 1.5 giây.
+
 ## Bản quyền
 
 © HP Media. Sử dụng cho mục đích nội bộ Talent Show.

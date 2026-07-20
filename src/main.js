@@ -23,6 +23,7 @@ const CREATORS_PATH = path.join(CONFIG_DIR, 'creators.json');
 const GROUPS_PATH = path.join(CONFIG_DIR, 'groups.json');
 const PK_DUO_PATH = path.join(CONFIG_DIR, 'pk-duo.json');
 const PK_GROUP_PATH = path.join(CONFIG_DIR, 'pk-group.json');
+const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
 const SHIPPED_GIFT_MASTER_PATH = path.join(SHIPPED_CONFIG_DIR, 'gift-master.json');
 const GIFT_MASTER_SHEET = 'https://docs.google.com/spreadsheets/d/1Fv9Jdno_pPMTx_-tnwSfRObm1r1wKds_gaMBnfCDm4M/gviz/tq?tqx=out:csv&sheet=DANH%20SACH%20QUA';
@@ -507,6 +508,65 @@ function loadPkGroupConfig() { return loadJson(PK_GROUP_PATH, null); }
 function savePkGroupConfig(cfg) { saveJson(PK_GROUP_PATH, cfg); }
 
 // =================================================================
+// Match history — lưu LỊCH SỬ mỗi trận PK (Nhóm/Đôi) để đối chiếu + xuất file
+// =================================================================
+const MATCH_HISTORY_MAX = 500;
+function loadMatchHistory() {
+  const list = loadJson(MATCH_HISTORY_PATH, []);
+  return Array.isArray(list) ? list : [];
+}
+function saveMatchHistory(list) {
+  saveJson(MATCH_HISTORY_PATH, (Array.isArray(list) ? list : []).slice(-MATCH_HISTORY_MAX));
+}
+// Nhận bản ghi thô từ engine → bổ sung tên nhóm, gắn id, lưu và báo cho renderer.
+function appendMatchHistory(rec) {
+  if (!rec) return;
+  const entry = { id: uid('m_'), savedAt: Date.now(), ...rec };
+  if (entry.type === 'group' && entry.groupId && !entry.groupName) {
+    const g = (loadGroups() || []).find(x => x.id === entry.groupId);
+    entry.groupName = g ? g.name : '';
+  }
+  const list = loadMatchHistory();
+  list.push(entry);
+  saveMatchHistory(list);
+  broadcast('history:changed', entry);
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function fmtDate(ms) { const d = new Date(Number(ms) || 0); return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`; }
+function fmtTime(ms) { const d = new Date(Number(ms) || 0); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; }
+function csvCell(v) { return `"${String(v ?? '').replace(/"/g, '""')}"`; }
+
+// Xuất lịch sử ra CSV (1 dòng / mỗi người chơi / mỗi trận) — mở được bằng Excel.
+function buildHistoryCsv(list) {
+  const now = Date.now();
+  const lines = [];
+  lines.push(csvCell('HP Talent Show — Lịch sử trận đấu'));
+  lines.push([csvCell('Thời gian xuất'), csvCell(`${fmtDate(now)} ${fmtTime(now)}`)].join(','));
+  lines.push([csvCell('Số trận'), csvCell(list.length)].join(','));
+  lines.push('');
+  const header = ['Ngày', 'Giờ kết thúc', 'Loại', 'Tiêu đề', 'Nhóm', 'Vòng', 'Thời lượng (giây)', 'Tính điểm', 'Tên', 'TikTok ID', 'Điểm', 'Hạng', 'MVP (chuỗi)', 'Kết quả'];
+  lines.push(header.map(csvCell).join(','));
+  const ordered = list.slice().sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0));
+  for (const m of ordered) {
+    const typeLabel = m.type === 'duo' ? 'PK Đôi' : 'PK Nhóm';
+    const pointsLabel = m.pointsBy === 'count' ? 'Số quà' : 'Coin';
+    const parts = (m.participants || []).slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+    parts.forEach((p, i) => {
+      const isWinner = m.type === 'duo'
+        ? (m.winnerSide && m.winnerSide !== 'draw' && p.name === m.winnerName)
+        : (p.name === m.winnerName && (p.score || 0) > 0);
+      lines.push([
+        fmtDate(m.finishedAt), fmtTime(m.finishedAt), typeLabel, m.content || '', m.groupName || '',
+        m.roundNo || '', m.durationSec || '', pointsLabel, p.name || '', p.tiktokId || '',
+        p.score || 0, i + 1, p.streak || '', isWinner ? 'Thắng' : (m.winnerSide === 'draw' ? 'Hòa' : ''),
+      ].map(csvCell).join(','));
+    });
+  }
+  return '﻿' + lines.join('\r\n'); // BOM để Excel đọc đúng tiếng Việt
+}
+
+// =================================================================
 // Gift master store — danh sách quà TikTok (id, name, icon, webm, diamond)
 // Bundled trong app, có thể refresh từ Google Sheet bằng IPC.
 // =================================================================
@@ -669,8 +729,9 @@ async function refreshGiftMaster() {
 // Engines
 // =================================================================
 class PkDuoEngine {
-  constructor({ onState }) {
+  constructor({ onState, onResult }) {
     this.onState = onState;
+    this.onResult = onResult;
     this.config = {
       teamA: { name: 'TEAM A', color: '#FE2C55', gifts: [] },
       teamB: { name: 'TEAM B', color: '#25F4EE', gifts: [] },
@@ -700,6 +761,8 @@ class PkDuoEngine {
       endsAt: 0,
       userTeams: {}, // userId -> 'A' | 'B' (cho joinMode)
       graceElapsedMs: 0,
+      roundNo: 0,
+      historySaved: false,
     };
     this._tick = null;
   }
@@ -748,26 +811,53 @@ class PkDuoEngine {
     this.state.userTeams = {};
     this.state.graceElapsedMs = 0;
     this.state.startedAt = Date.now();
+    this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
+    this.state.historySaved = false;
     this._runTicker();
   }
   stop() {
     this.state.status = 'finished';
     this.state.remainingMs = 0;
     this.state.userTeams = {};
+    this._recordHistory();
     this._clearTicker();
     this._emit();
   }
   reset() {
     this._clearTicker();
-    this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0 };
+    this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, historySaved: false };
     this._emit();
+  }
+  // Ghi LỊCH SỬ trận PK Đôi (1 lần/trận, chỉ khi đã bắt đầu thật).
+  _recordHistory() {
+    if (this.state.historySaved || !this.state.startedAt) return;
+    this.state.historySaved = true;
+    const a = { name: this.config.teamA?.name || 'TEAM A', score: Number(this.state.scoreA) || 0, color: this.config.teamA?.color || '' };
+    const b = { name: this.config.teamB?.name || 'TEAM B', score: Number(this.state.scoreB) || 0, color: this.config.teamB?.color || '' };
+    const winnerSide = a.score === b.score ? 'draw' : (a.score > b.score ? 'A' : 'B');
+    if (typeof this.onResult === 'function') {
+      this.onResult({
+        type: 'duo',
+        content: this.config.content || 'PK ĐÔI',
+        roundNo: this.state.roundNo || 0,
+        startedAt: this.state.startedAt || 0,
+        finishedAt: Date.now(),
+        durationSec: this.config.durationSec || 0,
+        pointsBy: this.config.pointsBy || 'diamond',
+        winnerSide,
+        winnerName: winnerSide === 'draw' ? '' : (winnerSide === 'A' ? a.name : b.name),
+        participants: [a, b],
+      });
+    }
   }
   addPoints(side, points) {
     if (side === 'A') this.state.scoreA += Number(points) || 0;
     else if (side === 'B') this.state.scoreB += Number(points) || 0;
     this._emit();
   }
-  // Route 1 gift event → cộng cho phe nào
+  // Route 1 gift event → cộng cho phe nào.
+  // Tính điểm khi 'running' VÀ trong Delay 'grace' (để bắt quà trễ do mạng chậm).
+  // Chỉ ngừng khi Delay hết hẳn (status 'finished').
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
     const pts = this.config.pointsBy === 'diamond'
@@ -781,16 +871,11 @@ class PkDuoEngine {
       const user = ev.uniqueId || ev.userId;
       if (user) {
         if (side) {
-          if (this.state.userTeams[user] === side) {
-            delete this.state.userTeams[user];
-            this._emit();
-            return;
-          }
+          // Quà kích hoạt: (re)gán phe rồi vẫn tính điểm full cho phe đó
           this.state.userTeams[user] = side;
-          this._emit();
-          return;
+        } else {
+          side = this.state.userTeams[user] || null;
         }
-        side = this.state.userTeams[user] || null;
       }
     }
     if (!side) return;
@@ -813,20 +898,22 @@ class PkDuoEngine {
           this.state.remainingMs = (this.config.durationSec || 300) * 1000;
           this.state.endsAt = Date.now() + this.state.remainingMs;
         } else if (this.state.status === 'running') {
-          // Vào grace period nếu config.delaySec > 0
+          // Vào grace period nếu config.delaySec > 0 — VẪN tính điểm để bắt quà trễ,
+          // giữ userTeams để quà join-mode trễ vẫn định tuyến đúng.
           if ((this.config.delaySec || 0) > 0) {
             this.state.status = 'grace';
-            this.state.userTeams = {};
             this.state.graceElapsedMs = 0;
             this.state.remainingMs = 0;
           } else {
             this.state.status = 'finished';
             this.state.userTeams = {};
+            this._recordHistory();
             this._clearTicker();
           }
         } else if (this.state.status === 'grace' && Math.abs(this.state.remainingMs) >= (this.config.delaySec || 0) * 1000) {
           this.state.status = 'finished';
           this.state.userTeams = {};
+          this._recordHistory();
           this._clearTicker();
         }
       }
@@ -839,8 +926,9 @@ class PkDuoEngine {
 }
 
 class PkGroupEngine {
-  constructor({ onState }) {
+  constructor({ onState, onResult }) {
     this.onState = onState;
+    this.onResult = onResult;
     this.config = {
       content: 'PK NHÓM',
       groupId: '',
@@ -848,7 +936,7 @@ class PkGroupEngine {
       playMode: 'fixed', // fixed | join
       pointsBy: 'diamond',
       noteEnabled: false,
-      noteText: 'Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy',
+      noteText: 'Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy',
       noteBgColor: '#1f2430',
       noteTextColor: '#ffffff',
       noteSpeedSec: 16,
@@ -858,8 +946,9 @@ class PkGroupEngine {
       durationSec: 90,
       prepSec: 3,
       delaySec: 5,
-      textSize: 20,
-      giftSize: 42,
+      textSize: 30,
+      nameSize: 100,
+      giftSize: 60,
       overlayScale: 100,
       participants: [],
     };
@@ -875,6 +964,7 @@ class PkGroupEngine {
       lastWinnerId: '',
       streaks: {},
       resultHandled: false,
+      historySaved: false,
       boostId: '',
       boostAt: 0,
       boostDir: 'right',
@@ -920,6 +1010,7 @@ class PkGroupEngine {
       prepSec: this.config.prepSec,
       delaySec: this.config.delaySec,
       textSize: this.config.textSize,
+      nameSize: this.config.nameSize,
       giftSize: this.config.giftSize,
       overlayScale: this.config.overlayScale,
     };
@@ -940,6 +1031,7 @@ class PkGroupEngine {
     this.state.graceElapsedMs = 0;
     this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
     this.state.resultHandled = false;
+    this.state.historySaved = false;
     this._runTicker();
   }
   stop() {
@@ -947,6 +1039,7 @@ class PkGroupEngine {
     this.state.status = 'finished';
     this.state.remainingMs = 0;
     this.state.userTeams = {};
+    this._recordHistory();
     this._clearTicker();
     this._emit();
   }
@@ -964,6 +1057,7 @@ class PkGroupEngine {
       lastWinnerId: '',
       streaks: {},
       resultHandled: false,
+      historySaved: false,
       boostId: '',
       boostAt: 0,
       boostDir: 'right',
@@ -1006,8 +1100,9 @@ class PkGroupEngine {
     this.addPoints(participant.id, points);
     return { points, giftName: gift.giftName || gift.name || '' };
   }
+  // Tính điểm khi 'running' VÀ trong Delay 'grace' (bắt quà trễ). Ngừng khi 'finished'.
   routeGift(ev) {
-    if (this.state.status !== 'running') return;
+    if (this.state.status !== 'running' && this.state.status !== 'grace') return;
     const participants = this.config.participants || [];
     if (!participants.length) return;
     const pts = this.config.pointsBy === 'diamond'
@@ -1018,12 +1113,11 @@ class PkGroupEngine {
       const user = ev.uniqueId || ev.userId;
       if (user) {
         if (target) {
-          if (this.state.userTeams[user] === target.id) delete this.state.userTeams[user];
-          else this.state.userTeams[user] = target.id;
-          this._emit();
-          return;
+          // Quà kích hoạt: (re)gán Creator rồi vẫn tính điểm full cho Creator đó
+          this.state.userTeams[user] = target.id;
+        } else {
+          target = participants.find(p => p.id === this.state.userTeams[user]) || null;
         }
-        target = participants.find(p => p.id === this.state.userTeams[user]) || null;
       }
     }
     if (!target) return;
@@ -1043,6 +1137,34 @@ class PkGroupEngine {
     this.config.participants = (this.config.participants || []).map(p => ({ ...p, streak: Number(streaks[p.id]) || 0 }));
     this.state.lastWinnerId = winnerId;
   }
+  // Ghi 1 bản ghi LỊCH SỬ khi trận kết thúc (chỉ 1 lần/trận, chỉ khi đã bắt đầu thật).
+  _recordHistory() {
+    if (this.state.historySaved || !this.state.startedAt) return;
+    this.state.historySaved = true;
+    const participants = (this.config.participants || []).map(p => ({
+      name: p.name || p.tiktokId || 'Creator',
+      tiktokId: p.tiktokId || '',
+      score: Number(this.state.scores[p.id]) || 0,
+      streak: Number(this.state.streaks?.[p.id]) || 0,
+      color: p.color || '',
+    })).sort((a, b) => b.score - a.score);
+    const winner = participants[0] && participants[0].score > 0 ? participants[0] : null;
+    if (typeof this.onResult === 'function') {
+      this.onResult({
+        type: 'group',
+        content: this.config.content || 'PK NHÓM',
+        groupId: this.config.groupId || '',
+        roundNo: this.state.roundNo || 0,
+        startedAt: this.state.startedAt || 0,
+        finishedAt: Date.now(),
+        durationSec: this.config.durationSec || 0,
+        pointsBy: this.config.pointsBy || 'diamond',
+        winnerName: winner ? winner.name : '',
+        winnerTiktokId: winner ? winner.tiktokId : '',
+        participants,
+      });
+    }
+  }
   _runTicker() {
     this._clearTicker();
     this._tick = setInterval(() => {
@@ -1058,20 +1180,24 @@ class PkGroupEngine {
           this.state.remainingMs = (this.config.durationSec || 300) * 1000;
           this.state.endsAt = Date.now() + this.state.remainingMs;
         } else if (this.state.status === 'running') {
-          this._finalizeRound();
+          // Hết giờ: nếu có Delay thì vào grace, VẪN tính điểm để bắt quà trễ;
+          // chỉ chốt MVP/kết quả (_finalizeRound) khi Delay hết hẳn.
           if ((this.config.delaySec || 0) > 0) {
             this.state.status = 'grace';
-            this.state.userTeams = {};
             this.state.graceElapsedMs = 0;
             this.state.remainingMs = 0;
           } else {
+            this._finalizeRound();
             this.state.status = 'finished';
             this.state.userTeams = {};
+            this._recordHistory();
             this._clearTicker();
           }
         } else if (this.state.status === 'grace' && Math.abs(this.state.remainingMs) >= (this.config.delaySec || 0) * 1000) {
+          this._finalizeRound();
           this.state.status = 'finished';
           this.state.userTeams = {};
+          this._recordHistory();
           this._clearTicker();
         }
       }
@@ -1175,9 +1301,10 @@ class RankingEngine {
   getStateForOverlay() {
     const creators = this.getCreators();
     const groups = this.getGroups();
+    const activeGroupId = this.config.activeGroupId || '';
     let rows = [];
     if (this.config.mode === 'creator') {
-      rows = creators.filter(c => !c.hideObs).map(c => {
+      rows = creators.filter(c => !c.hideObs && (!activeGroupId || c.groupId === activeGroupId)).map(c => {
         const sc = this.scores[c.id] || {};
         const g = groups.find(x => x.id === c.groupId);
         return {
@@ -1199,7 +1326,7 @@ class RankingEngine {
         };
       });
     } else {
-      rows = groups.map(g => {
+      rows = groups.filter(g => !activeGroupId || g.id === activeGroupId).map(g => {
         const sc = this.scores[g.id] || {};
         return {
           id: g.id,
@@ -1280,6 +1407,7 @@ class ScoreEngine {
       barStyle: 'pill',
       compactMode: false,
       timeColor: '#ffffff',
+      scoreFontSize: 18,
       contentColor: '#f0eef6',
       overColor: '#ff0000',
       barColor1: '#b93678',
@@ -1533,6 +1661,7 @@ function bootstrapEngines() {
       overlayServer?.sendPkDuo(st);
       broadcast('pkduo:state', st);
     },
+    onResult: appendMatchHistory,
   });
   const savedPk = loadPkDuoConfig();
   if (savedPk) pkDuoEngine.setConfig(savedPk);
@@ -1541,6 +1670,7 @@ function bootstrapEngines() {
       overlayServer?.sendPkGroup(st);
       broadcast('pkgroup:state', st);
     },
+    onResult: appendMatchHistory,
   });
   const savedPkGroup = loadPkGroupConfig();
   if (savedPkGroup) pkGroupEngine.setConfig(savedPkGroup);
@@ -1553,6 +1683,7 @@ function bootstrapEngines() {
     getGroups: loadGroups,
   });
   if (settings.ranking) rankingEngine.setConfig(settings.ranking);
+  rankingEngine.config.activeGroupId = ''; // Luôn khởi động ở chế độ TALENT SHOW (mở tất cả)
   scheduleCreatorAvatarRefresh(500);
   scoreEngine = new ScoreEngine({
     onState: (st) => {
@@ -1681,6 +1812,65 @@ function registerIpc() {
     return list;
   });
 
+  // Sao lưu / khôi phục dữ liệu Creator + Nhóm (xuất/nhập 1 file JSON)
+  ipcMain.handle('data:counts', () => ({ creators: loadCreators().length, groups: loadGroups().length }));
+  ipcMain.handle('data:export', async () => {
+    const payload = {
+      app: 'HP Talent Show',
+      version: app.getVersion(),
+      exportedAt: Date.now(),
+      creators: loadCreators(),
+      groups: loadGroups(),
+    };
+    const stamp = fmtDate(Date.now()).replace(/\//g, '-');
+    const res = await dialog.showSaveDialog(win, {
+      title: 'Xuất dữ liệu Creator + Nhóm',
+      defaultPath: `HP-Talent-Data-${stamp}.json`,
+      filters: [{ name: 'HP Talent Data', extensions: ['json'] }],
+    });
+    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' };
+    try {
+      fs.writeFileSync(res.filePath, JSON.stringify(payload, null, 2), 'utf8');
+      return { ok: true, filePath: res.filePath, creators: payload.creators.length, groups: payload.groups.length };
+    } catch (err) {
+      return { ok: false, reason: String(err && err.message || err) };
+    }
+  });
+  ipcMain.handle('data:import', async () => {
+    const res = await dialog.showOpenDialog(win, {
+      title: 'Nhập dữ liệu Creator + Nhóm',
+      filters: [{ name: 'HP Talent Data', extensions: ['json'] }],
+      properties: ['openFile'],
+    });
+    if (res.canceled || !res.filePaths?.[0]) return { ok: false, reason: 'canceled' };
+    let data;
+    try { data = JSON.parse(fs.readFileSync(res.filePaths[0], 'utf8')); } catch { return { ok: false, reason: 'parse' }; }
+    const inGroups = Array.isArray(data.groups) ? data.groups : [];
+    const inCreators = Array.isArray(data.creators) ? data.creators : [];
+    if (!inGroups.length && !inCreators.length) return { ok: false, reason: 'empty' };
+    // Gộp theo id (không xoá dữ liệu sẵn có): trùng id thì cập nhật, mới thì thêm.
+    const gMap = new Map(loadGroups().map(g => [g.id, g]));
+    let gAdd = 0, gUpd = 0;
+    for (const g of inGroups) {
+      if (!g) continue;
+      const id = g.id || uid('g_');
+      if (gMap.has(id)) { gMap.set(id, { ...gMap.get(id), ...g, id }); gUpd++; }
+      else { gMap.set(id, { createdAt: Date.now(), ...g, id }); gAdd++; }
+    }
+    saveGroups([...gMap.values()]);
+    const cMap = new Map(loadCreators().map(c => [c.id, c]));
+    let cAdd = 0, cUpd = 0;
+    for (const c of inCreators) {
+      if (!c) continue;
+      const id = c.id || uid('c_');
+      if (cMap.has(id)) { cMap.set(id, { ...cMap.get(id), ...c, id }); cUpd++; }
+      else { cMap.set(id, { createdAt: Date.now(), ...c, id }); cAdd++; }
+    }
+    saveCreators([...cMap.values()]);
+    rankingEngine?._emit();
+    return { ok: true, creatorsAdded: cAdd, creatorsUpdated: cUpd, groupsAdded: gAdd, groupsUpdated: gUpd };
+  });
+
   // PK Duo
   ipcMain.handle('pkduo:getState', () => pkDuoEngine.getStateForOverlay());
   ipcMain.handle('pkduo:setConfig', (_e, cfg) => { pkDuoEngine.setConfig(cfg); savePkDuoConfig(pkDuoEngine.config); return pkDuoEngine.config; });
@@ -1699,6 +1889,41 @@ function registerIpc() {
   ipcMain.handle('pkgroup:addPoints', (_e, { id, points }) => { pkGroupEngine.addPoints(id, points); return true; });
   ipcMain.handle('pkgroup:testGift', (_e, { id }) => pkGroupEngine.testGift(id));
   ipcMain.handle('pkgroup:getUrl', () => overlayServer.getPkGroupUrl());
+
+  // Match history (LỊCH SỬ trận đấu)
+  ipcMain.handle('history:list', (_e, filter) => {
+    let list = loadMatchHistory();
+    if (filter && filter.type) list = list.filter(m => m.type === filter.type);
+    return list.slice().sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0));
+  });
+  ipcMain.handle('history:clear', (_e, filter) => {
+    if (filter && filter.type) saveMatchHistory(loadMatchHistory().filter(m => m.type !== filter.type));
+    else saveMatchHistory([]);
+    return true;
+  });
+  ipcMain.handle('history:remove', (_e, id) => {
+    saveMatchHistory(loadMatchHistory().filter(m => m.id !== id));
+    return true;
+  });
+  ipcMain.handle('history:export', async (_e, filter) => {
+    let list = loadMatchHistory();
+    if (filter && filter.type) list = list.filter(m => m.type === filter.type);
+    if (!list.length) return { ok: false, reason: 'empty' };
+    const stamp = `${fmtDate(Date.now()).replace(/\//g, '-')}`;
+    const suffix = filter && filter.type ? (filter.type === 'duo' ? '-PK-Doi' : '-PK-Nhom') : '';
+    const res = await dialog.showSaveDialog(win, {
+      title: 'Xuất lịch sử trận đấu',
+      defaultPath: `Lich-su-PK${suffix}-${stamp}.csv`,
+      filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }],
+    });
+    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' };
+    try {
+      fs.writeFileSync(res.filePath, buildHistoryCsv(list), 'utf8');
+      return { ok: true, filePath: res.filePath, count: list.length };
+    } catch (err) {
+      return { ok: false, reason: String(err && err.message || err) };
+    }
+  });
 
   // Ranking
   ipcMain.handle('ranking:getState', () => {

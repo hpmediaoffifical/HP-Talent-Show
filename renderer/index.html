@@ -68,7 +68,39 @@
           <option value="name-desc">Z→A</option>
         </select>
       </div>
+      <div class="gp-coins" id="gpCoins" title="Lọc nhanh theo mức coin">
+        <button type="button" class="gp-coin is-active" data-coin="">Tất cả</button>
+        <button type="button" class="gp-coin" data-coin="1">1</button>
+        <button type="button" class="gp-coin" data-coin="5">5</button>
+        <button type="button" class="gp-coin" data-coin="10">10</button>
+        <button type="button" class="gp-coin" data-coin="20">20</button>
+        <button type="button" class="gp-coin" data-coin="100">100</button>
+        <button type="button" class="gp-coin" data-coin="200">200</button>
+        <button type="button" class="gp-coin" data-coin="300">300</button>
+        <button type="button" class="gp-coin" data-coin="500">500</button>
+        <button type="button" class="gp-coin" data-coin="1000">1.000</button>
+        <button type="button" class="gp-coin" data-coin="2000">2.000</button>
+        <button type="button" class="gp-coin" data-coin="5000">5.000</button>
+        <button type="button" class="gp-coin" data-coin="10000">10.000</button>
+        <button type="button" class="gp-coin" data-coin="20000">20.000</button>
+        <button type="button" class="gp-coin" data-coin="30000">30.000</button>
+        <button type="button" class="gp-coin" data-coin="44999">44.999</button>
+      </div>
       <div class="gp-grid" id="gpGrid"></div>
+    </div>
+  </div>
+
+  <!-- ===== Lịch sử trận đấu modal ===== -->
+  <div id="historyModal" class="gp-overlay">
+    <div class="gp-modal hist-modal" role="dialog" aria-labelledby="histTitle">
+      <header class="gp-head">
+        <h3 id="histTitle">📜 Lịch sử trận đấu</h3>
+        <span class="gp-count" id="histCount"></span>
+        <button id="histExport" class="primary tiny" type="button">⬇ Xuất CSV</button>
+        <button id="histClear" class="ghost tiny" type="button">🗑 Xóa hết</button>
+        <button id="histClose" class="gp-close-btn" type="button" aria-label="Đóng" title="Đóng (Esc)">✕</button>
+      </header>
+      <div class="hist-body" id="histBody"></div>
     </div>
   </div>
 
@@ -98,15 +130,6 @@
 
     <main class="main">
       <header class="topbar">
-        <div class="top-live">
-          <div class="top-connect-row">
-            <span class="prefix"><span class="dot" id="connDot"></span></span>
-            <input id="ttUsername" placeholder="ID TikTok LIVE" autocomplete="off" />
-            <button id="btnConnect" class="primary" type="button">▶ Kết nối</button>
-          </div>
-          <span class="conn-label" id="connLabel">Chưa kết nối</span>
-          <span class="conn-host" id="connHost"></span>
-        </div>
         <div class="live-ticker topbar-ticker" id="liveTicker" hidden>
           <div class="live-ticker-track" id="liveTickerTrack"></div>
         </div>
@@ -253,6 +276,7 @@
             <button id="pkAddA" class="ghost tiny" type="button">+1 A</button>
             <button id="pkAddB" class="ghost tiny" type="button">+1 B</button>
             <button id="pkCopyUrl" class="ghost" type="button">📋 OBS</button>
+            <button id="pkHistory" class="ghost" type="button">📜 Lịch sử</button>
           </div>
 
           <div class="form-grid">
@@ -341,6 +365,7 @@
             <button id="pkgReset" class="ghost" type="button">↺ Reset</button>
             <button id="pkgSaveCfg" class="ghost" type="button">🔄 Cập nhật</button>
             <button id="pkgCopyUrl" class="ghost" type="button">📋 OBS</button>
+            <button id="pkgHistory" class="ghost" type="button">📜 Lịch sử</button>
           </div>
 
           <div class="form-grid">
@@ -379,8 +404,9 @@
             </label>
             <label>Thời gian chuẩn bị (giây) <input id="pkgPrep" type="number" min="0" max="120" value="3" /></label>
             <label>Delay sau kết thúc (giây) <input id="pkgDelay" type="number" min="0" max="120" value="5" /></label>
-            <label>Cỡ chữ Creator (px) <input id="pkgTextSize" type="number" min="14" max="42" value="20" /></label>
-            <label>Cỡ icon quà (px) <input id="pkgGiftSize" type="number" min="28" max="90" value="42" /></label>
+            <label>Cỡ chữ Creator (px) <input id="pkgTextSize" type="number" min="14" max="60" value="30" /></label>
+            <label>Cỡ avatar + tên (%) <input id="pkgNameSize" type="number" min="60" max="200" step="5" value="100" /></label>
+            <label>Cỡ icon quà (px) <input id="pkgGiftSize" type="number" min="28" max="120" value="60" /></label>
             <label class="full">Scale PK Nhóm OBS
               <div class="range-inline">
                 <input id="pkgOverlayScale" type="range" min="80" max="300" step="5" value="100" />
@@ -412,6 +438,12 @@
             </div>
           </div>
 
+          <div class="pkg-members-toolbar">
+            <label class="switch-row" title="Tự động gán màu khác nhau cho mỗi Creator; màu chữ trên thanh luôn tương phản với màu nền">
+              <input id="pkgSmartColor" type="checkbox" checked /><span></span><b>🎨 Phối màu thông minh (không trùng)</b>
+            </label>
+            <button id="pkgAutoColor" class="ghost tiny" type="button">🎲 Phối lại màu</button>
+          </div>
           <div class="pkg-member-list" id="pkgMembers"></div>
         </div>
       </section>
@@ -597,6 +629,7 @@
                   </select>
                 </label>
                 <label>Màu Time <input id="scTimeColor" type="color" value="#ffffff" /></label>
+                <label>Cỡ chữ điểm/mục tiêu (px) <input id="scScoreFontSize" type="number" min="12" max="48" value="18" /></label>
                 <input id="scContentColor" type="hidden" value="#f0eef6" />
                 <label>Màu Over <input id="scOverColor" type="color" value="#ff0000" /></label>
                 <label>Bar màu 1 <input id="scBarColor1" type="color" value="#b93678" /></label>
@@ -659,6 +692,16 @@
             <button id="btnSaveOverlay" class="primary" type="button">💾 Lưu cấu hình Overlay</button>
           </div>
           <div class="hint">💡 Khuyến nghị OBS Browser Source: <b>2160×3840</b> cho overlay dọc rõ nét hơn. Nếu stream ngang, có thể crop/scale trong OBS.</div>
+        </div>
+
+        <div class="card">
+          <h3>💾 Sao lưu / Khôi phục dữ liệu</h3>
+          <p class="sub">Xuất toàn bộ <b>Creator + Nhóm</b> ra 1 file để chuyển sang máy khác hoặc sao lưu. Bản cài đặt mới <b>không</b> kèm sẵn danh sách creator/nhóm — hãy Xuất ở máy cũ và Nhập ở máy mới.</p>
+          <div class="form-actions">
+            <button id="btnExportData" class="primary" type="button">⬆ Xuất dữ liệu (Creator + Nhóm)</button>
+            <button id="btnImportData" class="ghost" type="button">⬇ Nhập dữ liệu từ file</button>
+          </div>
+          <div class="hint" id="dataBackupHint">📦 Hiện có: đang tải…</div>
         </div>
 
         <div class="card license-settings-card">
@@ -783,6 +826,20 @@
           <div class="hint">Thiết bị phát phụ thuộc quyền trình duyệt/Electron; nếu danh sách trống, app sẽ dùng thiết bị mặc định.</div>
         </div>
       </section>
+
+      <footer class="bottom-live" id="bottomLive">
+        <div class="bl-mode">
+          <label for="modeSelect">Chế độ</label>
+          <select id="modeSelect"></select>
+        </div>
+        <div class="top-connect-row">
+          <span class="prefix"><span class="dot" id="connDot"></span></span>
+          <input id="ttUsername" placeholder="ID TikTok LIVE" autocomplete="off" />
+          <button id="btnConnect" class="primary" type="button">▶ Kết nối</button>
+        </div>
+        <span class="conn-label" id="connLabel">Chưa kết nối</span>
+        <span class="conn-host" id="connHost"></span>
+      </footer>
     </main>
   </div>
 

@@ -21,6 +21,13 @@ const api = {
     remove: (id) => ipcRenderer.invoke('groups:remove', id),
   },
 
+  // ===== Sao lưu / khôi phục dữ liệu =====
+  data: {
+    counts: () => ipcRenderer.invoke('data:counts'),
+    export: () => ipcRenderer.invoke('data:export'),
+    import: () => ipcRenderer.invoke('data:import'),
+  },
+
   // ===== PK Đôi =====
   pkduo: {
     getState: () => ipcRenderer.invoke('pkduo:getState'),
@@ -42,6 +49,14 @@ const api = {
     addPoints: (id, points) => ipcRenderer.invoke('pkgroup:addPoints', { id, points }),
     testGift: (id) => ipcRenderer.invoke('pkgroup:testGift', { id }),
     getUrl: () => ipcRenderer.invoke('pkgroup:getUrl'),
+  },
+
+  // ===== Match history (LỊCH SỬ trận đấu) =====
+  history: {
+    list: (filter) => ipcRenderer.invoke('history:list', filter),
+    clear: (filter) => ipcRenderer.invoke('history:clear', filter),
+    remove: (id) => ipcRenderer.invoke('history:remove', id),
+    export: (filter) => ipcRenderer.invoke('history:export', filter),
   },
 
   // ===== Ranking (BXH) =====
@@ -119,6 +134,7 @@ const api = {
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
       'pkduo:state', 'pkgroup:state', 'ranking:state', 'score:state',
+      'history:changed',
       'log',
     ]);
     if (!allowed.has(channel)) return () => {};

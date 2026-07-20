@@ -25,8 +25,9 @@ function shortName(value) {
   return s.length > 18 ? s.slice(0, 18) + '...' : s;
 }
 
-function textColorFor(bg, enabled) {
-  if (!enabled) return '#ffffff';
+// Màu chữ LUÔN tương phản với màu nền của creator (nền sáng → chữ tối, nền tối → chữ trắng),
+// không phụ thuộc toggle nữa để chữ điểm/tên luôn nổi bật.
+function textColorFor(bg) {
   const m = String(bg || '').trim().match(/^#([0-9a-f]{6})$/i);
   if (!m) return '#ffffff';
   const n = parseInt(m[1], 16);
@@ -35,6 +36,14 @@ function textColorFor(bg, enabled) {
   const b = n & 255;
   const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return lum > 0.62 ? '#111827' : '#ffffff';
+}
+
+// Bóng chữ thích ứng theo màu chữ: chữ tối → quầng sáng kiểu emboss (nét, sang);
+// chữ trắng → bóng tối tinh gọn. Tránh chữ đen đổ bóng đen bị nhòe bẩn.
+function textShadowFor(tc) {
+  return tc === '#111827'
+    ? '0 1px 0 rgba(255,255,255,.85), 0 0 3px rgba(255,255,255,.9), 0 2px 3px rgba(0,0,0,.22)'
+    : '0 1px 2px rgba(0,0,0,.55), 0 0 6px rgba(0,0,0,.5)';
 }
 
 function rankParticipants(participants) {
@@ -74,23 +83,38 @@ function render(state = {}) {
     return boostDir;
   };
 
+  const joinedCols = participants.map(p => `minmax(0,${widthOf(p).toFixed(4)}fr)`).join(' ') || '1fr';
+  const NARROW_W = 12; // % — dưới ngưỡng này thì ẩn chữ tên / phần trăm để khỏi chèn chữ
+  const pctOf = (p) => total > 0
+    ? Math.round((Number(p.score) || 0) / total * 100)
+    : Math.round(100 / Math.max(1, participants.length));
   const body = layout === 'joined'
-    ? `<div class="pkg-joined-stage">
-        <div class="pkg-joined-names">${participants.map(p => `<div style="--c:${esc(p.color || '#FE2C55')};--tc:${textColorFor(p.color, state.autoTextContrast)};width:${widthOf(p)}%">${p.avatar ? `<img src="${esc(p.avatar)}" />` : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>`).join('')}</div>
-        <div class="pkg-joined-bar">${participants.map(p => {
+    ? `<div class="pkg-joined-stage" style="--pkg-cols:${joinedCols}">
+        <div class="pkg-joined-names">${participants.map(p => {
           const isLeader = p.id === leaderId;
+          const narrow = widthOf(p) < NARROW_W;
+          const tc = textColorFor(p.color);
+          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<span class="pkg-crown" aria-hidden="true">👑</span>' : ''}${p.avatar ? `<img src="${esc(p.avatar)}" onerror="this.onerror=null;this.src='/logo.png'" />` : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>`;
+        }).join('')}</div>
+        <div class="pkg-joined-bar">${participants.map((p, i) => {
+          const isLeader = p.id === leaderId;
+          const narrow = widthOf(p) < NARROW_W;
           const score = Number(p.score) || 0;
           const streak = Number(p.streak) || 0;
-          return `<div class="pkg-segment${isLeader ? ' leader' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${textColorFor(p.color, state.autoTextContrast)};width:${widthOf(p)}%"><b>${isLeader ? `Hạng 1 (${fmt(score)})` : fmt(score)}</b>${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
-        }).join('')}</div>
-        <div class="pkg-joined-gifts">${participants.map(p => `<div style="--c:${esc(p.color || '#FE2C55')};width:${widthOf(p)}%">${(p.gifts || []).map(giftHtml).join('')}</div>`).join('')}</div>
+          const pct = pctOf(p);
+          const tc = textColorFor(p.color);
+          const edge = `${i === 0 ? ' is-first' : ''}${i === participants.length - 1 ? ' is-last' : ''}`;
+          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}"><b><em>${isLeader ? `Hạng 1 (${fmt(score)})` : fmt(score)}</em>${narrow ? '' : `<small>${pct}%</small>`}</b>${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
+        }).join('')}<div class="pkg-joined-ticks" aria-hidden="true"></div></div>
+        <div class="pkg-joined-gifts">${participants.map(p => `<div style="--c:${esc(p.color || '#FE2C55')}">${(p.gifts || []).map(giftHtml).join('')}</div>`).join('')}</div>
       </div>`
     : `<div class="pkg-separated-list">${participants.map(p => {
         const score = Number(p.score) || 0;
         const width = widthOf(p);
         const isLeader = p.id === leaderId;
-        return `<div class="pkg-card${isLeader ? ' leader' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${textColorFor(p.color, state.autoTextContrast)}">
-          <div class="pkg-card-person">${p.avatar ? `<img src="${esc(p.avatar)}" />` : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
+        const tc = textColorFor(p.color);
+        return `<div class="pkg-card${isLeader ? ' leader' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">
+          <div class="pkg-card-person">${p.avatar ? `<img src="${esc(p.avatar)}" onerror="this.onerror=null;this.src='/logo.png'" />` : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
           <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}"><i style="width:${width}%"></i><b>${isLeader ? `Hạng 1 (${fmt(score)})` : fmt(score)}</b>${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${Number(p.streak) > 0 ? `<span class="pkg-streak" title="MVP ${fmt(p.streak)}"><small>MVP</small><em>${fmt(p.streak)}</em></span>` : ''}</div></div>
           <div class="pkg-card-gifts">${(p.gifts || []).map(giftHtml).join('')}</div>
         </div>`;
@@ -100,8 +124,12 @@ function render(state = {}) {
   const nextNoteKey = state.noteEnabled && noteText
     ? JSON.stringify([noteText, noteLong, state.noteEffect || 'soft', state.noteBgColor || '#1f2430', state.noteTextColor || '#fff', Math.max(6, Number(state.noteSpeedSec) || 16)])
     : '';
-  const overlayScale = Math.max(.8, Math.min(3, (parseInt(state.overlayScale, 10) || 100) / 100));
+  const rawScale = parseInt(state.overlayScale, 10);
+  if (Number.isFinite(rawScale)) { try { localStorage.setItem('pkGroupScale', rawScale); } catch {} }
+  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('pkGroupScale'), 10) || 100);
+  const overlayScale = Math.max(.8, Math.min(3, useScale / 100));
   const sparkDelay = -((Date.now() % 1800) / 1000).toFixed(3);
+  const flowDelay = -((Date.now() % 1000) / 1000).toFixed(3);
   root.style.setProperty('--pkg-scale', overlayScale);
 
   if (!root.querySelector('.pkg-board')) {
@@ -109,17 +137,21 @@ function render(state = {}) {
   }
   const board = root.querySelector('.pkg-board');
   board.className = `pkg-board mode-${layout} status-${esc(status)}${urgent ? ' urgent' : ''}`;
-  const nextBoardStyleKey = [state.textSize, state.giftSize, state.separatedGap, overlayScale].join('|');
+  // Baseline ×1.5: mức 100% trên giao diện = cỡ như 150% trước đây (avatar + tên to hơn mặc định).
+  const nameScale = Math.max(.9, Math.min(3, ((parseInt(state.nameSize, 10) || 100) / 100) * 1.5));
+  const nextBoardStyleKey = [state.textSize, state.giftSize, state.separatedGap, overlayScale, nameScale].join('|');
   if (boardStyleKey !== nextBoardStyleKey) {
     boardStyleKey = nextBoardStyleKey;
     board.style.cssText = `
-    --pkg-text:${Math.max(14, Math.min(42, parseInt(state.textSize, 10) || 20))}px;
-    --pkg-gift:${Math.max(28, Math.min(90, parseInt(state.giftSize, 10) || 42))}px;
+    --pkg-text:${Math.max(14, Math.min(60, parseInt(state.textSize, 10) || 30))}px;
+    --pkg-gift:${Math.max(28, Math.min(120, parseInt(state.giftSize, 10) || 60))}px;
     --pkg-separated-gap:${Math.max(0, Math.min(800, parseInt(state.separatedGap, 10) || 0))}px;
     --pkg-scale:${overlayScale};
+    --pkg-name-scale:${nameScale};
   `;
   }
   board.style.setProperty('--pkg-spark-delay', `${sparkDelay}s`);
+  board.style.setProperty('--pkg-flow-delay', `${flowDelay}s`);
   const bodyMount = document.getElementById('pkgBodyMount');
   if (bodyMount) bodyMount.innerHTML = body;
   const title = board.querySelector('.pkg-title b');

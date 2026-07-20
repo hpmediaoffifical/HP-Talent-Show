@@ -1,133 +1,229 @@
 {
   "teamA": {
-    "name": "NPC Kyder🐺",
+    "name": "Hoàng Lê",
     "color": "#fe2c55",
     "gifts": [
       {
-        "giftName": "Cute",
-        "giftId": "5655",
-        "icon": "https://hpvn.media/quatiktok/5655.png",
+        "giftName": "Community Heart",
+        "giftId": "62816",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8d2a21bead102d4cc1ffade117c9dc46.png~tplv-obj.webp",
         "diamond": 1
+      },
+      {
+        "giftName": "Pearl Chime",
+        "giftId": "437561",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/a2c0c1ccd1262e8aad4d2f6e5ebc8585.png~tplv-obj.webp",
+        "diamond": 99
+      },
+      {
+        "giftName": "Sundae Bowl",
+        "giftId": "17105",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/725ba28c17d775db510ca7b240cdd84e.png~tplv-obj.webp",
+        "diamond": 99
+      },
+      {
+        "giftName": "Cursed Kick",
+        "giftId": "127090",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/23c19297764926e43446d60904d6f9c5.png~tplv-obj.webp",
+        "diamond": 99
+      },
+      {
+        "giftName": "Compact",
+        "giftId": "18174",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/5e0c1749072e603518c0394ae07c04fc.png~tplv-obj.webp",
+        "diamond": 100
+      },
+      {
+        "giftName": "Confetti",
+        "giftId": "5585",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/cb4e11b3834e149f08e1cdcc93870b26~tplv-obj.webp",
+        "diamond": 100
       }
     ],
     "fixedGifts": [
       {
-        "giftName": "Hot",
-        "giftId": "8825",
-        "icon": "https://hpvn.media/quatiktok/8825.png",
-        "diamond": 10
+        "giftName": "Community Heart",
+        "giftId": "62816",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8d2a21bead102d4cc1ffade117c9dc46.png~tplv-obj.webp",
+        "diamond": 1
       },
       {
-        "giftName": "Gentle",
-        "giftId": "8913",
-        "icon": "https://hpvn.media/quatiktok/8913.png",
-        "diamond": 10
+        "giftName": "Pearl Chime",
+        "giftId": "437561",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/a2c0c1ccd1262e8aad4d2f6e5ebc8585.png~tplv-obj.webp",
+        "diamond": 99
       },
       {
-        "giftName": "Fan",
-        "giftId": "10138",
-        "icon": "https://hpvn.media/quatiktok/10138.png",
-        "diamond": 10
+        "giftName": "Sundae Bowl",
+        "giftId": "17105",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/725ba28c17d775db510ca7b240cdd84e.png~tplv-obj.webp",
+        "diamond": 99
       },
       {
-        "giftName": "RnB",
-        "giftId": "9875",
-        "icon": "https://hpvn.media/quatiktok/9875.png",
-        "diamond": 10
+        "giftName": "Cursed Kick",
+        "giftId": "127090",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/23c19297764926e43446d60904d6f9c5.png~tplv-obj.webp",
+        "diamond": 99
       },
       {
-        "giftName": "Pop",
-        "giftId": "5487",
-        "icon": "https://hpvn.media/quatiktok/5487.png",
-        "diamond": 5
+        "giftName": "Compact",
+        "giftId": "18174",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/5e0c1749072e603518c0394ae07c04fc.png~tplv-obj.webp",
+        "diamond": 100
+      },
+      {
+        "giftName": "Confetti",
+        "giftId": "5585",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/cb4e11b3834e149f08e1cdcc93870b26~tplv-obj.webp",
+        "diamond": 100
       }
     ],
     "joinGifts": [
       {
-        "giftName": "Cute",
+        "giftName": "Rose",
         "giftId": "5655",
-        "icon": "https://hpvn.media/quatiktok/5655.png",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
         "diamond": 1
       }
     ],
-    "groupId": "g_mp5rwwkweth2v",
-    "groupName": "HP•BlueBell 💙",
-    "creatorId": "c_mp60g2a1b5w41",
-    "creatorName": "NPC Kyder🐺",
-    "creatorAvatar": "https://p16-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/75ef42036cf48decb49acac92d83d1d0~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=95cf807c&x-expires=1779084000&x-signature=6%2Bsk0qzxoYmEimBSR7qn2jgpG1Y%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
+    "groupId": "g_mrtg107e1aqmz",
+    "groupName": "HP•VITAMIN B | TUYỂN IDOL",
+    "creatorId": "c_mrtg2s085v57p",
+    "creatorName": "GIN",
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/8ad8152cd28abca9114653858cf057c9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=87fd28ef&x-expires=1784736000&x-signature=bnXHgU%2B66hI5i2gQwPNjjKPWpBU%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
   },
   "teamB": {
-    "name": "🍉NPC Habi🍉",
+    "name": "D-ONE✨🪐",
     "color": "#25f4ee",
     "gifts": [
       {
-        "giftName": "Gentle",
-        "giftId": "57327",
-        "icon": "https://hpvn.media/quatiktok/57327.png",
+        "giftName": "Club Cheers",
+        "giftId": "12355",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/6a934c90e5533a4145bed7eae66d71bd.png~tplv-obj.webp",
         "diamond": 1
+      },
+      {
+        "giftName": "Singing Mushroom",
+        "giftId": "170506",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/072a4e4c2f4435282354492360e16571.png~tplv-obj.webp",
+        "diamond": 99
+      },
+      {
+        "giftName": "Wobbler",
+        "giftId": "127094",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/23c19297764926e43446d60904d6f9c5.png~tplv-obj.webp",
+        "diamond": 99
+      },
+      {
+        "giftName": "Bouquet",
+        "giftId": "6766",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/1bdf0b38142a94af0f71ea53da82a3b1~tplv-obj.webp",
+        "diamond": 100
+      },
+      {
+        "giftName": "Hand Heart",
+        "giftId": "5660",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/6cd022271dc4669d182cad856384870f~tplv-obj.webp",
+        "diamond": 100
+      },
+      {
+        "giftName": "Match Wand",
+        "giftId": "14046",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/d1ba80bb94f93ac973bc4f30794c6d28.png~tplv-obj.webp",
+        "diamond": 100
+      },
+      {
+        "giftName": "Mini Star",
+        "giftId": "13462",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/483fbb7908887e111feb9d68426e33bd.png~tplv-obj.webp",
+        "diamond": 100
+      },
+      {
+        "giftName": "Mishka Bear",
+        "giftId": "5566",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/d78ed6496fd57286b42ac033acbee299.png~tplv-obj.webp",
+        "diamond": 100
       }
     ],
     "fixedGifts": [
       {
-        "giftName": "Cute",
-        "giftId": "5655",
-        "icon": "https://hpvn.media/quatiktok/5655.png",
+        "giftName": "Club Cheers",
+        "giftId": "12355",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/6a934c90e5533a4145bed7eae66d71bd.png~tplv-obj.webp",
         "diamond": 1
       },
       {
-        "giftName": "Sweet",
-        "giftId": "9340",
-        "icon": "https://hpvn.media/quatiktok/9340.png",
-        "diamond": 1
+        "giftName": "Singing Mushroom",
+        "giftId": "170506",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/072a4e4c2f4435282354492360e16571.png~tplv-obj.webp",
+        "diamond": 99
       },
       {
-        "giftName": "RnB",
-        "giftId": "8635",
-        "icon": "https://hpvn.media/quatiktok/8635.png",
-        "diamond": 5
+        "giftName": "Wobbler",
+        "giftId": "127094",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/23c19297764926e43446d60904d6f9c5.png~tplv-obj.webp",
+        "diamond": 99
       },
       {
-        "giftName": "Fan",
-        "giftId": "7412",
-        "icon": "https://hpvn.media/quatiktok/7412.png",
-        "diamond": 5
+        "giftName": "Bouquet",
+        "giftId": "6766",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/1bdf0b38142a94af0f71ea53da82a3b1~tplv-obj.webp",
+        "diamond": 100
       },
       {
-        "giftName": "Cover",
-        "giftId": "5879",
-        "icon": "https://hpvn.media/quatiktok/5879.png",
-        "diamond": 30
+        "giftName": "Hand Heart",
+        "giftId": "5660",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/6cd022271dc4669d182cad856384870f~tplv-obj.webp",
+        "diamond": 100
+      },
+      {
+        "giftName": "Match Wand",
+        "giftId": "14046",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/d1ba80bb94f93ac973bc4f30794c6d28.png~tplv-obj.webp",
+        "diamond": 100
+      },
+      {
+        "giftName": "Mini Star",
+        "giftId": "13462",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/483fbb7908887e111feb9d68426e33bd.png~tplv-obj.webp",
+        "diamond": 100
+      },
+      {
+        "giftName": "Mishka Bear",
+        "giftId": "5566",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/d78ed6496fd57286b42ac033acbee299.png~tplv-obj.webp",
+        "diamond": 100
       }
     ],
     "joinGifts": [
       {
-        "giftName": "Gentle",
-        "giftId": "57327",
-        "icon": "https://hpvn.media/quatiktok/57327.png",
+        "giftName": "Rose",
+        "giftId": "5655",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
         "diamond": 1
       }
     ],
-    "groupId": "g_mp5rx1zjf48zh",
-    "groupName": "HP• LOLLIPOP",
-    "creatorId": "c_mp5tjxiz14gz3",
-    "creatorName": "🍉NPC Habi🍉",
-    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/36061e0e7dd6969858d34ed8778f6af9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=3f984be4&x-expires=1779084000&x-signature=cmFzIl0PydzPcLcMgNOmMf3ObeI%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
+    "groupId": "g_mrtg107e1aqmz",
+    "groupName": "HP•VITAMIN B | TUYỂN IDOL",
+    "creatorId": "c_mrtg396ra59ws",
+    "creatorName": "D-ONE✨🪐",
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/412869dc3e6fe48871a2754d67b12aae~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=ce2a1a5d&x-expires=1784736000&x-signature=Deg%2BUMqTgF9zllwWMB6aWEMlueY%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
   },
-  "durationSec": 90,
+  "durationSec": 15,
   "prepSec": 3,
   "delaySec": 5,
-  "joinMode": true,
+  "joinMode": false,
   "pointsBy": "diamond",
   "content": "CHIẾN THẦN PK",
   "bgColor": "#000000",
-  "bgOpacity": 60,
-  "giftSize": 55,
-  "textSize": 20,
-  "overlayScale": 255,
-  "startSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/b%E1%BA%AFt%20%C4%91%E1%BA%A7u%20pk.mp3",
-  "warningSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/10s%20cu%E1%BB%91i.mp3",
-  "teamASound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/th%E1%BA%AFng%20%C4%91i%E1%BB%83m.mp3",
-  "teamBSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/th%E1%BA%AFng%20%C4%91i%E1%BB%83m.mp3",
-  "drawSound": "file:///F:/PHAT%20TRIEN%20GAME/HP%20Talent%20Show/voice/thua%20%C4%91i%E1%BB%83m.mp3",
+  "bgOpacity": 76,
+  "giftSize": 70,
+  "textSize": 30,
+  "overlayScale": 275,
+  "startSound": "",
+  "warningSound": "",
+  "teamASound": "",
+  "teamBSound": "",
+  "drawSound": "",
   "giftDisplayMode": "scroll"
 }

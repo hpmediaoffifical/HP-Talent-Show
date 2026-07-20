@@ -4,6 +4,8 @@ dist/
 config/settings.json
 config/creators.json
 config/groups.json
+config/match-history.json
+config/*.bak
 *.log
 .DS_Store
 Thumbs.db

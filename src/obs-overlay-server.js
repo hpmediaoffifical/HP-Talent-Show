@@ -33,6 +33,7 @@ class ObsOverlayServer {
     this.pkGroupState = {};
     this.rankingState = {};
     this.scoreState = {};
+    this.heartbeatTimer = null;
   }
 
   async start() {
@@ -42,10 +43,15 @@ class ObsOverlayServer {
       this.server.once('error', reject);
       this.server.listen(this.port, '127.0.0.1', resolve);
     });
+    // Keep OBS's embedded browser connected while the OBS window is backgrounded.
+    // Some machines/network stacks otherwise leave an idle localhost SSE stream stale.
+    this.heartbeatTimer = setInterval(() => this._heartbeat(), 15000);
     this.onLog(`OBS overlay server: http://127.0.0.1:${this.port}`);
   }
 
   stop() {
+    clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
     for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients]) {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
@@ -69,6 +75,18 @@ class ObsOverlayServer {
     for (const res of set) { try { res.write(body); } catch {} }
   }
 
+  _heartbeat() {
+    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients]) {
+      for (const res of set) {
+        if (res.destroyed || res.writableEnded) {
+          set.delete(res);
+          continue;
+        }
+        try { res.write(': keep-alive\n\n'); } catch { set.delete(res); }
+      }
+    }
+  }
+
   _handle(req, res) {
     const reqUrl = new URL(req.url, `http://127.0.0.1:${this.port}`);
     const remote = req.socket.remoteAddress || '';
@@ -87,6 +105,10 @@ class ObsOverlayServer {
       '/score-overlay.js': 'renderer/score-overlay.js',
       '/score-overlay.css': 'renderer/score-overlay.css',
       '/overlay-common.css': 'renderer/overlay-common.css',
+      '/pk-duo-rocket.svg': 'renderer/pk-duo-rocket.svg',
+      '/pk-duo-boost.svg': 'renderer/pk-duo-boost.svg',
+      '/pk-duo-neutral.svg': 'renderer/pk-duo-neutral.svg',
+      '/pk-duo-arrow.svg': 'renderer/pk-duo-arrow.svg',
       '/favicon.ico': 'logo/hp-logo.ico',
       '/logo.png': 'logo/hp-logo.png',
     };
@@ -132,7 +154,10 @@ class ObsOverlayServer {
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     });
-    res.write(`event: ${evName}\ndata: ${JSON.stringify(initialState || {})}\n\n`);
+    res.socket?.setNoDelay(true);
+    res.flushHeaders?.();
+    // Tell EventSource to recover quickly if OBS/CEF does close the connection.
+    res.write(`retry: 1500\n:event stream connected\n\nevent: ${evName}\ndata: ${JSON.stringify(initialState || {})}\n\n`);
     set.add(res);
     req.on('close', () => set.delete(res));
   }

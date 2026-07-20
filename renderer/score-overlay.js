@@ -77,17 +77,26 @@ function render(state = {}) {
   const topText = topUsers.length ? topUsers.map(u => `${esc(u.user || '?')} ${fmt(u.points)}`).join(' | ') : '';
   root.className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${state.milestoneGradientEnabled ? ' milestone-gradient' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}`;
   root.style.setProperty('--score-time-color', state.timeColor || '#ffffff');
-  root.style.setProperty('--score-scale', Math.max(.8, Math.min(3, (parseInt(state.overlayScale, 10) || 100) / 100)));
+  const rawScale = parseInt(state.overlayScale, 10);
+  if (Number.isFinite(rawScale)) { try { localStorage.setItem('scoreScale', rawScale); } catch {} }
+  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('scoreScale'), 10) || 100);
+  root.style.setProperty('--score-scale', Math.max(.8, Math.min(3, useScale / 100)));
+  root.style.setProperty('--score-points-font-size', `${Math.max(12, Math.min(48, parseInt(state.scoreFontSize, 10) || 18))}px`);
   root.style.setProperty('--score-content-color', state.contentColor || '#f0eef6');
   root.style.setProperty('--score-over-color', state.overColor || '#ff0000');
   root.style.setProperty('--score-bar-color-1', state.barColor1 || '#b93678');
   root.style.setProperty('--score-bar-color-2', state.barColor2 || '#ff8ed1');
   root.style.setProperty('--score-wave-color', state.waveColor || '#ffffff');
+  // Đồng bộ pha sóng theo đồng hồ toàn cục → innerHTML dựng lại mỗi render vẫn không làm sóng nhảy
+  root.style.setProperty('--score-flow-delay', `${(-(Date.now() % 1000) / 1000).toFixed(3)}s`);
   const stageColors = ['#ff4f9a', '#ffb84f', '#ffe66d', '#35ffcf', '#7aa7ff', '#c79cff'];
   const usedColors = stageColors.slice(0, Math.max(2, Math.min(stageColors.length, reachedMilestones + 2)));
+  const c1 = state.barColor1 || '#b93678';
+  const c2 = state.barColor2 || '#ff8ed1';
+  // Đuôi mờ trong suốt → đầu (mép đang tiến) đậm/sáng nhất
   root.style.setProperty('--score-fill-gradient', state.milestoneGradientEnabled && reachedMilestones > 0
-    ? `linear-gradient(90deg, ${usedColors.join(', ')})`
-    : `linear-gradient(90deg, ${state.barColor1 || '#b93678'} 0%, ${state.barColor2 || '#ff8ed1'} 100%)`);
+    ? `linear-gradient(90deg, color-mix(in srgb, ${usedColors[0]}, transparent 62%) 0%, ${usedColors.join(', ')})`
+    : `linear-gradient(90deg, color-mix(in srgb, ${c2}, transparent 74%) 0%, color-mix(in srgb, ${c2}, transparent 34%) 22%, ${c2} 46%, ${c1} 88%, color-mix(in srgb, ${c1}, #000 8%) 100%)`);
   root.innerHTML = `
     <div class="score-time"><i class="score-time-icon ${['success','failed'].includes(status) ? 'off' : 'clock'}" aria-hidden="true"></i><span>${esc(statusText)}</span></div>
     <div class="score-bar" style="--score-pct:${pct}%">

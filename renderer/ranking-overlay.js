@@ -45,7 +45,7 @@ function rowHtml(row, state) {
     <div class="ranking-main">
       ${nameHtml(row.name || 'Idol', 'ranking-name')}
       ${row.groupName ? `<div class="ranking-group">${esc(row.groupName)}</div>` : ''}
-      ${row.hideScore || state.hideAllScores ? '<div class="ranking-points hidden-score">Ẩn điểm</div>' : `<div class="ranking-points">${fmt(row.points)}</div>`}
+      ${row.hideScore || state.hideAllScores ? '<div class="ranking-points hidden-score" aria-label="Ẩn điểm" title="Ẩn điểm">•••</div>' : `<div class="ranking-points">${fmt(row.points)}</div>`}
     </div>
     ${state.showGift === false || !gift ? '' : `<div class="ranking-gift">${gift}</div>`}
     ${state.showRound === false ? '' : `<div class="ranking-round">R${fmt(row.round)}</div>`}
@@ -58,6 +58,19 @@ function render(state = {}) {
   const gridFlow = state.gridFlow === 'column' ? 'column' : 'row';
   const rows = Array.isArray(state.rows) ? state.rows : [];
   const visibleRows = layoutGrid ? rows.slice(0, gridRows * gridCols) : rows;
+  // Grid tự canh theo số thành viên thực tế: bỏ hàng/cột trống để board khít
+  // với thanh vote bên dưới (không chừa chỗ cho ô rỗng đã cấu hình).
+  let effRows = gridRows, effCols = gridCols;
+  if (layoutGrid && visibleRows.length > 0) {
+    const n = visibleRows.length;
+    if (gridFlow === 'column') {
+      effRows = Math.min(gridRows, n);
+      effCols = Math.ceil(n / effRows);
+    } else {
+      effCols = Math.min(gridCols, n);
+      effRows = Math.ceil(n / effCols);
+    }
+  }
   const compactClass =
     (state.showRank === false ? ' hide-rank' : '') +
     (state.showAvatar === false ? ' hide-avatar' : '') +
@@ -68,15 +81,18 @@ function render(state = {}) {
   const activeName = state.active ? esc(state.active.name || 'Idol') : '';
   const activePoints = state.active ? fmt(state.active.points) : '';
   const activeLong = state.active && `${state.active.name || 'Idol'} ${activePoints}`.length > 18;
-  const overlayScale = Math.max(.8, Math.min(3, (parseInt(state.overlayScale, 10) || 100) / 100));
+  const rawScale = parseInt(state.overlayScale, 10);
+  if (Number.isFinite(rawScale)) { try { localStorage.setItem('rankingScale', rawScale); } catch {} }
+  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('rankingScale'), 10) || 100);
+  const overlayScale = Math.max(.8, Math.min(3, useScale / 100));
   root.style.setProperty('--rk-scale', overlayScale);
 
   root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}" style="
     --ranking-card-bg-rgb:${hexToRgb(state.overlayBgColor || '#2a2d37')};
     --ranking-card-bg-opacity:${((Number(state.overlayBgOpacity ?? 74)) / 100).toFixed(2)};
     --ranking-streak-color:${esc(state.streakColor || '#67e8f9')};
-    --rk-rows:${gridRows};
-    --rk-cols:${gridCols};
+    --rk-rows:${effRows};
+    --rk-cols:${effCols};
     --rk-flow:${gridFlow};
     --rk-scale:${overlayScale}
   ">

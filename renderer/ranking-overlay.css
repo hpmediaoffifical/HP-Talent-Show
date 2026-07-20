@@ -1,13 +1,18 @@
-/* Ranking overlay — port từ BIGO, hỗ trợ vertical + grid layout */
+/* Ranking overlay — THI ĐẤU NHÓM. Thiết kế "framed card list": board có khung đệm,
+   mỗi hàng là 1 thẻ bo tròn nằm cách viền → hàng được VOTE phóng to nhẹ + phát sáng
+   KHÔNG bị viền cắt (overflow mở, hàng thụt vào trong khung). */
 html, body { margin:0; width:100%; height:100%; background:transparent; overflow:hidden; font-family:'Inter','Segoe UI', Arial, sans-serif; }
 body { display:flex; justify-content:center; align-items:flex-start; }
-#rankingRoot { width:max-content; max-width:100vw; padding:18px 14px 0; box-sizing:border-box; transform:scale(var(--rk-scale,1)); transform-origin:top center; }
+/* zoom (không phải transform:scale) để trình duyệt layout lại + render chữ nét thật trên OBS.
+   padding rộng để chừa chỗ cho glow của hàng active tràn ra ngoài board. */
+#rankingRoot { width:max-content; max-width:none; padding:22px 20px; box-sizing:border-box; zoom:var(--rk-scale,1); }
 
 .ranking-board {
   display:inline-grid; grid-template-columns:minmax(0,var(--rk-width, 116px)); width:var(--rk-width, 116px); min-width:0;
-  padding:7px 0 0; border-radius:9px; overflow:visible; color:#fff;
-  background:linear-gradient(180deg, rgba(37,39,50,.91), rgba(25,28,38,.86));
-  box-shadow:0 12px 34px rgba(0,0,0,.42); text-shadow:0 1px 3px rgba(0,0,0,.58);
+  padding:6px; border-radius:15px; overflow:visible; color:#fff;
+  background:linear-gradient(180deg, rgba(35,38,51,.93), rgba(21,24,34,.9));
+  box-shadow:0 14px 38px rgba(0,0,0,.46), inset 0 0 0 1px rgba(255,255,255,.06);
+  text-shadow:0 1px 3px rgba(0,0,0,.6);
 }
 .ranking-board { --rk-width:116px; }
 .ranking-board.cols-2 { --rk-width:130px; }
@@ -16,34 +21,31 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board:not(.hide-avatar) { --rk-width:142px; }
 .ranking-board:not(.hide-avatar):not(.hide-gift), .ranking-board:not(.hide-avatar):not(.hide-round) { --rk-width:152px; }
 .ranking-board.layout-grid { width:max-content; grid-template-columns:minmax(0,max-content); }
+
 .ranking-title {
-  width:100%; max-width:none; box-sizing:border-box;
-  padding:7px 8px 8px; margin-top:-7px;
-  border-radius:9px 9px 0 0;
+  width:100%; box-sizing:border-box;
+  padding:7px 9px 8px; margin-bottom:6px;
+  border-radius:10px;
   font-size:15px; font-weight:950; letter-spacing:.03em;
-  text-align:center; white-space:normal; line-height:1.08;
+  text-align:center; white-space:normal; line-height:1.1;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-  background:linear-gradient(180deg, rgba(31,29,39,.96), rgba(18,17,24,.92));
+  background:linear-gradient(180deg, rgba(46,43,58,.96), rgba(26,24,34,.94));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.07), 0 3px 10px rgba(0,0,0,.28);
 }
-.ranking-list { display:grid; gap:1px; overflow:visible; }
+.ranking-list { display:grid; gap:4px; overflow:visible; }
 .ranking-empty { padding:16px 10px; color:#d5dae7; font-size:12px; text-align:center; }
 
 .ranking-row {
   position:relative; display:grid; grid-template-columns:24px minmax(0,1fr); column-gap:4px; align-items:center; min-height:38px;
-  padding:4px 5px 4px 4px;
-  transition:transform .18s, filter .18s, opacity .18s, background .18s;
+  padding:4px 6px 4px 5px; border-radius:9px;
+  transition:transform .2s cubic-bezier(.22,1,.36,1), box-shadow .2s, background .2s, filter .2s, opacity .2s;
   background:rgba(var(--ranking-card-bg-rgb, 42,45,55), var(--ranking-card-bg-opacity, .74));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.045);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.2);
 }
-.ranking-row.top-0 + .ranking-row.top-0 { border-top:1px solid rgba(255,255,255,.13); }
-.ranking-row.top-0::before {
-  content:""; position:absolute; left:34px; right:6px; top:0; height:1px;
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent);
-}
-.ranking-row.top-1 { background:linear-gradient(90deg, rgba(113,82,25,.86), rgba(41,35,29,.78)); box-shadow:inset 3px 0 0 rgba(255,218,95,.74); }
-.ranking-row.top-2 { background:linear-gradient(90deg, rgba(77,89,109,.82), rgba(35,39,48,.78)); box-shadow:inset 3px 0 0 rgba(190,210,245,.72); }
-.ranking-row.top-3 { background:linear-gradient(90deg, rgba(121,78,44,.82), rgba(42,34,29,.78)); box-shadow:inset 3px 0 0 rgba(251,146,60,.72); }
-.ranking-row.loser { filter:grayscale(.7); opacity:.48; }
+.ranking-row.top-1 { background:linear-gradient(90deg, rgba(120,88,28,.9), rgba(46,38,28,.8)); box-shadow:inset 3px 0 0 rgba(255,218,95,.85), inset 0 0 0 1px rgba(255,218,95,.18), 0 2px 8px rgba(0,0,0,.24); }
+.ranking-row.top-2 { background:linear-gradient(90deg, rgba(82,95,116,.86), rgba(38,42,52,.8)); box-shadow:inset 3px 0 0 rgba(198,216,248,.82), inset 0 0 0 1px rgba(198,216,248,.16), 0 2px 8px rgba(0,0,0,.24); }
+.ranking-row.top-3 { background:linear-gradient(90deg, rgba(128,82,46,.86), rgba(45,36,30,.8)); box-shadow:inset 3px 0 0 rgba(251,146,60,.82), inset 0 0 0 1px rgba(251,146,60,.16), 0 2px 8px rgba(0,0,0,.24); }
+.ranking-row.loser { filter:grayscale(.7); opacity:.46; }
 .ranking-row.loser::after {
   content:""; position:absolute; inset:4px; pointer-events:none;
   background:
@@ -51,16 +53,24 @@ body { display:flex; justify-content:center; align-items:flex-start; }
     linear-gradient(-28deg, transparent calc(50% - 1px), rgba(239,68,68,.9) 50%, transparent calc(50% + 1px));
   filter:none; opacity:.95;
 }
+
+/* Hàng được VOTE / đang active: phóng to nhẹ + phát sáng, nổi lên trên, KHÔNG bị viền cắt */
 .ranking-row.active {
-  z-index:5; transform:scale(1.06); transform-origin:center; margin:2px -6px;
-  border-radius:3px;
-  background:linear-gradient(90deg, rgba(48,34,24,.99), rgba(17,13,13,.99));
-  border-top:1px solid rgba(247,223,138,.48); border-bottom:1px solid rgba(247,223,138,.48);
-  box-shadow:0 -1px 7px var(--ranking-streak-color, #67e8f9),
-             0 1px 7px rgba(190,135,38,.58),
-             0 0 22px rgba(255,206,86,.25),
-             0 10px 24px rgba(0,0,0,.28);
+  z-index:6; transform:scale(1.05); transform-origin:center;
+  border-radius:10px;
+  background:linear-gradient(90deg, rgba(58,42,26,.99), rgba(24,18,16,.99));
+  box-shadow:
+    inset 0 0 0 1.5px var(--ranking-streak-color, #67e8f9),
+    0 0 0 1px rgba(255,206,86,.35),
+    0 0 20px color-mix(in srgb, var(--ranking-streak-color, #67e8f9), transparent 55%),
+    0 8px 22px rgba(0,0,0,.4);
   opacity:1; filter:none;
+  animation:rankingActivePop .28s cubic-bezier(.22,1.4,.4,1);
+}
+.ranking-row.active::before {
+  content:""; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:999px;
+  background:var(--ranking-streak-color, #67e8f9);
+  box-shadow:0 0 8px var(--ranking-streak-color, #67e8f9);
 }
 
 .ranking-rank { position:relative; width:24px; min-width:0; display:grid; place-items:center; font-size:13px; font-weight:950; text-align:center; color:#f8fafc; }
@@ -72,6 +82,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-row.top-1 .ranking-avatar { border-color:#facc15; }
 .ranking-row.top-2 .ranking-avatar { border-color:#bfdbfe; }
 .ranking-row.top-3 .ranking-avatar { border-color:#fb923c; }
+.ranking-row.active .ranking-avatar { border-color:var(--ranking-streak-color, #67e8f9); }
 .ranking-avatar img { width:100%; height:100%; object-fit:cover; }
 
 .ranking-main { min-width:0; max-width:88px; overflow:hidden; padding-right:5px; }
@@ -79,22 +90,24 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-name span { display:block; width:max-content; }
 .ranking-name.long span { animation:rankingNameMarquee 6s linear infinite; }
 .ranking-name.long b { padding-left:22px; font:inherit; }
-.ranking-points { color:#fff; font-size:13px; font-weight:950; line-height:1; margin-top:1px; letter-spacing:.01em; }
-.ranking-points.hidden-score { color:rgba(255,255,255,.52); font-size:10px; font-weight:800; }
+.ranking-points { color:#fff; font-size:13px; font-weight:950; line-height:1; margin-top:2px; letter-spacing:.01em; }
+.ranking-points.hidden-score { color:rgba(255,255,255,.6); font-size:15px; font-weight:950; letter-spacing:2px; line-height:1; }
 .ranking-group { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:7.5px; color:rgba(255,255,255,.62); margin-top:1px; text-transform:uppercase; letter-spacing:.02em; }
 
-.ranking-gift { position:absolute; right:2px; bottom:3px; display:grid; place-items:center; width:15px; height:15px; font-size:11px; opacity:.92; }
+.ranking-gift { position:absolute; right:3px; bottom:3px; display:grid; place-items:center; width:15px; height:15px; font-size:11px; opacity:.92; }
 .ranking-gift img { width:15px; height:15px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,.45)); }
 .ranking-round {
-  position:absolute; right:2px; top:3px; min-width:16px; padding:1px 3px; border-radius:4px;
-  background:rgba(18,18,24,.36); color:#e8e8ef; font-size:9px; font-weight:800; text-align:center;
+  position:absolute; right:3px; top:3px; min-width:16px; padding:1px 4px; border-radius:5px;
+  background:rgba(12,12,18,.5); color:#e8e8ef; font-size:9px; font-weight:800; text-align:center;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
 }
 
-/* Active panel ở cuối */
+/* Panel người đang được chọn — thẻ nổi ở cuối */
 .ranking-active-name {
-  margin-top:0; display:flex; align-items:center; justify-content:flex-start; gap:8px;
-  min-height:40px; padding:6px 9px; border-radius:0 0 9px 9px;
-  background:linear-gradient(90deg, rgba(38,183,185,.86), rgba(45,133,154,.9));
+  margin-top:6px; display:flex; align-items:center; justify-content:flex-start; gap:8px;
+  min-height:40px; padding:6px 9px; border-radius:10px;
+  background:linear-gradient(90deg, rgba(38,183,185,.9), rgba(45,133,154,.94));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12), 0 4px 14px rgba(26,140,150,.32);
   color:#eaffff; line-height:1.08;
 }
 .ranking-active-avatar { width:26px; height:26px; flex:0 0 26px; display:grid; place-items:center; border-radius:50%; overflow:hidden; background:rgba(255,255,255,.24); color:#eaffff; font-size:10px; font-weight:950; }
@@ -110,14 +123,14 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   grid-template-columns:repeat(var(--rk-cols, 3), 126px);
   grid-auto-flow:row;
   gap:5px;
-  padding:7px;
+  padding:1px;
 }
 .ranking-board.layout-grid.flow-column .ranking-list { grid-auto-flow:column; }
-.ranking-board.layout-grid .ranking-row { border-radius:9px; min-height:50px; padding:3px 4px; }
-.ranking-board.layout-grid .ranking-row.active { transform:scale(1.035); }
+.ranking-board.layout-grid .ranking-row { border-radius:10px; min-height:50px; padding:3px 5px; }
+.ranking-board.layout-grid .ranking-row.active { transform:scale(1.04); }
 .ranking-board.layout-grid .ranking-main { max-width:70px; }
 .ranking-board.layout-grid .ranking-name { max-width:9.5ch; }
-.ranking-board.layout-grid .ranking-active-name { margin:0 7px 7px; border-radius:10px; min-height:40px; box-shadow:0 0 18px rgba(45,212,191,.28); }
+.ranking-board.layout-grid .ranking-active-name { margin:6px 1px 1px; border-radius:10px; min-height:40px; }
 .ranking-board.hide-avatar .ranking-row { grid-template-columns:24px minmax(0,1fr); }
 .ranking-board.hide-avatar .ranking-main { max-width:104px; }
 .ranking-board:not(.hide-avatar) .ranking-row { grid-template-columns:24px 25px minmax(0,1fr); }
@@ -126,3 +139,4 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board.hide-rank.hide-avatar .ranking-main { max-width:112px; }
 
 @keyframes rankingNameMarquee { 0% { transform:translateX(0); } 100% { transform:translateX(-50%); } }
+@keyframes rankingActivePop { 0% { transform:scale(1); } 60% { transform:scale(1.08); } 100% { transform:scale(1.05); } }

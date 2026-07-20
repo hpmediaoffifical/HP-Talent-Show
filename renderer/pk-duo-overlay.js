@@ -14,6 +14,9 @@ let lastRunKey = '';
 let playedStart = false;
 let playedWarning = false;
 let playedResult = false;
+let lastScoreA = 0;
+let lastScoreB = 0;
+let hasPrevScore = false;
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('en-US'); }
@@ -53,6 +56,16 @@ function render(state = {}) {
     playedStart = false;
     playedWarning = false;
     playedResult = false;
+    hasPrevScore = false;
+  }
+  // Phát hiện bên vừa tăng điểm → tạo surge một nhịp + số nảy lên
+  const sA = Number(state.scoreA || 0), sB = Number(state.scoreB || 0);
+  let gainClass = '';
+  if (hasPrevScore) {
+    const dA = sA - lastScoreA, dB = sB - lastScoreB;
+    if (dA > 0 && dB > 0) gainClass = dA >= dB ? 'gain-a' : 'gain-b';
+    else if (dA > 0) gainClass = 'gain-a';
+    else if (dB > 0) gainClass = 'gain-b';
   }
   const statusText =
     status === 'prestart' ? `${sec}s` :
@@ -69,11 +82,13 @@ function render(state = {}) {
   const showResult = status === 'finished';
   const aResult = showResult ? (neutral ? 'DRAW' : (aLead ? 'WIN' : 'LOSE')) : '';
   const bResult = showResult ? (neutral ? 'DRAW' : (aLead ? 'LOSE' : 'WIN')) : '';
-  const centerIcon = neutral ? '/pk-duo-neutral.svg' : '/pk-duo-rocket.svg';
+  const centerIcon = neutral ? '/pk-duo-neutral.svg' : '/pk-duo-boost.svg';
   const centerClass = neutral ? 'neutral' : (aLead ? '' : 'flip');
   const barClass = neutral ? 'neutral' : (aLead ? 'lead-a' : 'lead-b');
   const sweepDelay = -((Date.now() % 3000) / 1000).toFixed(3);
   const giftDelay = -((Date.now() % 9000) / 1000).toFixed(3);
+  // Đồng bộ pha sóng chevron theo đồng hồ toàn cục → dù innerHTML dựng lại mỗi render, sóng vẫn chạy liền mạch (không nhảy 1 2 1 2)
+  const flowDelay = -((Date.now() % 1000) / 1000).toFixed(3);
 
   const giftMode = state.giftDisplayMode === 'wrap' ? 'wrap' : 'scroll';
   const singleGiftMode = !!state.joinMode;
@@ -82,9 +97,13 @@ function render(state = {}) {
     : giftTrack(gifts);
   const contentText = String(state.content || '').trim();
   const contentLong = contentText.length > 18;
-  const overlayScale = Math.max(.8, Math.min(3, (parseInt(state.overlayScale, 10) || 100) / 100));
+  // Nhớ scale gần nhất (localStorage) → khi OBS kết nối lại lúc app đang idle mà state rỗng, vẫn vẽ đúng cỡ ngay, không tụt về 100% (nhỏ)
+  const rawScale = parseInt(state.overlayScale, 10);
+  if (Number.isFinite(rawScale)) { try { localStorage.setItem('pkDuoScale', rawScale); } catch {} }
+  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('pkDuoScale'), 10) || 100);
+  const overlayScale = Math.max(.8, Math.min(3, useScale / 100));
   root.style.setProperty('--pk-scale', overlayScale);
-  root.innerHTML = `<div class="pkduo-board status-${esc(status)} gift-${giftMode}${singleGiftMode ? ' gift-single' : ''}${urgent ? ' urgent' : ''}" style="
+  root.innerHTML = `<div class="pkduo-board status-${esc(status)} gift-${giftMode}${singleGiftMode ? ' gift-single' : ''}${urgent ? ' urgent' : ''} ${barClass}${gainClass ? ' ' + gainClass : ''}" style="
     --pk-a:${esc(a.color || '#FE2C55')};
     --pk-b:${esc(b.color || '#25F4EE')};
     --pk-bg:${hexToRgb(state.bgColor || '#000000')};
@@ -94,13 +113,14 @@ function render(state = {}) {
     --pk-scale:${overlayScale};
     --pk-a-width:${aWidth}%;
     --pk-sweep-delay:${sweepDelay}s;
-    --pk-gift-delay:${giftDelay}s
+    --pk-gift-delay:${giftDelay}s;
+    --pk-flow-delay:${flowDelay}s
   ">
     ${contentText ? `<div class="pkduo-content${contentLong ? ' is-long' : ''}">${contentLong ? `<span class="pkduo-content-track"><span>${esc(contentText)}</span><span aria-hidden="true">${esc(contentText)}</span></span>` : `<span class="pkduo-content-text">${esc(contentText)}</span>`}</div>` : ''}
     <div class="pkduo-head">
-      <b><span class="pkduo-creator left">${a.creatorAvatar ? `<img src="${esc(a.creatorAvatar)}" />` : ''}<i>${esc(shortName(a.name || 'TEAM A'))}</i></span></b>
+      <b><span class="pkduo-creator left">${a.creatorAvatar ? `<img src="${esc(a.creatorAvatar)}" onerror="this.onerror=null;this.src='/logo.png'" />` : ''}<i>${esc(shortName(a.name || 'TEAM A'))}</i></span></b>
       <span>${statusText ? `<i class="pkduo-time-icon ${statusIcon}" aria-hidden="true"></i><b>${esc(statusText)}</b>` : ''}</span>
-      <b><span class="pkduo-creator right">${b.creatorAvatar ? `<img src="${esc(b.creatorAvatar)}" />` : ''}<i>${esc(shortName(b.name || 'TEAM B'))}</i></span></b>
+      <b><span class="pkduo-creator right">${b.creatorAvatar ? `<img src="${esc(b.creatorAvatar)}" onerror="this.onerror=null;this.src='/logo.png'" />` : ''}<i>${esc(shortName(b.name || 'TEAM B'))}</i></span></b>
     </div>
     <div class="pkduo-gifts">
       <div class="pkduo-gift-lane left">${giftLaneHtml(a.gifts)}${aResult ? `<strong class="pkduo-result ${esc(aResult.toLowerCase())}">${esc(aResult)}</strong>` : ''}</div>
@@ -108,6 +128,7 @@ function render(state = {}) {
       <div class="pkduo-gift-lane right">${giftLaneHtml(b.gifts)}${bResult ? `<strong class="pkduo-result ${esc(bResult.toLowerCase())}">${esc(bResult)}</strong>` : ''}</div>
     </div>
     <div class="pkduo-bar ${barClass}">
+      <span class="pkduo-surge"></span>
       <strong class="score-a">${fmt(state.scoreA)}</strong>
       <span class="pkduo-team-label a">HP MEDIA</span>
       <em class="${centerClass}"><img src="${centerIcon}" alt="" /></em>
@@ -134,6 +155,7 @@ function render(state = {}) {
     }
   }
   lastStatus = status; lastUrgent = urgent;
+  lastScoreA = sA; lastScoreB = sB; hasPrevScore = true;
 }
 
 render({});

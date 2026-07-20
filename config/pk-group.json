@@ -1,123 +1,130 @@
 {
   "content": "PK NHÓM",
-  "groupId": "g_mp5rx6gm6xrzy",
+  "groupId": "g_mrtg107e1aqmz",
   "layoutMode": "joined",
   "playMode": "fixed",
   "pointsBy": "diamond",
   "noteEnabled": true,
-  "noteText": "Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy",
+  "noteText": "Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy",
   "noteBgColor": "#000000",
   "noteTextColor": "#ffea00",
-  "noteSpeedSec": 20,
-  "noteEffect": "neon",
-  "separatedGap": 20,
+  "noteSpeedSec": 19,
+  "noteEffect": "soft",
+  "separatedGap": 30,
   "autoTextContrast": true,
   "durationSec": 15,
   "prepSec": 3,
   "delaySec": 5,
-  "textSize": 26,
-  "giftSize": 45,
-  "overlayScale": 225,
+  "textSize": 30,
+  "nameSize": 150,
+  "giftSize": 60,
+  "overlayScale": 185,
   "participants": [
     {
-      "id": "c_mp5tjhwlvryus",
-      "creatorId": "c_mp5tjhwlvryus",
-      "tiktokId": "iam_richel102",
-      "name": "Rachel",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/e1c1a10e7615ef1166a6fc1837971860~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=7814c367&x-expires=1779123600&x-signature=s7%2Bj0TLVmQugd8KV%2BrAkYV77Hr4%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#ff6600",
+      "id": "c_mrtg396ra59ws",
+      "creatorId": "c_mrtg396ra59ws",
+      "tiktokId": "d.one_2607",
+      "name": "D-ONE✨🪐",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/412869dc3e6fe48871a2754d67b12aae~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=ce2a1a5d&x-expires=1784736000&x-signature=Deg%2BUMqTgF9zllwWMB6aWEMlueY%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#dd3c3c",
       "gifts": [
         {
-          "giftName": "Melon Juice",
-          "giftId": "17046",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/912d29e708fe00d72487908114803e77.png~tplv-obj.webp",
-          "diamond": 199
-        }
-      ],
-      "score": 0,
-      "streak": 0
-    },
-    {
-      "id": "c_mp60g9r38aaof",
-      "creatorId": "c_mp60g9r38aaof",
-      "tiktokId": "xiiu012",
-      "name": "Chỉ là 1 PhNhi",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/d343e9d6ffca09f4e6d67f723b120b17~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=ca936deb&x-expires=1779123600&x-signature=o76rtnRfOnycp%2FT5LjNJDokIWZE%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#3cfb62",
-      "gifts": [
-        {
-          "giftName": "Cover",
-          "giftId": "5879",
-          "icon": "https://hpvn.media/quatiktok/5879.png",
-          "diamond": 30
-        }
-      ],
-      "score": 0,
-      "streak": 0
-    },
-    {
-      "id": "c_mp60ii3pgxtha",
-      "creatorId": "c_mp60ii3pgxtha",
-      "tiktokId": "imamy_vo",
-      "name": "BABY AMY ƠI ❤️‍🔥🔥",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/4d2d878f06e677b62fd54445bad3c3b2~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=2b8ba14e&x-expires=1779123600&x-signature=AiGqdDwKSkf15Mb7Fp97Lqi%2Bmzo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#9b9797",
-      "gifts": [
-        {
-          "giftName": "Sweet",
-          "giftId": "25340",
-          "icon": "https://hpvn.media/quatiktok/25340.png",
-          "diamond": 10
-        }
-      ],
-      "streak": 0,
-      "score": 0
-    },
-    {
-      "id": "c_mp60gfkjhd560",
-      "creatorId": "c_mp60gfkjhd560",
-      "tiktokId": "its_bonnie_babbo",
-      "name": "𝓑𝓸𝓷𝓷𝓲𝓮.𝓪 🐰",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f02c45c906a9546e357ce392883c252a~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=b0b4d6ee&x-expires=1779123600&x-signature=UPZPbBVDaPNQR%2F8W%2FioShVt85xI%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#ec4899",
-      "gifts": [
-        {
-          "giftName": "Pop",
-          "giftId": "5487",
-          "icon": "https://hpvn.media/quatiktok/5487.png",
-          "diamond": 5
-        }
-      ],
-      "streak": 0,
-      "score": 0
-    },
-    {
-      "id": "c_mp60h5pf7j9o5",
-      "creatorId": "c_mp60h5pf7j9o5",
-      "tiktokId": "tuicutenhat12",
-      "name": "CoCo neee 🥥 🐰",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/e0586c810134c7260c464b5344845679~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=cf1ccf18&x-expires=1779123600&x-signature=MRa72BbKXz7QKuj18Ao1ySQwFE4%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#ec4899",
-      "gifts": [
-        {
-          "giftName": "Con vẹt",
-          "giftId": "57800",
-          "icon": "https://hpvn.media/quatiktok/57800.png",
+          "giftName": "Football",
+          "giftId": "6093",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/c043cd9e418f13017793ddf6e0c6ee99~tplv-obj.webp",
           "diamond": 1
         }
       ],
       "streak": 0,
-      "score": 0
+      "score": 0,
+      "giftOverride": false
+    },
+    {
+      "id": "c_mrtg2s085v57p",
+      "creatorId": "c_mrtg2s085v57p",
+      "tiktokId": "gin.2264",
+      "name": "GIN",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/8ad8152cd28abca9114653858cf057c9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=87fd28ef&x-expires=1784736000&x-signature=bnXHgU%2B66hI5i2gQwPNjjKPWpBU%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#bcdd3c",
+      "gifts": [
+        {
+          "giftName": "Ice Cream Cone",
+          "giftId": "5827",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/968820bc85e274713c795a6aef3f7c67~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
+      "streak": 0,
+      "score": 0,
+      "giftOverride": false
+    },
+    {
+      "id": "c_mrtg2obyczu0h",
+      "creatorId": "c_mrtg2obyczu0h",
+      "tiktokId": "callme.ice23",
+      "name": "I.CE❄️⚡️",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/ceab283203632412f0469537c948036e~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=d0642d4d&x-expires=1784736000&x-signature=Ofj0%2BTByYvPY5TgQUDiImrYMTl8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#3cdd7c",
+      "gifts": [
+        {
+          "giftName": "GG",
+          "giftId": "6064",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
+      "streak": 0,
+      "score": 0,
+      "giftOverride": false
+    },
+    {
+      "id": "c_mrtg2crd6d27p",
+      "creatorId": "c_mrtg2crd6d27p",
+      "tiktokId": "manhhao2309",
+      "name": "Im Xuhào☘️",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=55d26c26&x-expires=1784736000&x-signature=7bmv%2BRACym7odB8sQpBiPConuWw%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#3c7cdd",
+      "gifts": [
+        {
+          "giftName": "Cake Slice",
+          "giftId": "6784",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
+      "streak": 0,
+      "score": 0,
+      "giftOverride": false
+    },
+    {
+      "id": "c_mrtg28mrb1ni1",
+      "creatorId": "c_mrtg28mrb1ni1",
+      "tiktokId": "raidenhyun",
+      "name": "Raiden",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/4212cc580704c9f032c4fa5d7412b570~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=a367281f&x-expires=1784739600&x-signature=ShUaFB%2FEWgiVzpoPbMSKk1kp%2FV8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#bc3cdd",
+      "gifts": [
+        {
+          "giftName": "Rose",
+          "giftId": "5655",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
+      "streak": 2,
+      "score": 0,
+      "giftOverride": false
     }
   ],
   "bgColor": "#e10909",
   "bgOpacity": 100,
   "separatedScale": 100,
   "creatorColors": {
-    "c_mp5tjhwlvryus": "#ff6600",
-    "c_mp60g9r38aaof": "#3cfb62",
-    "c_mp60ii3pgxtha": "#9b9797",
-    "c_mp60gfkjhd560": "#ec4899",
-    "c_mp60h5pf7j9o5": "#ec4899"
-  }
+    "c_mrtg396ra59ws": "#dd3c3c",
+    "c_mrtg2s085v57p": "#bcdd3c",
+    "c_mrtg2obyczu0h": "#3cdd7c",
+    "c_mrtg2crd6d27p": "#3c7cdd",
+    "c_mrtg28mrb1ni1": "#bc3cdd"
+  },
+  "smartColor": true
 }

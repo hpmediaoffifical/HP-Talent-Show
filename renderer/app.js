@@ -66,6 +66,7 @@ let currentEditingGroup = null;
 let stats = { gifts: 0, diamond: 0, donors: new Set(), viewers: 0 };
 let ttConnected = false;
 let liveUsername = '';
+let activeGroupId = ''; // '' = TALENT SHOW (mở tất cả); id = chỉ nhóm đó. KHÔNG lưu vào settings.
 let scoreLinkRanking = false;
 let scoreLinkVoteLock = false;
 let latestScoreState = null;
@@ -117,6 +118,10 @@ function creatorGiftUsage(exceptCreatorId = '') {
 
 function normalizeId(value) { return String(value || '').trim().replace(/^@/, '').toLowerCase(); }
 
+// ===== Bộ lọc theo chế độ nhóm =====
+function visibleGroups() { return activeGroupId ? groups.filter(g => g.id === activeGroupId) : groups; }
+function visibleCreators() { return activeGroupId ? creators.filter(c => c.groupId === activeGroupId) : creators; }
+
 function filePathToUrl(filePath) {
   const s = String(filePath || '').trim();
   if (!s || /^[a-z][a-z0-9+.-]*:\/\//i.test(s)) return s;
@@ -161,6 +166,160 @@ function creatorAvatarValue(creator) {
 function safeAvatarUrl(value) {
   const s = String(value || '').trim();
   return s || '../logo/hp-logo.png';
+}
+
+// ============================================================
+// Avatar dropdown — phủ lên <select> gốc để hiện avatar nhóm/creator.
+// Giữ nguyên <select> làm nguồn value + sự kiện 'change' nên toàn bộ
+// logic hiện có (applyPkCreator, các listener đọc sel.value...) không đổi.
+// ============================================================
+const AVATAR_FALLBACK = '../logo/hp-logo.png';
+
+// Fallback avatar toàn app: ảnh avatar lỗi (URL hỏng/hết hạn) → tự thay bằng logo HP.
+// Chỉ áp cho avatar (theo class), KHÔNG đụng icon quà. Bắt ở pha capture vì sự kiện 'error' của <img> không bubble.
+const AVATAR_SELECTOR = '.avatar, .cc-ava, .gc-avatar, .rk-avatar, .av-select__ava, .pkg-member-check img, .score-review-user img, .js-avatar';
+document.addEventListener('error', (e) => {
+  const el = e.target;
+  if (!(el instanceof HTMLImageElement) || el.dataset.avFallback) return;
+  if (!el.matches(AVATAR_SELECTOR)) return;
+  el.dataset.avFallback = '1';
+  el.src = AVATAR_FALLBACK;
+}, true);
+
+function avatarForGroupId(id) {
+  const g = (typeof groups !== 'undefined' ? groups : []).find(x => String(x.id) === String(id));
+  return g?.avatar || '';
+}
+function avatarForCreatorId(id) {
+  const c = (typeof creators !== 'undefined' ? creators : []).find(x => String(x.id) === String(id));
+  return c?.avatar || '';
+}
+
+function closeAllAvatarSelects(except) {
+  document.querySelectorAll('.av-select.is-open').forEach(w => {
+    if (w === except) return;
+    w.classList.remove('is-open');
+    const p = w.querySelector('.av-select__panel');
+    if (p) p.hidden = true;
+  });
+}
+
+function enhanceAvatarSelect(sel, resolveAvatar) {
+  if (!sel || sel.dataset.avEnhanced) return;
+  sel.dataset.avEnhanced = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'av-select';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'av-select__btn';
+  btn.innerHTML = '<img class="av-select__ava" alt="" /><span class="av-select__label"></span><span class="av-select__caret">▾</span>';
+  const panel = document.createElement('div');
+  panel.className = 'av-select__panel';
+  panel.hidden = true;
+
+  sel.parentNode.insertBefore(wrap, sel);
+  wrap.appendChild(sel); // di chuyển select vào wrap (giữ nguyên listener + value)
+  wrap.appendChild(btn);
+  wrap.appendChild(panel);
+
+  const avImg = btn.querySelector('.av-select__ava');
+  const label = btn.querySelector('.av-select__label');
+  const fallback = (img) => { img.onerror = () => { img.onerror = null; img.src = AVATAR_FALLBACK; }; };
+
+  const optAvatar = (value) => (value === '' ? '' : (resolveAvatar ? resolveAvatar(value) : '')) || AVATAR_FALLBACK;
+
+  function syncButton() {
+    const opt = sel.options[sel.selectedIndex];
+    label.textContent = opt ? opt.textContent : '';
+    const hasValue = sel.value !== '';
+    avImg.src = optAvatar(sel.value);
+    avImg.classList.toggle('is-placeholder', !hasValue);
+    fallback(avImg);
+  }
+
+  function buildPanel() {
+    panel.innerHTML = '';
+    for (const opt of Array.from(sel.options)) {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'av-select__opt' + (opt.value === sel.value ? ' is-active' : '');
+      item.dataset.value = opt.value;
+      const img = document.createElement('img');
+      img.className = 'av-select__ava';
+      img.src = optAvatar(opt.value);
+      if (opt.value === '') img.classList.add('is-placeholder');
+      fallback(img);
+      const span = document.createElement('span');
+      span.textContent = opt.textContent;
+      item.append(img, span);
+      item.addEventListener('click', () => {
+        sel.value = opt.value;
+        close();
+        syncButton();
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      panel.appendChild(item);
+    }
+  }
+
+  function open() {
+    if (sel.disabled) return;
+    closeAllAvatarSelects(wrap);
+    buildPanel();
+    panel.hidden = false;
+    wrap.classList.add('is-open');
+    const active = panel.querySelector('.av-select__opt.is-active');
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+  function close() {
+    panel.hidden = true;
+    wrap.classList.remove('is-open');
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    wrap.classList.contains('is-open') ? close() : open();
+  });
+
+  // Khi render lại options (innerHTML) → dựng lại panel + đồng bộ nút.
+  new MutationObserver(() => {
+    syncButton();
+    if (wrap.classList.contains('is-open')) buildPanel();
+  }).observe(sel, { childList: true });
+
+  // Bắt cả những chỗ gán trực tiếp sel.value = ... (không đổi innerHTML).
+  const valueDesc = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value');
+  Object.defineProperty(sel, 'value', {
+    configurable: true,
+    get() { return valueDesc.get.call(this); },
+    set(v) {
+      valueDesc.set.call(this, v);
+      syncButton();
+      if (wrap.classList.contains('is-open')) buildPanel();
+    },
+  });
+
+  syncButton();
+}
+
+let avatarSelectsGlobalWired = false;
+function initAvatarSelects() {
+  ['#pkAgroup', '#pkBgroup', '#pkgGroup', '#crGroup'].forEach(s => enhanceAvatarSelect($(s), avatarForGroupId));
+  ['#pkAcreator', '#pkBcreator', '#scCreatorSelect'].forEach(s => enhanceAvatarSelect($(s), avatarForCreatorId));
+  if (!avatarSelectsGlobalWired) {
+    avatarSelectsGlobalWired = true;
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll('.av-select.is-open').forEach(w => {
+        if (!w.contains(e.target)) {
+          w.classList.remove('is-open');
+          const p = w.querySelector('.av-select__panel');
+          if (p) p.hidden = true;
+        }
+      });
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllAvatarSelects(null); });
+  }
 }
 
 function testSoundValue(value) {
@@ -269,6 +428,7 @@ const GiftPicker = (() => {
   let bound = false;
   let currentOpts = {};
   let selectedIds = new Set();
+  let coinFilter = null; // null = tất cả; số = lọc theo mức coin
 
   function open(opts = {}) {
     if (!bound) bind(); // defensive — đảm bảo handler luôn được gắn
@@ -276,6 +436,8 @@ const GiftPicker = (() => {
       resolver = resolve;
       currentOpts = opts;
       selectedIds = new Set((opts.selected || []).map(String));
+      coinFilter = null;
+      $('#gpCoins')?.querySelectorAll('.gp-coin').forEach(b => b.classList.toggle('is-active', b.dataset.coin === ''));
       $('#giftPicker').classList.add('is-open');
       $('#gpTitle').textContent = opts.title || '🎁 Chọn quà';
       $('#gpCount').textContent = `${giftMaster.length} quà`;
@@ -303,6 +465,7 @@ const GiftPicker = (() => {
     const usedBy = currentOpts.usedBy || {};
     filtered = giftMaster.filter(g => {
       if (excludeIds.has(String(g.id))) return false;
+      if (coinFilter != null && Number(g.diamond) < coinFilter) return false;
       if (!q) return true;
       return g.name.toLowerCase().includes(q) || String(g.id).includes(q);
     });
@@ -319,9 +482,8 @@ const GiftPicker = (() => {
       grid.innerHTML = '<div class="gp-empty">Không tìm thấy quà phù hợp.</div>';
       return;
     }
-    // Render at most 300 ở mỗi lần để mượt
-    const slice = filtered.slice(0, 300);
-    grid.innerHTML = slice.map(g => {
+    // Hiển thị full tất cả quà (lazy-load ảnh để vẫn mượt)
+    grid.innerHTML = filtered.map(g => {
       const id = String(g.id);
       const disabled = disabledIds.has(id);
       const selected = selectedIds.has(id);
@@ -334,7 +496,7 @@ const GiftPicker = (() => {
         ${disabled ? `<div class="gp-used">${escapeHtml(usedBy[id] || 'Đã chọn')}</div>` : ''}
       </div>
     `;
-    }).join('') + (filtered.length > 300 ? `<div class="gp-empty">Hiển thị 300/${filtered.length} — gõ thêm để lọc.</div>` : '');
+    }).join('');
     grid.querySelectorAll('.gp-item').forEach(el => el.addEventListener('click', () => {
       const id = el.dataset.id;
       if (disabledIds.has(String(id))) return;
@@ -361,6 +523,13 @@ const GiftPicker = (() => {
     overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(null); });
     $('#gpQuery')?.addEventListener('input', render);
     $('#gpSort')?.addEventListener('change', render);
+    $('#gpCoins')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.gp-coin');
+      if (!btn) return;
+      coinFilter = btn.dataset.coin === '' ? null : Number(btn.dataset.coin);
+      $('#gpCoins').querySelectorAll('.gp-coin').forEach(b => b.classList.toggle('is-active', b === btn));
+      render();
+    });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isOpen()) { e.preventDefault(); close(null); }
     });
@@ -420,10 +589,12 @@ async function init() {
   wireGroupTab();
   wirePkDuoTab();
   wirePkGroupTab();
+  wireHistoryUI();
   wireRankingTab();
   wireScoreTab();
   wireOverlaysTab();
   wireSettingsTab();
+  initAvatarSelects();
   loadLiveBanners();
   startLiveTickerAutoRefresh();
   checkUpdatesOnStartup();
@@ -872,6 +1043,7 @@ function wireConnectTab() {
     try { await window.api.tt.connect(u); } catch (e) { toast('⚠ ' + e.message, 'error'); }
   });
   $('#ttUsername').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnConnect').click(); });
+  $('#modeSelect')?.addEventListener('change', (e) => setActiveGroup(e.target.value));
 }
 
 // ============================================================
@@ -884,20 +1056,80 @@ async function refreshCreators() {
   renderPkCreatorSelects?.();
   renderPkGroupMembers?.();
   renderScoreCreatorSelect?.();
+  propagateDefaultGiftToBattles();
+  checkDuplicateDefaultGifts();
+}
+
+// Đổi quà mặc định ở Hồ sơ Creator → đẩy realtime xuống engine PK Nhóm / PK Đôi
+// (chỉ những nơi ĐANG KẾ THỪA, không đụng nơi đã ghi đè). Thi đấu nhóm vốn đã đọc default realtime.
+function propagateDefaultGiftToBattles() {
+  // PK Nhóm
+  if (pkGroupCfg && Array.isArray(pkGroupCfg.participants)) {
+    let changed = false;
+    for (const p of pkGroupCfg.participants) {
+      if (p.giftOverride && isRealGift(p.gifts?.[0])) continue;
+      const c = creatorById(p.creatorId || p.id) || creatorById(p.tiktokId);
+      const def = c ? creatorDefaultGift(c) : null;
+      if (!sameGiftStrict(p.gifts?.[0], def)) { p.gifts = def ? [def] : []; p.giftOverride = false; changed = true; }
+    }
+    // Patch tối thiểu: chỉ participants, tránh clobber field khác đang chờ autosave
+    if (changed) window.api.pkgroup?.setConfig({ participants: pkGroupCfg.participants }).catch(() => {});
+  }
+  // PK Đôi (chỉ chế độ Chọn Phe mới bám quà mặc định)
+  if (pkCfg && pkCfg.joinMode) {
+    let changed = false;
+    for (const side of ['A', 'B']) {
+      const team = getTeam(side);
+      if (team.giftOverride && isRealGift((team.joinGifts || [])[0])) continue;
+      const c = team.creatorId ? creatorById(team.creatorId) : null;
+      const def = c ? creatorDefaultGift(c) : null;
+      if (!sameGiftStrict((team.joinGifts || [])[0], def)) {
+        team.joinGifts = def ? [def] : [];
+        team.gifts = team.joinGifts;
+        team.giftOverride = false;
+        changed = true;
+      }
+    }
+    if (changed) {
+      renderPkGifts?.();
+      window.api.pkduo?.setConfig({ teamA: pkCfg.teamA, teamB: pkCfg.teamB }).catch(() => {});
+    }
+  }
+}
+
+// Rà soát Thi đấu nhóm: TALENT SHOW (tất cả) gộp mọi nhóm → quà mặc định phải duy nhất,
+// tránh 1 quà bị tính cho nhiều creator. (Lúc lưu creator đã chặn trùng; hàm này bắt dữ liệu cũ.)
+function checkDuplicateDefaultGifts() {
+  const byGift = new Map();
+  for (const c of creators) {
+    if (!c.defaultGiftId) continue;
+    const k = String(c.defaultGiftId);
+    if (!byGift.has(k)) byGift.set(k, []);
+    byGift.get(k).push(c.nickname || c.tiktokId || 'Creator');
+  }
+  const dups = [...byGift.values()].filter(a => a.length > 1);
+  const sig = dups.map(a => a.slice().sort().join('/')).sort().join('|');
+  if (sig === checkDuplicateDefaultGifts._sig) return; // tránh toast lặp
+  checkDuplicateDefaultGifts._sig = sig;
+  if (dups.length) {
+    const detail = dups.map(a => a.join(' = ')).join('; ');
+    toast(`⚠️ Quà mặc định trùng giữa Creator (ảnh hưởng Thi đấu nhóm TALENT SHOW): ${detail}. Hãy đặt quà riêng.`, 'error');
+  }
 }
 
 function renderCreators() {
+  const cs = visibleCreators();
   const list = $('#creatorsList');
   const countEl = $('#crCount');
-  if (countEl) countEl.textContent = creators.length ? `${creators.length}` : '';
+  if (countEl) countEl.textContent = cs.length ? `${cs.length}` : '';
   list.innerHTML = '';
-  if (creators.length === 0) {
+  if (cs.length === 0) {
     list.innerHTML = '<div class="hint">Chưa có Creator nào. Hãy thêm Creator đầu tiên.</div>';
     return;
   }
   const groupsById = new Map(groups.map(g => [g.id, g]));
   const buckets = new Map();
-  for (const c of creators) {
+  for (const c of cs) {
     const key = c.groupId && groupsById.has(c.groupId) ? c.groupId : '__ungrouped';
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key).push(c);
@@ -910,7 +1142,7 @@ function renderCreators() {
   const groupedCount = groupKeys.filter(k => k !== '__ungrouped').length;
   const summary = document.createElement('div');
   summary.className = 'creator-summary';
-  summary.innerHTML = `<span>Tổng <b>${formatNumber(creators.length)}</b> Creator</span><span>·</span><span><b>${formatNumber(groupedCount)}</b> nhóm có thành viên</span>`;
+  summary.innerHTML = `<span>Tổng <b>${formatNumber(cs.length)}</b> Creator</span><span>·</span><span><b>${formatNumber(groupedCount)}</b> nhóm có thành viên</span>`;
   list.appendChild(summary);
   for (const key of groupKeys) {
     const members = buckets.get(key).slice().sort((a, b) => (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi'));
@@ -940,6 +1172,11 @@ function renderCreators() {
     renderCreators();
   }));
   list.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editCreator(b.dataset.edit)));
+  list.querySelectorAll('[data-gift]').forEach(b => {
+    const handler = () => pickCreatorGiftQuick(b.dataset.gift);
+    b.addEventListener('click', handler);
+    b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
+  });
   list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Xoá Creator này?')) return;
     await window.api.creators.remove(b.dataset.del);
@@ -952,6 +1189,27 @@ async function updateCreatorQuick(creator) {
   await window.api.creators.upsert(creator);
   await refreshCreators();
   toast('🔄 Đã cập nhật Creator', 'success');
+}
+
+// Bấm trực tiếp vào ô quà ở mỗi dòng Creator để chọn/đổi quà mặc định
+async function pickCreatorGiftQuick(id) {
+  const c = creators.find(x => x.id === id || (!x.id && x.tiktokId === id));
+  if (!c) { toast('Không tìm thấy creator này', 'error'); return; }
+  const usedBy = creatorGiftUsage(c.id || '');
+  const g = await GiftPicker.open({
+    title: `🎁 Chọn quà mặc định cho ${c.nickname || c.tiktokId}`,
+    disabledIds: Object.keys(usedBy),
+    usedBy,
+  });
+  if (!g) return;
+  await window.api.creators.upsert({
+    ...c,
+    defaultGiftId: g.id ? String(g.id) : '',
+    defaultGiftName: g.name || '',
+    defaultGiftIcon: g.icon || '',
+  });
+  await refreshCreators();
+  toast(`🎁 Đã đặt quà "${g.name}" cho ${c.nickname || c.tiktokId}`, 'success');
 }
 
 function createCreatorRow(c, g) {
@@ -968,9 +1226,10 @@ function createCreatorRow(c, g) {
         <div class="cc-meta">
           ${g ? `<span class="cc-group-pill" style="background:${escapeAttr(g.color || '#FE2C55')}">${escapeHtml(g.name)}</span>` : '<span>Chưa thuộc nhóm</span>'}
         </div>
-        <div class="cc-gift">
+        <div class="cc-gift cc-gift-pick" data-gift="${escapeAttr(creatorKey)}" role="button" tabindex="0" title="Bấm để chọn quà mặc định">
           ${c.defaultGiftIcon ? `<img src="${escapeAttr(c.defaultGiftIcon)}" />` : '🎁'}
           <span>${escapeHtml(c.defaultGiftName || '(chưa đặt quà mặc định)')}</span>
+          <span class="cc-gift-edit">✏️</span>
         </div>
       </div>
       <div class="cc-actions">
@@ -985,12 +1244,50 @@ function renderCreatorGroupSelect() {
   const sel = $('#crGroup');
   const current = sel.value;
   sel.innerHTML = '<option value="">— Không thuộc nhóm —</option>';
-  for (const g of groups) {
+  for (const g of visibleGroups()) {
     const opt = document.createElement('option');
     opt.value = g.id; opt.textContent = g.name;
     sel.appendChild(opt);
   }
-  sel.value = current;
+  // Ở chế độ nhóm, mặc định gán creator mới vào nhóm đang chọn
+  sel.value = activeGroupId ? activeGroupId : current;
+}
+
+// ===== Chế độ NHÓM | TALENT SHOW =====
+function renderModeSelect() {
+  const sel = $('#modeSelect');
+  if (!sel) return;
+  // Nếu nhóm đang chọn đã bị xóa thì tự về TALENT SHOW
+  if (activeGroupId && !groups.some(g => g.id === activeGroupId)) activeGroupId = '';
+  sel.innerHTML = '<option value="">🎤 TALENT SHOW (Tất cả)</option>' +
+    groups.map(g => `<option value="${escapeAttr(g.id)}">👥 ${escapeHtml(g.name || g.tiktokId || 'Nhóm')}</option>`).join('');
+  sel.value = activeGroupId;
+  const bar = $('#bottomLive');
+  if (bar) bar.classList.toggle('mode-group', !!activeGroupId);
+}
+
+function setActiveGroup(id) {
+  activeGroupId = id || '';
+  const bar = $('#bottomLive');
+  if (bar) bar.classList.toggle('mode-group', !!activeGroupId);
+  // Chế độ nhóm: tự điền TikTok ID đại diện của nhóm (vẫn cho sửa), không đụng khi đang LIVE
+  if (activeGroupId && !ttConnected) {
+    const g = groups.find(x => x.id === activeGroupId);
+    if (g && g.tiktokId) $('#ttUsername').value = g.tiktokId;
+  }
+  applyActiveGroupMode();
+}
+
+function applyActiveGroupMode() {
+  renderCreators();
+  renderGroups();
+  renderCreatorGroupSelect();
+  renderPkCreatorSelects?.();
+  renderPkGroupGroupSelect?.();
+  renderPkGroupMembers?.();
+  renderScoreCreatorSelect?.();
+  // Ranking gom dữ liệu ở main process → đẩy bộ lọc xuống engine
+  window.api.ranking?.setConfig({ activeGroupId }).catch(() => {});
 }
 
 function clearCreatorForm() {
@@ -1127,6 +1424,7 @@ function wireCreatorTab() {
 // ============================================================
 async function refreshGroups() {
   groups = await window.api.groups.list();
+  renderModeSelect();
   renderGroups();
   renderCreatorGroupSelect();
   renderCreators();
@@ -1137,15 +1435,16 @@ async function refreshGroups() {
 }
 
 function renderGroups() {
+  const gs = visibleGroups();
   const list = $('#groupsList');
   const countEl = $('#grCount');
-  if (countEl) countEl.textContent = groups.length ? `${groups.length}` : '';
+  if (countEl) countEl.textContent = gs.length ? `${gs.length}` : '';
   list.innerHTML = '';
-  if (groups.length === 0) {
+  if (gs.length === 0) {
     list.innerHTML = '<div class="hint">Chưa có nhóm nào.</div>';
     return;
   }
-  for (const g of groups) {
+  for (const g of gs) {
     const cnt = groupMemberCount(g);
     const color = g.color || colorFromId(g.tiktokId || g.id);
     const groupKey = g.id || g.tiktokId || '';
@@ -1371,9 +1670,11 @@ function renderPkCreatorSelects() {
   if (!pkCfg || !$('#pkAgroup')) return;
   for (const side of ['A', 'B']) {
     const groupSel = $(`#pk${side}group`);
-    const current = groupSel.value || getTeam(side).groupId || '';
-    groupSel.innerHTML = '<option value="">— Chọn nhóm —</option>' + groups.map(g => `<option value="${escapeAttr(g.id)}">${escapeHtml(g.name)}</option>`).join('');
-    groupSel.value = current;
+    const gs = visibleGroups();
+    const prev = groupSel.value || getTeam(side).groupId || '';
+    const current = activeGroupId ? activeGroupId : prev;
+    groupSel.innerHTML = '<option value="">— Chọn nhóm —</option>' + gs.map(g => `<option value="${escapeAttr(g.id)}">${escapeHtml(g.name)}</option>`).join('');
+    groupSel.value = gs.some(g => g.id === current) ? current : '';
     renderPkCreatorSelect(side);
   }
 }
@@ -1384,7 +1685,7 @@ function renderPkCreatorSelect(side) {
   const sel = $(`#pk${side}creator`);
   if (!sel) return;
   const current = sel.value || team.creatorId || '';
-  const filtered = creators.filter(c => !groupId || c.groupId === groupId);
+  const filtered = visibleCreators().filter(c => !groupId || c.groupId === groupId);
   sel.innerHTML = '<option value="">— Chọn creator —</option>' + filtered.map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.nickname || c.tiktokId)}</option>`).join('');
   sel.value = filtered.some(c => c.id === current) ? current : '';
 }
@@ -1399,11 +1700,16 @@ function applyPkCreator(side, opts = {}) {
   team.creatorName = creator?.nickname || creator?.tiktokId || '';
   team.creatorAvatar = creator?.avatar || '../logo/hp-logo.png';
   if (group?.color) team.color = group.color;
+  // Khi chọn creator: ưu tiên lấy tên hiển thị theo creator đã cài đặt
+  if (opts.syncName && creator) {
+    team.name = creator.nickname || creator.tiktokId || team.name;
+  }
   if (creator && pkCfg?.joinMode && (opts.applyDefaultGift || !(team.joinGifts || []).length)) {
     const gift = creatorDefaultGift(creator);
     if (gift) {
       team.joinGifts = [gift];
       team.gifts = team.joinGifts;
+      team.giftOverride = false; // đang bám quà mặc định của creator
       renderPkGifts();
     }
   }
@@ -1421,6 +1727,25 @@ function creatorDefaultGift(creator) {
     icon: creator.defaultGiftIcon,
     diamond: 0,
   });
+}
+
+// ===== Kế thừa quà mặc định (realtime) + Ghi đè =====
+// Nguyên tắc: creator.defaultGift là "nguồn sự thật". Các nơi (PK Nhóm / PK Đôi) chỉ lưu OVERRIDE.
+// Không override → luôn resolve theo quà mặc định hiện tại của creator → realtime tức thì.
+function isRealGift(g) {
+  return !!(g && (g.giftId || g.id || g.giftName || g.name || g.icon));
+}
+
+// So sánh chặt (id + tên + icon) — dùng khi đồng bộ quà kế thừa để cập nhật cả icon/tên xuống overlay
+function sameGiftStrict(a, b) {
+  if (!a || !b) return !a && !b;
+  return String(a.giftId || a.id || '') === String(b.giftId || b.id || '')
+    && String(a.giftName || a.name || '') === String(b.giftName || b.name || '')
+    && String(a.icon || '') === String(b.icon || '');
+}
+
+function creatorById(idOrTiktok) {
+  return creators.find(x => x.id === idOrTiktok || x.tiktokId === idOrTiktok) || null;
 }
 
 function normalizeHexColor(value, fallback) {
@@ -1453,11 +1778,28 @@ function renderPkGifts() {
       chip.querySelector('button').addEventListener('click', () => {
         team.gifts.splice(i, 1);
         savePkActiveGifts();
+        if (joinMode) { team.giftOverride = false; applyPkCreator(side, { applyDefaultGift: true }); }
         renderPkGifts();
         schedulePkAutoSave();
       });
       wrap.appendChild(chip);
     });
+    // Join mode + đang ghi đè → nút về quà mặc định
+    if (joinMode && team.giftOverride && isRealGift((team.gifts || [])[0])) {
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'ghost tiny pk-reset-gift';
+      reset.title = 'Về quà mặc định của Creator';
+      reset.textContent = '🔄 Mặc định';
+      reset.addEventListener('click', () => {
+        team.giftOverride = false;
+        applyPkCreator(side, { applyDefaultGift: true });
+        renderPkGifts();
+        schedulePkAutoSave();
+        toast(`🔄 Đội ${side} về quà mặc định`, 'success');
+      });
+      wrap.appendChild(reset);
+    }
   }
   $$('.pk-pick-master').forEach(btn => {
     btn.textContent = joinMode ? 'Chọn quà kích hoạt' : '+ Thêm quà';
@@ -1510,6 +1852,7 @@ function addPkGifts(side, gifts) {
     if (id && (other.gifts || []).some(g => String(g.giftId || g.id || '') === id)) return [];
     team.gifts = [pkGift];
     team.joinGifts = team.gifts;
+    team.giftOverride = true; // chọn tay quà kích hoạt = ghi đè
     return [pkGift];
   }
   const existing = new Set(team.gifts.map(g => String(g.giftId)));
@@ -1553,11 +1896,11 @@ function wirePkDuoTab() {
     $(`#pk${side}group`).addEventListener('change', () => {
       getTeam(side).groupId = $(`#pk${side}group`).value;
       renderPkCreatorSelect(side);
-      applyPkCreator(side, { applyDefaultGift: true });
+      applyPkCreator(side, { applyDefaultGift: true, syncName: true });
       schedulePkAutoSave();
     });
     $(`#pk${side}creator`).addEventListener('change', () => {
-      applyPkCreator(side, { applyDefaultGift: true });
+      applyPkCreator(side, { applyDefaultGift: true, syncName: true });
       schedulePkAutoSave();
     });
   }
@@ -1656,6 +1999,9 @@ async function updatePkConfig() {
 
 function collectPkCfg() {
   savePkActiveGifts();
+  // Đồng bộ tên đang gõ vào team trước, tránh applyPkCreator ghi đè lại tên cũ
+  pkCfg.teamA.name = $('#pkAname').value.trim() || 'TEAM A';
+  pkCfg.teamB.name = $('#pkBname').value.trim() || 'TEAM B';
   applyPkCreator('A');
   applyPkCreator('B');
   savePkActiveGifts();
@@ -1709,9 +2055,9 @@ function renderPkPreview(st) {
   $('#pkPreview').innerHTML = `
     <div style="display:flex; flex-direction:column; gap:8px; width:100%; max-width:680px">
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; align-items:center; font-size:13px; opacity:.92">
-        <div style="display:flex; align-items:center; gap:8px; color:${escapeAttr(a.color || '#FE2C55')}">${a.creatorAvatar ? `<img src="${escapeAttr(a.creatorAvatar)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover" />` : ''}<b>${escapeHtml(a.name || 'TEAM A')}</b></div>
+        <div style="display:flex; align-items:center; gap:8px; color:${escapeAttr(a.color || '#FE2C55')}">${a.creatorAvatar ? `<img class="js-avatar" src="${escapeAttr(a.creatorAvatar)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover" />` : ''}<b>${escapeHtml(a.name || 'TEAM A')}</b></div>
         <span style="text-align:center">${escapeHtml(statusText)}</span>
-        <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; color:${escapeAttr(b.color || '#25F4EE')}"><b>${escapeHtml(b.name || 'TEAM B')}</b>${b.creatorAvatar ? `<img src="${escapeAttr(b.creatorAvatar)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover" />` : ''}</div>
+        <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; color:${escapeAttr(b.color || '#25F4EE')}"><b>${escapeHtml(b.name || 'TEAM B')}</b>${b.creatorAvatar ? `<img class="js-avatar" src="${escapeAttr(b.creatorAvatar)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover" />` : ''}</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px">
         <strong style="font-size:24px; min-width:70px; text-align:center; line-height:1">${formatNumber(st.scoreA || 0)}</strong>
@@ -1734,7 +2080,7 @@ async function loadPkGroupConfig() {
     playMode: st.playMode || 'fixed',
     pointsBy: st.pointsBy || 'diamond',
     noteEnabled: !!st.noteEnabled,
-    noteText: st.noteText || 'Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy',
+    noteText: st.noteText || 'Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy',
     noteBgColor: st.noteBgColor || '#1f2430',
     noteTextColor: st.noteTextColor || '#ffffff',
     noteSpeedSec: st.noteSpeedSec || 16,
@@ -1744,10 +2090,12 @@ async function loadPkGroupConfig() {
     durationSec: st.durationSec || 90,
     prepSec: st.prepSec ?? 3,
     delaySec: st.delaySec ?? 5,
-    textSize: st.textSize || 20,
-    giftSize: st.giftSize || 42,
+    textSize: st.textSize || 30,
+    nameSize: st.nameSize || 100,
+    giftSize: st.giftSize || 60,
     overlayScale: st.overlayScale || 100,
     creatorColors: st.creatorColors || {},
+    smartColor: st.smartColor !== false,
     participants: Array.isArray(st.participants) ? st.participants : [],
   };
   renderPkGroupGroupSelect();
@@ -1771,9 +2119,11 @@ async function loadPkGroupConfig() {
   $('#pkgPrep').value = pkGroupCfg.prepSec;
   $('#pkgDelay').value = pkGroupCfg.delaySec;
   $('#pkgTextSize').value = pkGroupCfg.textSize;
+  $('#pkgNameSize').value = pkGroupCfg.nameSize;
   $('#pkgGiftSize').value = pkGroupCfg.giftSize;
   $('#pkgOverlayScale').value = Math.max(80, Math.min(300, pkGroupCfg.overlayScale));
   $('#pkgOverlayScaleValue').textContent = `${$('#pkgOverlayScale').value}%`;
+  if ($('#pkgSmartColor')) $('#pkgSmartColor').checked = pkGroupCfg.smartColor !== false;
   renderPkGroupMembers();
   renderPkGroupPreview(st);
 }
@@ -1781,14 +2131,79 @@ async function loadPkGroupConfig() {
 function renderPkGroupGroupSelect() {
   const sel = $('#pkgGroup');
   if (!sel) return;
-  const current = sel.value || pkGroupCfg?.groupId || '';
-  sel.innerHTML = '<option value="">— Chọn nhóm —</option>' + groups.map(g => `<option value="${escapeAttr(g.id)}">${escapeHtml(groupInfoText(g, g.name))}</option>`).join('');
-  sel.value = groups.some(g => g.id === current) ? current : '';
+  const gs = visibleGroups();
+  const prev = sel.value || pkGroupCfg?.groupId || '';
+  const current = activeGroupId ? activeGroupId : prev;
+  sel.innerHTML = '<option value="">— Chọn nhóm —</option>' + gs.map(g => `<option value="${escapeAttr(g.id)}">${escapeHtml(groupInfoText(g, g.name))}</option>`).join('');
+  sel.value = gs.some(g => g.id === current) ? current : '';
+}
+
+// Sinh màu hex từ HSL — dùng để phối màu đều, không trùng lặp cho các Creator.
+function pkgHslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => {
+    const val = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return Math.round(255 * val).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+// Gán màu KHÁC NHAU cho từng Creator theo thứ tự hiển thị (hue chia đều vòng tròn màu).
+// Giữ nguyên màu người dùng đã tự chọn nếu chưa bị trùng; nếu trùng thì đẩy sang hue trống.
+function ensureDistinctPkgColors(orderedMembers) {
+  const map = new Map();
+  const used = new Set();
+  const norm = h => String(h || '').toLowerCase();
+  const n = Math.max(1, orderedMembers.length);
+  orderedMembers.forEach((c, i) => {
+    let color = normalizeHexColor(pkGroupCfg?.creatorColors?.[c.id],
+      normalizeHexColor(pkGroupCfg?.creatorColors?.[c.tiktokId], ''));
+    if (!color || used.has(norm(color))) {
+      let tries = 0;
+      do {
+        const hue = Math.round((i * 360 / n + tries * 43) % 360);
+        color = pkgHslToHex(hue, 70, 55);
+        tries++;
+      } while (used.has(norm(color)) && tries < 30);
+    }
+    used.add(norm(color));
+    map.set(c.id, color);
+  });
+  return map;
+}
+
+// Phối lại màu toàn bộ thành viên: chia đều hue để chắc chắn không trùng (nút "Phối lại màu").
+function autoAssignPkgColors() {
+  if (!pkGroupCfg) return;
+  syncPkGroupMembersFromDom();
+  const groupId = $('#pkgGroup')?.value || pkGroupCfg.groupId || '';
+  const members = visibleCreators().filter(c => c.groupId === groupId);
+  const order = new Map((pkGroupCfg.participants || []).map((p, i) => [p.creatorId || p.id, i]));
+  const ordered = members.slice().sort((a, b) => {
+    const ai = order.has(a.id) ? order.get(a.id) : Number.MAX_SAFE_INTEGER;
+    const bi = order.has(b.id) ? order.get(b.id) : Number.MAX_SAFE_INTEGER;
+    if (ai !== bi) return ai - bi;
+    return (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi');
+  });
+  const n = Math.max(1, ordered.length);
+  pkGroupCfg.creatorColors = { ...(pkGroupCfg.creatorColors || {}) };
+  ordered.forEach((c, i) => {
+    const color = pkgHslToHex(Math.round((i * 360 / n) % 360), 70, 55);
+    pkGroupCfg.creatorColors[c.id] = color;
+    const p = (pkGroupCfg.participants || []).find(x => x.creatorId === c.id || x.id === c.id);
+    if (p) p.color = color;
+  });
+  renderPkGroupMembers();
+  schedulePkGroupAutoSave();
 }
 
 function pkGroupParticipantForCreator(c) {
   const old = pkGroupCfg.participants.find(p => p.creatorId === c.id || p.id === c.id) || {};
-  const gift = old.gifts?.[0] || creatorDefaultGift(c);
+  // Giữ override cũ nếu có; ngược lại luôn bám quà mặc định hiện tại (không đông cứng)
+  const override = !!old.giftOverride && isRealGift(old.gifts?.[0]);
+  const gift = override ? old.gifts[0] : creatorDefaultGift(c);
   const palette = ['#FE2C55', '#25F4EE', '#A855F7', '#F59E0B', '#22C55E', '#3B82F6', '#EC4899', '#14B8A6'];
   const color = palette[Math.abs(String(c.id || c.tiktokId || '').split('').reduce((n, ch) => n + ch.charCodeAt(0), 0)) % palette.length];
   const savedColor = pkGroupCfg?.creatorColors?.[c.id] || pkGroupCfg?.creatorColors?.[c.tiktokId];
@@ -1799,7 +2214,8 @@ function pkGroupParticipantForCreator(c) {
     name: old.name || c.nickname || c.tiktokId || 'Creator',
     avatar: c.avatar || old.avatar || '../logo/hp-logo.png',
     color: normalizeHexColor(old.color, normalizeHexColor(savedColor, normalizeHexColor(c.color, color))),
-    gifts: old.gifts || (gift ? [gift] : []),
+    giftOverride: override,
+    gifts: gift ? [gift] : [],
     streak: Number(old.streak) || 0,
   };
 }
@@ -1808,7 +2224,7 @@ function renderPkGroupMembers() {
   const wrap = $('#pkgMembers');
   if (!wrap || !pkGroupCfg) return;
   const groupId = $('#pkgGroup')?.value || pkGroupCfg.groupId || '';
-  const members = creators.filter(c => c.groupId === groupId);
+  const members = visibleCreators().filter(c => c.groupId === groupId);
   const selected = new Map((pkGroupCfg.participants || []).map(p => [p.creatorId || p.id, p]));
   if (!groupId) {
     wrap.innerHTML = '<div class="hint">Chọn một nhóm để hiện danh sách creator.</div>';
@@ -1825,17 +2241,37 @@ function renderPkGroupMembers() {
     if (ai !== bi) return ai - bi;
     return (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi');
   });
+  const smartColor = pkGroupCfg.smartColor !== false;
+  const colorMap = smartColor ? ensureDistinctPkgColors(displayMembers) : null;
+  if (colorMap) {
+    pkGroupCfg.creatorColors = { ...(pkGroupCfg.creatorColors || {}) };
+    let changed = false;
+    const norm = h => String(h || '').toLowerCase();
+    displayMembers.forEach(c => {
+      const col = colorMap.get(c.id);
+      if (norm(pkGroupCfg.creatorColors[c.id]) !== norm(col)) { pkGroupCfg.creatorColors[c.id] = col; changed = true; }
+      const part = (pkGroupCfg.participants || []).find(x => x.creatorId === c.id || x.id === c.id);
+      if (part && norm(part.color) !== norm(col)) { part.color = col; changed = true; }
+    });
+    if (changed) schedulePkGroupAutoSave();
+  }
   wrap.innerHTML = displayMembers.map(c => {
     const p = selected.get(c.id) || pkGroupParticipantForCreator(c);
     const checked = selected.has(c.id) ? 'checked' : '';
-    const gift = p.gifts?.[0];
+    // Không override → hiện quà mặc định hiện tại của creator (realtime)
+    const override = !!p.giftOverride && isRealGift(p.gifts?.[0]);
+    const gift = override ? p.gifts[0] : creatorDefaultGift(c);
+    const rowColor = colorMap ? colorMap.get(c.id) : normalizeHexColor(p.color, '#FE2C55');
     return `<div class="pkg-member" data-id="${escapeAttr(c.id)}">
       <div class="pkg-order-tools"><button class="ghost tiny pkg-move-up" type="button">↑</button><button class="ghost tiny pkg-move-down" type="button">↓</button></div>
       <label class="pkg-member-check"><input type="checkbox" ${checked} /> <img src="${escapeAttr(c.avatar || '../logo/hp-logo.png')}" /><b>${escapeHtml(c.nickname || c.tiktokId)}</b></label>
       <input class="pkg-name" value="${escapeAttr(p.name || '')}" maxlength="20" placeholder="Tên hiển thị" />
-      <input class="pkg-color" type="color" value="${escapeAttr(normalizeHexColor(p.color, '#FE2C55'))}" />
+      <input class="pkg-color" type="color" value="${escapeAttr(rowColor)}" />
       <input class="pkg-streak-input" type="number" min="0" max="999" value="${Number(p.streak) || 0}" title="MVP chuỗi" />
-      <button class="ghost tiny pkg-pick-gift" type="button">${gift?.icon ? `<img src="${escapeAttr(gift.icon)}" />` : '🎁'} ${escapeHtml(gift?.giftName || gift?.name || 'Chọn quà')}</button>
+      <div class="pkg-gift-cell">
+        <button class="ghost tiny pkg-pick-gift${override ? ' is-override' : ''}" type="button" title="${override ? 'Đang ghi đè quà — bấm để đổi' : 'Đang theo quà mặc định của Creator (realtime)'}">${gift?.icon ? `<img src="${escapeAttr(gift.icon)}" />` : '🎁'} ${escapeHtml(gift?.giftName || gift?.name || 'Chọn quà')}</button>
+        ${override ? '<button class="ghost tiny pkg-reset-gift" type="button" title="Về quà mặc định">🔄</button>' : ''}
+      </div>
       <button class="primary tiny pkg-test-gift" type="button">Test quà</button>
       <button class="ghost tiny pkg-add-point" type="button">+1</button>
     </div>`;
@@ -1861,11 +2297,23 @@ function renderPkGroupMembers() {
       const gifts = Array.isArray(picked) ? picked : (picked ? [picked] : []);
       if (!gifts.length) return;
       p.gifts = gifts.map(g => g.giftName ? g : giftToPkGift(g));
+      p.giftOverride = true; // chọn tay = ghi đè, không bám mặc định nữa
       const idx = pkGroupCfg.participants.findIndex(x => x.creatorId === p.creatorId || x.id === p.id);
       if (idx >= 0) pkGroupCfg.participants[idx] = p;
       else pkGroupCfg.participants.push(p);
       renderPkGroupMembers();
       schedulePkGroupAutoSave();
+    });
+    row.querySelector('.pkg-reset-gift')?.addEventListener('click', () => {
+      syncPkGroupMembersFromDom();
+      const p = pkGroupCfg.participants.find(x => x.creatorId === creator.id || x.id === creator.id);
+      if (!p) return;
+      p.giftOverride = false; // gỡ ghi đè → tự về quà mặc định
+      const def = creatorDefaultGift(creator);
+      p.gifts = def ? [def] : [];
+      renderPkGroupMembers();
+      schedulePkGroupAutoSave();
+      toast(`🔄 ${p.name || creator.nickname || creator.tiktokId} về quà mặc định`, 'success');
     });
     row.querySelector('.pkg-add-point').addEventListener('click', async () => {
       syncPkGroupMembersFromDom();
@@ -1936,6 +2384,13 @@ function syncPkGroupMembersFromDom() {
     const old = prev.get(c.id) || pkGroupParticipantForCreator(c);
     const color = normalizeHexColor(row.querySelector('.pkg-color')?.value, old.color || '#FE2C55');
     pkGroupCfg.creatorColors[c.id] = color;
+    // Không override → luôn đồng bộ lại quà mặc định hiện tại của creator
+    const isOverride = !!old.giftOverride && isRealGift(old.gifts?.[0]);
+    let gifts = old.gifts || [];
+    if (!isOverride) {
+      const def = creatorDefaultGift(c);
+      gifts = def ? [def] : [];
+    }
     participants.push({
       ...old,
       id: old.id || c.id,
@@ -1944,7 +2399,8 @@ function syncPkGroupMembersFromDom() {
       avatar: c.avatar || old.avatar || '../logo/hp-logo.png',
       name: row.querySelector('.pkg-name')?.value.trim() || c.nickname || c.tiktokId || 'Creator',
       color,
-      gifts: old.gifts || [],
+      giftOverride: isOverride,
+      gifts,
       streak: Math.max(0, Number(row.querySelector('.pkg-streak-input')?.value) || 0),
     });
   });
@@ -1981,10 +2437,16 @@ function wirePkGroupTab() {
       try { await window.api.pkgroup.setConfig(collectPkGroupCfg()); } catch {}
     }
   });
-  ['pkgContent','pkgLayoutMode','pkgPlayMode','pkgPointsBy','pkgNoteEnabled','pkgNoteText','pkgNoteBg','pkgNoteColor','pkgNoteSpeed','pkgNoteEffect','pkgDurH','pkgDurM','pkgDurS','pkgPrep','pkgDelay','pkgTextSize','pkgGiftSize'].forEach(id => {
+  ['pkgContent','pkgLayoutMode','pkgPlayMode','pkgPointsBy','pkgNoteEnabled','pkgNoteText','pkgNoteBg','pkgNoteColor','pkgNoteSpeed','pkgNoteEffect','pkgDurH','pkgDurM','pkgDurS','pkgPrep','pkgDelay','pkgTextSize','pkgNameSize','pkgGiftSize'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers(); });
   });
+  $('#pkgSmartColor').addEventListener('change', () => {
+    pkGroupCfg.smartColor = $('#pkgSmartColor').checked;
+    if (pkGroupCfg.smartColor) autoAssignPkgColors();
+    else schedulePkGroupAutoSave();
+  });
+  $('#pkgAutoColor').addEventListener('click', autoAssignPkgColors);
   $('#pkgSaveCfg').addEventListener('click', updatePkGroupConfig);
   $('#pkgStart').addEventListener('click', async () => {
     if ($('#pkgStart').dataset.running === 'true') { await window.api.pkgroup.stop(); return; }
@@ -2030,6 +2492,7 @@ function collectPkGroupCfg() {
     prepSec: Number($('#pkgPrep').value) || 0,
     delaySec: Number($('#pkgDelay').value) || 0,
     textSize: Number($('#pkgTextSize').value),
+    nameSize: Math.max(60, Math.min(200, Number($('#pkgNameSize').value) || 100)),
     giftSize: Number($('#pkgGiftSize').value),
     overlayScale: Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 100)),
     creatorColors: pkGroupCfg.creatorColors || {},
@@ -2131,6 +2594,7 @@ function wireRankingTab() {
     gridCols: Number($('#rkGridCols').value) || 3,
     gridFlow: $('#rkGridFlow').value,
     overlayScale: Math.max(80, Math.min(300, Number($('#rkOverlayScale').value) || 100)),
+    activeGroupId,
   });
   $('#rkOverlayScale').addEventListener('input', () => { $('#rkOverlayScaleValue').textContent = `${$('#rkOverlayScale').value}%`; updateRkRealtime(); });
   const updateRkRealtime = () => {
@@ -2432,7 +2896,7 @@ function renderRkPreview(st) {
   if (showCreatorControls) {
     const visibleIds = new Set(rows.map(r => r.id));
     const groupsById = new Map(groups.map(g => [g.id, g]));
-    creators.filter(c => c.hideObs && !visibleIds.has(c.id)).forEach(c => {
+    visibleCreators().filter(c => c.hideObs && !visibleIds.has(c.id)).forEach(c => {
       const g = groupsById.get(c.groupId);
       rows.push({
         id: c.id,
@@ -2481,7 +2945,7 @@ function renderRkPreview(st) {
           <button class="rk-clear-history" data-rk-clear-history="${escapeAttr(r.id)}" type="button">Xóa lịch sử</button>
           ${pointHistoryHtml(r.id)}
         </div></details>
-      </div>` : `<div class="rk-scorebox readonly">${r.hideScore || st.hideAllScores ? '<span class="rk-pts muted">Ẩn điểm</span>' : `<span class="rk-pts">${formatNumber(r.points)}</span>`}${st.showRound === false ? '' : `<span class="rk-round-chip">R${Number(r.round) || 0}</span>`}</div>`}
+      </div>` : `<div class="rk-scorebox readonly">${r.hideScore || st.hideAllScores ? '<span class="rk-pts muted" title="Ẩn điểm">•••</span>' : `<span class="rk-pts">${formatNumber(r.points)}</span>`}${st.showRound === false ? '' : `<span class="rk-round-chip">R${Number(r.round) || 0}</span>`}</div>`}
     </div>
   `).join('');
   el.querySelectorAll('[data-rk-points]').forEach(input => input.addEventListener('change', async () => {
@@ -2528,6 +2992,12 @@ function renderRkPreview(st) {
       const fresh = creators.find(x => x.id === c.id || x.tiktokId === c.tiktokId) || c;
       await applyAutoTargetForVote({ ...fresh, voteActive: true });
       await syncScoreToCreator({ ...fresh, voteActive: true });
+    } else if (key === 'voteActive' && c.voteActive && scoreLinkRanking) {
+      // Bỏ VOTE khi đang liên kết → xóa Creator bên Tính điểm để 2 bên vẫn khớp
+      $('#scCreatorName').value = '';
+      $('#scCreatorAvatar').value = '';
+      if ($('#scCreatorSelect')) $('#scCreatorSelect').value = '';
+      await window.api.score.setConfig(collectScoreCfg());
     }
   }));
   el.querySelectorAll('[data-rk-clear-history]').forEach(btn => btn.addEventListener('click', async (e) => {
@@ -2573,6 +3043,7 @@ async function loadScoreConfig() {
   $('#scShowTopUsers').checked = false;
   $('#scShowSpeed').checked = false;
   $('#scTimeColor').value = st.timeColor || '#ffffff';
+  $('#scScoreFontSize').value = Math.max(12, Math.min(48, Number(st.scoreFontSize) || 18));
   $('#scContentColor').value = st.contentColor || '#f0eef6';
   $('#scOverColor').value = st.overColor || '#ff0000';
   $('#scBarColor1').value = st.barColor1 || '#b93678';
@@ -2620,6 +3091,7 @@ function collectScoreCfg() {
     showTopUsers: false,
     showSpeed: false,
     timeColor: $('#scTimeColor').value,
+    scoreFontSize: Math.max(12, Math.min(48, Number($('#scScoreFontSize').value) || 18)),
     contentColor: $('#scContentColor').value,
     overColor: $('#scOverColor').value,
     barColor1: $('#scBarColor1').value,
@@ -2647,7 +3119,7 @@ function renderScoreCreatorSelect(st = latestScoreState || {}) {
     const avatarMatches = !currentAvatar || currentAvatar === '../logo/hp-logo.png' || c.avatar === currentAvatar;
     return nameMatches && avatarMatches;
   })?.id || '';
-  sel.innerHTML = '<option value="">— Chọn Creator —</option>' + creators
+  sel.innerHTML = '<option value="">— Chọn Creator —</option>' + visibleCreators()
     .slice()
     .sort((a, b) => (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi'))
     .map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.nickname || c.tiktokId)}</option>`)
@@ -2655,12 +3127,48 @@ function renderScoreCreatorSelect(st = latestScoreState || {}) {
   sel.value = current;
 }
 
-function applyScoreCreatorSelect() {
+async function applyScoreCreatorSelect() {
   const c = creators.find(x => x.id === $('#scCreatorSelect').value);
   $('#scCreatorName').value = c ? (c.nickname || c.tiktokId || '') : '';
   $('#scCreatorAvatar').value = c ? creatorAvatarValue(c) : '';
   renderScPreview({ ...(latestScoreState || collectScoreCfg()), ...collectScoreCfg(), score: latestScoreState?.score || 0, status: latestScoreState?.status || 'idle', timeText: latestScoreState?.timeText || '00:00' });
   scheduleScoreAutoSave();
+  // Khi bật liên kết: chọn Creator bên Tính điểm cũng tự VOTE bên Thi đấu nhóm để 2 bên đồng bộ
+  if (scoreLinkRanking) await syncScoreSelectToVote(c);
+}
+
+// Đồng bộ lựa chọn Creator bên 🎯 Tính điểm → VOTE bên 🏆 Thi đấu nhóm
+async function syncScoreSelectToVote(c) {
+  if (isLinkedScoreRunning()) {
+    // Đang chạy Tính điểm liên kết → VOTE bị khóa, khôi phục dropdown theo Creator đang VOTE
+    const voted = getVotedCreator();
+    if ($('#scCreatorSelect')) $('#scCreatorSelect').value = voted?.id || '';
+    toast('Đang chạy Tính điểm liên kết, VOTE đang bị khóa', 'error');
+    return;
+  }
+  const voted = getVotedCreator();
+  if (!c) {
+    // Bỏ chọn Creator → bỏ VOTE để 2 bên vẫn khớp nhau
+    if (voted) {
+      await window.api.creators.upsert({ ...voted, voteActive: false });
+      await refreshCreators();
+      const st = await window.api.ranking.getState();
+      renderRkPreview(st);
+      renderScoreBridge();
+    }
+    return;
+  }
+  if (voted && voted.id === c.id) return; // đã VOTE đúng Creator, không cần làm lại
+  await window.api.ranking.setActive('');
+  for (const other of creators) {
+    if (other.id !== c.id && other.voteActive) await window.api.creators.upsert({ ...other, voteActive: false });
+  }
+  await updateRankingCreator(c.id, {
+    voteActive: true,
+    __history: { at: Date.now(), label: 'VOTE ON (Tính điểm)' },
+  }, `VOTE: ${c.nickname || c.tiktokId}`);
+  const fresh = creators.find(x => x.id === c.id) || c;
+  await applyAutoTargetForVote({ ...fresh, voteActive: true });
 }
 
 function scheduleScoreAutoSave() {
@@ -2694,7 +3202,7 @@ function wireScoreTab() {
   $('#scTarget').addEventListener('input', syncScoreTargetFromScoreTab);
   ['scDurH', 'scDurM', 'scDurS'].forEach(id => $('#' + id).addEventListener('input', syncScoreDurationFromScoreTab));
   $('#scOverlayScale').addEventListener('input', () => { $('#scOverlayScaleValue').textContent = `${$('#scOverlayScale').value}%`; scheduleScoreAutoSave(); });
-  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scHideAvatar','scHideCreator','scTimeColor','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
+  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scHideAvatar','scHideCreator','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', scheduleScoreAutoSave);
@@ -2803,10 +3311,10 @@ function renderScPreview(st) {
       <div class="score-review-progress" style="--score-review-fill:linear-gradient(90deg, ${escapeAttr(barColor1)}, ${escapeAttr(barColor2)})"><i style="width:${pct}%"></i><span class="score-review-sheen" style="width:${pct}%"></span><b>⚑</b></div>
       <div class="score-review-head">
         <div class="score-review-creator">
-          ${st.creatorAvatar ? `<img src="${escapeAttr(st.creatorAvatar)}" />` : '<span>HP</span>'}
+          ${st.creatorAvatar ? `<img class="js-avatar" src="${escapeAttr(st.creatorAvatar)}" />` : '<span>HP</span>'}
           <strong>${escapeHtml(st.creatorName || 'Creator')}</strong>
         </div>
-        <div class="score-review-score">Điểm: ${formatNumber(score)}/${formatNumber(target)}</div>
+        <div class="score-review-score" style="font-size:${Math.max(12, Math.min(48, Number(st.scoreFontSize) || 18))}px">Điểm: ${formatNumber(score)}/${formatNumber(target)}</div>
       </div>
       <div class="score-review-status">${escapeHtml(statusLabel)}</div>
       <div class="score-review-columns">
@@ -3020,7 +3528,41 @@ async function loadSettings() {
   if (audio.failSound) setSoundInput('scSndFail', audio.failSound);
 }
 
+async function refreshDataBackupHint() {
+  const el = $('#dataBackupHint');
+  if (!el) return;
+  try {
+    const c = await window.api.data.counts();
+    el.innerHTML = `📦 Hiện có: <b>${c.creators}</b> Creator · <b>${c.groups}</b> Nhóm`;
+  } catch { el.textContent = '📦 Không đọc được số lượng dữ liệu'; }
+}
+
+function wireDataBackup() {
+  $('#btnExportData')?.addEventListener('click', async () => {
+    const res = await window.api.data.export();
+    if (res?.ok) toast(`Đã xuất ${res.creators} Creator + ${res.groups} Nhóm`, 'success');
+    else if (res?.reason && res.reason !== 'canceled') toast('Xuất dữ liệu thất bại', 'error');
+  });
+  $('#btnImportData')?.addEventListener('click', async () => {
+    if (!confirm('Nhập dữ liệu từ file? Creator/Nhóm trùng ID sẽ được cập nhật, dữ liệu mới sẽ được thêm (không xoá dữ liệu hiện có).')) return;
+    const res = await window.api.data.import();
+    if (res?.ok) {
+      toast(`Nhập xong: +${res.creatorsAdded} / ↻${res.creatorsUpdated} Creator, +${res.groupsAdded} / ↻${res.groupsUpdated} Nhóm`, 'success');
+      creators = await window.api.creators.list();
+      groups = await window.api.groups.list();
+      renderCreators?.();
+      renderGroups?.();
+      renderPkGroupGroupSelect?.();
+      refreshDataBackupHint();
+    } else if (res?.reason === 'parse') toast('File không hợp lệ', 'error');
+    else if (res?.reason === 'empty') toast('File không có dữ liệu Creator/Nhóm', 'error');
+    else if (res?.reason && res.reason !== 'canceled') toast('Nhập dữ liệu thất bại', 'error');
+  });
+  refreshDataBackupHint();
+}
+
 function wireSettingsTab() {
+  wireDataBackup();
   $('#audioOutput').addEventListener('mousedown', () => loadAudioOutputs($('#audioOutput').value));
   $('#btnPickWaitingSound').addEventListener('click', async () => {
     const file = await window.api.shell.pickAudio();
@@ -3078,6 +3620,81 @@ function formatCompact(n) {
   if (v >= 1000000) return (v / 1000000).toFixed(v % 1000000 ? 1 : 0) + 'M';
   if (v >= 1000) return (v / 1000).toFixed(v % 1000 ? 1 : 0) + 'K';
   return String(v);
+}
+
+// ============================================================
+// LỊCH SỬ trận đấu — modal xem lại + xuất CSV (đối chiếu)
+// ============================================================
+let historyCurrentFilter = null; // null = tất cả | 'group' | 'duo'
+function histPad(n) { return String(n).padStart(2, '0'); }
+function histFmtDate(ms) { const d = new Date(Number(ms) || 0); return `${histPad(d.getDate())}/${histPad(d.getMonth() + 1)}/${d.getFullYear()}`; }
+function histFmtTime(ms) { const d = new Date(Number(ms) || 0); return `${histPad(d.getHours())}:${histPad(d.getMinutes())}`; }
+
+async function openHistory(filter) {
+  historyCurrentFilter = filter || null;
+  $('#histTitle').textContent = filter === 'group' ? '📜 Lịch sử PK Nhóm'
+    : filter === 'duo' ? '📜 Lịch sử PK Đôi' : '📜 Lịch sử trận đấu';
+  $('#historyModal').classList.add('is-open');
+  await renderHistory();
+}
+function closeHistory() { $('#historyModal').classList.remove('is-open'); }
+
+async function renderHistory() {
+  const body = $('#histBody');
+  if (!body) return;
+  const list = await window.api.history.list(historyCurrentFilter ? { type: historyCurrentFilter } : undefined);
+  $('#histCount').textContent = `${list.length} trận`;
+  if (!list.length) {
+    body.innerHTML = '<div class="hist-empty">Chưa có trận nào được lưu.<br/>Kết thúc một trận PK để tự động lưu vào đây.</div>';
+    return;
+  }
+  body.innerHTML = list.map(m => {
+    const typeClass = m.type === 'duo' ? 'duo' : 'group';
+    const typeLabel = m.type === 'duo' ? 'PK Đôi' : 'PK Nhóm';
+    const parts = (m.participants || []).slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+    const items = parts.map((p, i) => {
+      const isWin = m.type === 'duo'
+        ? (m.winnerSide && m.winnerSide !== 'draw' && p.name === m.winnerName)
+        : (p.name === m.winnerName && (p.score || 0) > 0);
+      return `<span class="hist-item${isWin ? ' win' : ''}"><b>${i + 1}.</b><i class="d" style="background:${escapeAttr(p.color || '#888')}"></i>${escapeHtml(p.name || '—')} <em>${formatNumber(p.score || 0)}</em></span>`;
+    }).join('<span class="sep">|</span>');
+    const sub = [m.groupName, m.pointsBy === 'count' ? 'Số quà' : 'Coin'].filter(Boolean).join(' · ');
+    return `<div class="hist-card">
+      <div class="hist-card-head">
+        <span class="hist-badge ${typeClass}">${typeLabel}</span>
+        <span class="hist-round">Vòng ${m.roundNo || 1}</span>
+        <span class="hist-title">${escapeHtml(m.content || '')}</span>
+        <span class="hist-meta">${histFmtDate(m.finishedAt)} ${histFmtTime(m.finishedAt)}</span>
+        <button class="hist-del" data-id="${escapeAttr(m.id)}" title="Xóa trận này">✕</button>
+      </div>
+      ${sub ? `<div class="hist-sub">${escapeHtml(sub)}</div>` : ''}
+      <div class="hist-line">${items}</div>
+    </div>`;
+  }).join('');
+  body.querySelectorAll('.hist-del').forEach(btn => {
+    btn.addEventListener('click', async () => { await window.api.history.remove(btn.dataset.id); renderHistory(); });
+  });
+}
+
+function wireHistoryUI() {
+  $('#pkgHistory')?.addEventListener('click', () => openHistory('group'));
+  $('#pkHistory')?.addEventListener('click', () => openHistory('duo'));
+  $('#histClose')?.addEventListener('click', closeHistory);
+  $('#historyModal')?.addEventListener('click', (e) => { if (e.target === $('#historyModal')) closeHistory(); });
+  $('#histExport')?.addEventListener('click', async () => {
+    const res = await window.api.history.export(historyCurrentFilter ? { type: historyCurrentFilter } : undefined);
+    if (res?.ok) toast(`Đã xuất ${res.count} trận ra file CSV`, 'success');
+    else if (res?.reason === 'empty') toast('Chưa có trận nào để xuất', 'error');
+    else if (res?.reason && res.reason !== 'canceled') toast('Xuất file thất bại', 'error');
+  });
+  $('#histClear')?.addEventListener('click', async () => {
+    const label = historyCurrentFilter === 'group' ? 'PK Nhóm' : historyCurrentFilter === 'duo' ? 'PK Đôi' : 'tất cả';
+    if (!confirm(`Xóa toàn bộ lịch sử ${label}? Không thể hoàn tác.`)) return;
+    await window.api.history.clear(historyCurrentFilter ? { type: historyCurrentFilter } : undefined);
+    renderHistory();
+  });
+  window.api.on('history:changed', () => { if ($('#historyModal')?.classList.contains('is-open')) renderHistory(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#historyModal')?.classList.contains('is-open')) closeHistory(); });
 }
 
 init().catch(e => { console.error(e); toast('Lỗi init: ' + e.message, 'error'); });
