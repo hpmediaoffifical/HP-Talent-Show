@@ -16,7 +16,7 @@ const audio = document.getElementById('pkfxSound');
 const FX_STYLES = ['freeze', 'fire', 'water', 'dim', 'electric', 'poison', 'shadow', 'shatter'];
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('en-US'); }
+function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('vi-VN'); }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function mmss(s) { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function shortName(v) { const s = String(v || '').trim(); return s.length > 16 ? s.slice(0, 16) + '…' : s; }

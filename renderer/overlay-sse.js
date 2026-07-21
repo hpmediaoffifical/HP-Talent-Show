@@ -7,7 +7,7 @@
   window.connectSSE = function connectSSE(path, eventName, onData, opts) {
     opts = opts || {};
     const STALE = opts.staleMs || 12000; // ~2 nhịp heartbeat lỡ ⇒ coi như kẹt
-    let es = null, lastAt = Date.now(), closed = false, reconnecting = false;
+    let es = null, lastAt = Date.now(), lastPayload = '', closed = false, reconnecting = false;
 
     function bump() { lastAt = Date.now(); }
     function open() {
@@ -18,7 +18,12 @@
       es.addEventListener('open', bump);
       es.addEventListener(eventName, function (e) {
         bump();
-        try { onData(JSON.parse(e.data || '{}')); } catch (_) {}
+        const payload = e.data || '{}';
+        // Heartbeat gửi lại state cũ để giữ kết nối. Không dựng lại toàn bộ overlay
+        // (đặc biệt là ảnh avatar) khi dữ liệu thực tế không đổi.
+        if (payload === lastPayload) return;
+        lastPayload = payload;
+        try { onData(JSON.parse(payload)); } catch (_) {}
       });
       es.onerror = function () {
         // readyState CLOSED(2) = EventSource bỏ cuộc ⇒ tự dựng lại;

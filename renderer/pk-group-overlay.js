@@ -13,17 +13,26 @@ let lastIdsKey = '';     // để biết khi nào cấu trúc người chơi đ�
 const prevRealScore = new Map(); // điểm THẬT lần trước theo id → phát hiện "vừa lên quà" để bắn gợn sóng
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('en-US'); }
+function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('vi-VN'); }
 // Avatar TikTok CDN load trực tiếp bị chặn trong OBS Browser Source (403/CORS) → phải qua proxy /avatar.
 // Đường dẫn logo mặc định của app (../logo/hp-logo.png) không tồn tại trên server overlay → map về /logo.png.
-function mediaUrl(value) {
+function mediaUrl(value, key = '') {
   const s = String(value || '').trim();
   if (!s || /logo[\\/]hp-logo\.(png|ico)$/i.test(s)) return '/logo.png';
+  if (/^[a-f0-9]{40}$/i.test(key)) return `/avatar?key=${encodeURIComponent(key)}`;
   if (/^https?:\/\//i.test(s)) return `/avatar?url=${encodeURIComponent(s)}`;
   return s;
 }
-function avatarImg(value) {
-  return `<img src="${esc(mediaUrl(value))}" onerror="this.onerror=null;this.src='/logo.png'" />`;
+// Ảnh avatar lỗi (proxy cold-miss/timeout tức thời trên OBS) → THỬ LẠI vài lần rồi mới rơi về logo.
+window.avRetry = function (img) {
+  const n = +(img.dataset.avTry || 0);
+  if (n >= 3 || !/\/avatar\?/.test(img.src)) { img.onerror = null; img.src = '/logo.png'; return; }
+  img.dataset.avTry = n + 1;
+  const clean = img.src.replace(/[?&]_r=\d+/, '');
+  setTimeout(() => { img.src = clean + (clean.includes('?') ? '&' : '?') + '_r=' + (n + 1); }, 500 + n * 800);
+};
+function avatarImg(value, key = '') {
+  return `<img src="${esc(mediaUrl(value, key))}" onerror="avRetry(this)" />`;
 }
 function hexToRgb(hex, fb = '0,0,0') {
   const m = String(hex || '').trim().match(/^#([0-9a-f]{6})$/i);
@@ -213,7 +222,7 @@ function render(state = {}) {
           const isLeader = p.id === leaderId;
           const narrow = widthOf(p) < NARROW_W;
           const tc = textColorFor(p.color);
-          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? `<span class="pkg-crown${leaderChanged ? ' shake' : ''}" aria-hidden="true">👑</span>` : ''}${p.avatar ? avatarImg(p.avatar) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>`;
+          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? `<span class="pkg-crown${leaderChanged ? ' shake' : ''}" aria-hidden="true">👑</span>` : ''}${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>`;
         }).join('')}</div>
         <div class="pkg-joined-bar">${participants.map((p, i) => {
           const isLeader = p.id === leaderId;
@@ -235,7 +244,7 @@ function render(state = {}) {
         const isLeader = p.id === leaderId;
         const tc = textColorFor(p.color);
         return `<div class="pkg-card${isLeader ? ' leader' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">
-          <div class="pkg-card-person">${p.avatar ? avatarImg(p.avatar) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
+          <div class="pkg-card-person">${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
           <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `Hạng 1 (<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>)` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${Number(p.streak) > 0 ? `<span class="pkg-streak" title="MVP ${fmt(p.streak)}"><small>MVP</small><em>${fmt(p.streak)}</em></span>` : ''}</div></div>
           <div class="pkg-card-gifts">${(p.gifts || []).map(giftHtml).join('')}</div>
         </div>`;

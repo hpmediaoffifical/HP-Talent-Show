@@ -25,11 +25,13 @@
     root.parentNode.insertBefore(wrap, root);
     wrap.appendChild(root);
 
-    const key = 'reviewZoom:' + root.id;
+    const key = 'reviewZoom:' + root.id + (new URLSearchParams(location.search).get('grid') === '1' ? ':grid' : '');
 
-    let zoom = parseFloat(localStorage.getItem(key));
+    const savedZoom = parseFloat(localStorage.getItem(key));
+    let zoom = savedZoom;
     if (!Number.isFinite(zoom)) zoom = 1;
     zoom = Math.max(MIN, Math.min(MAX, zoom));
+    let needsInitialFit = !Number.isFinite(savedZoom);
 
     const grip = document.createElement('div');
     grip.className = 'review-grip';
@@ -39,11 +41,44 @@
     document.body.appendChild(grip);
     const badge = grip.querySelector('.review-grip-badge');
 
+    let fitFrame = 0, sentWidth = 0, sentHeight = 0;
+    function fitWindowToContent() {
+      if (!window.api?.review?.fitContent || fitFrame) return;
+      fitFrame = requestAnimationFrame(() => {
+        fitFrame = 0;
+        const r = root.getBoundingClientRect();
+        const width = Math.ceil(r.width), height = Math.ceil(r.height);
+        if (width < 40 || height < 40) return;
+        // Lần đầu mở, các overlay cấu hình lớn (như BXH 205%) phải vừa trong
+        // khung Review trước khi cửa sổ tự ôm nội dung. Không áp dụng lại khi
+        // người dùng đã chọn mức zoom riêng cho overlay này.
+        if (needsInitialFit && root.children.length) {
+          needsInitialFit = false;
+          const fit = Math.min(1, (window.innerWidth - 8) / width, (window.innerHeight - 8) / height);
+          if (fit < 0.999) {
+            zoom = Math.max(MIN, Math.min(MAX, zoom * fit));
+            wrap.style.zoom = zoom.toFixed(4);
+            placeGrip();
+            fitWindowToContent();
+            return;
+          }
+        }
+        // PK Đôi FX tự fit stage vào toàn bộ cửa sổ, nên không được dùng stage
+        // đó để phóng cửa sổ lên 1080x1920. Các overlay khác báo kích thước thật.
+        if (Math.abs(width - window.innerWidth) <= 1 && Math.abs(height - window.innerHeight) <= 1) return;
+        if (Math.abs(width - sentWidth) <= 1 && Math.abs(height - sentHeight) <= 1) return;
+        sentWidth = width;
+        sentHeight = height;
+        window.api.review.fitContent(width, height).catch(() => {});
+      });
+    }
+
     function apply() {
       // zoom đổi kích thước layout thật → nội dung + vùng kéo cửa sổ (-webkit-app-region) cùng thu/phóng,
       // không còn dải "ma" ăn chuột. Neo top-left tự nhiên vì wrapper là khối max-content ở đầu dòng.
       wrap.style.zoom = zoom.toFixed(4);
       placeGrip();
+      fitWindowToContent();
     }
 
     function placeGrip() {
@@ -89,8 +124,8 @@
     });
 
     // Overlay dựng lại innerHTML mỗi lần có state → kích thước root đổi → dời grip bám theo góc.
-    try { new ResizeObserver(() => placeGrip()).observe(root); } catch {}
-    window.addEventListener('resize', placeGrip);
+    try { new ResizeObserver(() => { placeGrip(); fitWindowToContent(); }).observe(root); } catch {}
+    window.addEventListener('resize', () => { placeGrip(); fitWindowToContent(); });
 
     apply();
   }

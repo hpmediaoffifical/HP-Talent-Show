@@ -159,12 +159,17 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkduo-champ-side.left .pkduo-champ { --cc:var(--pk-a, #FE2C55); }
 .pkduo-champ-side.right .pkduo-champ { --cc:var(--pk-b, #25F4EE); }
 
-.pkduo-champ { position:relative; flex:0 0 auto; display:block; will-change:transform; }
-/* Nền dự phòng = logo HP: nếu avatar chưa/không load được thì hiện logo thay vì ô ĐEN */
-.pkduo-champ-ava { position:relative; display:block; width:50px; height:50px; border-radius:50%; overflow:hidden; border:3px solid var(--cc); background:#0d0f16 url('/logo.png') center/72% no-repeat;
+/* KHÔNG will-change:transform — OBS (OSR/CEF) hay KHÔNG vẽ nội dung của layer bị promote
+   (avatar <img> bên trong biến mất) → lộ nền tối = ô ĐEN. Bỏ đi thì avatar render bình thường. */
+.pkduo-champ { position:relative; flex:0 0 auto; display:block; }
+/* Nền dự phòng = logo HP trên nền TRẮNG (giống .pkduo-creator img đang chạy tốt trên OBS):
+   nếu ảnh lỗi/không vẽ được thì ra ô trắng+logo, KHÔNG bao giờ ra ô đen. */
+/* KHÔNG dùng overflow:hidden để bo tròn ảnh: OBS (OSR/CEF) KHÔNG vẽ <img> nằm trong
+   khối bị cắt-bo-góc bằng overflow → ô rỗng/đen. Bo tròn TRỰC TIẾP trên <img> (giống
+   .pkduo-creator img đang chạy tốt trên OBS) thì ảnh render đúng. */
+.pkduo-champ-ava { position:relative; display:block; width:50px; height:50px; border-radius:50%; border:3px solid var(--cc); background:#fff url('/logo.png') center/72% no-repeat;
   box-shadow:0 3px 9px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.14), 0 0 10px color-mix(in srgb, var(--cc), transparent 55%); }
-/* img nền trong suốt để lộ logo dự phòng khi ảnh lỗi; ảnh thật load xong sẽ phủ kín */
-.pkduo-champ-ava img { width:100%; height:100%; object-fit:cover; display:block; background:transparent; }
+.pkduo-champ-ava img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; background:transparent; }
 /* Bậc thứ hạng: TOP1 lớn nhất và nhô cao (kiểu bục vinh danh), TOP3 nhỏ nhất */
 /* TOP 1/2/3 CÙNG cỡ avatar (72px); trạng thái giữ nguyên: TOP1 vẫn vương miện + quầng sáng + viền vàng */
 .pkduo-champ.r1 { z-index:3; }
@@ -181,7 +186,7 @@ body { display:flex; justify-content:center; align-items:center; }
 
 /* Vương miện MVP — nổi bật trên đầu avatar TOP1, đung đưa nhẹ (đồng bộ đồng hồ) */
 .pkduo-champ-crown { position:absolute; z-index:5; left:50%; top:-21px; font-size:28px; line-height:1; font-style:normal; pointer-events:none;
-  transform:translateX(-50%) rotate(-8deg); filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)) drop-shadow(0 0 6px rgba(255,214,90,.7));
+  transform:translateX(-50%) rotate(-8deg); text-shadow:0 2px 3px rgba(0,0,0,.55), 0 0 6px rgba(255,214,90,.7);
   transform-origin:50% 90%; animation:pkDuoCrownFloat 2.4s ease-in-out infinite; animation-delay:var(--pk-champ-delay,0s); }
 
 /* MVP: quầng sáng nhịp quanh avatar để "nổi bật" rõ nhất bên nào */

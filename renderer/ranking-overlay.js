@@ -16,16 +16,27 @@ function hexToRgb(hex, fb = '42,45,55') {
   const n = parseInt(m[1], 16);
   return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
 }
-function mediaUrl(value) {
+function mediaUrl(value, version = '', key = '') {
   const s = String(value || '').trim();
   if (!s || s === '../logo/hp-logo.png' || /logo[\\/]hp-logo\.(png|ico)$/i.test(s)) return '/logo.png';
-  if (/^https?:\/\//i.test(s)) return `/avatar?url=${encodeURIComponent(s)}`;
+  if (/^[a-f0-9]{40}$/i.test(key)) return `/avatar?key=${encodeURIComponent(key)}${version ? `&v=${encodeURIComponent(version)}` : ''}`;
+  if (/^https?:\/\//i.test(s)) return `/avatar?url=${encodeURIComponent(s)}${version ? `&v=${encodeURIComponent(version)}` : ''}`;
   if (/^file:\/\//i.test(s)) return s;
   return s;
 }
-function avatarHtml(url, initials = '?') {
-  const src = mediaUrl(url);
-  return `<img src="${esc(src)}" alt="${esc(initials || '')}" onerror="this.onerror=null;this.src='/logo.png'" />`;
+// Ảnh avatar lỗi (proxy cold-miss/timeout tức thời trên OBS) → THỬ LẠI vài lần rồi mới rơi về logo,
+// thay vì kẹt logo vĩnh viễn. Bust cache trình duyệt bằng &_r; proxy cache theo URL gốc nên lần
+// thử sau phục vụ ngay từ cache ấm.
+window.avRetry = function (img) {
+  const n = +(img.dataset.avTry || 0);
+  if (n >= 3 || !/\/avatar\?/.test(img.src)) { img.onerror = null; img.src = '/logo.png'; return; }
+  img.dataset.avTry = n + 1;
+  const clean = img.src.replace(/[?&]_r=\d+/, '');
+  setTimeout(() => { img.src = clean + (clean.includes('?') ? '&' : '?') + '_r=' + (n + 1); }, 500 + n * 800);
+};
+function avatarHtml(url, initials = '?', version = '', key = '') {
+  const src = mediaUrl(url, version, key);
+  return `<img src="${esc(src)}" alt="${esc(initials || '')}" onerror="avRetry(this)" />`;
 }
 function nameHtml(name, className) {
   const text = String(name || 'Idol');
@@ -41,7 +52,7 @@ function rowHtml(row, state) {
   const groupColor = row.groupColor || 'transparent';
   return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}" style="--row-group-color:${esc(groupColor)}">
     ${state.showRank === false ? '' : `<div class="ranking-rank">${rankEmoji}</div>`}
-    ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${avatarHtml(row.avatar, row.initials)}</div>`}
+    ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${avatarHtml(row.avatar, row.initials, row.avatarVersion, row.avatarKey)}</div>`}
     <div class="ranking-main">
       ${nameHtml(row.name || 'Idol', 'ranking-name')}
       ${row.groupName ? `<div class="ranking-group">${esc(row.groupName)}</div>` : ''}
@@ -85,6 +96,8 @@ function render(state = {}) {
   if (Number.isFinite(rawScale)) { try { localStorage.setItem('rankingScale', rawScale); } catch {} }
   const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('rankingScale'), 10) || 100);
   const overlayScale = Math.max(.8, Math.min(3, useScale / 100));
+  const avatarScale = Math.max(.8, Math.min(1.7, (Number(state.avatarScale) || 130) / 100));
+  const giftScale = Math.max(.8, Math.min(1.8, (Number(state.giftScale) || 145) / 100));
   root.style.setProperty('--rk-scale', overlayScale);
 
   root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}" style="
@@ -94,12 +107,14 @@ function render(state = {}) {
     --rk-rows:${effRows};
     --rk-cols:${effCols};
     --rk-flow:${gridFlow};
+    --rk-avatar-visual-scale:${avatarScale};
+    --rk-gift-visual-scale:${giftScale};
     --rk-scale:${overlayScale}
   ">
     <div class="ranking-title">${esc(state.title || 'TOP IDOL')}</div>
     <div class="ranking-list">${visibleRows.length === 0 ? '<div class="ranking-empty">Chưa có dữ liệu thi đấu nhóm</div>' : visibleRows.map(r => rowHtml(r, state)).join('')}</div>
     ${state.active ? `<div class="ranking-active-name ${activeLong ? 'long' : ''}">
-      <div class="ranking-active-avatar">${avatarHtml(state.active.avatar, state.active.initials)}</div>
+      <div class="ranking-active-avatar">${avatarHtml(state.active.avatar, state.active.initials, state.active.avatarVersion, state.active.avatarKey)}</div>
       <div class="ranking-active-main"><div>${activeName}</div><b>${activePoints}</b></div>
     </div>` : ''}
   </div>`;

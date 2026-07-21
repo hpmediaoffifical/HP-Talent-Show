@@ -14,7 +14,7 @@ let playedWarning = false;
 let playedGoal = false;
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function fmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('en-US'); }
+function fmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('vi-VN'); }
 function shortText(s, max = 28) {
   const text = String(s || '').trim();
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -28,6 +28,7 @@ function mediaUrl(url) {
 
 function scoreStatusText(status, timeText) {
   if (status === 'prestart') return timeText || 'CHUẨN BỊ';
+  if (status === 'grace') return 'ĐANG TÍNH ĐIỂM';
   if (status === 'success') return 'THÀNH CÔNG';
   if (status === 'failed') return 'KHÔNG HOÀN THÀNH';
   return timeText || '03:00';

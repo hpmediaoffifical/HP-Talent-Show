@@ -72,10 +72,6 @@ let rankingEngine = null;
 let scoreEngine = null;
 let settings = loadSettings();
 const reviewWindows = new Map();
-let creatorAvatarRefreshTimer = null;
-let creatorAvatarRefreshRunning = false;
-const CREATOR_AVATAR_TTL_MS = 6 * 60 * 60 * 1000;
-const CREATOR_AVATAR_RETRY_MS = 10 * 60 * 1000;
 
 // =================================================================
 // JSON store helpers
@@ -148,70 +144,69 @@ function loadSettings() {
   return { ...def, ...raw };
 }
 
-function isDefaultAvatar(value) {
+function avatarCacheKey(value) {
   const s = String(value || '').trim();
-  return !s || s === '../logo/hp-logo.png' || s === '/logo.png' || /logo[\\/]hp-logo\.(png|ico)$/i.test(s);
-}
-
-function creatorAvatarNeedsRefresh(c, now = Date.now()) {
-  const id = String(c?.tiktokId || '').trim().replace(/^@/, '');
-  if (!id) return false;
-  if (c.avatarFetchFailedAt && now - Number(c.avatarFetchFailedAt) < CREATOR_AVATAR_RETRY_MS) return false;
-  if (isDefaultAvatar(c.avatar)) return true;
-  if (!c.avatarFetchedAt) return true;
-  return now - Number(c.avatarFetchedAt) > CREATOR_AVATAR_TTL_MS;
-}
-
-function scheduleCreatorAvatarRefresh(delay = 80) {
-  clearTimeout(creatorAvatarRefreshTimer);
-  creatorAvatarRefreshTimer = setTimeout(() => refreshCreatorAvatars().catch(() => {}), delay);
-}
-
-async function refreshCreatorAvatars() {
-  if (creatorAvatarRefreshRunning || !ttClient) return;
-  creatorAvatarRefreshRunning = true;
+  if (!/^https?:\/\//i.test(s)) return '';
   try {
-    let list = loadCreators();
-    const now = Date.now();
-    const targets = list.filter(c => creatorAvatarNeedsRefresh(c, now));
-    if (!targets.length) return;
-    let changed = false;
-    for (const c of targets) {
-      const id = String(c.tiktokId || '').trim().replace(/^@/, '');
-      if (!id) continue;
-      try {
-        const p = await ttClient.fetchProfile(id);
-        const idx = list.findIndex(x => x.id === c.id);
-        if (idx < 0) continue;
-        if (p?.found && p.avatar) {
-          list[idx] = {
-            ...list[idx],
-            avatar: p.avatar,
-            channelName: p.nickname || list[idx].channelName || list[idx].nickname || id,
-            avatarFetchedAt: Date.now(),
-            avatarSource: p.source || 'profile',
-            avatarFetchFailedAt: 0,
-          };
-          changed = true;
-        } else {
-          list[idx] = { ...list[idx], avatarFetchFailedAt: Date.now() };
-          changed = true;
-        }
-      } catch {
-        const idx = list.findIndex(x => x.id === c.id);
-        if (idx >= 0) {
-          list[idx] = { ...list[idx], avatarFetchFailedAt: Date.now() };
-          changed = true;
-        }
+    const u = new URL(s);
+    return crypto.createHash('sha1').update(u.host + u.pathname).digest('hex');
+  } catch {
+    return '';
+  }
+}
+
+// Lúc mở app: tải & lưu ĐĨA avatar của MỌI creator/nhóm đang có URL (thường còn hạn ~2 ngày).
+// Sau đó OBS luôn phục vụ avatar từ đĩa → không phụ thuộc TikTok (hết hạn/chặn) → hết avatar trắng.
+// Chạy tuần tự có nghỉ để không "dội" TikTok CDN. Bỏ qua ảnh đã có trên đĩa (primeAvatar tự kiểm).
+let _primedAvatars = false;
+async function primeStoredAvatars() {
+  if (_primedAvatars || !overlayServer) return;
+  _primedAvatars = true;
+  const urls = [];
+  try { for (const c of loadCreators()) if (c.avatar) urls.push(c.avatar); } catch {}
+  try { for (const g of loadGroups()) if (g.avatar) urls.push(g.avatar); } catch {}
+  const seen = new Set();
+  for (const u of urls) {
+    if (seen.has(u)) continue;
+    seen.add(u);
+    try { await overlayServer.primeAvatar(u); } catch {}
+    await new Promise(r => setTimeout(r, 120)); // nghỉ nhẹ giữa các lần tải
+  }
+}
+
+// PK Đôi/PK Nhóm lưu snapshot Creator để vẫn hoạt động khi không mở tab cấu hình.
+// Khi hồ sơ lấy được avatar mới, đồng bộ snapshot và phát state ngay cho OBS.
+function syncBattleAvatarReferences(creators) {
+  const byId = new Map((creators || []).map(c => [c.id, c]));
+  let duoChanged = false;
+  for (const team of [pkDuoEngine?.config?.teamA, pkDuoEngine?.config?.teamB]) {
+    const creator = team && byId.get(team.creatorId);
+    if (creator?.avatar && (team.creatorAvatar !== creator.avatar || team.creatorAvatarKey !== creator.avatarCacheKey)) {
+      team.creatorAvatar = creator.avatar;
+      team.creatorAvatarKey = creator.avatarCacheKey || avatarCacheKey(creator.avatar);
+      duoChanged = true;
+    }
+  }
+  if (duoChanged) {
+    savePkDuoConfig(pkDuoEngine.config);
+    pkDuoEngine._emit();
+  }
+
+  const participants = pkGroupEngine?.config?.participants;
+  let groupChanged = false;
+  if (Array.isArray(participants)) {
+    for (const participant of participants) {
+      const creator = byId.get(participant.creatorId || participant.id);
+      if (creator?.avatar && (participant.avatar !== creator.avatar || participant.avatarKey !== creator.avatarCacheKey)) {
+        participant.avatar = creator.avatar;
+        participant.avatarKey = creator.avatarCacheKey || avatarCacheKey(creator.avatar);
+        groupChanged = true;
       }
     }
-    if (changed) {
-      saveCreators(list);
-      rankingEngine?._emit();
-      scoreEngine?._emit?.();
-    }
-  } finally {
-    creatorAvatarRefreshRunning = false;
+  }
+  if (groupChanged) {
+    savePkGroupConfig(pkGroupEngine.config);
+    pkGroupEngine._emit();
   }
 }
 function saveSettings() { saveJson(SETTINGS_PATH, settings); }
@@ -219,6 +214,25 @@ function saveSettings() { saveJson(SETTINGS_PATH, settings); }
 function getDeviceId() {
   const raw = [os.hostname(), os.userInfo().username, USER_DATA_DIR].join('|');
   return crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16).toUpperCase();
+}
+
+// Renderer only needs a recognizable reference, never the full license key or device ID.
+function maskSensitiveValue(value) {
+  const chars = Array.from(String(value || ''));
+  if (!chars.length) return '';
+  return `${chars.slice(0, 2).join('')}******${chars.slice(-2).join('')}`;
+}
+
+function publicLicenseState(state = {}) {
+  const license = { ...(state.license || {}), deviceId: state.license?.deviceId || getDeviceId() };
+  return {
+    ...state,
+    license: {
+      ...license,
+      key: maskSensitiveValue(license.key),
+      deviceId: maskSensitiveValue(license.deviceId),
+    },
+  };
 }
 
 function parseLicenseDate(value) {
@@ -338,6 +352,7 @@ const REVIEW_META = {
   pkgroup: { title: 'Review PK Nhóm', getUrl: () => overlayServer?.getPkGroupUrl(), width: 1280, height: 420 },
   score: { title: 'Review Tính điểm', getUrl: () => overlayServer?.getScoreUrl(), width: 900, height: 300 },
   ranking: { title: 'Review Thi đấu', getUrl: () => overlayServer?.getRankingUrl(), width: 420, height: 900 },
+  rankinggrid: { title: 'Review Thi đấu ngang', getUrl: () => overlayServer?.getRankingUrl() + '&grid=1', width: 1280, height: 520 },
 };
 
 function normalizeReviewBg(value) {
@@ -382,6 +397,21 @@ function saveReviewBounds(type, rw) {
   saveSettings();
 }
 
+// Cửa sổ Review là frameless và trong suốt. Nếu giữ kích thước mặc định sau
+// khi overlay được thu nhỏ, phần trong suốt còn lại vẫn chặn chuột của desktop.
+function fitReviewWindowToContent(sender, width, height) {
+  const rw = BrowserWindow.fromWebContents(sender);
+  if (!rw || rw.isDestroyed() || ![...reviewWindows.values()].includes(rw)) return { ok: false };
+  const rawWidth = Number(width), rawHeight = Number(height);
+  if (!Number.isFinite(rawWidth) || !Number.isFinite(rawHeight)) return { ok: false };
+  const w = Math.max(80, Math.min(10000, Math.round(rawWidth)));
+  const h = Math.max(80, Math.min(10000, Math.round(rawHeight)));
+  const current = rw.getContentBounds();
+  if (Math.abs(current.width - w) <= 1 && Math.abs(current.height - h) <= 1) return { ok: true };
+  rw.setContentSize(w, h);
+  return { ok: true };
+}
+
 function openReviewWindow(type) {
   const meta = REVIEW_META[type];
   if (!meta) return { ok: false, error: 'Overlay Review không hợp lệ.' };
@@ -398,8 +428,8 @@ function openReviewWindow(type) {
     height: bounds.height || meta.height,
     x: bounds.x,
     y: bounds.y,
-    minWidth: 220,
-    minHeight: 120,
+    minWidth: 80,
+    minHeight: 80,
     frame: false,
     transparent: true,
     resizable: true,
@@ -411,6 +441,7 @@ function openReviewWindow(type) {
     backgroundColor: '#00000000',
     icon: APP_ICON || undefined,
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -522,7 +553,7 @@ function loadGroups() {
 }
 function saveGroups(list) { saveJson(GROUPS_PATH, list); }
 // Hồ sơ nhóm: mỗi nhóm (theo group.id) lưu THÔNG SỐ RIÊNG — cấu hình PK Nhóm,
-// team PK Đôi, quà mặc định, thống kê trận. Đổi nhóm là tự nạp lại thông số của nhóm đó.
+// quà mặc định, thống kê trận. Đổi nhóm là tự nạp lại thông số của nhóm đó.
 function loadGroupProfiles() {
   const obj = loadJson(GROUP_PROFILES_PATH, {});
   return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
@@ -775,9 +806,11 @@ async function refreshGiftMaster() {
 // Engines
 // =================================================================
 class PkDuoEngine {
-  constructor({ onState, onResult }) {
+  constructor({ onState, onResult, getCreators }) {
     this.onState = onState;
     this.onResult = onResult;
+    // Lấy danh sách creator hiện tại để resolve avatar realtime (không đông cứng snapshot).
+    this.getCreators = typeof getCreators === 'function' ? getCreators : () => [];
     this.config = {
       teamA: { name: 'TEAM A', color: '#FE2C55', gifts: [] },
       teamB: { name: 'TEAM B', color: '#25F4EE', gifts: [] },
@@ -824,6 +857,18 @@ class PkDuoEngine {
     this._tick = null;
   }
   setConfig(patch) { this.config = { ...this.config, ...patch }; this._emit(); }
+  // Avatar leader lấy realtime từ hồ sơ creator theo creatorId. Snapshot creatorAvatar trong
+  // config có thể cũ (đổi nhóm / avatar về sau mới tải) → luôn ưu tiên avatar hiện tại của creator.
+  _resolveTeamAvatar(team) {
+    if (!team) return team;
+    const byId = new Map((this.getCreators() || []).map(c => [c.id, c]));
+    const creator = team.creatorId && byId.get(team.creatorId);
+    const avatar = (creator && creator.avatar) || team.creatorAvatar || '';
+    const creatorAvatarKey = (creator && creator.avatarCacheKey) || avatarCacheKey(avatar);
+    return avatar === team.creatorAvatar && creatorAvatarKey === team.creatorAvatarKey
+      ? team
+      : { ...team, creatorAvatar: avatar, creatorAvatarKey };
+  }
   getStateForOverlay() {
     return {
       status: this.state.status,
@@ -831,8 +876,8 @@ class PkDuoEngine {
       startedAt: this.state.startedAt,
       scoreA: this.state.scoreA,
       scoreB: this.state.scoreB,
-      teamA: this.config.teamA,
-      teamB: this.config.teamB,
+      teamA: this._resolveTeamAvatar(this.config.teamA),
+      teamB: this._resolveTeamAvatar(this.config.teamB),
       durationSec: this.config.durationSec,
       prepSec: this.config.prepSec,
       delaySec: this.config.delaySec,
@@ -873,7 +918,9 @@ class PkDuoEngine {
     if (!key || !m) return;
     let g = m.get(key);
     if (!g) { g = { uniqueId: ev.uniqueId || '', nickname: ev.nickname || ev.uniqueId || '', avatar: ev.avatar || '', total: 0 }; m.set(key, g); }
-    if (ev.avatar) g.avatar = ev.avatar;       // avatar mới nhất
+    if (ev.avatar) {
+      g.avatar = ev.avatar;       // avatar mới nhất
+    }
     if (ev.nickname) g.nickname = ev.nickname;
     g.total += Number(pts) || 0;
   }
@@ -884,7 +931,11 @@ class PkDuoEngine {
     return [...m.values()]
       .sort((a, b) => b.total - a.total)
       .slice(0, 3)
-      .map(g => ({ uniqueId: g.uniqueId, nickname: g.nickname, avatar: g.avatar, total: Math.round(g.total) }));
+      // Gift event v2 hay thiếu avatar → bù từ _avatarCache (nạp từ chat/join) để không hiện ô đen.
+      .map(g => {
+        const avatar = g.avatar || _avatarCache.get(String(g.uniqueId)) || '';
+        return { uniqueId: g.uniqueId, nickname: g.nickname, avatar, total: Math.round(g.total) };
+      });
   }
   // Push formula theo spec: ((A - B) / (A + B)) * 42 — clamp [-42, 42]
   _pushPercent() {
@@ -1018,9 +1069,11 @@ class PkDuoEngine {
 }
 
 class PkGroupEngine {
-  constructor({ onState, onResult }) {
+  constructor({ onState, onResult, getCreators }) {
     this.onState = onState;
     this.onResult = onResult;
+    // Lấy danh sách creator hiện tại để resolve avatar realtime (không đông cứng snapshot).
+    this.getCreators = typeof getCreators === 'function' ? getCreators : () => [];
     this.config = {
       content: 'PK NHÓM',
       groupId: '',
@@ -1072,11 +1125,19 @@ class PkGroupEngine {
     this._emit();
   }
   getStateForOverlay() {
-    const participants = this.config.participants.map(p => ({
-      ...p,
-      score: Number(this.state.scores[p.id]) || 0,
-      streak: Number(this.state.streaks[p.id]) || 0,
-    }));
+    // Avatar bám realtime theo creatorId — snapshot participant.avatar có thể cũ khi đổi nhóm
+    // hoặc avatar mới tải về sau; luôn ưu tiên avatar hiện tại của creator để OBS hiển thị đúng.
+    const byId = new Map((this.getCreators() || []).map(c => [c.id, c]));
+    const participants = this.config.participants.map(p => {
+      const creator = byId.get(p.creatorId || p.id);
+      return {
+        ...p,
+        avatar: (creator && creator.avatar) || p.avatar || '',
+        avatarKey: (creator && creator.avatarCacheKey) || avatarCacheKey((creator && creator.avatar) || p.avatar || ''),
+        score: Number(this.state.scores[p.id]) || 0,
+        streak: Number(this.state.streaks[p.id]) || 0,
+      };
+    });
     return {
       status: this.state.status,
       remainingMs: this.state.remainingMs,
@@ -1350,6 +1411,8 @@ class RankingEngine {
       gridRows: 3,
       gridCols: 3,
       gridFlow: 'row',
+      avatarScale: 130,
+      giftScale: 145,
       overlayScale: 100,
     };
     // Snapshot scores tích lũy theo round
@@ -1403,8 +1466,11 @@ class RankingEngine {
           id: c.id,
           name: c.nickname || c.tiktokId,
           avatar: c.avatar || '',
+          avatarKey: c.avatarCacheKey || avatarCacheKey(c.avatar),
+          avatarVersion: Number(c.avatarFetchedAt) || 0,
           initials: this._buildInitials(c.nickname || c.tiktokId),
-          points: sc.points || Number(c.contestPoints) || 0,
+          // Keep manually entered points visible while the LIVE round is receiving gifts.
+          points: (Number(c.contestPoints) || 0) + (Number(sc.points) || 0),
           round: Number.isFinite(Number(c.voteRound)) ? Number(c.voteRound) : this.round,
           giftIconId: sc.lastGiftId || c.defaultGiftId || '',
           giftIcon: sc.lastGiftIcon || c.defaultGiftIcon || '',
@@ -1424,6 +1490,8 @@ class RankingEngine {
           id: g.id,
           name: g.name,
           avatar: g.avatar || '',
+          avatarKey: g.avatarCacheKey || avatarCacheKey(g.avatar),
+          avatarVersion: Number(g.avatarFetchedAt) || Number(g.updatedAt) || 0,
           initials: this._buildInitials(g.name),
           points: sc.points || 0,
           round: this.round,
@@ -1473,9 +1541,11 @@ class RankingEngine {
       gridRows: this.config.gridRows,
       gridCols: this.config.gridCols,
       gridFlow: this.config.gridFlow,
+      avatarScale: this.config.avatarScale,
+      giftScale: this.config.giftScale,
       overlayScale: this.config.overlayScale,
       rows,
-      active: activeRow ? { name: activeRow.name, avatar: activeRow.avatar, initials: activeRow.initials, points: activeRow.points } : null,
+      active: activeRow ? { name: activeRow.name, avatar: activeRow.avatar, avatarKey: activeRow.avatarKey, avatarVersion: activeRow.avatarVersion, initials: activeRow.initials, points: activeRow.points } : null,
     };
   }
   _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
@@ -1754,6 +1824,7 @@ function bootstrapEngines() {
       broadcast('pkduo:state', st);
     },
     onResult: appendMatchHistory,
+    getCreators: loadCreators,
   });
   const savedPk = loadPkDuoConfig();
   if (savedPk) pkDuoEngine.setConfig(savedPk);
@@ -1763,6 +1834,7 @@ function bootstrapEngines() {
       broadcast('pkgroup:state', st);
     },
     onResult: appendMatchHistory,
+    getCreators: loadCreators,
   });
   const savedPkGroup = loadPkGroupConfig();
   if (savedPkGroup) pkGroupEngine.setConfig(savedPkGroup);
@@ -1776,7 +1848,6 @@ function bootstrapEngines() {
   });
   if (settings.ranking) rankingEngine.setConfig(settings.ranking);
   rankingEngine.config.activeGroupId = ''; // Luôn khởi động ở chế độ TALENT SHOW (mở tất cả)
-  scheduleCreatorAvatarRefresh(500);
   scoreEngine = new ScoreEngine({
     onState: (st) => {
       overlayServer?.sendScore(st);
@@ -1819,6 +1890,7 @@ function bootstrapTikTok() {
   ttClient.on('gift', (d) => {
     _cacheAvatar(d);   // gift có avatar thì lưu lại
     _fillAvatar(d);    // gift thiếu avatar thì bù từ cache
+    if (d.avatar) overlayServer?.primeAvatar(d.avatar); // lưu đĩa avatar người tặng (champion PK) ngay
     broadcast('tt:gift', d);
     // Route vào engines (chỉ route khi streak kết thúc để tránh double-count khi user combo)
     if (d.shouldProcess) {
@@ -1840,9 +1912,16 @@ async function bootstrapOverlay() {
     root: ROOT,
     port: settings.overlayPort,
     token: settings.overlayToken,
+    cacheDir: path.join(CONFIG_DIR, 'avatar-cache'),
+    normalizeAvatar: (buf) => {
+      const image = nativeImage.createFromBuffer(buf);
+      return image.isEmpty() ? buf : image.toPNG();
+    },
     onLog: (m) => broadcast('log', { source: 'overlay', message: m }),
   });
   await overlayServer.start();
+  // Lưu sẵn avatar các creator/nhóm ra đĩa (không chặn khởi động).
+  setTimeout(() => primeStoredAvatars().catch(() => {}), 1500);
 }
 
 // =================================================================
@@ -1877,7 +1956,6 @@ function registerIpc() {
 
   // Creators
   ipcMain.handle('creators:list', () => {
-    scheduleCreatorAvatarRefresh();
     return loadCreators();
   });
   ipcMain.handle('creators:upsert', (_e, creator) => {
@@ -1885,10 +1963,19 @@ function registerIpc() {
     const cid = creator.id;
     const idx = cid ? list.findIndex(c => c.id === cid) : -1;
     const now = Date.now();
-    if (idx >= 0) list[idx] = { ...list[idx], ...creator, id: cid };
-    else list.push({ createdAt: now, ...creator, id: uid('c_') });
+    const previous = idx >= 0 ? list[idx] : null;
+    const saved = { ...(previous || { createdAt: now }), ...creator, id: cid || uid('c_') };
+    if (saved.avatar && saved.avatar !== previous?.avatar) {
+      saved.avatarFetchedAt = now;
+      saved.avatarSource = 'creator-profile';
+      saved.avatarFetchFailedAt = 0;
+    }
+    saved.avatarCacheKey = avatarCacheKey(saved.avatar);
+    if (idx >= 0) list[idx] = saved;
+    else list.push(saved);
     saveCreators(list);
-    scheduleCreatorAvatarRefresh();
+    if (saved.avatar) overlayServer?.primeAvatar(saved.avatar);
+    syncBattleAvatarReferences(list);
     rankingEngine?._emit();
     return list;
   });
@@ -1907,9 +1994,14 @@ function registerIpc() {
     const gid = group.id;
     const idx = gid ? list.findIndex(g => g.id === gid) : -1;
     const now = Date.now();
-    if (idx >= 0) list[idx] = { ...list[idx], ...group, id: gid };
-    else list.push({ createdAt: now, ...group, id: uid('g_') });
+    const previous = idx >= 0 ? list[idx] : null;
+    const saved = { ...(previous || { createdAt: now }), ...group, id: gid || uid('g_') };
+    if (saved.avatar && saved.avatar !== previous?.avatar) saved.avatarFetchedAt = now;
+    saved.avatarCacheKey = avatarCacheKey(saved.avatar);
+    if (idx >= 0) list[idx] = saved;
+    else list.push(saved);
     saveGroups(list);
+    if (saved.avatar) overlayServer?.primeAvatar(saved.avatar);
     rankingEngine?._emit();
     return list;
   });
@@ -2072,14 +2164,12 @@ function registerIpc() {
 
   // Ranking
   ipcMain.handle('ranking:getState', () => {
-    scheduleCreatorAvatarRefresh();
     return rankingEngine.getStateForOverlay();
   });
   ipcMain.handle('ranking:setConfig', (_e, cfg) => {
     rankingEngine.setConfig(cfg);
     settings.ranking = { ...rankingEngine.config };
     saveSettings();
-    scheduleCreatorAvatarRefresh();
     return rankingEngine.config;
   });
   ipcMain.handle('ranking:reset', () => {
@@ -2122,6 +2212,7 @@ function registerIpc() {
   ipcMain.handle('review:alwaysOnTop', (_e, { type, value }) => setReviewAlwaysOnTop(type, value));
   ipcMain.handle('review:clickThrough', (_e, { type, value }) => setReviewClickThrough(type, value));
   ipcMain.handle('review:background', (_e, { type, value, alpha }) => setReviewBackground(type, value, alpha));
+  ipcMain.handle('review:fitContent', (e, { width, height } = {}) => fitReviewWindowToContent(e.sender, width, height));
   ipcMain.handle('review:getState', () => getReviewState());
 
   // Settings
@@ -2182,13 +2273,13 @@ function registerIpc() {
   });
 
   // License + updates
-  ipcMain.handle('license:get', () => ({ ...(settings.license || {}), deviceId: getDeviceId(), appVersion: app.getVersion() }));
-  ipcMain.handle('license:activate', async (_e, key) => validateLicenseKey(key));
-  ipcMain.handle('license:check', async () => checkStoredLicense());
+  ipcMain.handle('license:get', () => publicLicenseState({ license: { ...(settings.license || {}), deviceId: getDeviceId(), appVersion: app.getVersion() } }).license);
+  ipcMain.handle('license:activate', async (_e, key) => publicLicenseState(await validateLicenseKey(key)));
+  ipcMain.handle('license:check', async () => publicLicenseState(await checkStoredLicense()));
   ipcMain.handle('license:clear', () => {
     settings.license = { key: '', vip: '', expiresAt: '', status: '', activatedAt: 0, checkedAt: 0, deviceId: getDeviceId() };
     saveSettings();
-    return { ok: true, license: settings.license };
+    return publicLicenseState({ ok: true, license: settings.license });
   });
   ipcMain.handle('app:getVersion', () => app.getVersion());
   ipcMain.handle('updates:check', async () => checkForUpdate());

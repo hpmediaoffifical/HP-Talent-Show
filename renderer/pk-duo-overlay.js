@@ -54,15 +54,26 @@ function pushWidth(target, snap) {
 }
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('en-US'); }
+function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('vi-VN'); }
 function mmss(s) { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 // Avatar TikTok CDN load trực tiếp bị chặn trong OBS Browser Source → phải qua proxy /avatar.
-function mediaUrl(value) {
+function mediaUrl(value, key = '') {
   const s = String(value || '').trim();
   if (!s || /logo[\\/]hp-logo\.(png|ico)$/i.test(s)) return '/logo.png';
+  if (/^[a-f0-9]{40}$/i.test(key)) return `/avatar?key=${encodeURIComponent(key)}`;
   if (/^https?:\/\//i.test(s)) return `/avatar?url=${encodeURIComponent(s)}`;
   return s;
 }
+// Ảnh avatar lỗi (proxy cold-miss/timeout tức thời trên OBS) → THỬ LẠI vài lần rồi mới rơi về logo,
+// thay vì kẹt logo vĩnh viễn. Bust cache trình duyệt bằng &_r để không dùng lại lỗi đã cache;
+// proxy cache theo URL gốc nên lần thử sau phục vụ ngay từ cache ấm.
+window.avRetry = function (img) {
+  const n = +(img.dataset.avTry || 0);
+  if (n >= 3 || !/\/avatar\?/.test(img.src)) { img.onerror = null; img.src = '/logo.png'; return; }
+  img.dataset.avTry = n + 1;
+  const clean = img.src.replace(/[?&]_r=\d+/, '');
+  setTimeout(() => { img.src = clean + (clean.includes('?') ? '&' : '?') + '_r=' + (n + 1); }, 500 + n * 800);
+};
 function hexToRgb(hex, fb = '0,0,0') {
   const m = String(hex || '').trim().match(/^#([0-9a-f]{6})$/i);
   if (!m) return fb;
@@ -98,7 +109,7 @@ function championsHtml(list, side, swapMvp, entered) {
     const key = g.uniqueId || g.nickname || '';
     const isMvp = rank === 1;
     const cls = `pkduo-champ r${rank}${isMvp ? ' mvp' : ''}${isMvp && swapMvp ? ' swap' : ''}${entered.has(key) ? ' enter' : ''}`;
-    const av = `<img src="${esc(mediaUrl(g.avatar))}" onerror="this.onerror=null;this.src='/logo.png'" />`;
+    const av = `<img src="${esc(mediaUrl(g.avatar))}" onerror="avRetry(this)" />`;
     return `<span class="${cls}" title="${esc(g.nickname || key)}${g.total ? ' • ' + fmt(g.total) : ''}">${isMvp ? '<i class="pkduo-champ-crown" aria-hidden="true">👑</i>' : `<i class="pkduo-champ-rank" aria-hidden="true">${rank}</i>`}<span class="pkduo-champ-ava">${av}</span></span>`;
   }).join('');
 }
@@ -202,9 +213,9 @@ function render(state = {}) {
   ">
     ${contentText ? `<div class="pkduo-content${contentLong ? ' is-long' : ''}">${contentLong ? `<span class="pkduo-content-track"><span>${esc(contentText)}</span><span aria-hidden="true">${esc(contentText)}</span></span>` : `<span class="pkduo-content-text">${esc(contentText)}</span>`}</div>` : ''}
     <div class="pkduo-head">
-      <b><span class="pkduo-creator left">${a.creatorAvatar ? `<img src="${esc(mediaUrl(a.creatorAvatar))}" onerror="this.onerror=null;this.src='/logo.png'" />` : ''}<i>${esc(shortName(a.name || 'TEAM A'))}</i></span></b>
+      <b><span class="pkduo-creator left">${a.creatorAvatar ? `<img src="${esc(mediaUrl(a.creatorAvatar, a.creatorAvatarKey))}" onerror="avRetry(this)" />` : ''}<i>${esc(shortName(a.name || 'TEAM A'))}</i></span></b>
       <span>${statusText ? `<i class="pkduo-time-icon ${statusIcon}" aria-hidden="true"></i><b>${esc(statusText)}</b>` : ''}</span>
-      <b><span class="pkduo-creator right">${b.creatorAvatar ? `<img src="${esc(mediaUrl(b.creatorAvatar))}" onerror="this.onerror=null;this.src='/logo.png'" />` : ''}<i>${esc(shortName(b.name || 'TEAM B'))}</i></span></b>
+      <b><span class="pkduo-creator right">${b.creatorAvatar ? `<img src="${esc(mediaUrl(b.creatorAvatar, b.creatorAvatarKey))}" onerror="avRetry(this)" />` : ''}<i>${esc(shortName(b.name || 'TEAM B'))}</i></span></b>
     </div>
     <div class="pkduo-gifts">
       <div class="pkduo-gift-lane left${soloClass(a.gifts)}">${giftLaneHtml(a.gifts)}${aResult ? `<strong class="pkduo-result ${esc(aResult.toLowerCase())}">${esc(aResult)}</strong>` : ''}</div>

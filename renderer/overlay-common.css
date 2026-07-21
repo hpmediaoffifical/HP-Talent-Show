@@ -16,6 +16,11 @@ body.overlay-review #scoreRoot, body.overlay-review #scoreRoot * { -webkit-app-r
    để vùng kéo cửa sổ khớp đúng khối overlay đang hiển thị, không để lại dải "ma" ăn chuột. */
 .review-zoom { width: max-content; max-width: none; }
 
+/* PK Nhóm ở OBS cần co theo viewport để phù hợp mọi Browser Source. Review thì
+   phải dùng chiều rộng nội tại; nếu bám 100vw, việc tự ôm cửa sổ sẽ co 24px
+   mỗi vòng và làm tay kéo nhảy từ rất to xuống rất nhỏ. */
+body.overlay-review #pkGroupRoot { width: calc(1440px * var(--pkg-scale, 1)); max-width: none; }
+
 /* Tay kéo góc dưới-phải: scale TOÀN BỘ overlay CỤC BỘ trong cửa sổ Review (không đụng output OBS).
    no-drag để không kéo di chuyển cửa sổ; luôn nằm trên cùng, bám theo góc dưới-phải của nội dung. */
 .review-grip { position: fixed; z-index: 2147483000; width: 26px; height: 26px; display: none; -webkit-app-region: no-drag !important; touch-action: none; cursor: nwse-resize; }

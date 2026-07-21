@@ -160,8 +160,7 @@
         <img src="../logo/hp-logo.png" alt="HP" />
         <div class="brand-text">
           <strong>HP TALENT SHOW</strong>
-          <span>HP MEDIA</span>
-          <button id="versionCheckBtn" class="brand-ver version-check" type="button" title="Bấm để kiểm tra cập nhật">Phiên bản v<span id="appVersionText">0.1.0</span></button>
+          <button id="versionCheckBtn" class="brand-ver version-check" type="button" title="Bấm để kiểm tra cập nhật">v<span id="appVersionText">0.1.0</span></button>
         </div>
       </div>
       <nav class="nav">
@@ -666,6 +665,18 @@
                       <span id="rkOverlayScaleValue" class="prefix">100%</span>
                     </div>
                   </label>
+                  <label class="full">Cỡ avatar (dọc + ngang)
+                    <div class="range-inline">
+                      <input id="rkAvatarScale" type="range" min="80" max="170" step="5" value="130" />
+                      <span id="rkAvatarScaleValue" class="prefix">130%</span>
+                    </div>
+                  </label>
+                  <label class="full">Cỡ icon quà (dọc + ngang)
+                    <div class="range-inline">
+                      <input id="rkGiftScale" type="range" min="80" max="180" step="5" value="145" />
+                      <span id="rkGiftScaleValue" class="prefix">145%</span>
+                    </div>
+                  </label>
                 </div>
                 <div class="rk-toggle-row">
                   <label><input id="rkShowRank" type="checkbox" checked /> Rank</label>
@@ -688,7 +699,7 @@
           </div>
           <div class="rk-score-bridge" id="rkScoreBridge" hidden>
             <div><b>🎯 Tính điểm liên kết</b><span id="rkScoreBridgeName">Chưa chọn VOTE</span></div>
-            <label>Mục tiêu <input id="rkScoreTarget" type="text" inputmode="numeric" value="30000" /></label>
+            <label>Mục tiêu <input id="rkScoreTarget" type="text" inputmode="numeric" value="1.000" /></label>
             <label>Phút <input id="rkScoreMin" type="number" min="0" max="999" value="3" /></label>
             <label>Giây <input id="rkScoreSec" type="number" min="0" max="59" value="0" /></label>
             <label class="rk-lock-vote"><input id="rkLockVoteRunning" type="checkbox" /> Khóa VOTE</label>
@@ -738,9 +749,9 @@
             <fieldset class="score-config-card score-main-config">
               <legend>Thiết lập phiên</legend>
               <div class="form-grid compact">
-                <label>Mục tiêu điểm <input id="scTarget" type="number" min="1" max="9999999" value="1000" /></label>
+                <label>Mục tiêu điểm <input id="scTarget" type="text" inputmode="numeric" value="1.000" /></label>
                 <label>Chuẩn bị (giây) <input id="scPrep" type="number" min="0" max="120" value="3" /></label>
-                <label>Delay grace (giây) <input id="scDelay" type="number" min="0" max="60" value="5" /></label>
+                <label>Delay sau kết thúc (giây) <input id="scDelay" type="number" min="0" max="60" value="5" /></label>
                 <div class="time-zone">
                   <div class="time-zone__head"><span class="tz-ico">⏱️</span> Thời gian chạy</div>
                   <div class="time-zone__fields">
@@ -829,8 +840,8 @@
       <section class="panel" data-panel="settings">
         <h1>⚙️ Cài đặt</h1>
         <p class="sub">Khu vực chuẩn bị cho cài đặt âm thanh và tuỳ chọn vận hành LIVE.</p>
-        <div class="card">
-          <h3>🪟 Overlay OBS</h3>
+        <details class="card settings-card" open>
+          <summary><h3>🪟 Overlay OBS</h3></summary>
           <p class="sub">Add các link sau vào <b>Browser Source</b> của OBS.</p>
           <div class="form-grid">
             <label>Chế độ nền
@@ -855,10 +866,10 @@
             <button id="btnSaveOverlay" class="primary" type="button">💾 Lưu cấu hình Overlay</button>
           </div>
           <div class="hint">💡 Khuyến nghị OBS Browser Source: <b>2160×3840</b> cho overlay dọc rõ nét hơn. Nếu stream ngang, có thể crop/scale trong OBS.</div>
-        </div>
+        </details>
 
-        <div class="card">
-          <h3>🔄 Reset overlay OBS (WebSocket)</h3>
+        <details class="card settings-card">
+          <summary><h3>🔄 Reset overlay OBS (WebSocket)</h3></summary>
           <p class="sub">Tự làm mới (refresh cache) các <b>Browser Source</b> đang trỏ tới link overlay localhost của app — <b>không</b> đụng dữ liệu app hay thông số OBS khác. Cần bật <b>Tools → WebSocket Server Settings</b> trong OBS.</p>
           <div class="form-grid">
             <label>Cổng OBS WebSocket
@@ -876,26 +887,26 @@
             <button id="btnSaveObs" class="ghost" type="button">💾 Lưu cấu hình</button>
           </div>
           <div class="hint">💡 Cổng mặc định của OBS là <b>4455</b>. Có thể bấm <b>Ctrl + R</b> bất cứ lúc nào để reset nhanh overlay OBS.</div>
-        </div>
+        </details>
 
-        <div class="card">
-          <h3>💾 Sao lưu / Khôi phục dữ liệu</h3>
+        <details class="card settings-card">
+          <summary><h3>💾 Sao lưu / Khôi phục dữ liệu</h3></summary>
           <p class="sub">Xuất toàn bộ <b>Creator + Nhóm</b> ra 1 file để chuyển sang máy khác hoặc sao lưu. Bản cài đặt mới <b>không</b> kèm sẵn danh sách creator/nhóm — hãy Xuất ở máy cũ và Nhập ở máy mới.</p>
           <div class="form-actions">
             <button id="btnExportData" class="primary" type="button">⬆ Xuất dữ liệu (Creator + Nhóm)</button>
             <button id="btnImportData" class="ghost" type="button">⬇ Nhập dữ liệu từ file</button>
           </div>
           <div class="hint" id="dataBackupHint">📦 Hiện có: đang tải…</div>
-        </div>
+        </details>
 
-        <div class="card license-settings-card">
-          <h3>🔐 Bản quyền & Cập nhật</h3>
+        <details class="card settings-card license-settings-card" open>
+          <summary><h3>🔐 Bản quyền & Cập nhật</h3></summary>
           <div class="license-info-grid">
             <label>KEY bản quyền
-              <input id="licenseKeySettings" placeholder="HPSTUDIO_01" autocomplete="off" />
+              <input id="licenseKeySettings" readonly aria-label="KEY bản quyền đã che" />
             </label>
             <label>Thiết bị
-              <input id="licenseDeviceSettings" readonly />
+            <input id="licenseDeviceSettings" readonly />
             </label>
             <div class="license-box"><span>VIP</span><b id="licenseVipText">—</b></div>
             <div class="license-box"><span>Hạn sử dụng</span><b id="licenseExpireText">—</b></div>
@@ -903,18 +914,18 @@
             <div class="license-box"><span>Phiên bản</span><b id="licenseVersionText">—</b></div>
           </div>
           <div class="form-actions">
-            <button id="licenseActivateSettings" class="primary" type="button">Kích hoạt / Kiểm tra KEY</button>
+            <button id="licenseActivateSettings" class="primary" type="button">Kiểm tra KEY đã lưu</button>
             <button id="licenseClearSettings" class="ghost" type="button">Xóa KEY máy này</button>
             <button id="btnCheckUpdate" class="ghost" type="button">Kiểm tra cập nhật</button>
             <button id="btnInstallUpdate" class="primary" type="button" hidden>Tải & cài bản mới</button>
           </div>
           <div id="updateStatus" class="hint">Ứng dụng sẽ tự kiểm tra bản mới từ GitHub Releases khi mở app.</div>
-        </div>
+        </details>
 
-        <div class="card overlay-links">
+        <details class="card settings-card overlay-links">
+          <summary><h3>🔗 Link Overlay & Review</h3></summary>
           <div class="ovl-row">
             <label>⚔️ PK Đôi</label>
-            <input id="urlPk" readonly />
             <button class="primary" data-copy="urlPk" type="button">📋 OBS (1600×720)</button>
             <button class="ghost" data-review-toggle="pkduo" type="button">🖥 Review</button>
             <button class="ghost" data-review-top="pkduo" type="button">📌 Nổi</button>
@@ -925,7 +936,6 @@
           </div>
           <div class="ovl-row">
             <label>⚔️ PK Đôi FX</label>
-            <input id="urlPkFx" readonly />
             <button class="primary" data-copy="urlPkFx" type="button">📋 OBS (1080×1920)</button>
             <button class="ghost" data-review-toggle="pkduofx" type="button">🖥 Review</button>
             <button class="ghost" data-review-top="pkduofx" type="button">📌 Nổi</button>
@@ -936,7 +946,6 @@
           </div>
           <div class="ovl-row">
             <label>🧩 PK NHÓM</label>
-            <input id="urlPkg" readonly />
             <button class="primary" data-copy="urlPkg" type="button">📋 OBS (2284×1150)</button>
             <button class="ghost" data-review-toggle="pkgroup" type="button">🖥 Review</button>
             <button class="ghost" data-review-top="pkgroup" type="button">📌 Nổi</button>
@@ -947,7 +956,6 @@
           </div>
           <div class="ovl-row">
             <label>🏆 THI ĐẤU NHÓM</label>
-            <input id="urlRk" readonly />
             <button class="primary" data-copy="urlRk" type="button">📋 OBS (900×1600)</button>
             <button class="ghost" data-review-toggle="ranking" type="button">🖥 Review</button>
             <button class="ghost" data-review-top="ranking" type="button">📌 Nổi</button>
@@ -957,8 +965,17 @@
             <button class="ghost" data-review-bg-clear="ranking" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
+            <label>↔ THI ĐẤU NGANG</label>
+            <button class="primary" data-copy="urlRkGrid" type="button">📋 OBS (1600×900)</button>
+            <button class="ghost" data-review-toggle="rankinggrid" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="rankinggrid" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-click="rankinggrid" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="rankinggrid" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="rankinggrid" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="rankinggrid" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
             <label>🎯 Score</label>
-            <input id="urlSc" readonly />
             <button class="primary" data-copy="urlSc" type="button">📋 OBS (1400×520)</button>
             <button class="ghost" data-review-toggle="score" type="button">🖥 Review</button>
             <button class="ghost" data-review-top="score" type="button">📌 Nổi</button>
@@ -967,21 +984,21 @@
             <input class="review-bg-alpha" data-review-alpha="score" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="score" type="button">Trong suốt</button>
           </div>
-        </div>
-        <div class="card audio-settings-card">
-          <h3>🔊 Âm thanh Gameplay</h3>
+        </details>
+        <details class="card settings-card audio-settings-card">
+          <summary><h3>🔊 Âm thanh Gameplay</h3></summary>
           <div class="form-grid">
             <label class="score-switch full"><input id="gameSoundEnabled" type="checkbox" checked /> Bật âm thanh gameplay chung</label>
             <label>Start <span class="inline"><input id="scSndStart" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndStart" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndStart" type="button">Nghe</button></span></label>
             <label>Warning 10s <span class="inline"><input id="scSndWarn" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndWarn" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndWarn" type="button">Nghe</button></span></label>
             <label>Goal đạt <span class="inline"><input id="scSndGoal" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndGoal" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndGoal" type="button">Nghe</button></span></label>
             <label>Success/Thắng <span class="inline"><input id="scSndSuccess" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndSuccess" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndSuccess" type="button">Nghe</button></span></label>
-            <label>Fail/Thua <span class="inline"><input id="scSndFail" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndFail" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndFail" type="button">Nghe</button></span></label>
+            <label>Thua / bị loại tự động <span class="inline"><input id="scSndFail" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndFail" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndFail" type="button">Nghe</button></span></label>
           </div>
-        </div>
+        </details>
 
-        <div class="card audio-settings-card">
-          <h3>🎧 Thiết bị phát</h3>
+        <details class="card settings-card audio-settings-card">
+          <summary><h3>🎧 Thiết bị phát</h3></summary>
           <div class="audio-device-layout">
             <label class="audio-device-row audio-device-output"><span>Thiết bị phát</span>
               <select id="audioOutput">
@@ -1019,7 +1036,7 @@
             <button id="btnSaveSettings" class="primary" type="button">💾 Lưu cài đặt</button>
           </div>
           <div class="hint">Thiết bị phát phụ thuộc quyền trình duyệt/Electron; nếu danh sách trống, app sẽ dùng thiết bị mặc định.</div>
-        </div>
+        </details>
       </section>
 
       <footer class="bottom-live" id="bottomLive">

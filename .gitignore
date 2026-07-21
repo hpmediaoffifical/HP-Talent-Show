@@ -13,3 +13,6 @@ Thumbs.db
 
 # HP KEY - khong commit secret
 hpkey/secret.local.js
+
+# Avatar cache tải sẵn (runtime, tự sinh)
+config/avatar-cache/

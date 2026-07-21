@@ -19,7 +19,7 @@ const MIME = {
 };
 
 class ObsOverlayServer {
-  constructor({ root, port = 18282, token, onLog } = {}) {
+  constructor({ root, port = 18282, token, onLog, cacheDir, normalizeAvatar } = {}) {
     this.root = root;
     this.port = port;
     this.token = token || crypto.randomBytes(18).toString('hex');
@@ -34,7 +34,15 @@ class ObsOverlayServer {
     this.rankingState = {};
     this.scoreState = {};
     this.heartbeatTimer = null;
-    this._avatarCache = new Map(); // url -> { ctype, buf } — tránh fetch lại + phục vụ khi CDN chập chờn
+    // Cache avatar theo "danh tính ảnh" = PATH của URL (bỏ query chữ ký/expires): URL avatar TikTok
+    // đã chứa hash ảnh trong path nên đổi ảnh = đổi path. Nhờ vậy URL ký lại (đổi x-signature/x-expires)
+    // vẫn HIT cache → phục vụ được cả khi URL HẾT HẠN hoặc TikTok chặn fetch. LƯU RA ĐĨA để tồn tại
+    // qua lần khởi động lại và qua giai đoạn TikTok chặn → avatar "tải 1 lần là dùng mãi".
+    this._avatarCache = new Map();    // pathKey -> { ctype, buf }
+    this._avatarInflight = new Map(); // pathKey -> Promise
+    this._avatarDir = cacheDir || path.join(root || '.', 'config', 'avatar-cache');
+    this._normalizeAvatar = typeof normalizeAvatar === 'function' ? normalizeAvatar : null;
+    try { fs.mkdirSync(this._avatarDir, { recursive: true }); } catch {}
   }
 
   async start() {
@@ -191,7 +199,112 @@ class ObsOverlayServer {
     return /(tiktokcdn|tiktokv|tiktok|byteoversea|bytecdn|byteimg|ibyteimg|ibytedtos|bytedance|pstatp|sgpstatp|ttwstatic|muscdn|akamaized|hpvn\.media)/.test(host);
   }
 
+  // Khoá cache = HOST + PATH của URL (bỏ query chữ ký) → URL ký lại cùng ảnh vẫn trùng khoá.
+  _avatarKey(url) {
+    try { const u = new URL(url); return crypto.createHash('sha1').update(u.host + u.pathname).digest('hex'); }
+    catch { return crypto.createHash('sha1').update(String(url)).digest('hex'); }
+  }
+  _sniffCtype(buf) {
+    if (!buf || buf.length < 12) return 'image/jpeg';
+    if (buf[0] === 0xFF && buf[1] === 0xD8) return 'image/jpeg';
+    if (buf[0] === 0x89 && buf[1] === 0x50) return 'image/png';
+    if (buf.slice(0, 4).toString('ascii') === 'RIFF' && buf.slice(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+    if (buf.slice(0, 3).toString('ascii') === 'GIF') return 'image/gif';
+    return 'image/jpeg';
+  }
+  _normalizeAvatarBuffer(buf) {
+    if (!this._normalizeAvatar || !buf?.length) return buf;
+    try {
+      const normalized = this._normalizeAvatar(buf);
+      return Buffer.isBuffer(normalized) && normalized.length ? normalized : buf;
+    } catch { return buf; }
+  }
+  // Đọc bản đã lưu ĐĨA (tồn tại qua khởi động lại + qua lúc TikTok chặn). Nạp vào cache RAM luôn.
+  _avatarFromDisk(key) {
+    if (this._avatarCache.has(key)) return this._avatarCache.get(key);
+    try {
+      let buf = fs.readFileSync(path.join(this._avatarDir, key));
+      const normalized = this._normalizeAvatarBuffer(buf);
+      if (!normalized.equals(buf)) {
+        buf = normalized;
+        try { fs.writeFileSync(path.join(this._avatarDir, key), buf); } catch {}
+      }
+      if (buf && buf.length) { const hit = { ctype: this._sniffCtype(buf), buf }; this._avatarCache.set(key, hit); return hit; }
+    } catch {}
+    return null;
+  }
+  // Fetch avatar TikTok (retry) + GỘP request trùng đang bay + LƯU ĐĨA theo khoá path.
+  _fetchAvatarBuf(url) {
+    const key = this._avatarKey(url);
+    const inflight = this._avatarInflight.get(key);
+    if (inflight) return inflight;
+    const task = (async () => {
+      let lastErr;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const ac = new AbortController();
+        const timer = setTimeout(() => ac.abort(), 9000);
+        try {
+          // Header giả trình duyệt: một số CDN TikTok chặn request thiếu UA/Referer (403).
+          const r = await fetch(url, {
+            signal: ac.signal,
+            redirect: 'follow',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+              'Referer': 'https://www.tiktok.com/',
+              'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+            },
+          });
+          if (!r.ok) throw new Error('status ' + r.status);
+          const buf = this._normalizeAvatarBuffer(Buffer.from(await r.arrayBuffer()));
+          const ctype = this._sniffCtype(buf);
+          if (buf.length) {
+            const hit = { ctype, buf };
+            this._avatarCache.set(key, hit);
+            try { fs.writeFileSync(path.join(this._avatarDir, key), buf); } catch {}
+          }
+          return { ctype, buf };
+        } catch (e) {
+          lastErr = e;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      throw lastErr || new Error('avatar fetch failed');
+    })();
+    this._avatarInflight.set(key, task);
+    return task.finally(() => this._avatarInflight.delete(key));
+  }
+
+  // Tải & lưu sẵn avatar (gọi khi lấy avatar Creator ở Hồ sơ) → có bản ĐĨA ngay cả khi sau này TikTok
+  // chặn / URL hết hạn. "Tải 1 lần ở Hồ sơ Creator là dùng mãi". Không ném lỗi.
+  primeAvatar(url) {
+    try {
+      const s = String(url || '');
+      if (!/^https?:\/\//i.test(s)) return Promise.resolve(false);
+      let host = ''; try { host = new URL(s).hostname; } catch {}
+      if (!host || !this._isAllowedAvatarHost(host)) return Promise.resolve(false);
+      if (this._avatarFromDisk(this._avatarKey(s))) return Promise.resolve(true);
+      return this._fetchAvatarBuf(s).then(() => true).catch(() => false);
+    } catch { return Promise.resolve(false); }
+  }
+
   _serveAvatar(reqUrl, res) {
+    const keyParam = reqUrl.searchParams.get('key') || '';
+    // Avatar Creator/nhóm đã được tải một lần ở Hồ sơ dùng khóa cục bộ. OBS không còn cần
+    // đọc URL TikTok đã ký, nên ảnh vẫn hiển thị khi URL hết hạn hoặc TikTok chặn request.
+    if (keyParam) {
+      if (!/^[a-f0-9]{40}$/i.test(keyParam)) {
+        res.writeHead(302, { Location: '/logo.png' });
+        return res.end();
+      }
+      const cached = this._avatarFromDisk(keyParam);
+      if (cached) {
+        res.writeHead(200, { 'Content-Type': cached.ctype, 'Cache-Control': 'public, max-age=86400' });
+        return res.end(cached.buf);
+      }
+      res.writeHead(302, { Location: '/logo.png' });
+      return res.end();
+    }
     const url = reqUrl.searchParams.get('url') || '';
     let host = '';
     try { host = new URL(url).hostname; } catch { /* url hỏng */ }
@@ -200,33 +313,22 @@ class ObsOverlayServer {
       res.writeHead(302, { Location: '/logo.png' });
       return res.end();
     }
-    const hit = this._avatarCache.get(url);
-    if (hit) {
-      res.writeHead(200, { 'Content-Type': hit.ctype, 'Cache-Control': 'public, max-age=86400' });
-      return res.end(hit.buf);
+    const key = this._avatarKey(url);
+    // 1) Cache RAM / ĐĨA theo path → phục vụ ngay, KHÔNG phụ thuộc TikTok (kể cả URL hết hạn/bị chặn).
+    const disk = this._avatarFromDisk(key);
+    if (disk) {
+      res.writeHead(200, { 'Content-Type': disk.ctype, 'Cache-Control': 'public, max-age=86400' });
+      return res.end(disk.buf);
     }
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), 8000);
-    // Header giả trình duyệt: một số CDN TikTok chặn request thiếu UA/Referer (403).
-    fetch(url, {
-      signal: ac.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-        'Referer': 'https://www.tiktok.com/',
-        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-      },
-    }).then(async r => {
-      if (!r.ok) throw new Error('status ' + r.status);
-      const buf = Buffer.from(await r.arrayBuffer());
-      const ctype = r.headers.get('content-type') || 'image/jpeg';
-      if (buf.length && this._avatarCache.size < 2000) this._avatarCache.set(url, { ctype, buf });
+    // 2) Chưa có bản nào → fetch (retry, gộp trùng) rồi lưu đĩa.
+    this._fetchAvatarBuf(url).then(({ ctype, buf }) => {
+      if (res.headersSent) return;
       res.writeHead(200, { 'Content-Type': ctype, 'Cache-Control': 'public, max-age=86400' });
       res.end(buf);
     }).catch(() => {
-      // CDN lỗi/timeout → fallback logo thay vì 502 (tránh ô avatar rỗng trên overlay).
+      // Fetch lỗi & chưa từng có bản đĩa → logo (tránh ô rỗng). Client sẽ tự thử lại sau.
       if (!res.headersSent) { res.writeHead(302, { Location: '/logo.png' }); res.end(); }
-    }).finally(() => clearTimeout(timer));
+    });
   }
 
   _serveFile(filePath, res) {

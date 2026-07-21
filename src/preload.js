@@ -95,6 +95,7 @@ const api = {
     setAlwaysOnTop: (type, value) => ipcRenderer.invoke('review:alwaysOnTop', { type, value }),
     setClickThrough: (type, value) => ipcRenderer.invoke('review:clickThrough', { type, value }),
     setBackground: (type, value, alpha) => ipcRenderer.invoke('review:background', { type, value, alpha }),
+    fitContent: (width, height) => ipcRenderer.invoke('review:fitContent', { width, height }),
     getState: () => ipcRenderer.invoke('review:getState'),
   },
 

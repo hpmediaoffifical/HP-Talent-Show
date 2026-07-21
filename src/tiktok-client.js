@@ -8,6 +8,25 @@
 
 const { EventEmitter } = require('events');
 
+// Rút một message dễ đọc từ lỗi bất kỳ. tiktok-live-connector v2 KHÔNG emit
+// Error chuẩn — nó emit object { info, exception } (xem client.js handleError).
+// Nếu chỉ làm `err.message || String(err)` thì với object này ta ra "[object Object]".
+function errMessage(err) {
+  if (!err) return 'Lỗi kết nối không xác định';
+  if (typeof err === 'string') return err;
+  // Shape của lib v2: { info, exception }
+  if (err.info || err.exception) {
+    const inner = err.exception && (err.exception.message || err.exception.info || err.exception.name);
+    return [err.info, inner].filter(Boolean).join(': ') || 'Lỗi kết nối';
+  }
+  if (err.message) return String(err.message);
+  try {
+    const s = JSON.stringify(err);
+    if (s && s !== '{}') return s;
+  } catch {}
+  return String(err);
+}
+
 let _lib = null;
 function loadLib() {
   if (_lib) return _lib;
@@ -73,7 +92,7 @@ class TikTokClient extends EventEmitter {
     } catch (err) {
       this.connected = false;
       this.connection = null;
-      this.emit('error', { message: err?.message || String(err) });
+      this.emit('error', { message: errMessage(err), fatal: true });
       throw err;
     } finally {
       this.connecting = false;
@@ -146,7 +165,9 @@ class TikTokClient extends EventEmitter {
       this.connected = false;
       this.emit('disconnected', { username: this.username });
     });
-    conn.on('error', (err) => this.emit('error', { message: err?.message || String(err) }));
+    // Lỗi runtime khi ĐANG LIVE thường không fatal (hiccup giải mã/websocket, lib
+    // tự phục hồi). Chỉ coi là fatal nếu lúc đó đã mất kết nối thật.
+    conn.on('error', (err) => this.emit('error', { message: errMessage(err), fatal: !this.connected }));
     conn.on('streamEnd', () => this.emit('streamEnd', { username: this.username }));
 
     conn.on('chat', (d) => this.emit('chat', shapeChat(d)));
@@ -238,8 +259,16 @@ function pickAvatar(user) {
   if (a && Array.isArray(a.url) && a.url[0]) return a.url[0];   // v2: profilePicture.url = [...]
   if (a && typeof a.url === 'string') return a.url;
   if (user.profilePicture?.url?.[0]) return user.profilePicture.url[0];
+  if (user.profilePicture?.urlList?.[0]) return user.profilePicture.urlList[0];
   if (user.profilePicture?.urls?.[0]) return user.profilePicture.urls[0];
   if (user.profilePicture?.url_list?.[0]) return user.profilePicture.url_list[0];
+  if (user.userDetails?.profilePicture?.url?.[0]) return user.userDetails.profilePicture.url[0];
+  if (user.userDetails?.profilePicture?.urlList?.[0]) return user.userDetails.profilePicture.urlList[0];
+  if (user.userDetails?.profilePicture?.urls?.[0]) return user.userDetails.profilePicture.urls[0];
+  if (user.userDetails?.profilePicture?.url_list?.[0]) return user.userDetails.profilePicture.url_list[0];
+  if (user.userDetails?.avatarLarger) return user.userDetails.avatarLarger;
+  if (user.userDetails?.avatarMedium) return user.userDetails.avatarMedium;
+  if (user.userDetails?.avatarThumb) return user.userDetails.avatarThumb;
   if (user.userDetails?.profilePictureUrls?.[0]) return user.userDetails.profilePictureUrls[0];
   if (user.userDetails?.profilePictureUrls?.length) return user.userDetails.profilePictureUrls[0];
   if (user.user?.profilePictureUrl) return user.user.profilePictureUrl;
@@ -249,11 +278,14 @@ function pickAvatar(user) {
 
 function shapeUser(d) {
   const user = d?.user || d || {};
+  const details = user.userDetails || d?.userDetails || {};
   return {
-    uniqueId: user.uniqueId || user.unique_id || user.userDetails?.uniqueId || user.displayId || user.user?.uniqueId || '',
-    nickname: user.nickname || user.nickName || user.userDetails?.nickname || user.user?.nickname || user.uniqueId || '',
-    userId: user.userId || user.user_id || user.id || '',
-    avatar: pickAvatar(user),
+    uniqueId: user.uniqueId || user.unique_id || details.uniqueId || user.displayId || user.user?.uniqueId || '',
+    nickname: user.nickname || user.nickName || details.nickname || user.user?.nickname || user.uniqueId || '',
+    userId: user.userId || user.user_id || user.id || details.userId || details.user_id || '',
+    // Gift v2 đôi khi đặt thông tin avatar ở event cha thay vì d.user. Thử cả hai
+    // shape để gifter PK Đôi không mất ảnh chỉ vì payload đổi vị trí field.
+    avatar: pickAvatar(user) || pickAvatar(d),
     level: user.level ?? user.userLevel ?? user.followInfo?.level ?? d?.level ?? d?.userLevel ?? '',
     followRole: user.followRole ?? d?.followRole ?? '',
     followerCount: user.followerCount ?? user.followInfo?.followerCount ?? d?.followerCount ?? '',
