@@ -14,6 +14,15 @@ const { ObsOverlayServer } = require('./obs-overlay-server');
 
 const ROOT = path.join(__dirname, '..');
 const USER_DATA_DIR = app.getPath('userData');
+
+// Chặn CRASH toàn cục: một lỗi lẻ (vd icon kéo-thả không load) không được làm sập app đang LIVE.
+process.on('uncaughtException', (err) => {
+  try { console.error('[uncaughtException]', err); } catch {}
+  try { broadcast('log', { source: 'main', message: 'Đã chặn lỗi (không crash): ' + (err && err.message || err) }); } catch {}
+});
+process.on('unhandledRejection', (reason) => {
+  try { console.error('[unhandledRejection]', reason); } catch {}
+});
 const CONFIG_DIR = app.isPackaged ? path.join(USER_DATA_DIR, 'config') : path.join(ROOT, 'config');
 const SHIPPED_CONFIG_DIR = app.isPackaged
   ? path.join(process.resourcesPath, 'app.asar.unpacked', 'config')
@@ -23,6 +32,7 @@ const CREATORS_PATH = path.join(CONFIG_DIR, 'creators.json');
 const GROUPS_PATH = path.join(CONFIG_DIR, 'groups.json');
 const PK_DUO_PATH = path.join(CONFIG_DIR, 'pk-duo.json');
 const PK_GROUP_PATH = path.join(CONFIG_DIR, 'pk-group.json');
+const GROUP_PROFILES_PATH = path.join(CONFIG_DIR, 'group-profiles.json');
 const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
 const SHIPPED_GIFT_MASTER_PATH = path.join(SHIPPED_CONFIG_DIR, 'gift-master.json');
@@ -89,6 +99,7 @@ function loadSettings() {
     ttTargetIdc: 'useast2a',
     compactUiVersion: COMPACT_UI_VERSION,
     lastUsername: '',
+    autoConnect: false,
     windowBounds: null,
     overlay: {
       width: 2160,
@@ -115,6 +126,13 @@ function loadSettings() {
       preEffectVolume: 100,
     },
     reviewWindows: {},
+    // OBS WebSocket (obs-websocket v5) — chỉ dùng để RESET (refresh cache) các Browser Source
+    // trỏ tới overlay localhost của app. autoReset = tự reset mỗi lần khởi động app.
+    obs: {
+      wsPort: 4455,
+      wsPassword: '',
+      autoReset: true,
+    },
     license: {
       key: '',
       vip: '',
@@ -316,6 +334,7 @@ function rememberWindowBounds() {
 
 const REVIEW_META = {
   pkduo: { title: 'Review PK Đôi', getUrl: () => overlayServer?.getPkDuoUrl(), width: 900, height: 320 },
+  pkduofx: { title: 'Review PK Đôi FX', getUrl: () => overlayServer?.getPkDuoFxUrl(), width: 338, height: 600 },
   pkgroup: { title: 'Review PK Nhóm', getUrl: () => overlayServer?.getPkGroupUrl(), width: 1280, height: 420 },
   score: { title: 'Review Tính điểm', getUrl: () => overlayServer?.getScoreUrl(), width: 900, height: 300 },
   ranking: { title: 'Review Thi đấu', getUrl: () => overlayServer?.getRankingUrl(), width: 420, height: 900 },
@@ -502,6 +521,15 @@ function loadGroups() {
   return list;
 }
 function saveGroups(list) { saveJson(GROUPS_PATH, list); }
+// Hồ sơ nhóm: mỗi nhóm (theo group.id) lưu THÔNG SỐ RIÊNG — cấu hình PK Nhóm,
+// team PK Đôi, quà mặc định, thống kê trận. Đổi nhóm là tự nạp lại thông số của nhóm đó.
+function loadGroupProfiles() {
+  const obj = loadJson(GROUP_PROFILES_PATH, {});
+  return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+}
+function saveGroupProfiles(map) {
+  saveJson(GROUP_PROFILES_PATH, (map && typeof map === 'object' && !Array.isArray(map)) ? map : {});
+}
 function loadPkDuoConfig() { return loadJson(PK_DUO_PATH, null); }
 function savePkDuoConfig(cfg) { saveJson(PK_DUO_PATH, cfg); }
 function loadPkGroupConfig() { return loadJson(PK_GROUP_PATH, null); }
@@ -529,6 +557,24 @@ function appendMatchHistory(rec) {
   const list = loadMatchHistory();
   list.push(entry);
   saveMatchHistory(list);
+  // Cộng dồn thống kê vào hồ sơ nhóm (số trận + tổng điểm) cho PK Nhóm.
+  if (entry.type === 'group' && entry.groupId) {
+    try {
+      const map = loadGroupProfiles();
+      const gid = String(entry.groupId);
+      const cur = (map[gid] && typeof map[gid] === 'object') ? map[gid] : {};
+      const stats = (cur.stats && typeof cur.stats === 'object') ? cur.stats : {};
+      const total = (entry.participants || []).reduce((s, p) => s + (Number(p.score) || 0), 0);
+      cur.stats = {
+        matches: (Number(stats.matches) || 0) + 1,
+        totalScore: (Number(stats.totalScore) || 0) + total,
+        lastPlayedAt: entry.finishedAt || Date.now(),
+      };
+      cur.updatedAt = Date.now();
+      map[gid] = cur;
+      saveGroupProfiles(map);
+    } catch {}
+  }
   broadcast('history:changed', entry);
 }
 
@@ -752,6 +798,16 @@ class PkDuoEngine {
       teamBSound: '',
       drawSound: '',
       giftDisplayMode: 'scroll',
+      // Overlay FX toàn màn hình (1080x1920): các field này chỉ overlay FX dùng,
+      // banner PK Đôi cũ bỏ qua. fxMode: 'both'|'push'|'affliction'; fxStyle: 'auto'|'freeze'|'fire'|'water'|'dim'.
+      // fxThreshold = % chênh điểm bắt đầu bật hiệu ứng; fxMaxGap = % chênh để hiệu ứng đạt tối đa.
+      fxEnabled: true,
+      fxMode: 'both',
+      fxStyle: 'auto',
+      fxThreshold: 8,
+      fxMaxGap: 30,
+      fxIntensityCap: 100,
+      championsEnabled: true, // Vinh danh TOP 3 người tặng quà trên overlay banner
     };
     this.state = {
       status: 'idle', // 'idle' | 'prestart' | 'running' | 'grace' | 'finished'
@@ -763,6 +819,7 @@ class PkDuoEngine {
       graceElapsedMs: 0,
       roundNo: 0,
       historySaved: false,
+      gifters: { A: new Map(), B: new Map() }, // side -> Map(userKey -> {uniqueId,nickname,avatar,total}) để vinh danh TOP tặng quà
     };
     this._tick = null;
   }
@@ -794,7 +851,40 @@ class PkDuoEngine {
       teamBSound: this.config.teamBSound,
       drawSound: this.config.drawSound,
       giftDisplayMode: this.config.giftDisplayMode,
+      roundNo: this.state.roundNo,
+      // Cấu hình overlay FX toàn màn hình (chỉ overlay FX đọc)
+      fxEnabled: this.config.fxEnabled,
+      fxMode: this.config.fxMode,
+      fxStyle: this.config.fxStyle,
+      fxThreshold: this.config.fxThreshold,
+      fxMaxGap: this.config.fxMaxGap,
+      fxIntensityCap: this.config.fxIntensityCap,
+      // TOP 3 người tặng quà mỗi bên (vinh danh) — sort giảm dần theo điểm đóng góp.
+      // Có thể Bật/tắt qua config.championsEnabled (mặc định bật).
+      topA: this.config.championsEnabled !== false ? this._topGifters('A') : [],
+      topB: this.config.championsEnabled !== false ? this._topGifters('B') : [],
     };
+  }
+  _resetGifters() { this.state.gifters = { A: new Map(), B: new Map() }; }
+  // Cộng dồn điểm đóng góp của 1 người tặng vào đúng bên (key theo uniqueId, fallback nickname).
+  _addGifter(side, ev, pts) {
+    const key = ev.uniqueId || ev.nickname;
+    const m = this.state.gifters?.[side];
+    if (!key || !m) return;
+    let g = m.get(key);
+    if (!g) { g = { uniqueId: ev.uniqueId || '', nickname: ev.nickname || ev.uniqueId || '', avatar: ev.avatar || '', total: 0 }; m.set(key, g); }
+    if (ev.avatar) g.avatar = ev.avatar;       // avatar mới nhất
+    if (ev.nickname) g.nickname = ev.nickname;
+    g.total += Number(pts) || 0;
+  }
+  // TOP 3 người tặng nhiều nhất của 1 bên.
+  _topGifters(side) {
+    const m = this.state.gifters?.[side];
+    if (!m || !m.size) return [];
+    return [...m.values()]
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 3)
+      .map(g => ({ uniqueId: g.uniqueId, nickname: g.nickname, avatar: g.avatar, total: Math.round(g.total) }));
   }
   // Push formula theo spec: ((A - B) / (A + B)) * 42 — clamp [-42, 42]
   _pushPercent() {
@@ -813,6 +903,7 @@ class PkDuoEngine {
     this.state.startedAt = Date.now();
     this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
     this.state.historySaved = false;
+    this._resetGifters();
     this._runTicker();
   }
   stop() {
@@ -825,7 +916,7 @@ class PkDuoEngine {
   }
   reset() {
     this._clearTicker();
-    this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, historySaved: false };
+    this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, historySaved: false, gifters: { A: new Map(), B: new Map() } };
     this._emit();
   }
   // Ghi LỊCH SỬ trận PK Đôi (1 lần/trận, chỉ khi đã bắt đầu thật).
@@ -881,6 +972,7 @@ class PkDuoEngine {
     if (!side) return;
     if (side === 'A') this.state.scoreA += pts;
     else this.state.scoreB += pts;
+    this._addGifter(side, ev, pts);
     this._emit();
   }
   _runTicker() {
@@ -1700,13 +1792,33 @@ function bootstrapEngines() {
   scoreEngine._emit();
 }
 
+// Cache avatar theo user — TikTok hay gửi GIFT event THIẾU avatar (user data tối giản);
+// ta lưu avatar từ chat/join/… (có avatar) rồi bù cho gift để vinh danh TOP hiện đúng ảnh.
+const _avatarCache = new Map(); // userKey -> avatar url
+function _cacheAvatar(ev) {
+  const key = ev && (ev.uniqueId || ev.userId);
+  if (!key || !ev.avatar) return;
+  _avatarCache.set(String(key), ev.avatar);
+  if (_avatarCache.size > 3000) _avatarCache.delete(_avatarCache.keys().next().value); // cap chống phình
+}
+function _fillAvatar(ev) {
+  if (ev && !ev.avatar) {
+    const key = ev.uniqueId || ev.userId;
+    const cached = key && _avatarCache.get(String(key));
+    if (cached) ev.avatar = cached;
+  }
+  return ev;
+}
+
 function bootstrapTikTok() {
   ttClient = new TikTokClient();
   ttClient.on('connected', (info) => broadcast('tt:connected', info));
-  ttClient.on('disconnected', (info) => broadcast('tt:disconnected', info));
+  ttClient.on('disconnected', (info) => { _avatarCache.clear(); broadcast('tt:disconnected', info); });
   ttClient.on('error', (info) => broadcast('tt:error', info));
-  ttClient.on('chat', (d) => broadcast('tt:chat', d));
+  ttClient.on('chat', (d) => { _cacheAvatar(d); broadcast('tt:chat', d); });
   ttClient.on('gift', (d) => {
+    _cacheAvatar(d);   // gift có avatar thì lưu lại
+    _fillAvatar(d);    // gift thiếu avatar thì bù từ cache
     broadcast('tt:gift', d);
     // Route vào engines (chỉ route khi streak kết thúc để tránh double-count khi user combo)
     if (d.shouldProcess) {
@@ -1716,10 +1828,10 @@ function bootstrapTikTok() {
       scoreEngine?.routeGift(d);
     }
   });
-  ttClient.on('like', (d) => broadcast('tt:like', d));
-  ttClient.on('member', (d) => broadcast('tt:member', d));
-  ttClient.on('follow', (d) => broadcast('tt:follow', d));
-  ttClient.on('share', (d) => broadcast('tt:share', d));
+  ttClient.on('like', (d) => { _cacheAvatar(d); broadcast('tt:like', d); });
+  ttClient.on('member', (d) => { _cacheAvatar(d); broadcast('tt:member', d); });
+  ttClient.on('follow', (d) => { _cacheAvatar(d); broadcast('tt:follow', d); });
+  ttClient.on('share', (d) => { _cacheAvatar(d); broadcast('tt:share', d); });
   ttClient.on('roomUser', (d) => broadcast('tt:roomUser', d));
 }
 
@@ -1803,13 +1915,35 @@ function registerIpc() {
   });
   ipcMain.handle('groups:remove', (_e, id) => {
     const key = String(id || '');
+    const removed = loadGroups().filter(g => g.id === key || g.tiktokId === key);
     const list = loadGroups().filter(g => g.id !== key && g.tiktokId !== key);
     // Unset groupId trên creator thuộc group này
     const creators = loadCreators().map(c => c.groupId === id ? { ...c, groupId: '' } : c);
     saveCreators(creators);
     saveGroups(list);
+    // Xoá luôn hồ sơ nhóm (thông số riêng) của các nhóm bị xoá
+    try {
+      const profiles = loadGroupProfiles();
+      let changed = false;
+      for (const g of removed) { if (g.id && profiles[g.id]) { delete profiles[g.id]; changed = true; } }
+      if (profiles[key]) { delete profiles[key]; changed = true; }
+      if (changed) saveGroupProfiles(profiles);
+    } catch {}
     rankingEngine?._emit();
     return list;
+  });
+
+  // Hồ sơ nhóm — thông số riêng theo từng nhóm
+  ipcMain.handle('groupProfiles:getAll', () => loadGroupProfiles());
+  ipcMain.handle('groupProfiles:save', (_e, { groupId, patch } = {}) => {
+    const gid = String(groupId || '');
+    if (!gid) return null;
+    const map = loadGroupProfiles();
+    const cur = (map[gid] && typeof map[gid] === 'object') ? map[gid] : {};
+    const next = { ...cur, ...(patch || {}), updatedAt: Date.now() };
+    map[gid] = next;
+    saveGroupProfiles(map);
+    return next;
   });
 
   // Sao lưu / khôi phục dữ liệu Creator + Nhóm (xuất/nhập 1 file JSON)
@@ -1821,6 +1955,7 @@ function registerIpc() {
       exportedAt: Date.now(),
       creators: loadCreators(),
       groups: loadGroups(),
+      groupProfiles: loadGroupProfiles(),
     };
     const stamp = fmtDate(Date.now()).replace(/\//g, '-');
     const res = await dialog.showSaveDialog(win, {
@@ -1867,6 +2002,15 @@ function registerIpc() {
       else { cMap.set(id, { createdAt: Date.now(), ...c, id }); cAdd++; }
     }
     saveCreators([...cMap.values()]);
+    // Gộp hồ sơ nhóm (thông số riêng) nếu có trong file nhập
+    if (data.groupProfiles && typeof data.groupProfiles === 'object' && !Array.isArray(data.groupProfiles)) {
+      const pMap = loadGroupProfiles();
+      for (const [gid, prof] of Object.entries(data.groupProfiles)) {
+        if (!gid || !prof || typeof prof !== 'object') continue;
+        pMap[gid] = { ...(pMap[gid] || {}), ...prof };
+      }
+      saveGroupProfiles(pMap);
+    }
     rankingEngine?._emit();
     return { ok: true, creatorsAdded: cAdd, creatorsUpdated: cUpd, groupsAdded: gAdd, groupsUpdated: gUpd };
   });
@@ -1879,6 +2023,7 @@ function registerIpc() {
   ipcMain.handle('pkduo:reset', () => { pkDuoEngine.reset(); return true; });
   ipcMain.handle('pkduo:addPoints', (_e, { side, points }) => { pkDuoEngine.addPoints(side, points); return true; });
   ipcMain.handle('pkduo:getUrl', () => overlayServer.getPkDuoUrl());
+  ipcMain.handle('pkduo:getFxUrl', () => overlayServer.getPkDuoFxUrl());
 
   // PK Group
   ipcMain.handle('pkgroup:getState', () => pkGroupEngine.getStateForOverlay());
@@ -1982,6 +2127,7 @@ function registerIpc() {
   // Settings
   ipcMain.handle('settings:get', () => ({
     lastUsername: settings.lastUsername,
+    autoConnect: !!settings.autoConnect,
     signApiKey: settings.signApiKey ? '•••' : '',
     sessionId: settings.sessionId ? '•••' : '',
     ttTargetIdc: settings.ttTargetIdc,
@@ -1990,6 +2136,12 @@ function registerIpc() {
     audio: { ...(settings.audio || {}) },
     scoreLinkRanking: !!settings.scoreLinkRanking,
     scoreLinkVoteLock: !!settings.scoreLinkVoteLock,
+    // Không trả mật khẩu OBS ra renderer — chỉ báo đã có hay chưa.
+    obs: {
+      wsPort: settings.obs?.wsPort ?? 4455,
+      autoReset: settings.obs?.autoReset !== false,
+      hasPassword: !!(settings.obs?.wsPassword),
+    },
   }));
   ipcMain.handle('settings:set', (_e, patch) => {
     if (patch && typeof patch === 'object') {
@@ -2002,11 +2154,31 @@ function registerIpc() {
       if (patch.audio && typeof patch.audio === 'object') {
         settings.audio = { ...(settings.audio || {}), ...patch.audio };
       }
+      if (typeof patch.autoConnect === 'boolean') settings.autoConnect = patch.autoConnect;
       if (typeof patch.scoreLinkRanking === 'boolean') settings.scoreLinkRanking = patch.scoreLinkRanking;
       if (typeof patch.scoreLinkVoteLock === 'boolean') settings.scoreLinkVoteLock = patch.scoreLinkVoteLock;
+      if (patch.obs && typeof patch.obs === 'object') {
+        settings.obs = settings.obs || {};
+        const o = patch.obs;
+        if (o.wsPort !== undefined) {
+          const p = parseInt(o.wsPort, 10);
+          if (p > 0 && p < 65536) settings.obs.wsPort = p;
+        }
+        // Chỉ ghi đè mật khẩu khi có nhập (để trống = giữ nguyên, không xóa nhầm).
+        if (typeof o.wsPassword === 'string' && o.wsPassword.length) settings.obs.wsPassword = o.wsPassword;
+        if (typeof o.autoReset === 'boolean') settings.obs.autoReset = o.autoReset;
+      }
       saveSettings();
     }
     return true;
+  });
+
+  // OBS WebSocket auth — tính chuỗi xác thực v5 bằng mật khẩu lưu ở main (renderer không thấy mật khẩu).
+  // auth = base64(sha256( base64(sha256(password + salt)) + challenge ))
+  ipcMain.handle('obs:authString', (_e, { salt, challenge } = {}) => {
+    const pw = settings.obs?.wsPassword || '';
+    const secret = crypto.createHash('sha256').update(pw + String(salt || '')).digest('base64');
+    return crypto.createHash('sha256').update(secret + String(challenge || '')).digest('base64');
   });
 
   // License + updates
@@ -2083,8 +2255,19 @@ function registerIpc() {
     return file;
   });
   ipcMain.on('shell:startGiftDrag', (event, file) => {
-    if (!file || !fs.existsSync(file)) return;
-    event.sender.startDrag({ file, icon: file });
+    // startDrag NÉM lỗi nếu icon không load được (Windows thường không load .webp làm icon kéo)
+    // → phải dựng nativeImage an toàn + fallback logo, và bọc try/catch để KHÔNG crash main process.
+    try {
+      if (!file || !fs.existsSync(file)) return;
+      let icon = nativeImage.createFromPath(file);
+      if (!icon || icon.isEmpty()) { try { icon = nativeImage.createFromBuffer(fs.readFileSync(file)); } catch {} }
+      if ((!icon || icon.isEmpty()) && APP_ICON) icon = nativeImage.createFromPath(ICON_PNG);
+      if (!icon || icon.isEmpty()) return; // không có icon hợp lệ thì thôi, đừng để startDrag ném
+      icon = icon.resize({ width: 48, height: 48 });
+      event.sender.startDrag({ file, icon });
+    } catch (err) {
+      try { broadcast('log', { source: 'drag', message: 'startDrag lỗi (bỏ qua): ' + (err && err.message) }); } catch {}
+    }
   });
 }
 

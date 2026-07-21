@@ -34,6 +34,7 @@ class ObsOverlayServer {
     this.rankingState = {};
     this.scoreState = {};
     this.heartbeatTimer = null;
+    this._avatarCache = new Map(); // url -> { ctype, buf } — tránh fetch lại + phục vụ khi CDN chập chờn
   }
 
   async start() {
@@ -45,7 +46,7 @@ class ObsOverlayServer {
     });
     // Keep OBS's embedded browser connected while the OBS window is backgrounded.
     // Some machines/network stacks otherwise leave an idle localhost SSE stream stale.
-    this.heartbeatTimer = setInterval(() => this._heartbeat(), 15000);
+    this.heartbeatTimer = setInterval(() => this._heartbeat(), 5000);
     this.onLog(`OBS overlay server: http://127.0.0.1:${this.port}`);
   }
 
@@ -61,6 +62,7 @@ class ObsOverlayServer {
   }
 
   getPkDuoUrl() { return `http://127.0.0.1:${this.port}/pk-duo?token=${encodeURIComponent(this.token)}`; }
+  getPkDuoFxUrl() { return `http://127.0.0.1:${this.port}/pk-duo-fx?token=${encodeURIComponent(this.token)}`; }
   getPkGroupUrl() { return `http://127.0.0.1:${this.port}/pk-group?token=${encodeURIComponent(this.token)}`; }
   getRankingUrl() { return `http://127.0.0.1:${this.port}/ranking?token=${encodeURIComponent(this.token)}`; }
   getScoreUrl() { return `http://127.0.0.1:${this.port}/score?token=${encodeURIComponent(this.token)}`; }
@@ -76,13 +78,20 @@ class ObsOverlayServer {
   }
 
   _heartbeat() {
-    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients]) {
+    // Gửi lại STATE hiện tại như một event thật (không chỉ comment keep-alive).
+    // → vừa giữ SSE sống trên OBS CEF, vừa để overlay tự vẽ lại định kỳ,
+    //   tránh trường hợp overlay bị "treo/ẩn" sau một lúc khi có gói tin bị rớt.
+    const beats = [
+      [this.pkDuoClients, 'pkduo', this.pkDuoState],
+      [this.pkGroupClients, 'pkgroup', this.pkGroupState],
+      [this.rankingClients, 'ranking', this.rankingState],
+      [this.scoreClients, 'score', this.scoreState],
+    ];
+    for (const [set, event, data] of beats) {
+      const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
       for (const res of set) {
-        if (res.destroyed || res.writableEnded) {
-          set.delete(res);
-          continue;
-        }
-        try { res.write(': keep-alive\n\n'); } catch { set.delete(res); }
+        if (res.destroyed || res.writableEnded) { set.delete(res); continue; }
+        try { res.write(body); } catch { set.delete(res); }
       }
     }
   }
@@ -98,6 +107,8 @@ class ObsOverlayServer {
     const staticMap = {
       '/pk-duo-overlay.js': 'renderer/pk-duo-overlay.js',
       '/pk-duo-overlay.css': 'renderer/pk-duo-overlay.css',
+      '/pk-duo-fx-overlay.js': 'renderer/pk-duo-fx-overlay.js',
+      '/pk-duo-fx-overlay.css': 'renderer/pk-duo-fx-overlay.css',
       '/pk-group-overlay.js': 'renderer/pk-group-overlay.js',
       '/pk-group-overlay.css': 'renderer/pk-group-overlay.css',
       '/ranking-overlay.js': 'renderer/ranking-overlay.js',
@@ -105,6 +116,8 @@ class ObsOverlayServer {
       '/score-overlay.js': 'renderer/score-overlay.js',
       '/score-overlay.css': 'renderer/score-overlay.css',
       '/overlay-common.css': 'renderer/overlay-common.css',
+      '/overlay-sse.js': 'renderer/overlay-sse.js',
+      '/review-resize.js': 'renderer/review-resize.js',
       '/pk-duo-rocket.svg': 'renderer/pk-duo-rocket.svg',
       '/pk-duo-boost.svg': 'renderer/pk-duo-boost.svg',
       '/pk-duo-neutral.svg': 'renderer/pk-duo-neutral.svg',
@@ -127,6 +140,10 @@ class ObsOverlayServer {
     // Overlay HTML pages
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo') {
       return this._serveFile(path.join(this.root, 'renderer', 'pk-duo-overlay.html'), res);
+    }
+    // Overlay FX toàn màn hình: dùng CHUNG stream điểm /pk-duo-events (không cần client set/route data riêng).
+    if (req.method === 'GET' && reqUrl.pathname === '/pk-duo-fx') {
+      return this._serveFile(path.join(this.root, 'renderer', 'pk-duo-fx-overlay.html'), res);
     }
     if (req.method === 'GET' && reqUrl.pathname === '/pk-group') {
       return this._serveFile(path.join(this.root, 'renderer', 'pk-group-overlay.html'), res);
@@ -162,21 +179,54 @@ class ObsOverlayServer {
     req.on('close', () => set.delete(res));
   }
 
+  // Kiểm host tránh SSRF: chặn loopback/mạng nội bộ, cho phép mọi CDN ảnh công khai
+  // (TikTok/ByteDance đổi host liên tục — allow-list theo từ khoá thay vì liệt kê cứng).
+  _isAllowedAvatarHost(host) {
+    host = String(host || '').toLowerCase();
+    if (!host) return false;
+    if (host === 'localhost' || /(^|\.)local$/.test(host)) return false;
+    if (/^(127\.|10\.|0\.0\.0\.0|169\.254\.|::1|\[::1\])/.test(host)) return false;
+    if (/^192\.168\./.test(host)) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+    return /(tiktokcdn|tiktokv|tiktok|byteoversea|bytecdn|byteimg|ibyteimg|ibytedtos|bytedance|pstatp|sgpstatp|ttwstatic|muscdn|akamaized|hpvn\.media)/.test(host);
+  }
+
   _serveAvatar(reqUrl, res) {
     const url = reqUrl.searchParams.get('url') || '';
-    const allowed = /^https?:\/\/[^\/\s]*(?:tiktokcdn|tiktokcdn-us|byteoversea|bytecdn|akamaized|muscdn|tiktokv|hpvn\.media)[^\/\s]*\/[^\s]+$/i;
-    if (!allowed.test(url)) {
-      return this._reject(res, 400, 'bad avatar url');
+    let host = '';
+    try { host = new URL(url).hostname; } catch { /* url hỏng */ }
+    // Nếu host lạ → không lỗi cụt: chuyển về logo để overlay luôn có ảnh, không lộ vòng tròn rỗng.
+    if (!host || !this._isAllowedAvatarHost(host)) {
+      res.writeHead(302, { Location: '/logo.png' });
+      return res.end();
     }
-    fetch(url).then(async r => {
-      if (!r.ok) return this._reject(res, 502, 'avatar fetch failed');
+    const hit = this._avatarCache.get(url);
+    if (hit) {
+      res.writeHead(200, { 'Content-Type': hit.ctype, 'Cache-Control': 'public, max-age=86400' });
+      return res.end(hit.buf);
+    }
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 8000);
+    // Header giả trình duyệt: một số CDN TikTok chặn request thiếu UA/Referer (403).
+    fetch(url, {
+      signal: ac.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        'Referer': 'https://www.tiktok.com/',
+        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+      },
+    }).then(async r => {
+      if (!r.ok) throw new Error('status ' + r.status);
       const buf = Buffer.from(await r.arrayBuffer());
-      res.writeHead(200, {
-        'Content-Type': r.headers.get('content-type') || 'image/jpeg',
-        'Cache-Control': 'public, max-age=3600',
-      });
+      const ctype = r.headers.get('content-type') || 'image/jpeg';
+      if (buf.length && this._avatarCache.size < 2000) this._avatarCache.set(url, { ctype, buf });
+      res.writeHead(200, { 'Content-Type': ctype, 'Cache-Control': 'public, max-age=86400' });
       res.end(buf);
-    }).catch(() => this._reject(res, 502, 'avatar fetch error'));
+    }).catch(() => {
+      // CDN lỗi/timeout → fallback logo thay vì 502 (tránh ô avatar rỗng trên overlay).
+      if (!res.headersSent) { res.writeHead(302, { Location: '/logo.png' }); res.end(); }
+    }).finally(() => clearTimeout(timer));
   }
 
   _serveFile(filePath, res) {

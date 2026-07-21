@@ -23,7 +23,10 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkg-joined-stage { display:grid; gap:0; }
 /* 3 hàng dùng CHUNG một grid-template-columns (đơn vị fr) để biên cột luôn trùng khít,
    không phụ thuộc nội dung pixel-cố định hay bề rộng khung (web/OBS giống hệt nhau). */
-.pkg-joined-names, .pkg-joined-bar, .pkg-joined-gifts { display:grid; width:100%; grid-template-columns:var(--pkg-cols, 1fr); grid-auto-flow:column; transition:grid-template-columns .25s ease; }
+/* KHÔNG transition grid-template-columns: --pkg-cols đã được nội suy mượt bằng rAF trên
+   phần tử cha luôn tồn tại (root). Transition ở đây sẽ chết (grid bị dựng lại mỗi render)
+   và còn lag chồng lên biến đang tự chạy. */
+.pkg-joined-names, .pkg-joined-bar, .pkg-joined-gifts { display:grid; width:100%; grid-template-columns:var(--pkg-cols, 1fr); grid-auto-flow:column; }
 .pkg-joined-names { align-items:end; padding:0 0 3px; overflow:visible; }
 .pkg-joined-names > div { min-width:0; height:calc(36px * var(--pkg-scale,1) * var(--pkg-name-scale,1)); display:flex; align-items:center; justify-content:flex-start; color:#fff; overflow:visible; padding:0; }
 .pkg-joined-names > div { position:relative; }
@@ -84,10 +87,11 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkg-card-head { display:grid; grid-template-columns:minmax(0,1fr); align-items:center; }
 .pkg-card-bar { position:relative; height:calc(max(42px, var(--pkg-text,20px) * 1.55) * var(--pkg-scale,1)); overflow:visible; border-radius:999px; background:rgba(34,38,48,.24); box-shadow:inset 0 0 0 2px rgba(20,24,32,.26), inset 0 0 11px rgba(0,0,0,.14); }
 /* Fill "vệt sao băng": đuôi bên trái mờ trong suốt → đầu đang tiến bên phải đậm & sáng nhất */
-.pkg-card-bar i { position:absolute; left:0; top:0; bottom:0; min-width:calc(42px * var(--pkg-scale,1)); overflow:hidden; border-radius:999px; background:linear-gradient(90deg, color-mix(in srgb, var(--c), transparent 70%) 0%, color-mix(in srgb, var(--c), #fff 20%) 46%, var(--c) 100%); transition:width .25s ease; box-shadow:inset -14px 0 22px -8px rgba(255,255,255,.3), 0 0 18px color-mix(in srgb, var(--c), transparent 45%); clip-path:inset(0 round 999px); }
+/* width kế thừa biến --cw-<id> nội suy bằng rAF trên root (bỏ transition:width vì i bị dựng lại mỗi render). */
+.pkg-card-bar i { position:absolute; left:0; top:0; bottom:0; min-width:calc(42px * var(--pkg-scale,1)); overflow:hidden; border-radius:999px; background:linear-gradient(90deg, color-mix(in srgb, var(--c), transparent 70%) 0%, color-mix(in srgb, var(--c), #fff 20%) 46%, var(--c) 100%); box-shadow:inset -14px 0 22px -8px rgba(255,255,255,.3), 0 0 18px color-mix(in srgb, var(--c), transparent 45%); clip-path:inset(0 round 999px); }
 .pkg-card-bar i::before { content:''; position:absolute; top:0; bottom:0; left:-40px; right:-40px; opacity:.8; background-image:linear-gradient(115deg, transparent 0 44%, rgba(255,255,255,.16) 50%, transparent 56% 100%); background-size:40px 100%; background-repeat:repeat; will-change:transform; pointer-events:none; animation:pkgFlow 1s linear infinite; animation-delay:var(--pkg-flow-delay,0s); }
 .pkg-card-bar.leader i::after { content:''; position:absolute; left:-38px; top:0; bottom:0; width:36px; border-radius:999px; background:linear-gradient(90deg, transparent, rgba(255,255,255,.14), rgba(255,255,255,.74), rgba(255,255,255,.2), transparent); transform:skewX(-14deg); animation:pkgSparkSweep 1.8s ease-in-out infinite; animation-delay:var(--pkg-spark-delay, 0s); }
-.pkg-card-bar b { position:absolute; inset:0; display:grid; place-items:center; padding:0 calc(10px * var(--pkg-scale,1)); background:none; font-size:calc(var(--pkg-text,20px) * 1.08 * var(--pkg-scale,1)); font-weight:950; color:var(--tc, #fff); text-shadow:var(--tsh, 0 2px 6px rgba(0,0,0,.86)); }
+.pkg-card-bar b { position:absolute; z-index:3; inset:0; display:grid; place-items:center; padding:0 calc(10px * var(--pkg-scale,1)); background:none; font-size:calc(var(--pkg-text,20px) * 1.08 * var(--pkg-scale,1)); font-weight:950; color:var(--tc, #fff); text-shadow:var(--tsh, 0 2px 6px rgba(0,0,0,.86)); }
 .pkg-card-person { width:calc(148px * var(--pkg-scale,1)); max-width:calc(148px * var(--pkg-scale,1)); justify-self:start; display:flex; align-items:center; justify-content:flex-start; gap:calc(7px * var(--pkg-scale,1)); min-width:0; padding:calc(4px * var(--pkg-scale,1)) calc(11px * var(--pkg-scale,1)) calc(4px * var(--pkg-scale,1)) calc(4px * var(--pkg-scale,1)); border-radius:999px; background:linear-gradient(90deg, color-mix(in srgb, var(--c), #fff 10%) 0%, color-mix(in srgb, var(--c), #fff 26%) 36%, color-mix(in srgb, var(--c), transparent 68%) 100%); color:#fff; box-shadow:0 4px 12px rgba(0,0,0,.14), inset 0 0 0 1px rgba(255,255,255,.1); }
 .pkg-card-person img { width:calc(40px * var(--pkg-scale,1)); height:calc(40px * var(--pkg-scale,1)); border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,.88); background:#fff; box-shadow:none; flex:0 0 auto; }
 .pkg-card-person b { min-width:0; max-width:calc(88px * var(--pkg-scale,1)); color:var(--tc, #fff); font-size:calc(var(--pkg-text,20px) * .78 * var(--pkg-scale,1)); line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:var(--tsh, 0 2px 5px rgba(0,0,0,.65)); }
@@ -106,6 +110,50 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkg-boost i::before { content:''; position:absolute; right:-9px; top:-17px; width:9px; height:9px; border-radius:50%; background:rgba(90,95,105,.85); box-shadow:0 0 0 1px rgba(255,255,255,.38); }
 .pkg-boost.dir-left { transform:translateY(-50%) scaleX(-1); }
 .pkg-card-bar .pkg-boost.dir-left { transform:translate(-50%,-50%) scaleX(-1); }
+/* Số điểm count-up: giữ nguyên độ rộng chữ số để đếm không bị "rung" bề ngang */
+.pkg-num { font-variant-numeric:tabular-nums; font:inherit; }
+/* Gợn sóng khi lên quà (port từ .pkduo-surge của PK Đôi): dải sáng trắng quét ngang 1 nhịp
+   trên segment/thẻ của đúng người vừa được cộng điểm. Nằm DƯỚI chữ số để không che điểm.
+   Chỉ transform+opacity → OBS-safe. */
+.pkg-surge { position:absolute; z-index:2; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; }
+.pkg-surge::before { content:''; position:absolute; top:0; bottom:0; left:0; width:45%; transform:translateX(-160%); opacity:0;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.92), transparent); will-change:transform,opacity;
+  animation:pkgSurge .6s ease-out 1; }
+@keyframes pkgSurge { 0%{transform:translateX(-160%);opacity:0} 14%{opacity:.92} 100%{transform:translateX(320%);opacity:0} }
+/* Sóng chevron ĐẨY (port từ .pkduo-bar::after của PK Đôi): các mũi chevron xếp lớp chạy liên
+   tục trên segment người DẪN ĐẦU, tạo cảm giác lực đẩy. transform-only + đồng bộ pha theo
+   --pkg-flow-delay (đã set sẵn trên board) → liền mạch dù innerHTML dựng lại. */
+.pkg-flow { position:absolute; z-index:1; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; }
+.pkg-flow::before { content:''; position:absolute; top:0; bottom:0; left:-34px; right:-34px; opacity:.3; will-change:transform;
+  background-repeat:repeat; background-size:34px 100%;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 42'%3E%3Cpath d='M11 7 L24 21 L11 35' fill='none' stroke='%23ffffff' stroke-opacity='.6' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  animation:pkgChevron 1s linear infinite; animation-delay:var(--pkg-flow-delay,0s); }
+@keyframes pkgChevron { from{transform:translate3d(-34px,0,0)} to{transform:translate3d(0,0,0)} }
+/* Vòng sóng lan khi lên quà (port từ pkfxShock của pk-duo-fx): vòng tròn sáng nở ra từ người
+   vừa nhận quà rồi tan. Nằm dưới chữ số, chỉ transform+opacity → OBS-safe. */
+.pkg-shock { position:absolute; z-index:3; left:50%; top:50%; width:36px; height:36px; border-radius:50%; pointer-events:none;
+  transform:translate(-50%,-50%) scale(0); opacity:0; border:3px solid rgba(255,255,255,.9);
+  box-shadow:0 0 12px rgba(255,255,255,.55); animation:pkgShock .6s ease-out 1; }
+@keyframes pkgShock { 0%{transform:translate(-50%,-50%) scale(0);opacity:.85} 100%{transform:translate(-50%,-50%) scale(6);opacity:0} }
+/* (Ý 1) Đổi ngôi Hạng 1: vệt sáng quét ngang segment/thẻ + vương miện giật nảy — chạy 1 lần khi mount.
+   Chỉ dùng transform+opacity (OBS-safe), không mix-blend/filter theo lưu ý overlay. */
+.pkg-crown-burst { position:absolute; z-index:6; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; }
+.pkg-crown-burst::before { content:''; position:absolute; top:0; bottom:0; left:0; width:58%; transform:translateX(-200%);
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.28), rgba(255,255,255,.85), rgba(255,255,255,.28), transparent);
+  animation:pkgCrownBurst .8s ease-out 1; will-change:transform; }
+@keyframes pkgCrownBurst { 0%{transform:translateX(-200%)} 100%{transform:translateX(340%)} }
+.pkg-crown.shake { animation:pkgCrownShake .72s ease-in-out 1; }
+@keyframes pkgCrownShake {
+  0%,100% { transform:rotate(-28deg) scale(1); }
+  18% { transform:rotate(-10deg) scale(1.42); }
+  38% { transform:rotate(-44deg) scale(1.28); }
+  58% { transform:rotate(-18deg) scale(1.22); }
+  78% { transform:rotate(-34deg) scale(1.1); }
+}
+/* Thẻ tách rời không có glow vô hạn → cho phép nảy nhẹ 1 nhịp khi đổi ngôi */
+.pkg-card-bar.crowned { animation:pkgCrownPop .7s cubic-bezier(.22,1.15,.32,1) 1; }
+@keyframes pkgCrownPop { 0%{transform:scale(1)} 26%{transform:scale(1.045)} 100%{transform:scale(1)} }
+
 .pkg-board.status-prestart .pkg-title b, .pkg-board.urgent .pkg-title b { animation:pkgBlink .55s ease-in-out infinite; }
 @keyframes pkgBlink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.08)} }
 @keyframes pkgFlow { from { transform:translate3d(-40px,0,0); } to { transform:translate3d(0,0,0); } }

@@ -138,5 +138,5 @@ function render(state = {}) {
 }
 
 render({});
-const es = new EventSource(`/score-events?token=${encodeURIComponent(token)}`);
-es.addEventListener('score', e => { try { render(JSON.parse(e.data || '{}')); } catch {} });
+// SSE tự hồi phục (overlay-sse.js) → overlay tự lên lại khi stream rớt/kẹt, không cần Ctrl+R.
+connectSSE(`/score-events?token=${encodeURIComponent(token)}`, 'score', render);

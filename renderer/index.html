@@ -38,6 +38,56 @@
     </div>
   </div>
 
+  <!-- ===== Launcher chọn nhóm khi mở app ===== -->
+  <div id="groupLauncher" class="launcher" hidden>
+    <div class="launcher-bg" aria-hidden="true"></div>
+    <div class="launcher-inner" role="dialog" aria-modal="true" aria-labelledby="launcherTitle">
+      <header class="launcher-head">
+        <img class="launcher-logo" src="../logo/hp-logo.png" alt="HP" />
+        <div class="launcher-title">
+          <strong id="launcherTitle">Chọn nhóm để bắt đầu</strong>
+          <span>Mở toàn bộ TALENT SHOW hoặc chọn một nhóm — mọi thông số sẽ theo lựa chọn này.</span>
+        </div>
+        <button id="launcherClose" class="launcher-close" type="button" aria-label="Đóng (Esc)" title="Đóng (Esc)">✕</button>
+      </header>
+      <div class="launcher-grid" id="launcherGrid"></div>
+      <footer class="launcher-foot">
+        <span class="launcher-pick" id="launcherPick">Chưa chọn</span>
+        <button id="launcherEnter" class="primary launcher-enter" type="button">Vào ứng dụng →</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===== Kết nối TikTok popup ===== -->
+  <div id="connectModal" class="connect-overlay" hidden>
+    <div class="connect-box" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
+      <button id="connectModalClose" class="connect-close" type="button" aria-label="Đóng" title="Đóng (Esc)">✕</button>
+      <h3 id="connectTitle">🔗 Kết nối TikTok</h3>
+      <p class="connect-sub">Chọn nhóm và nhập ID TikTok LIVE để bắt đầu.</p>
+
+      <label class="connect-field">
+        <span class="cf-label">Chế độ / Nhóm</span>
+        <select id="modeSelect"></select>
+        <button type="button" id="openLauncherBtn" class="cf-link">👥 Xem tất cả nhóm…</button>
+      </label>
+
+      <label class="connect-field">
+        <span class="cf-label">ID TikTok LIVE</span>
+        <span class="cf-input"><i>@</i><input id="ttUsername" placeholder="vd: npc.mie261" autocomplete="off" /></span>
+      </label>
+
+      <label class="connect-check">
+        <input type="checkbox" id="autoConnectChk" />
+        <span>Tự động kết nối khi mở ứng dụng</span>
+      </label>
+
+      <div class="connect-actions">
+        <button id="connectModalCancel" class="ghost" type="button">Hủy</button>
+        <button id="btnConnect" class="primary" type="button">▶ Kết nối</button>
+      </div>
+    </div>
+  </div>
+
   <div id="confirmOverlay" class="confirm-overlay" hidden>
     <div class="confirm-box" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
       <h3 id="confirmTitle">Xác nhận</h3>
@@ -111,6 +161,7 @@
         <div class="brand-text">
           <strong>HP TALENT SHOW</strong>
           <span>HP MEDIA</span>
+          <button id="versionCheckBtn" class="brand-ver version-check" type="button" title="Bấm để kiểm tra cập nhật">Phiên bản v<span id="appVersionText">0.1.0</span></button>
         </div>
       </div>
       <nav class="nav">
@@ -121,11 +172,8 @@
         <button class="nav-btn" data-tab="ranking">🏆 <span>THI ĐẤU NHÓM</span></button>
         <button class="nav-btn" data-tab="creators">👤 <span>HỒ SƠ CREATOR</span></button>
         <button class="nav-btn" data-tab="groups">👥 <span>HỒ SƠ NHÓM</span></button>
-      </nav>
-      <div class="sidebar-foot">
         <button class="nav-btn" data-tab="settings">⚙️ <span>CÀI ĐẶT</span></button>
-        <button id="versionCheckBtn" class="ver version-check" type="button" title="Bấm để kiểm tra cập nhật">PHIÊN BẢN: V<span id="appVersionText">0.1.0</span></button>
-      </div>
+      </nav>
     </aside>
 
     <main class="main">
@@ -233,11 +281,21 @@
             <span>Tên nhóm</span>
             <input id="grName" placeholder="Vd: ĐỘI HỒNG" />
           </label>
+          <label class="rf-cell rf-gift-cell">
+            <span>Quà mặc định nhóm</span>
+            <button id="btnPickGrGift" class="rf-gift-btn" type="button" title="Quà đại diện cho nhóm — tự áp cho creator chưa có quà riêng">
+              <img id="grGiftIconPreview" alt="" />
+              <span class="rf-gift-name" id="grGiftDisplay">🎁 Chọn quà</span>
+            </button>
+          </label>
           <div class="rf-actions">
             <button id="btnSaveGroup" class="primary" type="button">💾 Lưu</button>
             <button id="btnNewGroup" class="ghost" type="button" title="Tạo nhóm mới">+</button>
           </div>
           <input type="hidden" id="grAvatar" />
+          <input type="hidden" id="grGiftId" />
+          <input type="hidden" id="grGiftName" />
+          <input type="hidden" id="grGiftIcon" />
         </div>
 
         <div class="card">
@@ -260,21 +318,26 @@
             <div class="pk-team" data-team="A">
               <h3>CHỌN QUÀ TEAM A</h3>
               <div class="pk-gifts" id="pkAgifts"></div>
-              <button class="primary tiny pk-pick-master" data-team="A" type="button">+ Thêm quà</button>
+              <div class="pk-team-foot">
+                <button class="primary tiny pk-pick-master" data-team="A" type="button">+ Thêm quà</button>
+                <div class="pk-top-givers" id="pkTopA" title="TOP người tặng quà cho đội"></div>
+              </div>
             </div>
             <div class="pk-team" data-team="B">
               <h3>CHỌN QUÀ TEAM B</h3>
               <div class="pk-gifts" id="pkBgifts"></div>
-              <button class="primary tiny pk-pick-master" data-team="B" type="button">+ Thêm quà</button>
+              <div class="pk-team-foot">
+                <button class="primary tiny pk-pick-master" data-team="B" type="button">+ Thêm quà</button>
+                <div class="pk-top-givers" id="pkTopB" title="TOP người tặng quà cho đội"></div>
+              </div>
             </div>
           </div>
 
           <div class="form-actions pk-action-row">
             <button id="pkStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="pkReset" class="ghost" type="button">↺ Reset</button>
-            <button id="pkSaveCfg" class="ghost" type="button">🔄 Cập nhật</button>
-            <button id="pkAddA" class="ghost tiny" type="button">+1 A</button>
-            <button id="pkAddB" class="ghost tiny" type="button">+1 B</button>
+            <button id="pkAddA" class="ghost tiny" type="button">+100 A</button>
+            <button id="pkAddB" class="ghost tiny" type="button">+100 B</button>
             <button id="pkCopyUrl" class="ghost" type="button">📋 OBS</button>
             <button id="pkHistory" class="ghost" type="button">📜 Lịch sử</button>
           </div>
@@ -299,16 +362,16 @@
               </div>
             </div>
 
-            <label class="full">Thời gian chạy
-              <div class="inline tight">
-                <input id="pkDurH" type="number" min="0" max="24" value="0" placeholder="giờ" style="max-width:80px" /> <span class="prefix">h</span>
-                <input id="pkDurM" type="number" min="0" max="59" value="5" placeholder="phút" style="max-width:80px" /> <span class="prefix">m</span>
-                <input id="pkDurS" type="number" min="0" max="59" value="0" placeholder="giây" style="max-width:80px" /> <span class="prefix">s</span>
+            <div class="time-zone">
+              <div class="time-zone__head"><span class="tz-ico">⏱️</span> Thời gian chạy</div>
+              <div class="time-zone__fields">
+                <label class="time-seg"><input id="pkDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
+                <span class="time-seg__sep">:</span>
+                <label class="time-seg"><input id="pkDurM" type="number" min="0" max="59" value="5" /><span>phút</span></label>
+                <span class="time-seg__sep">:</span>
+                <label class="time-seg"><input id="pkDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
               </div>
-            </label>
-            <label>Thời gian chuẩn bị (giây) <input id="pkPrep" type="number" min="0" max="120" value="3" /></label>
-            <label>Delay sau kết thúc (giây) <input id="pkDelay" type="number" min="0" max="120" value="5" /></label>
-
+            </div>
             <label>Chế độ chơi
               <select id="pkJoinMode">
                 <option value="false">Cố định (quà → đội)</option>
@@ -321,29 +384,95 @@
                 <option value="count">Số lượng quà</option>
               </select>
             </label>
-
-            <label>Màu nền / độ đậm
-              <div class="inline tight pk-bg-inline">
-                <input id="pkBg" type="color" value="#000000" />
-                <input id="pkBgOpacity" type="range" min="0" max="100" value="88" />
-                <span id="pkBgOpacityValue" class="prefix">88%</span>
-              </div>
-            </label>
-            <label>Cỡ chữ Creator (px) <input id="pkTextSize" type="number" min="14" max="42" value="21" /></label>
-            <label>Cỡ icon quà (px) <input id="pkGiftSize" type="number" min="28" max="90" value="46" /></label>
-            <label class="full">Scale PK Đôi OBS
-              <div class="range-inline">
-                <input id="pkOverlayScale" type="range" min="80" max="300" step="5" value="100" />
-                <span id="pkOverlayScaleValue" class="prefix">100%</span>
-              </div>
-            </label>
-            <label>Hiển thị quà OBS
-              <select id="pkGiftDisplayMode">
-                <option value="scroll">Cuộn ngang vô hạn</option>
-                <option value="wrap">2 hàng cố định</option>
-              </select>
-            </label>
           </div>
+
+          <details class="cfg-adv">
+            <summary>
+              <span class="cfg-adv__ico">⚙️</span>
+              <span>Giao diện &amp; thời gian</span>
+              <span class="cfg-adv__hint">chỉnh một lần</span>
+              <span class="cfg-adv__chev">▾</span>
+            </summary>
+            <div class="cfg-adv__body">
+              <div class="form-grid">
+                <label>Thời gian chuẩn bị (giây) <input id="pkPrep" type="number" min="0" max="120" value="3" /></label>
+                <label>Delay sau kết thúc (giây) <input id="pkDelay" type="number" min="0" max="120" value="5" /></label>
+                <label>Màu nền / độ đậm
+                  <div class="inline tight pk-bg-inline">
+                    <input id="pkBg" type="color" value="#000000" />
+                    <input id="pkBgOpacity" type="range" min="0" max="100" value="88" />
+                    <span id="pkBgOpacityValue" class="prefix">88%</span>
+                  </div>
+                </label>
+                <label>Cỡ chữ Creator (px) <input id="pkTextSize" type="number" min="14" max="42" value="21" /></label>
+                <label>Cỡ icon quà (px) <input id="pkGiftSize" type="number" min="28" max="90" value="46" /></label>
+                <label>Hiển thị quà OBS
+                  <select id="pkGiftDisplayMode">
+                    <option value="scroll">Cuộn ngang vô hạn</option>
+                    <option value="wrap">2 hàng cố định</option>
+                  </select>
+                </label>
+                <label>🏆 Vinh danh TOP 3 tặng quà
+                  <select id="pkChampsEnabled">
+                    <option value="true">Bật</option>
+                    <option value="false">Tắt</option>
+                  </select>
+                </label>
+                <label class="full">Scale PK Đôi OBS
+                  <div class="range-inline">
+                    <input id="pkOverlayScale" type="range" min="80" max="300" step="5" value="100" />
+                    <span id="pkOverlayScaleValue" class="prefix">100%</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <details class="cfg-adv">
+            <summary>
+              <span class="cfg-adv__ico">⚔️</span>
+              <span>Overlay FX toàn màn hình</span>
+              <span class="cfg-adv__hint">hiệu ứng bên thua</span>
+              <span class="cfg-adv__chev">▾</span>
+            </summary>
+            <div class="cfg-adv__body">
+              <div class="form-grid">
+                <div class="cfg-adv__note">Overlay 1080×1920 — hiệu ứng đối kháng phủ lên bên đang thua.</div>
+                <label>Bật hiệu ứng FX
+                  <select id="pkFxEnabled">
+                    <option value="true">Bật</option>
+                    <option value="false">Tắt</option>
+                  </select>
+                </label>
+                <label>Cơ chế vạch / hiệu ứng
+                  <select id="pkFxMode">
+                    <option value="both">Cả hai (đẩy vạch + hiệu ứng)</option>
+                    <option value="push">Chỉ đẩy vạch</option>
+                    <option value="affliction">Vạch giữa + hiệu ứng</option>
+                  </select>
+                </label>
+                <label>Kiểu hiệu ứng bên thua
+                  <select id="pkFxStyle">
+                    <option value="auto">🎲 Auto (đổi theo trận)</option>
+                    <option value="freeze">❄️ Đóng băng (băng 3D)</option>
+                    <option value="fire">🔥 Lửa (2 lớp + khói)</option>
+                    <option value="water">💧 Ọc nước (khúc xạ)</option>
+                    <option value="dim">🌫️ Mờ / nhiễu glitch</option>
+                    <option value="electric">⚡ Điện giật</option>
+                    <option value="poison">☠️ Độc xanh</option>
+                    <option value="shadow">🌑 Bóng tối nuốt chửng</option>
+                    <option value="shatter">💥 Nứt kính KO</option>
+                  </select>
+                </label>
+                <label class="full">Ngưỡng bật hiệu ứng (chênh %)
+                  <div class="range-inline">
+                    <input id="pkFxThreshold" type="range" min="0" max="60" step="1" value="8" />
+                    <span id="pkFxThresholdValue" class="prefix">8%</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </details>
 
           <input id="pkSndStart" type="hidden" /><input id="pkSndWarn" type="hidden" /><input id="pkSndAwin" type="hidden" /><input id="pkSndBwin" type="hidden" /><input id="pkSndDraw" type="hidden" />
 
@@ -363,7 +492,6 @@
           <div class="form-actions pk-action-row">
             <button id="pkgStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="pkgReset" class="ghost" type="button">↺ Reset</button>
-            <button id="pkgSaveCfg" class="ghost" type="button">🔄 Cập nhật</button>
             <button id="pkgCopyUrl" class="ghost" type="button">📋 OBS</button>
             <button id="pkgHistory" class="ghost" type="button">📜 Lịch sử</button>
           </div>
@@ -377,12 +505,6 @@
                 <option value="separated">Rời nhau theo TOP 1</option>
               </select>
             </label>
-            <label>Khoảng cách Creator rời
-              <div class="range-inline">
-                <input id="pkgSeparatedGap" type="range" min="0" max="800" step="10" value="180" />
-                <span id="pkgSeparatedGapValue" class="prefix">180px</span>
-              </div>
-            </label>
             <label>Chế độ chơi
               <select id="pkgPlayMode">
                 <option value="fixed">Lên quà theo chỉ định</option>
@@ -395,48 +517,72 @@
                 <option value="count">Số lượng quà</option>
               </select>
             </label>
-            <label class="full">Thời gian chạy
-              <div class="inline tight">
-                <input id="pkgDurH" type="number" min="0" max="24" value="0" placeholder="giờ" style="max-width:80px" /> <span class="prefix">h</span>
-                <input id="pkgDurM" type="number" min="0" max="59" value="5" placeholder="phút" style="max-width:80px" /> <span class="prefix">m</span>
-                <input id="pkgDurS" type="number" min="0" max="59" value="0" placeholder="giây" style="max-width:80px" /> <span class="prefix">s</span>
+            <div class="time-zone">
+              <div class="time-zone__head"><span class="tz-ico">⏱️</span> Thời gian chạy</div>
+              <div class="time-zone__fields">
+                <label class="time-seg"><input id="pkgDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
+                <span class="time-seg__sep">:</span>
+                <label class="time-seg"><input id="pkgDurM" type="number" min="0" max="59" value="5" /><span>phút</span></label>
+                <span class="time-seg__sep">:</span>
+                <label class="time-seg"><input id="pkgDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
               </div>
-            </label>
-            <label>Thời gian chuẩn bị (giây) <input id="pkgPrep" type="number" min="0" max="120" value="3" /></label>
-            <label>Delay sau kết thúc (giây) <input id="pkgDelay" type="number" min="0" max="120" value="5" /></label>
-            <label>Cỡ chữ Creator (px) <input id="pkgTextSize" type="number" min="14" max="60" value="30" /></label>
-            <label>Cỡ avatar + tên (%) <input id="pkgNameSize" type="number" min="60" max="200" step="5" value="100" /></label>
-            <label>Cỡ icon quà (px) <input id="pkgGiftSize" type="number" min="28" max="120" value="60" /></label>
-            <label class="full">Scale PK Nhóm OBS
-              <div class="range-inline">
-                <input id="pkgOverlayScale" type="range" min="80" max="300" step="5" value="100" />
-                <span id="pkgOverlayScaleValue" class="prefix">100%</span>
-              </div>
-            </label>
+            </div>
           </div>
 
-          <div class="pkg-note-card">
-            <div class="pkg-note-head">
-              <div>
-                <h3>Ghi chú chạy overlay</h3>
-                <p>Hiển thị luật chơi hoặc thông báo mỏng phía trên thanh máu.</p>
+          <details class="cfg-adv">
+            <summary>
+              <span class="cfg-adv__ico">⚙️</span>
+              <span>Giao diện &amp; thời gian</span>
+              <span class="cfg-adv__hint">chỉnh một lần</span>
+              <span class="cfg-adv__chev">▾</span>
+            </summary>
+            <div class="cfg-adv__body">
+              <div class="form-grid">
+                <label>Thời gian chuẩn bị (giây) <input id="pkgPrep" type="number" min="0" max="120" value="3" /></label>
+                <label>Delay sau kết thúc (giây) <input id="pkgDelay" type="number" min="0" max="120" value="5" /></label>
+                <label>Khoảng cách Creator rời
+                  <div class="range-inline">
+                    <input id="pkgSeparatedGap" type="range" min="0" max="800" step="10" value="180" />
+                    <span id="pkgSeparatedGapValue" class="prefix">180px</span>
+                  </div>
+                </label>
+                <label>Cỡ chữ Creator (px) <input id="pkgTextSize" type="number" min="14" max="60" value="30" /></label>
+                <label>Cỡ avatar + tên (%) <input id="pkgNameSize" type="number" min="60" max="200" step="5" value="100" /></label>
+                <label>Cỡ icon quà (px) <input id="pkgGiftSize" type="number" min="28" max="120" value="60" /></label>
+                <label class="full">Scale PK Nhóm OBS
+                  <div class="range-inline">
+                    <input id="pkgOverlayScale" type="range" min="80" max="300" step="5" value="100" />
+                    <span id="pkgOverlayScaleValue" class="prefix">100%</span>
+                  </div>
+                </label>
               </div>
-              <label class="switch-row"><input id="pkgNoteEnabled" type="checkbox" /><span></span><b>Bật</b></label>
             </div>
-            <div class="form-grid">
-              <label class="full">Nội dung ghi chú <input id="pkgNoteText" maxlength="220" value="Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy" /></label>
-              <label>Màu nền <input id="pkgNoteBg" type="color" value="#1f2430" /></label>
-              <label>Màu chữ <input id="pkgNoteColor" type="color" value="#ffffff" /></label>
-              <label>Tốc độ chạy (giây) <input id="pkgNoteSpeed" type="number" min="6" max="60" value="16" /></label>
-              <label>Hiệu ứng
-                <select id="pkgNoteEffect">
-                  <option value="soft">Mềm + mờ viền</option>
-                  <option value="glass">Kính mờ</option>
-                  <option value="neon">Neon nhẹ</option>
-                </select>
-              </label>
+          </details>
+
+          <details class="cfg-adv">
+            <summary>
+              <span class="cfg-adv__ico">📝</span>
+              <span>Ghi chú chạy overlay</span>
+              <span class="cfg-adv__hint">luật chơi trên thanh máu</span>
+              <span class="cfg-adv__chev">▾</span>
+            </summary>
+            <div class="cfg-adv__body">
+              <label class="switch-row" style="margin-bottom:12px"><input id="pkgNoteEnabled" type="checkbox" /><span></span><b>Bật ghi chú</b></label>
+              <div class="form-grid">
+                <label class="full">Nội dung ghi chú <input id="pkgNoteText" maxlength="220" value="Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy" /></label>
+                <label>Màu nền <input id="pkgNoteBg" type="color" value="#1f2430" /></label>
+                <label>Màu chữ <input id="pkgNoteColor" type="color" value="#ffffff" /></label>
+                <label>Tốc độ chạy (giây) <input id="pkgNoteSpeed" type="number" min="6" max="60" value="16" /></label>
+                <label>Hiệu ứng
+                  <select id="pkgNoteEffect">
+                    <option value="soft">Mềm + mờ viền</option>
+                    <option value="glass">Kính mờ</option>
+                    <option value="neon">Neon nhẹ</option>
+                  </select>
+                </label>
+              </div>
             </div>
-          </div>
+          </details>
 
           <div class="pkg-members-toolbar">
             <label class="switch-row" title="Tự động gán màu khác nhau cho mỗi Creator; màu chữ trên thanh luôn tương phản với màu nền">
@@ -502,27 +648,34 @@
               <p class="rk-section-hint">Ví dụ TOP 10: Từ 1, Đến 10, Tối đa 0 hoặc 10.</p>
             </fieldset>
 
-            <fieldset class="rk-config-section">
-              <legend>Giao diện OBS</legend>
-              <div class="rk-fields three">
-                <label>Màu active <input id="rkStreak" type="color" value="#67e8f9" /></label>
-                <label>Màu card <input id="rkBg" type="color" value="#2a2d37" /></label>
-                <label>Độ đậm <input id="rkBgOpacity" type="number" min="0" max="100" value="74" /></label>
-                <label class="full">Scale Thi đấu nhóm OBS
-                  <div class="range-inline">
-                    <input id="rkOverlayScale" type="range" min="80" max="300" step="5" value="100" />
-                    <span id="rkOverlayScaleValue" class="prefix">100%</span>
-                  </div>
-                </label>
+            <details class="cfg-adv">
+              <summary>
+                <span class="cfg-adv__ico">⚙️</span>
+                <span>Giao diện OBS</span>
+                <span class="cfg-adv__hint">chỉnh một lần</span>
+                <span class="cfg-adv__chev">▾</span>
+              </summary>
+              <div class="cfg-adv__body">
+                <div class="rk-fields three">
+                  <label>Màu active <input id="rkStreak" type="color" value="#67e8f9" /></label>
+                  <label>Màu card <input id="rkBg" type="color" value="#2a2d37" /></label>
+                  <label>Độ đậm <input id="rkBgOpacity" type="number" min="0" max="100" value="74" /></label>
+                  <label class="full">Scale Thi đấu nhóm OBS
+                    <div class="range-inline">
+                      <input id="rkOverlayScale" type="range" min="80" max="300" step="5" value="100" />
+                      <span id="rkOverlayScaleValue" class="prefix">100%</span>
+                    </div>
+                  </label>
+                </div>
+                <div class="rk-toggle-row">
+                  <label><input id="rkShowRank" type="checkbox" checked /> Rank</label>
+                  <label><input id="rkShowAvatar" type="checkbox" checked /> Avatar</label>
+                  <label><input id="rkShowGift" type="checkbox" checked /> Quà</label>
+                  <label><input id="rkShowRound" type="checkbox" checked /> Round</label>
+                  <label><input id="rkHideAllScores" type="checkbox" /> Ẩn điểm</label>
+                </div>
               </div>
-              <div class="rk-toggle-row">
-                <label><input id="rkShowRank" type="checkbox" checked /> Rank</label>
-                <label><input id="rkShowAvatar" type="checkbox" checked /> Avatar</label>
-                <label><input id="rkShowGift" type="checkbox" checked /> Quà</label>
-                <label><input id="rkShowRound" type="checkbox" checked /> Round</label>
-                <label><input id="rkHideAllScores" type="checkbox" /> Ẩn điểm</label>
-              </div>
-            </fieldset>
+            </details>
 
           </div>
           <div class="form-actions">
@@ -588,19 +741,28 @@
                 <label>Mục tiêu điểm <input id="scTarget" type="number" min="1" max="9999999" value="1000" /></label>
                 <label>Chuẩn bị (giây) <input id="scPrep" type="number" min="0" max="120" value="3" /></label>
                 <label>Delay grace (giây) <input id="scDelay" type="number" min="0" max="60" value="5" /></label>
-                <label class="full">Thời gian chạy
-                  <div class="inline tight score-duration-row">
-                    <input id="scDurH" type="number" min="0" max="24" value="0" /> <span class="prefix">h</span>
-                    <input id="scDurM" type="number" min="0" max="59" value="3" /> <span class="prefix">m</span>
-                    <input id="scDurS" type="number" min="0" max="59" value="0" /> <span class="prefix">s</span>
+                <div class="time-zone">
+                  <div class="time-zone__head"><span class="tz-ico">⏱️</span> Thời gian chạy</div>
+                  <div class="time-zone__fields">
+                    <label class="time-seg"><input id="scDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
+                    <span class="time-seg__sep">:</span>
+                    <label class="time-seg"><input id="scDurM" type="number" min="0" max="59" value="3" /><span>phút</span></label>
+                    <span class="time-seg__sep">:</span>
+                    <label class="time-seg"><input id="scDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
                   </div>
-                </label>
+                </div>
                 <input id="scContent" type="hidden" value="" />
               </div>
             </fieldset>
 
-            <fieldset class="score-config-card">
-              <legend>Giao diện OBS</legend>
+            <details class="cfg-adv">
+              <summary>
+                <span class="cfg-adv__ico">⚙️</span>
+                <span>Giao diện OBS</span>
+                <span class="cfg-adv__hint">chỉnh một lần</span>
+                <span class="cfg-adv__chev">▾</span>
+              </summary>
+              <div class="cfg-adv__body">
               <div class="form-grid compact">
                 <label>Theme preset
                   <select id="scTheme">
@@ -652,7 +814,8 @@
                   </div>
                 </label>
               </div>
-            </fieldset>
+              </div>
+            </details>
 
             <input id="scBigThreshold" type="hidden" value="500" />
             <select id="scPointsBy" hidden><option value="diamond">Coin</option><option value="count">Số lượng quà</option></select>
@@ -681,10 +844,10 @@
             </label>
             <label>Width <input id="ovlW" type="number" min="100" max="7680" value="2160" /></label>
             <label>Height <input id="ovlH" type="number" min="100" max="7680" value="3840" /></label>
-            <label class="full">
+            <label class="full check">
               <input id="ovlShowHost" type="checkbox" /> Hiện tên user + tên quà ở góc trái dưới khi phát
             </label>
-            <label class="full">
+            <label class="full check">
               <input id="ovlAutoTextContrast" type="checkbox" /> Tự đổi màu chữ theo nền sáng/tối
             </label>
           </div>
@@ -692,6 +855,27 @@
             <button id="btnSaveOverlay" class="primary" type="button">💾 Lưu cấu hình Overlay</button>
           </div>
           <div class="hint">💡 Khuyến nghị OBS Browser Source: <b>2160×3840</b> cho overlay dọc rõ nét hơn. Nếu stream ngang, có thể crop/scale trong OBS.</div>
+        </div>
+
+        <div class="card">
+          <h3>🔄 Reset overlay OBS (WebSocket)</h3>
+          <p class="sub">Tự làm mới (refresh cache) các <b>Browser Source</b> đang trỏ tới link overlay localhost của app — <b>không</b> đụng dữ liệu app hay thông số OBS khác. Cần bật <b>Tools → WebSocket Server Settings</b> trong OBS.</p>
+          <div class="form-grid">
+            <label>Cổng OBS WebSocket
+              <input id="obsWsPort" type="number" min="1" max="65535" value="4455" />
+            </label>
+            <label>Mật khẩu (để trống nếu không bật xác thực)
+              <input id="obsWsPass" type="password" placeholder="•••••" autocomplete="off" />
+            </label>
+            <label class="full check">
+              <input id="obsAutoReset" type="checkbox" /> Tự động reset overlay OBS mỗi khi khởi động app
+            </label>
+          </div>
+          <div class="form-actions">
+            <button id="btnObsResetNow" class="primary" type="button">🔄 Reset overlay OBS ngay</button>
+            <button id="btnSaveObs" class="ghost" type="button">💾 Lưu cấu hình</button>
+          </div>
+          <div class="hint">💡 Cổng mặc định của OBS là <b>4455</b>. Có thể bấm <b>Ctrl + R</b> bất cứ lúc nào để reset nhanh overlay OBS.</div>
         </div>
 
         <div class="card">
@@ -738,6 +922,17 @@
             <input class="review-bg-picker" data-review-bg="pkduo" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="pkduo" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="pkduo" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>⚔️ PK Đôi FX</label>
+            <input id="urlPkFx" readonly />
+            <button class="primary" data-copy="urlPkFx" type="button">📋 OBS (1080×1920)</button>
+            <button class="ghost" data-review-toggle="pkduofx" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="pkduofx" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-click="pkduofx" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="pkduofx" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="pkduofx" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="pkduofx" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
             <label>🧩 PK NHÓM</label>
@@ -828,21 +1023,17 @@
       </section>
 
       <footer class="bottom-live" id="bottomLive">
-        <div class="bl-mode">
-          <label for="modeSelect">Chế độ</label>
-          <select id="modeSelect"></select>
-        </div>
-        <div class="top-connect-row">
-          <span class="prefix"><span class="dot" id="connDot"></span></span>
-          <input id="ttUsername" placeholder="ID TikTok LIVE" autocomplete="off" />
-          <button id="btnConnect" class="primary" type="button">▶ Kết nối</button>
-        </div>
-        <span class="conn-label" id="connLabel">Chưa kết nối</span>
-        <span class="conn-host" id="connHost"></span>
+        <button type="button" class="conn-status" id="connStatus" title="Bấm để kết nối / chọn nhóm">
+          <span class="dot" id="connDot"></span>
+          <span class="conn-label" id="connLabel">Chưa kết nối</span>
+          <span class="conn-host" id="connHost"></span>
+          <span class="conn-cta">Kết nối / Chọn nhóm ›</span>
+        </button>
       </footer>
     </main>
   </div>
 
+  <script src="obs-reset.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

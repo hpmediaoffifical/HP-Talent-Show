@@ -21,6 +21,12 @@ const api = {
     remove: (id) => ipcRenderer.invoke('groups:remove', id),
   },
 
+  // ===== Hồ sơ nhóm (thông số riêng theo từng nhóm) =====
+  groupProfiles: {
+    getAll: () => ipcRenderer.invoke('groupProfiles:getAll'),
+    save: (groupId, patch) => ipcRenderer.invoke('groupProfiles:save', { groupId, patch }),
+  },
+
   // ===== Sao lưu / khôi phục dữ liệu =====
   data: {
     counts: () => ipcRenderer.invoke('data:counts'),
@@ -37,6 +43,7 @@ const api = {
     reset: () => ipcRenderer.invoke('pkduo:reset'),
     addPoints: (side, points) => ipcRenderer.invoke('pkduo:addPoints', { side, points }),
     getUrl: () => ipcRenderer.invoke('pkduo:getUrl'),
+    getFxUrl: () => ipcRenderer.invoke('pkduo:getFxUrl'),
   },
 
   // ===== PK Nhóm =====
@@ -126,6 +133,12 @@ const api = {
 
   app: {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  },
+
+  // ===== OBS WebSocket (reset overlay) =====
+  obs: {
+    // Trả chuỗi xác thực OBS WebSocket v5 (mật khẩu nằm ở main, renderer không thấy).
+    authString: (salt, challenge) => ipcRenderer.invoke('obs:authString', { salt, challenge }),
   },
 
   // ===== Events from main =====

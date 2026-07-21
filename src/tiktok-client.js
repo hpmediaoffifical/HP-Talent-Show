@@ -235,6 +235,9 @@ function pickAvatar(user) {
   if (a && Array.isArray(a.url_list) && a.url_list[0]) return a.url_list[0];
   if (a && Array.isArray(a.urlList) && a.urlList[0]) return a.urlList[0];
   if (a && Array.isArray(a.urls) && a.urls[0]) return a.urls[0];
+  if (a && Array.isArray(a.url) && a.url[0]) return a.url[0];   // v2: profilePicture.url = [...]
+  if (a && typeof a.url === 'string') return a.url;
+  if (user.profilePicture?.url?.[0]) return user.profilePicture.url[0];
   if (user.profilePicture?.urls?.[0]) return user.profilePicture.urls[0];
   if (user.profilePicture?.url_list?.[0]) return user.profilePicture.url_list[0];
   if (user.userDetails?.profilePictureUrls?.[0]) return user.userDetails.profilePictureUrls[0];

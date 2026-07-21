@@ -8,9 +8,23 @@ const root = document.getElementById('pkGroupRoot');
 let noteEl = null;
 let noteKey = '';
 let boardStyleKey = '';
+let lastLeaderId = '';   // để phát hiện đổi ngôi Hạng 1
+let lastIdsKey = '';     // để biết khi nào cấu trúc người chơi đổi → snap count-up
+const prevRealScore = new Map(); // điểm THẬT lần trước theo id → phát hiện "vừa lên quà" để bắn gợn sóng
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('en-US'); }
+// Avatar TikTok CDN load trực tiếp bị chặn trong OBS Browser Source (403/CORS) → phải qua proxy /avatar.
+// Đường dẫn logo mặc định của app (../logo/hp-logo.png) không tồn tại trên server overlay → map về /logo.png.
+function mediaUrl(value) {
+  const s = String(value || '').trim();
+  if (!s || /logo[\\/]hp-logo\.(png|ico)$/i.test(s)) return '/logo.png';
+  if (/^https?:\/\//i.test(s)) return `/avatar?url=${encodeURIComponent(s)}`;
+  return s;
+}
+function avatarImg(value) {
+  return `<img src="${esc(mediaUrl(value))}" onerror="this.onerror=null;this.src='/logo.png'" />`;
+}
 function hexToRgb(hex, fb = '0,0,0') {
   const m = String(hex || '').trim().match(/^#([0-9a-f]{6})$/i);
   if (!m) return fb;
@@ -50,6 +64,102 @@ function rankParticipants(participants) {
   return participants.slice().sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
 }
 
+// --- Nội suy "đẩy máu" mượt ---
+// root.style sống sót qua mọi lần dựng lại bodyMount.innerHTML, nên ta nội suy các biến CSS
+// trên root bằng rAF; grid/thanh kế thừa nên trôi mượt thay vì búng. Khi số người / thứ tự /
+// layout đổi (thay đổi cấu trúc) thì snap ngay để tránh sai khớp cột.
+const PUSH_MS = 520;
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+// (1) Thanh gộp: nội suy từng trọng số fr của --pkg-cols
+let colsCur = [], colsFrom = [], colsTarget = [], colsKey = '', colsT0 = 0, colsRaf = 0;
+function applyCols(arr) {
+  root.style.setProperty('--pkg-cols', arr.map(w => `minmax(0,${w.toFixed(4)}fr)`).join(' ') || '1fr');
+}
+function stepCols(now) {
+  const e = easeOutCubic(Math.min(1, (now - colsT0) / PUSH_MS));
+  colsCur = colsTarget.map((v, i) => { const f = colsFrom[i] ?? v; return f + (v - f) * e; });
+  applyCols(colsCur);
+  colsRaf = (now - colsT0) < PUSH_MS ? requestAnimationFrame(stepCols) : 0;
+}
+function pushCols(target, key) {
+  const snap = key !== colsKey || target.length !== colsCur.length;
+  // Tick đồng hồ với cùng target: đang chạy dở thì để yên, khỏi reset easing.
+  if (!snap && colsRaf && target.every((v, i) => Math.abs(v - colsTarget[i]) < 0.01)) return;
+  colsKey = key;
+  colsTarget = target.slice();
+  if (snap) {
+    if (colsRaf) { cancelAnimationFrame(colsRaf); colsRaf = 0; }
+    colsCur = target.slice(); colsFrom = target.slice();
+    applyCols(colsCur);
+    return;
+  }
+  colsFrom = colsCur.slice();
+  colsT0 = performance.now();
+  if (!colsRaf) colsRaf = requestAnimationFrame(stepCols);
+}
+
+// (2) Thẻ tách rời: nội suy width từng người theo biến --cw-<id>
+const cardCur = new Map(), cardTarget = new Map(), cardFrom = new Map();
+let cardT0 = 0, cardRaf = 0;
+function cardVar(id) { return '--cw-' + String(id).replace(/[^a-zA-Z0-9_-]/g, '_'); }
+function applyCards() { for (const [id, v] of cardCur) root.style.setProperty(cardVar(id), v.toFixed(3) + '%'); }
+function stepCards(now) {
+  const e = easeOutCubic(Math.min(1, (now - cardT0) / PUSH_MS));
+  for (const [id, tv] of cardTarget) { const f = cardFrom.has(id) ? cardFrom.get(id) : tv; cardCur.set(id, f + (tv - f) * e); }
+  applyCards();
+  cardRaf = (now - cardT0) < PUSH_MS ? requestAnimationFrame(stepCards) : 0;
+}
+function pushCards(targets) {
+  // Tick đồng hồ với cùng bộ target: đang chạy dở thì để yên, khỏi reset easing.
+  if (cardRaf && targets.length === cardTarget.size
+      && targets.every(t => Math.abs((cardTarget.get(t.id) ?? -1) - t.width) < 0.01)) return;
+  cardTarget.clear();
+  for (const { id, width } of targets) { cardTarget.set(id, width); if (!cardCur.has(id)) cardCur.set(id, width); }
+  for (const id of [...cardCur.keys()]) if (!cardTarget.has(id)) { cardCur.delete(id); root.style.removeProperty(cardVar(id)); }
+  cardFrom.clear(); for (const [id, v] of cardCur) cardFrom.set(id, v);
+  cardT0 = performance.now();
+  applyCards();
+  if (!cardRaf) cardRaf = requestAnimationFrame(stepCards);
+}
+
+// (3) Count-up điểm số — đồng bộ nhịp đẩy máu. Số nằm trong <span data-score-id> (có thể bị
+// dựng lại mỗi render), nên mỗi frame ta quét lại các span đang có trong DOM và ghi giá trị nội suy.
+const scoreCur = new Map(), scoreTarget = new Map(), scoreFrom = new Map();
+let scoreT0 = 0, scoreRaf = 0;
+function applyScores() {
+  root.querySelectorAll('[data-score-id]').forEach(el => {
+    const v = scoreCur.get(el.getAttribute('data-score-id'));
+    if (v != null) el.textContent = fmt(v);
+  });
+}
+function stepScores(now) {
+  const e = easeOutCubic(Math.min(1, (now - scoreT0) / PUSH_MS));
+  for (const [id, tv] of scoreTarget) { const f = scoreFrom.has(id) ? scoreFrom.get(id) : tv; scoreCur.set(id, f + (tv - f) * e); }
+  applyScores();
+  scoreRaf = (now - scoreT0) < PUSH_MS ? requestAnimationFrame(stepScores) : 0;
+}
+function pushScores(targets, structChanged) {
+  // Snap khi: đổi cấu trúc / lần đầu / điểm GIẢM (reset trận hay chỉnh tay) — đếm ngược trông kỳ.
+  let snap = structChanged || scoreCur.size === 0;
+  if (!snap) for (const t of targets) if ((scoreCur.get(t.id) ?? 0) > t.score + 0.5) { snap = true; break; }
+  // Tick đồng hồ cùng target đang chạy dở → để yên.
+  if (!snap && scoreRaf && targets.length === scoreTarget.size
+      && targets.every(t => (scoreTarget.get(t.id) ?? NaN) === t.score)) return;
+  scoreTarget.clear();
+  for (const { id, score } of targets) { scoreTarget.set(id, score); if (snap || !scoreCur.has(id)) scoreCur.set(id, score); }
+  for (const id of [...scoreCur.keys()]) if (!scoreTarget.has(id)) scoreCur.delete(id);
+  if (snap) {
+    if (scoreRaf) { cancelAnimationFrame(scoreRaf); scoreRaf = 0; }
+    applyScores();
+    return;
+  }
+  scoreFrom.clear(); for (const [id, v] of scoreCur) scoreFrom.set(id, v);
+  scoreT0 = performance.now();
+  applyScores();
+  if (!scoreRaf) scoreRaf = requestAnimationFrame(stepScores);
+}
+
 function render(state = {}) {
   const participants = Array.isArray(state.participants) ? state.participants : [];
   const sec = Math.ceil((state.remainingMs || 0) / 1000);
@@ -67,6 +177,16 @@ function render(state = {}) {
   const minWidth = 8;
   const ranked = rankParticipants(participants);
   const leaderId = ranked[0]?.id || '';
+  // Đổi ngôi: có leader mới khác leader trước, trong lúc trận đang diễn ra → lóe sáng 1 nhịp.
+  const leaderChanged = lastLeaderId && leaderId && leaderId !== lastLeaderId && (status === 'running' || status === 'grace');
+  // "Vừa lên quà": điểm thật của người đó tăng so với lần render trước → bắn 1 nhịp gợn sóng (port từ PK Đôi).
+  const gained = new Set();
+  if (status === 'running' || status === 'grace') {
+    for (const p of participants) {
+      const prev = prevRealScore.get(p.id);
+      if (prev != null && (Number(p.score) || 0) > prev + 0.5) gained.add(p.id);
+    }
+  }
   const boostActive = state.boostId && Date.now() - (Number(state.boostAt) || 0) < 1300;
   const boostDir = state.boostDir === 'left' ? 'left' : 'right';
   const rankMap = new Map(ranked.map((p, i) => [p.id, i + 1]));
@@ -83,18 +203,17 @@ function render(state = {}) {
     return boostDir;
   };
 
-  const joinedCols = participants.map(p => `minmax(0,${widthOf(p).toFixed(4)}fr)`).join(' ') || '1fr';
   const NARROW_W = 12; // % — dưới ngưỡng này thì ẩn chữ tên / phần trăm để khỏi chèn chữ
   const pctOf = (p) => total > 0
     ? Math.round((Number(p.score) || 0) / total * 100)
     : Math.round(100 / Math.max(1, participants.length));
   const body = layout === 'joined'
-    ? `<div class="pkg-joined-stage" style="--pkg-cols:${joinedCols}">
+    ? `<div class="pkg-joined-stage">
         <div class="pkg-joined-names">${participants.map(p => {
           const isLeader = p.id === leaderId;
           const narrow = widthOf(p) < NARROW_W;
           const tc = textColorFor(p.color);
-          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<span class="pkg-crown" aria-hidden="true">👑</span>' : ''}${p.avatar ? `<img src="${esc(p.avatar)}" onerror="this.onerror=null;this.src='/logo.png'" />` : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>`;
+          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? `<span class="pkg-crown${leaderChanged ? ' shake' : ''}" aria-hidden="true">👑</span>` : ''}${p.avatar ? avatarImg(p.avatar) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>`;
         }).join('')}</div>
         <div class="pkg-joined-bar">${participants.map((p, i) => {
           const isLeader = p.id === leaderId;
@@ -104,7 +223,9 @@ function render(state = {}) {
           const pct = pctOf(p);
           const tc = textColorFor(p.color);
           const edge = `${i === 0 ? ' is-first' : ''}${i === participants.length - 1 ? ' is-last' : ''}`;
-          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}"><b><em>${isLeader ? `Hạng 1 (${fmt(score)})` : fmt(score)}</em>${narrow ? '' : `<small>${pct}%</small>`}</b>${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
+          const num = `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`;
+          const crowned = isLeader && leaderChanged;
+          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `Hạng 1 (${num})` : num}</em>${narrow ? '' : `<small>${pct}%</small>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
         }).join('')}<div class="pkg-joined-ticks" aria-hidden="true"></div></div>
         <div class="pkg-joined-gifts">${participants.map(p => `<div style="--c:${esc(p.color || '#FE2C55')}">${(p.gifts || []).map(giftHtml).join('')}</div>`).join('')}</div>
       </div>`
@@ -114,8 +235,8 @@ function render(state = {}) {
         const isLeader = p.id === leaderId;
         const tc = textColorFor(p.color);
         return `<div class="pkg-card${isLeader ? ' leader' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">
-          <div class="pkg-card-person">${p.avatar ? `<img src="${esc(p.avatar)}" onerror="this.onerror=null;this.src='/logo.png'" />` : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
-          <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}"><i style="width:${width}%"></i><b>${isLeader ? `Hạng 1 (${fmt(score)})` : fmt(score)}</b>${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${Number(p.streak) > 0 ? `<span class="pkg-streak" title="MVP ${fmt(p.streak)}"><small>MVP</small><em>${fmt(p.streak)}</em></span>` : ''}</div></div>
+          <div class="pkg-card-person">${p.avatar ? avatarImg(p.avatar) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
+          <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `Hạng 1 (<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>)` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${Number(p.streak) > 0 ? `<span class="pkg-streak" title="MVP ${fmt(p.streak)}"><small>MVP</small><em>${fmt(p.streak)}</em></span>` : ''}</div></div>
           <div class="pkg-card-gifts">${(p.gifts || []).map(giftHtml).join('')}</div>
         </div>`;
       }).join('')}</div>`;
@@ -154,6 +275,19 @@ function render(state = {}) {
   board.style.setProperty('--pkg-flow-delay', `${flowDelay}s`);
   const bodyMount = document.getElementById('pkgBodyMount');
   if (bodyMount) bodyMount.innerHTML = body;
+  // Đẩy máu mượt (gọi SAU khi mount để phần tử mới kế thừa giá trị biến đang chạy → liền mạch).
+  // Key = layout + thứ tự id: đổi cấu trúc thì snap, chỉ đổi điểm thì nội suy.
+  const idsKey = participants.map(p => p.id).join('|');
+  const layoutKey = layout + '#' + idsKey;
+  if (layout === 'joined') { pushCols(participants.map(widthOf), layoutKey); }
+  else { colsKey = ''; pushCards(participants.map(p => ({ id: p.id, width: widthOf(p) }))); }
+  // Count-up điểm: đổi cấu trúc người chơi thì snap, chỉ đổi điểm thì đếm dần.
+  pushScores(participants.map(p => ({ id: p.id, score: Number(p.score) || 0 })), idsKey !== lastIdsKey);
+  lastIdsKey = idsKey;
+  lastLeaderId = leaderId;
+  // Cập nhật điểm thật lần này để so ở lần sau (bắn gợn sóng khi tăng).
+  prevRealScore.clear();
+  for (const p of participants) prevRealScore.set(p.id, Number(p.score) || 0);
   const title = board.querySelector('.pkg-title b');
   if (title) title.innerHTML = statusText ? `<span class="pkg-time-icon ${statusIcon}" aria-hidden="true"></span><span>${esc(statusText)}</span>` : '';
 
@@ -175,5 +309,5 @@ function render(state = {}) {
 }
 
 render({});
-const es = new EventSource(`/pk-group-events?token=${encodeURIComponent(token)}`);
-es.addEventListener('pkgroup', e => { try { render(JSON.parse(e.data || '{}')); } catch {} });
+// SSE tự hồi phục (overlay-sse.js) → overlay tự lên lại khi stream rớt/kẹt, không cần Ctrl+R.
+connectSSE(`/pk-group-events?token=${encodeURIComponent(token)}`, 'pkgroup', render);

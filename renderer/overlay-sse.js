@@ -1,0 +1,51 @@
+// Robust SSE cho overlay OBS — tự hồi phục khi stream localhost rớt/kẹt "half-open".
+// Vấn đề: khi app bận (lúc KẾT NỐI TikTok), OBS/CEF có thể để kết nối SSE chết ngầm
+// mà EventSource không báo lỗi → overlay đứng hình / biến mất, phải Ctrl+R.
+// Cách xử lý: watchdog (server heartbeat ~5s, quá ~12s không nhận gì ⇒ dựng lại) + onerror +
+// kiểm tra khi source hiện lại (visibility/online). Nhờ vậy overlay TỰ lên lại, không cần đụng OBS.
+(function () {
+  window.connectSSE = function connectSSE(path, eventName, onData, opts) {
+    opts = opts || {};
+    const STALE = opts.staleMs || 12000; // ~2 nhịp heartbeat lỡ ⇒ coi như kẹt
+    let es = null, lastAt = Date.now(), closed = false, reconnecting = false;
+
+    function bump() { lastAt = Date.now(); }
+    function open() {
+      reconnecting = false;
+      try { es && es.close(); } catch (_) {}
+      try { es = new EventSource(path); }
+      catch (_) { return schedule(1500); }
+      es.addEventListener('open', bump);
+      es.addEventListener(eventName, function (e) {
+        bump();
+        try { onData(JSON.parse(e.data || '{}')); } catch (_) {}
+      });
+      es.onerror = function () {
+        // readyState CLOSED(2) = EventSource bỏ cuộc ⇒ tự dựng lại;
+        // CONNECTING(0) = nó đang tự thử lại, cứ để yên.
+        if (es && es.readyState === 2) reconnect(800);
+      };
+    }
+    function reconnect(wait) {
+      if (closed || reconnecting) return;
+      reconnecting = true;
+      try { es && es.close(); } catch (_) {}
+      es = null;
+      schedule(wait || 500);
+    }
+    function schedule(wait) {
+      setTimeout(function () { if (!closed) { bump(); open(); } }, wait);
+    }
+
+    setInterval(function () {
+      if (!closed && Date.now() - lastAt > STALE) reconnect(200);
+    }, 3000);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && Date.now() - lastAt > STALE) reconnect(200);
+    });
+    window.addEventListener('online', function () { reconnect(200); });
+
+    open();
+    return { close: function () { closed = true; try { es && es.close(); } catch (_) {} } };
+  };
+})();
