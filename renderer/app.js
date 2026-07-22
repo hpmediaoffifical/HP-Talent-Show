@@ -1745,8 +1745,10 @@ function lwNormalize(cfg) {
   return {
     title: typeof c.title === 'string' ? c.title : 'VÒNG QUAY MAY MẮN',
     style: ['neon', 'gold', 'pastel', 'dark'].includes(c.style) ? c.style : 'neon',
+    fontScale: clampInt(c.fontScale, 100, 50, 200),
     spinSeconds: clampInt(c.spinSeconds, 5, 2, 15),
     sound: c.sound !== false, confetti: c.confetti !== false, showResult: c.showResult !== false,
+    showCount: c.showCount !== false, spinCount: Math.max(0, Math.round(Number(c.spinCount) || 0)),
     segments: Array.isArray(c.segments) ? c.segments.map((s, i) => ({
       id: s.id || ('lw_' + Math.random().toString(36).slice(2, 9)),
       text: String(s.text || ''), note: String(s.note || ''),
@@ -1806,7 +1808,10 @@ function renderLwSegList() {
 
 function escAttr(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
-function renderLwPreview() {
+let lwPreviewRot = null;    // góc quay hiện tại của preview (radian); null = vị trí nghỉ
+let lwPreviewSpinning = false;
+
+function lwDrawPreviewAt(rot) {
   const cv = $('#lwPreview'); if (!cv) return;
   const ctx = cv.getContext('2d'); const S = cv.width, C = S / 2, R = C - 12;
   ctx.clearRect(0, 0, S, S);
@@ -1815,25 +1820,52 @@ function renderLwPreview() {
   const rim = rims[lwCfg.style] || '#0d0d1a';
   if (!segs.length) { ctx.beginPath(); ctx.arc(C, C, R, 0, Math.PI * 2); ctx.fillStyle = 'rgba(30,30,40,.5)'; ctx.fill(); ctx.lineWidth = 14; ctx.strokeStyle = rim; ctx.stroke(); return; }
   const seg = Math.PI * 2 / segs.length;
-  const off = -Math.PI / 2 - seg / 2; // ô đầu ở đỉnh
-  ctx.save(); ctx.translate(C, C); ctx.rotate(off);
-  const font = segs.length <= 6 ? 20 : segs.length <= 10 ? 15 : 12;
+  const r = (rot == null) ? (-Math.PI / 2 - seg / 2) : rot; // nghỉ: ô đầu ở đỉnh
+  ctx.save(); ctx.translate(C, C); ctx.rotate(r);
+  const baseFont = segs.length <= 6 ? 27 : segs.length <= 10 ? 21 : 16;
+  const font = Math.round(baseFont * (lwCfg.fontScale || 100) / 100);
   for (let i = 0; i < segs.length; i++) {
     const a0 = i * seg, a1 = (i + 1) * seg;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a1); ctx.closePath();
     ctx.fillStyle = segs[i].color; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.stroke();
     ctx.save(); ctx.rotate(a0 + seg / 2);
-    ctx.fillStyle = lwTextColor(segs[i].color); ctx.font = '700 ' + font + 'px "Be Vietnam Pro", sans-serif';
+    ctx.fillStyle = lwTextColor(segs[i].color); ctx.font = '800 ' + font + 'px "Be Vietnam Pro", sans-serif';
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 3;
     const t = segs[i].text || '';
-    ctx.fillText(t.length > 14 ? t.slice(0, 13) + '…' : t, R - 14, 0);
+    ctx.fillText(t.length > 16 ? t.slice(0, 15) + '…' : t, R - 12, 0);
+    ctx.shadowBlur = 0;
     ctx.restore();
   }
   ctx.restore();
   ctx.beginPath(); ctx.arc(C, C, R, 0, Math.PI * 2); ctx.lineWidth = 14; ctx.strokeStyle = rim; ctx.stroke();
   ctx.beginPath(); ctx.arc(C, C, 34, 0, Math.PI * 2); ctx.fillStyle = ({ neon: '#e8365d', gold: '#c8a24a', pastel: '#ff87ab', dark: '#4c8dff' })[lwCfg.style] || '#e8365d'; ctx.fill();
   ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.stroke();
+}
+function renderLwPreview() { if (!lwPreviewSpinning) lwDrawPreviewAt(lwPreviewRot); }
+
+function lwAnimatePreview(index, durSec) {
+  const n = lwCfg.segments.length; if (!n) return;
+  const seg = Math.PI * 2 / n;
+  const norm = (a) => { a %= Math.PI * 2; return a < 0 ? a + Math.PI * 2 : a; };
+  const start = (lwPreviewRot == null) ? (-Math.PI / 2 - seg / 2) : lwPreviewRot;
+  const target = -Math.PI / 2 - index * seg - seg / 2;
+  const dur = Math.max(2, Math.min(15, durSec || 5)) * 1000;
+  const turns = 5 + Math.floor(dur / 1500);
+  const final = start + turns * Math.PI * 2 + norm(target - norm(start));
+  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+  lwPreviewSpinning = true;
+  let t0 = null;
+  function frame(ts) {
+    if (!t0) t0 = ts;
+    const p = Math.min((ts - t0) / dur, 1);
+    lwPreviewRot = start + (final - start) * easeOut(p);
+    lwDrawPreviewAt(lwPreviewRot);
+    if (p < 1) requestAnimationFrame(frame);
+    else { lwPreviewRot = norm(final); lwPreviewSpinning = false; }
+  }
+  requestAnimationFrame(frame);
 }
 function lwTextColor(hex) {
   const h = String(hex || '#888').replace('#', '');
@@ -1860,6 +1892,8 @@ function lwGetSpinner() {
 function lwTypeLabel(t) { return t === 'reward' ? '🎁 Thưởng' : t === 'penalty' ? '⚡ Phạt' : '✨ Thông tin'; }
 function lwFmtTime(iso) { try { const d = new Date(iso); return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }); } catch { return ''; } }
 
+function lwUpdateCountInput() { const inp = $('#lwSpinCount'); if (inp && document.activeElement !== inp) inp.value = lwCfg.spinCount || 0; }
+
 function renderLwHistory() {
   const box = $('#lwHistTable'); const stats = $('#lwStats');
   const h = lwCfg.history || [];
@@ -1867,13 +1901,21 @@ function renderLwHistory() {
     const rw = h.filter(x => x.type === 'reward').length, pn = h.filter(x => x.type === 'penalty').length;
     const byName = {}; h.forEach(x => { if (x.member) byName[x.member] = (byName[x.member] || 0) + 1; });
     const top = Object.entries(byName).sort((a, b) => b[1] - a[1])[0];
-    stats.innerHTML = `Tổng: <b>${h.length}</b> lượt · 🎁 <b>${rw}</b> · ⚡ <b>${pn}</b>` + (top ? ` · Quay nhiều nhất: <b>${escAttr(top[0])}</b> (${top[1]})` : '');
+    stats.innerHTML = `Lượt quay: <b>${lwCfg.spinCount || 0}</b> · Lưu: <b>${h.length}</b> · 🎁 <b>${rw}</b> · ⚡ <b>${pn}</b>` + (top ? ` · Nhiều nhất: <b>${escAttr(top[0])}</b> (${top[1]})` : '');
   }
+  lwUpdateCountInput();
   if (!box) return;
   if (!h.length) { box.innerHTML = '<div class="lw-empty">Chưa có lượt quay nào.</div>'; return; }
-  box.innerHTML = `<table class="lw-table"><thead><tr><th>Thời gian</th><th>Người quay</th><th>Kết quả</th><th>Ghi chú</th><th>Loại</th></tr></thead><tbody>`
-    + h.slice(0, 60).map(x => `<tr class="lw-r-${x.type}"><td>${lwFmtTime(x.time)}</td><td>${escAttr(x.member) || '—'}</td><td><b>${escAttr(x.text)}</b></td><td>${escAttr(x.note) || ''}</td><td>${lwTypeLabel(x.type)}</td></tr>`).join('')
+  box.innerHTML = `<table class="lw-table"><thead><tr><th>Thời gian</th><th>Người quay</th><th>Kết quả</th><th>Ghi chú</th><th>Loại</th><th></th></tr></thead><tbody>`
+    + h.slice(0, 60).map(x => `<tr class="lw-r-${x.type}"><td>${lwFmtTime(x.time)}</td><td>${escAttr(x.member) || '—'}</td><td><b>${escAttr(x.text)}</b></td><td>${escAttr(x.note) || ''}</td><td>${lwTypeLabel(x.type)}</td><td><button class="lw-hist-del" data-id="${escAttr(x.id)}" type="button" title="Xoá lượt lỗi (tự trừ đếm)">🗑</button></td></tr>`).join('')
     + '</tbody></table>';
+  box.querySelectorAll('.lw-hist-del').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.id;
+    const nc = await window.api.luckywheel.removeHistory(id).catch(() => null);
+    lwCfg.history = lwCfg.history.filter(x => x.id !== id);
+    if (typeof nc === 'number') lwCfg.spinCount = nc;
+    renderLwHistory();
+  }));
 }
 
 async function lwDoSpin() {
@@ -1881,14 +1923,27 @@ async function lwDoSpin() {
   const btn = $('#lwSpinBtn'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang quay…'; }
   const spinner = lwGetSpinner();
   const r = await window.api.luckywheel.spin({ spinner }).catch(() => null);
+  const secs = clampInt(lwCfg.spinSeconds, 5, 2, 15);
+  if (r && typeof r.index === 'number') lwAnimatePreview(r.index, secs);
+  if (r && typeof r.spinCount === 'number') { lwCfg.spinCount = r.spinCount; lwUpdateCountInput(); }
   if (r && r.record) {
     lwCfg.history.unshift(r.record);
     if (lwCfg.history.length > 300) lwCfg.history.length = 300;
-    renderLwHistory();
-    const last = $('#lwLast');
-    if (last) last.innerHTML = `Kết quả: <b>${escAttr(r.record.text)}</b> · ${lwTypeLabel(r.record.type)}` + (r.record.member ? ` · ${escAttr(r.record.member)}` : '');
+    const last = $('#lwLast'); if (last) { last.className = 'lw-last'; last.innerHTML = ''; }
+    // Hé lộ kết quả + cập nhật lịch sử SAU khi vòng quay dừng (đồng bộ thời lượng)
+    setTimeout(() => {
+      renderLwHistory();
+      if (last) {
+        const rec = r.record;
+        const tag = rec.type === 'reward' ? '🎁 THƯỞNG' : rec.type === 'penalty' ? '⚡ PHẠT' : '✨ KẾT QUẢ';
+        last.className = 'lw-last lw-result-card lw-rt-' + rec.type;
+        last.innerHTML = `<div class="lw-rc-tag">${tag}</div>`
+          + `<div class="lw-rc-text">${escAttr(rec.text)}</div>`
+          + (rec.note ? `<div class="lw-rc-note">${escAttr(rec.note)}</div>` : '')
+          + (rec.member ? `<div class="lw-rc-who">🎯 ${escAttr(rec.member)}</div>` : '');
+      }
+    }, secs * 1000 + 150);
   }
-  const secs = clampInt(lwCfg.spinSeconds, 5, 2, 15);
   setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY'; } }, secs * 1000 + 300);
 }
 
@@ -1896,10 +1951,21 @@ function wireLuckyWheelTab() {
   $('#lwAddSeg')?.addEventListener('click', () => { lwCfg.segments.push(lwNewSeg()); renderLwSegList(); renderLwPreview(); lwScheduleSave(); });
   $('#lwTitleInput')?.addEventListener('input', () => { lwCfg.title = $('#lwTitleInput').value; lwScheduleSave(); });
   $('#lwStyle')?.addEventListener('change', () => { lwCfg.style = $('#lwStyle').value; renderLwPreview(); lwScheduleSave(); });
+  $('#lwFontScale')?.addEventListener('input', () => { lwCfg.fontScale = clampInt($('#lwFontScale').value, 100, 50, 200); if ($('#lwFontVal')) $('#lwFontVal').textContent = lwCfg.fontScale + '%'; renderLwPreview(); lwScheduleSave(); });
   $('#lwSeconds')?.addEventListener('input', () => { lwCfg.spinSeconds = clampInt($('#lwSeconds').value, 5, 2, 15); lwScheduleSave(); });
   $('#lwSound')?.addEventListener('change', () => { lwCfg.sound = $('#lwSound').checked; lwScheduleSave(); });
   $('#lwConfetti')?.addEventListener('change', () => { lwCfg.confetti = $('#lwConfetti').checked; lwScheduleSave(); });
   $('#lwShowResult')?.addEventListener('change', () => { lwCfg.showResult = $('#lwShowResult').checked; lwScheduleSave(); });
+  $('#lwShowCount')?.addEventListener('change', () => { lwCfg.showCount = $('#lwShowCount').checked; lwScheduleSave(); });
+  $('#lwSpinCount')?.addEventListener('change', async () => {
+    const n = Math.max(0, Math.round(Number($('#lwSpinCount').value) || 0));
+    lwCfg.spinCount = n; await window.api.luckywheel.setCount(n).catch(() => {}); renderLwHistory();
+  });
+  $('#lwCountMinus')?.addEventListener('click', async () => {
+    const n = Math.max(0, (lwCfg.spinCount || 0) - 1);
+    lwCfg.spinCount = n; if ($('#lwSpinCount')) $('#lwSpinCount').value = n;
+    await window.api.luckywheel.setCount(n).catch(() => {}); renderLwHistory();
+  });
   $('#lwSpinBtn')?.addEventListener('click', lwDoSpin);
   $('#lwClearHist')?.addEventListener('click', async () => {
     if (!lwCfg.history.length) return;
@@ -1922,10 +1988,14 @@ function wireLuckyWheelTab() {
   // Đồng bộ input với config đã tải
   if ($('#lwTitleInput')) $('#lwTitleInput').value = lwCfg.title;
   if ($('#lwStyle')) $('#lwStyle').value = lwCfg.style;
+  if ($('#lwFontScale')) $('#lwFontScale').value = lwCfg.fontScale;
+  if ($('#lwFontVal')) $('#lwFontVal').textContent = (lwCfg.fontScale || 100) + '%';
   if ($('#lwSeconds')) $('#lwSeconds').value = lwCfg.spinSeconds;
   if ($('#lwSound')) $('#lwSound').checked = lwCfg.sound;
   if ($('#lwConfetti')) $('#lwConfetti').checked = lwCfg.confetti;
   if ($('#lwShowResult')) $('#lwShowResult').checked = lwCfg.showResult;
+  if ($('#lwShowCount')) $('#lwShowCount').checked = lwCfg.showCount;
+  if ($('#lwSpinCount')) $('#lwSpinCount').value = lwCfg.spinCount || 0;
   lwRefreshSpinners();
   renderLwSegList();
   renderLwPreview();
@@ -2812,6 +2882,8 @@ function renderGroupLauncher() {
       <img class="lc-ava" src="${escapeAttr(g.avatar || '../logo/hp-logo.png')}" alt="" style="border-color:${escapeAttr(color)}" onerror="this.onerror=null;this.src='../logo/hp-logo.png'" />
       <span class="lc-name">${escapeHtml(g.name || g.tiktokId || 'Nhóm')}</span>
       <span class="lc-handle">@${escapeHtml(g.tiktokId || '—')}</span>
+      ${g.mc ? `<span class="lc-role">🎤 MC: ${escapeHtml(g.mc)}</span>` : ''}
+      ${g.manager ? `<span class="lc-role">🛡️ Quản lý: ${escapeHtml(g.manager)}</span>` : ''}
       <span class="lc-count">${formatNumber(members.length)} thành viên</span>
       <span class="lc-members">${memberAvatarStack(members, 6)}</span>
     `;
@@ -2843,7 +2915,8 @@ function markLauncherSelection() {
   }
   const g = launcherSelId ? groups.find(x => x.id === launcherSelId) : null;
   const name = g ? (g.name || g.tiktokId || 'Nhóm') : 'TALENT SHOW (Tất cả nhóm)';
-  if (pick) pick.innerHTML = `Đang chọn: <b>${escapeHtml(name)}</b>`;
+  const roles = g ? [g.mc ? `🎤 MC: ${escapeHtml(g.mc)}` : '', g.manager ? `🛡️ Quản lý: ${escapeHtml(g.manager)}` : ''].filter(Boolean).join(' · ') : '';
+  if (pick) pick.innerHTML = `Đang chọn: <b>${escapeHtml(name)}</b>${roles ? ` <span class="lc-pick-roles">${roles}</span>` : ''}`;
   if (enter) enter.disabled = false;
 }
 
@@ -3057,6 +3130,7 @@ function renderGroups() {
         <div class="gc-info">
           <strong>${escapeHtml(g.name)}</strong>
           <span class="gc-handle">@${escapeHtml(g.tiktokId || '—')}</span>
+          ${(g.mc || g.manager) ? `<span class="gc-roles">${g.mc ? `🎤 MC: ${escapeHtml(g.mc)}` : ''}${g.mc && g.manager ? ' · ' : ''}${g.manager ? `🛡️ QL: ${escapeHtml(g.manager)}` : ''}</span>` : ''}
           <span class="gc-meta">${matches ? `🎮 ${matches} trận` : ''}${hasGift ? `${matches ? ' · ' : ''}🎁 ${escapeHtml(dg.giftName || '')}` : ''}</span>
         </div>
         <span class="gc-count">${cnt} thành viên</span>
@@ -3080,6 +3154,8 @@ function clearGroupForm() {
   currentEditingGroup = null;
   $('#grTiktokId').value = '';
   $('#grName').value = '';
+  $('#grMC').value = '';
+  $('#grManager').value = '';
   $('#grAvatar').value = '';
   $('#grAvatarPreview').src = '../logo/hp-logo.png';
   $('#grChannel').textContent = '';
@@ -3100,6 +3176,8 @@ function editGroup(id) {
   currentEditingGroup = g;
   $('#grTiktokId').value = g.tiktokId || '';
   $('#grName').value = g.name || '';
+  $('#grMC').value = g.mc || '';
+  $('#grManager').value = g.manager || '';
   $('#grAvatar').value = g.avatar || '';
   $('#grAvatarPreview').src = g.avatar || '../logo/hp-logo.png';
   $('#grChannel').textContent = groupInfoText(g, g.channelName || '');
@@ -3178,6 +3256,8 @@ function wireGroupTab() {
       id: currentEditingGroup?.id,
       tiktokId,
       name,
+      mc: $('#grMC').value.trim(),
+      manager: $('#grManager').value.trim(),
       channelName: $('#grChannel').textContent || '',
       avatar: $('#grAvatar').value.trim(),
       color: colorFromId(tiktokId),

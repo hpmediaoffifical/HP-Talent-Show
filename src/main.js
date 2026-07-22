@@ -1677,10 +1677,13 @@ class LuckyWheelEngine {
     this.config = {
       title: 'VÒNG QUAY MAY MẮN',
       style: 'neon',            // neon | gold | pastel | dark
+      fontScale: 100,           // % cỡ chữ trên ô (50–200)
       spinSeconds: 5,
       sound: true,
       confetti: true,
       showResult: true,
+      showCount: true,          // hiện bộ đếm lượt quay trên OBS
+      spinCount: 0,             // số lượt đã quay (trừ tay được khi xoá lượt lỗi)
       segments: [],             // [{ id, text, note, type: reward|penalty|info, color }]
       history: [],              // [{ id, time, member, segId, text, note, type }]
     };
@@ -1695,7 +1698,16 @@ class LuckyWheelEngine {
     this._emit();
   }
   reset() { this.spin = null; this._emit(); }
-  clearHistory() { this.config.history = []; this._emit(); }
+  clearHistory() { this.config.history = []; this.config.spinCount = 0; this._emit(); }
+  setCount(n) { this.config.spinCount = Math.max(0, Math.round(Number(n) || 0)); this._emit(); }
+  adjustCount(delta) { this.config.spinCount = Math.max(0, (this.config.spinCount || 0) + (Math.round(Number(delta) || 0))); this._emit(); }
+  removeHistory(id) {
+    const before = (this.config.history || []).length;
+    this.config.history = (this.config.history || []).filter(h => h && h.id !== id);
+    // Xoá lượt lỗi bằng tay → tự trừ bộ đếm để số lượt luôn đúng.
+    if (this.config.history.length < before) this.config.spinCount = Math.max(0, (this.config.spinCount || 0) - 1);
+    this._emit();
+  }
   doSpin({ spinner } = {}) {
     const segs = this.config.segments || [];
     if (!segs.length) return null;
@@ -1714,18 +1726,22 @@ class LuckyWheelEngine {
     };
     this.config.history.unshift(rec);
     if (this.config.history.length > 300) this.config.history.length = 300;
+    this.config.spinCount = (this.config.spinCount || 0) + 1;
     this._emit();
-    return { spinId, index, record: rec };
+    return { spinId, index, record: rec, spinCount: this.config.spinCount };
   }
   getStateForOverlay() {
     const c = this.config;
     return {
       title: c.title || '',
       style: ['neon', 'gold', 'pastel', 'dark'].includes(c.style) ? c.style : 'neon',
+      fontScale: _lwNum(c.fontScale, 100, 50, 200),
       spinSeconds: _lwNum(c.spinSeconds, 5, 2, 15),
       sound: c.sound !== false,
       confetti: c.confetti !== false,
       showResult: c.showResult !== false,
+      showCount: c.showCount !== false,
+      spinCount: Math.max(0, Math.round(Number(c.spinCount) || 0)),
       segments: (c.segments || []).map((s, i) => ({
         id: s.id, text: String(s.text || ''), note: String(s.note || ''),
         type: ['reward', 'penalty', 'info'].includes(s.type) ? s.type : 'info',
@@ -2540,6 +2556,8 @@ function registerIpc() {
   ipcMain.handle('luckywheel:setConfig', (_e, cfg) => { luckyWheelEngine?.setConfig(cfg); saveLuckyWheelConfig(luckyWheelEngine?.config); return luckyWheelEngine?.config; });
   ipcMain.handle('luckywheel:spin', (_e, opts) => { const r = luckyWheelEngine?.doSpin(opts || {}); saveLuckyWheelConfig(luckyWheelEngine?.config); return r; });
   ipcMain.handle('luckywheel:clearHistory', () => { luckyWheelEngine?.clearHistory(); saveLuckyWheelConfig(luckyWheelEngine?.config); return true; });
+  ipcMain.handle('luckywheel:setCount', (_e, n) => { luckyWheelEngine?.setCount(n); saveLuckyWheelConfig(luckyWheelEngine?.config); return luckyWheelEngine?.config?.spinCount; });
+  ipcMain.handle('luckywheel:removeHistory', (_e, id) => { luckyWheelEngine?.removeHistory(id); saveLuckyWheelConfig(luckyWheelEngine?.config); return luckyWheelEngine?.config?.spinCount; });
   ipcMain.handle('luckywheel:reset', () => { luckyWheelEngine?.reset(); return true; });
   ipcMain.handle('luckywheel:getUrl', () => overlayServer?.getLuckyWheelUrl());
 

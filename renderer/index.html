@@ -286,6 +286,14 @@
             <span>Tên nhóm</span>
             <input id="grName" placeholder="Vd: ĐỘI HỒNG" />
           </label>
+          <label class="rf-cell">
+            <span>MC</span>
+            <input id="grMC" placeholder="Người dẫn trò xuyên suốt phiên live" autocomplete="off" />
+          </label>
+          <label class="rf-cell">
+            <span>Quản lý</span>
+            <input id="grManager" placeholder="Người quản lý MC và thành viên nhóm" autocomplete="off" />
+          </label>
           <label class="rf-cell rf-gift-cell">
             <span>Quà mặc định nhóm</span>
             <button id="btnPickGrGift" class="rf-gift-btn" type="button" title="Quà đại diện cho nhóm — tự áp cho creator chưa có quà riêng">
@@ -1255,10 +1263,20 @@
                   <option value="dark">Tối Sang</option>
                 </select>
               </label>
+              <label>Cỡ chữ ô: <span id="lwFontVal">100%</span>
+                <input type="range" id="lwFontScale" min="50" max="200" step="5" value="100" />
+              </label>
               <label>Thời gian quay (giây) <input type="number" id="lwSeconds" min="2" max="15" value="5" /></label>
               <label class="lw-chk"><input type="checkbox" id="lwSound" checked /> 🔊 Âm thanh tự động</label>
               <label class="lw-chk"><input type="checkbox" id="lwConfetti" checked /> 🎊 Pháo giấy khi thưởng</label>
               <label class="lw-chk"><input type="checkbox" id="lwShowResult" checked /> 🏆 Hiện thẻ kết quả</label>
+              <label class="lw-chk"><input type="checkbox" id="lwShowCount" checked /> 🔢 Hiện lượt quay trên OBS</label>
+              <label>Số lượt đã quay
+                <div class="lw-count-ctl">
+                  <input type="number" id="lwSpinCount" min="0" value="0" />
+                  <button class="ghost" id="lwCountMinus" type="button" title="Trừ 1 lượt (lượt lỗi)">−1</button>
+                </div>
+              </label>
             </div>
           </div>
 

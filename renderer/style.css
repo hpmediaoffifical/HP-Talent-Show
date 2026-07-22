@@ -308,6 +308,7 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 }
 .lc-name { font-size: 13.5px; font-weight: 900; color: var(--tt-ink); line-height: 1.15; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lc-handle { font-size: 11px; font-weight: 700; color: var(--tt-ink-3); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-role { font-size: 10.5px; font-weight: 700; color: var(--tt-ink-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lc-count {
   margin-top: 1px; padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 800;
   color: var(--tt-ink-2); background: var(--tt-bg-2); border: 1px solid var(--tt-border);
@@ -946,6 +947,7 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .group-card .gc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .group-card .gc-info strong { font-size: 14px; color: var(--tt-ink); }
 .group-card .gc-handle { font-size: 12px; color: var(--tt-ink-3); }
+.group-card .gc-roles { font-size: 11.5px; color: var(--tt-ink-2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .group-card .gc-meta { font-size: 11.5px; color: var(--tt-ink-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .group-card .gc-meta:empty { display: none; }
 .group-card .gc-count { font-size: 11.5px; color: var(--tt-ink-3); padding: 3px 8px; background: var(--tt-bg-3); border-radius: 99px; flex: 0 0 auto; }
@@ -1695,6 +1697,22 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 .lw-big-spin { width: 100%; font-size: 16px; font-weight: 800; padding: 12px; }
 .lw-big-spin:disabled { opacity: .6; cursor: default; }
 .lw-last { margin-top: 10px; font-size: 13px; color: var(--tt-ink); min-height: 18px; text-align: center; }
+.lw-result-card {
+  margin-top: 12px; padding: 14px 16px; border-radius: 14px; text-align: center;
+  color: #fff; border: 3px solid transparent;
+  background: linear-gradient(180deg, #232640, #12131f) padding-box,
+    conic-gradient(from 0deg, #ff3d71, #ffd23f, #38d67a, #00e0c7, #7a5cff, #ff5db1, #ff3d71) border-box;
+  box-shadow: 0 8px 22px rgba(0,0,0,.25), 0 0 18px var(--lw-rc, #ff3d71);
+  animation: lwRcPop .45s cubic-bezier(.18,.9,.28,1.4) both;
+}
+.lw-result-card.lw-rt-reward { --lw-rc: #38d67a; }
+.lw-result-card.lw-rt-penalty { --lw-rc: #ff4d4f; }
+.lw-result-card.lw-rt-info { --lw-rc: #6aa0ff; }
+@keyframes lwRcPop { 0% { opacity: 0; transform: scale(.6); } 100% { opacity: 1; transform: scale(1); } }
+.lw-rc-tag { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: .5px; padding: 3px 14px; border-radius: 999px; background: rgba(255,255,255,.12); margin-bottom: 8px; }
+.lw-rc-text { font-size: 24px; font-weight: 900; line-height: 1.1; text-shadow: 0 2px 5px rgba(0,0,0,.4); }
+.lw-rc-note { margin-top: 4px; font-size: 13px; color: #e7ebff; }
+.lw-rc-who { margin-top: 6px; font-size: 13px; font-weight: 700; color: #ffd7e3; }
 
 .lw-seg-list { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow: auto; }
 .lw-seg-row { display: grid; grid-template-columns: 34px 1fr 1fr 108px 34px; gap: 6px; align-items: center; }
@@ -1704,6 +1722,11 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 .lw-seg-del:hover { background: #fff0f2; border-color: var(--tt-pink); }
 .lw-add { font-size: 12px; padding: 4px 10px; }
 .lw-empty { padding: 18px 12px; text-align: center; color: var(--tt-ink-2); font-size: 13px; }
+.lw-count-ctl { display: flex; gap: 6px; align-items: center; }
+.lw-count-ctl input[type="number"] { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--tt-border); border-radius: 8px; font-size: 13px; background: #fff; color: var(--tt-ink); }
+.lw-count-ctl button { font-size: 12px; padding: 6px 12px; white-space: nowrap; }
+.lw-hist-del { border: 1px solid var(--tt-border); background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; padding: 2px 6px; }
+.lw-hist-del:hover { background: #fff0f2; border-color: var(--tt-pink); }
 
 .lw-hist-collapse { border: 1px solid var(--tt-border); border-radius: 12px; padding: 4px 12px 12px; }
 .lw-hist-collapse > summary { cursor: pointer; font-weight: 700; font-size: 13px; padding: 8px 0; color: var(--tt-ink); }

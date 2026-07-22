@@ -5,6 +5,7 @@
 (function () {
   var stage = document.getElementById('lwStage');
   var titleEl = document.getElementById('lwTitle');
+  var countEl = document.getElementById('lwCount');
   var canvas = document.getElementById('lwCanvas');
   var ctx = canvas.getContext('2d');
   var confCanvas = document.getElementById('lwConfetti');
@@ -19,6 +20,7 @@
   var resultText = document.getElementById('lwResultText');
   var resultNote = document.getElementById('lwResultNote');
 
+  var token = new URLSearchParams(location.search).get('token') || '';
   var SIZE = 1120, CX = SIZE / 2, CY = SIZE / 2, R = SIZE / 2 - 18;
   var TWO_PI = Math.PI * 2, POINTER = -Math.PI / 2; // kim ở 12 giờ
 
@@ -34,7 +36,7 @@
   var rot = -Math.PI / 2;   // góc quay hiện tại (nghỉ) — giữ vị trí đã dừng
   var spinning = false;
   var lastSpinId = '';
-  var soundOn = true, confettiOn = true, showResultOn = true;
+  var soundOn = true, confettiOn = true, showResultOn = true, fontScale = 100;
 
   // ---------- Avatar proxy (giống các overlay khác) ----------
   function avatarUrl(a) {
@@ -76,10 +78,10 @@
 
   // ---------- Vẽ vòng quay ----------
   function fontFor(n) {
-    if (n <= 4) return 46; if (n <= 6) return 40; if (n <= 8) return 34;
-    if (n <= 10) return 28; if (n <= 14) return 22; return 17;
+    if (n <= 4) return 62; if (n <= 6) return 54; if (n <= 8) return 48;
+    if (n <= 10) return 42; if (n <= 14) return 36; return 30;
   }
-  function maxCharsFor(n) { if (n <= 6) return 16; if (n <= 10) return 12; if (n <= 16) return 9; return 7; }
+  function maxCharsFor(n) { if (n <= 6) return 17; if (n <= 10) return 15; if (n <= 16) return 12; return 10; }
   function trunc(s, m) { s = String(s || ''); return s.length > m ? s.slice(0, m - 1) + '…' : s; }
 
   function draw() {
@@ -92,7 +94,7 @@
       ctx.lineWidth = 26; ctx.strokeStyle = st.rim; ctx.stroke();
       return;
     }
-    var seg = TWO_PI / n, font = fontFor(n), mc = maxCharsFor(n);
+    var seg = TWO_PI / n, font = Math.round(fontFor(n) * fontScale / 100), mc = maxCharsFor(n);
     ctx.save(); ctx.translate(CX, CY); ctx.rotate(rot);
     for (var i = 0; i < n; i++) {
       var a0 = i * seg, a1 = (i + 1) * seg;
@@ -102,10 +104,10 @@
       // Chữ trên ô
       ctx.save(); ctx.rotate(a0 + seg / 2);
       ctx.fillStyle = pickText(segs[i].color);
-      ctx.font = '700 ' + font + 'px "Be Vietnam Pro", "Segoe UI", sans-serif';
+      ctx.font = '800 ' + font + 'px "Be Vietnam Pro", "Segoe UI", sans-serif';
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1;
-      ctx.fillText(trunc(segs[i].text, mc), R - 30, 0);
+      ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 1;
+      ctx.fillText(trunc(segs[i].text, mc), R - 26, 0);
       ctx.restore();
     }
     ctx.restore();
@@ -250,9 +252,11 @@
   function render(state) {
     if (!state) return;
     titleEl.textContent = state.title || '';
+    if (countEl) countEl.textContent = (state.showCount !== false) ? ('🎯 Lượt quay: ' + (state.spinCount || 0)) : '';
     soundOn = state.sound !== false;
     confettiOn = state.confetti !== false;
     showResultOn = state.showResult !== false;
+    fontScale = Math.max(50, Math.min(200, Number(state.fontScale) || 100));
     applyStyle(state.style);
     segs = Array.isArray(state.segments) ? state.segments : [];
 
@@ -269,5 +273,5 @@
   }
 
   draw();
-  window.connectSSE('/lucky-wheel-events', 'luckywheel', render);
+  window.connectSSE('/lucky-wheel-events?token=' + encodeURIComponent(token), 'luckywheel', render);
 })();

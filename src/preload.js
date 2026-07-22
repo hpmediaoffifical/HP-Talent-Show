@@ -91,6 +91,8 @@ const api = {
     setConfig: (cfg) => ipcRenderer.invoke('luckywheel:setConfig', cfg),
     spin: (opts) => ipcRenderer.invoke('luckywheel:spin', opts),
     clearHistory: () => ipcRenderer.invoke('luckywheel:clearHistory'),
+    setCount: (n) => ipcRenderer.invoke('luckywheel:setCount', n),
+    removeHistory: (id) => ipcRenderer.invoke('luckywheel:removeHistory', id),
     reset: () => ipcRenderer.invoke('luckywheel:reset'),
     getUrl: () => ipcRenderer.invoke('luckywheel:getUrl'),
   },

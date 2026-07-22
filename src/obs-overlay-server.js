@@ -82,7 +82,7 @@ class ObsOverlayServer {
   getScoreUrl() { return `http://127.0.0.1:${this.port}/score?token=${encodeURIComponent(this.token)}`; }
   getStickerUrl() { return `http://127.0.0.1:${this.port}/sticker?token=${encodeURIComponent(this.token)}`; }
   getMvpHonorUrl() { return `http://127.0.0.1:${this.port}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
-  getLuckyWheelUrl() { return `http://127.0.0.1:${this.port}/lucky-wheel?token=${encodeURIComponent(this.token)}`; }
+  getLuckyWheelUrl() { return `http://127.0.0.1:${this.port}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=3`; }
 
   sendPkDuo(state) { this.pkDuoState = state || {}; this._broadcast(this.pkDuoClients, 'pkduo', this.pkDuoState); }
   sendPkGroup(state) { this.pkGroupState = state || {}; this._broadcast(this.pkGroupClients, 'pkgroup', this.pkGroupState); }
