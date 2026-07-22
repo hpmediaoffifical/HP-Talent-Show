@@ -77,8 +77,16 @@ html, body { margin:0; width:100%; height:100%; background:transparent; overflow
 .theme-neon .score-fill { box-shadow:inset 0 1px 0 rgba(255,255,255,.34), 0 0 22px rgba(53,255,207,.55); }
 .theme-battle .score-fill { box-shadow:inset 0 1px 0 rgba(255,255,255,.26), 0 0 22px rgba(255,75,75,.55); }
 .theme-luxury .score-fill { box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 22px rgba(199,156,255,.55); }
+/* Đổi màu theo %: bỏ glow riêng của theme để sắc cầu vồng "sạch", thêm ánh mờ nhẹ theo màu hiện tại */
+.color-progress .score-fill { box-shadow:inset 0 1px 0 rgba(255,255,255,.34), 0 0 20px rgba(255,255,255,.28); }
 .status-success .score-time { color:#65ff9a; }
 .status-failed .score-time { color:#ff6b7d; }
+/* Chữ kết quả (THÀNH CÔNG / KHÔNG HOÀN THÀNH) nhỏ lại cho cân đối, không lấn thanh */
+.status-success .score-time, .status-failed .score-time { font-size:22px; height:36px; line-height:36px; }
+.size-small.status-success .score-time, .size-small.status-failed .score-time { font-size:18px; height:30px; line-height:30px; }
+.size-large.status-success .score-time, .size-large.status-failed .score-time { font-size:28px; height:44px; line-height:44px; }
+.status-success .score-time-icon, .status-failed .score-time-icon { width:20px; height:20px; border-width:2.5px; }
+.status-failed .score-time-icon.off::after { width:26px; height:3px; }
 @keyframes scoreFlow { from { transform:translate3d(-40px,0,0); } to { transform:translate3d(0,0,0); } }
 @keyframes scoreWaveTravel { 0%,18% { transform:translate3d(-125%,0,0) skewX(-16deg); opacity:0; } 24% { opacity:.95; } 52% { transform:translate3d(245%,0,0) skewX(-16deg); opacity:.9; } 62%,100% { transform:translate3d(245%,0,0) skewX(-16deg); opacity:0; } }
 @keyframes scoreAddFlash { 0%, 70% { opacity:0; transform:scale(.8); } 78% { opacity:.95; transform:scale(1.2); } 100% { opacity:0; transform:scale(1.8); } }

@@ -2,7 +2,8 @@
 html, body { margin: 0; padding: 0; background: transparent; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; color: #fff; overflow: hidden; text-rendering: geometricPrecision; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 * { box-sizing: border-box; }
 img { display: block; max-width: 100%; image-rendering: auto; }
-#pkDuoRoot, #pkGroupRoot, #rankingRoot, #scoreRoot { transform: translateZ(0); backface-visibility: hidden; }
+#pkDuoRoot, #pkGroupRoot, #rankingRoot, #scoreRoot, #stickerRoot { transform: translateZ(0); backface-visibility: hidden; }
+#mvpStage { transform: translateZ(0); backface-visibility: hidden; }
 body.overlay-review { user-select: none; cursor: default; background: var(--review-bg, transparent); }
 /* CHỈ khối overlay đang hiển thị mới là vùng kéo cửa sổ. KHÔNG phủ drag lên cả body,
    nếu không cả vùng trống của cửa sổ Review cũng ăn chuột như 1 lớp phủ toàn màn hình. */
@@ -10,7 +11,9 @@ body.overlay-review #pkDuoRoot, body.overlay-review #pkDuoRoot *,
 body.overlay-review .pkfx-stage, body.overlay-review .pkfx-stage *,
 body.overlay-review #pkGroupRoot, body.overlay-review #pkGroupRoot *,
 body.overlay-review #rankingRoot, body.overlay-review #rankingRoot *,
-body.overlay-review #scoreRoot, body.overlay-review #scoreRoot * { -webkit-app-region: drag; cursor: move; }
+body.overlay-review #scoreRoot, body.overlay-review #scoreRoot *,
+body.overlay-review #stickerRoot, body.overlay-review #stickerRoot *,
+body.overlay-review #mvpStage, body.overlay-review #mvpStage * { -webkit-app-region: drag; cursor: move; }
 
 /* Lớp bọc phóng/thu của cửa sổ Review (review-resize.js dùng CSS zoom): ôm sát nội dung, neo góc trên-trái
    để vùng kéo cửa sổ khớp đúng khối overlay đang hiển thị, không để lại dải "ma" ăn chuột. */

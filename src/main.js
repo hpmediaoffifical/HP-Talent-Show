@@ -32,6 +32,10 @@ const CREATORS_PATH = path.join(CONFIG_DIR, 'creators.json');
 const GROUPS_PATH = path.join(CONFIG_DIR, 'groups.json');
 const PK_DUO_PATH = path.join(CONFIG_DIR, 'pk-duo.json');
 const PK_GROUP_PATH = path.join(CONFIG_DIR, 'pk-group.json');
+const MUSIC_LIST_PATH = path.join(CONFIG_DIR, 'music-list.json');
+const STICKER_PATH = path.join(CONFIG_DIR, 'sticker-dance.json');
+const MVP_HONOR_PATH = path.join(CONFIG_DIR, 'mvp-honor.json');
+const LUCKY_WHEEL_PATH = path.join(CONFIG_DIR, 'lucky-wheel.json');
 const GROUP_PROFILES_PATH = path.join(CONFIG_DIR, 'group-profiles.json');
 const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
@@ -70,6 +74,9 @@ let pkDuoEngine = null;
 let pkGroupEngine = null;
 let rankingEngine = null;
 let scoreEngine = null;
+let stickerEngine = null;
+let mvpHonorEngine = null;
+let luckyWheelEngine = null;
 let settings = loadSettings();
 const reviewWindows = new Map();
 
@@ -120,6 +127,7 @@ function loadSettings() {
       waitingVolume: 100,
       preEffectSound: '',
       preEffectVolume: 100,
+      preEffectEnabled: false,
     },
     reviewWindows: {},
     // OBS WebSocket (obs-websocket v5) — chỉ dùng để RESET (refresh cache) các Browser Source
@@ -353,6 +361,9 @@ const REVIEW_META = {
   score: { title: 'Review Tính điểm', getUrl: () => overlayServer?.getScoreUrl(), width: 900, height: 300 },
   ranking: { title: 'Review Thi đấu', getUrl: () => overlayServer?.getRankingUrl(), width: 420, height: 900 },
   rankinggrid: { title: 'Review Thi đấu ngang', getUrl: () => overlayServer?.getRankingUrl() + '&grid=1', width: 1280, height: 520 },
+  stickerdance: { title: 'Review Đập Trứng', getUrl: () => overlayServer?.getStickerUrl(), width: 900, height: 380 },
+  mvphonor: { title: 'Review MVP Honor', getUrl: () => overlayServer?.getMvpHonorUrl(), width: 540, height: 720 },
+  luckywheel: { title: 'Review Vòng Quay', getUrl: () => overlayServer?.getLuckyWheelUrl(), width: 760, height: 760 },
 };
 
 function normalizeReviewBg(value) {
@@ -565,6 +576,14 @@ function loadPkDuoConfig() { return loadJson(PK_DUO_PATH, null); }
 function savePkDuoConfig(cfg) { saveJson(PK_DUO_PATH, cfg); }
 function loadPkGroupConfig() { return loadJson(PK_GROUP_PATH, null); }
 function savePkGroupConfig(cfg) { saveJson(PK_GROUP_PATH, cfg); }
+function loadMusicList() { return loadJson(MUSIC_LIST_PATH, null); }
+function saveMusicList(cfg) { saveJson(MUSIC_LIST_PATH, cfg); }
+function loadStickerConfig() { return loadJson(STICKER_PATH, null); }
+function saveStickerConfig(cfg) { saveJson(STICKER_PATH, cfg); }
+function loadMvpHonorConfig() { return loadJson(MVP_HONOR_PATH, null); }
+function saveMvpHonorConfig(cfg) { saveJson(MVP_HONOR_PATH, cfg); }
+function loadLuckyWheelConfig() { return loadJson(LUCKY_WHEEL_PATH, null); }
+function saveLuckyWheelConfig(cfg) { saveJson(LUCKY_WHEEL_PATH, cfg); }
 
 // =================================================================
 // Match history — lưu LỊCH SỬ mỗi trận PK (Nhóm/Đôi) để đối chiếu + xuất file
@@ -1384,6 +1403,340 @@ function resolveDiamond(ev) {
   return g ? Number(g.diamond) || 0 : 0;
 }
 
+// ----------------- STICKER DANCE -----------------
+// Bảng lưới rows×cols, mỗi ô gán 1 quà + nhãn chữ + số đếm. Engine giữ CẤU HÌNH lưới và
+// SỐ LIỆU RUNTIME theo giftId, phát state qua SSE để overlay OBS tự vẽ (giống PkGroupEngine).
+// - received: tổng quà đã nhận (cho mọi ô, kể cả quà không có clip nhạc).
+// - performed: số clip/hiệu ứng của quà đó đã phát XONG (renderer báo về qua signal) — dùng cho đếm lùi.
+// - performingId (ngoài rt): giftId DUY NHẤT đang biểu diễn (để phóng to icon). Chỉ 1 quà diễn một lúc
+//   nên lưu thẳng id thay vì bộ đếm +/- — tránh icon "kẹt to" khi lệch tín hiệu start/end.
+class StickerEngine {
+  constructor({ onState }) {
+    this.onState = onState;
+    this.config = {
+      content: 'STICKER DANCE',
+      rows: 3,
+      cols: 6,
+      countMode: 'cumulative', // 'cumulative' (đếm tăng) | 'countdown' (đếm lùi = đang chờ biểu diễn)
+      labelPos: 'bottom',      // 'top' | 'bottom'
+      cells: [],               // [{ row, col, giftId, giftName, icon, diamond, text }]
+      bg: '#2b2f3a',
+      bgOpacity: 55,
+      iconSize: 66,
+      textSize: 14,
+      overlayScale: 100,
+      gap: 14,
+      colGap: 14,              // khoảng cách NGANG (giữa cột)
+      rowGap: 14,              // khoảng cách DỌC (giữa hàng)
+      animIcon: true,
+      enlargeTop: true,        // phóng to quà nhiều điểm nhất
+      perfBg: 'gold',          // hiệu ứng NỀN ô đang biểu diễn: none|gold|pink|blue|dark
+      perfBorder: 'glow',      // hiệu ứng VIỀN ô đang biểu diễn: none|glow|neon|rainbow|ring
+      perfSparkle: false,      // hạt lấp lánh quanh ô đang biểu diễn
+      perfRipple: false,       // vòng sáng lan toả
+      perfShine: false,        // tia sáng quét ngang panel
+      perfNotes: false,        // nốt nhạc bay lên
+      showMedals: true,        // huy chương 🥇🥈🥉 cho 3 ô nhiều điểm nhất
+      showPerfBanner: true,    // dải ruy-băng "ĐANG DIỄN" trên ô đang biểu diễn
+      showCrown: true,         // vương miện 👑 trên ô nhiều điểm nhất
+      showLevelUp: true,       // hiệu ứng "LEVEL UP" khi ô đạt mục tiêu
+      eggWhenZero: true,       // count=0 → hiện QUẢ TRỨNG thay số 0; có quà → trứng nở ra ("đập trứng")
+      eggSize: 85,             // cỡ quả trứng (% so với icon), 40–140
+      eggSkin: 'ivory',        // skin vỏ trứng: ivory|gold|pink|blue|dino (khủng long đốm)
+      eggSkinRandom: false,    // true → mỗi ô bốc skin ngẫu nhiên, đổi lại mỗi lần trứng tái tạo
+      streakEnabled: false,    // GIỮ CHUỖI: quà còn "máu chuỗi" được ưu tiên lên diễn
+      streakSeconds: 10,       // thời lượng thanh máu chuỗi (giây)
+      streakSteal: true,       // CƯỚP CHUỖI: cắt ngang quà đang phát khi quà khác còn máu vượt số lượng
+      streakBarColor: 'tiktok',// màu thanh máu chuỗi: tiktok (hồng đỏ) | blue (xanh) | health (xanh→đỏ theo mức)
+    };
+    this.rt = {}; // giftId -> { received, performed, points }
+    // Chỉ MỘT quà biểu diễn tại một thời điểm (là 'current' của hàng đợi nhạc bên renderer).
+    // Lưu thẳng giftId đang diễn thay vì đếm +/- (bộ đếm dễ lệch → icon kẹt to khi thiếu/thừa 1 tín hiệu).
+    this.performingId = '';
+    this.queuedByGift = {}; // giftId -> số lượt đang chờ/đang phát trong HÀNG ĐỢI HIỆU ỨNG (nguồn cho đếm lùi)
+    this.streaks = {}; // giftId -> mốc hết chuỗi (ms, Date.now); renderer đẩy sang để overlay vẽ thanh máu
+  }
+  setConfig(patch) {
+    this.config = { ...this.config, ...(patch || {}) };
+    this.config.cells = Array.isArray(this.config.cells) ? this.config.cells : [];
+    this._emit();
+  }
+  reset() { this.rt = {}; this.performingId = ''; this._emit(); }
+  // Renderer đẩy toàn bộ số lượt còn trong hàng đợi (theo giftId) mỗi khi hàng đợi đổi.
+  // Đây là NGUỒN SỰ THẬT cho chế độ "Đếm lùi" → khớp tuyệt đối với "Đang chờ" và tự trừ dần khi phát.
+  setQueued(pending) {
+    const next = {};
+    if (pending && typeof pending === 'object') {
+      for (const k of Object.keys(pending)) next[String(k)] = Math.max(0, Number(pending[k]) || 0);
+    }
+    this.queuedByGift = next;
+    this._emit();
+  }
+  // Renderer đẩy mốc hết chuỗi (ms) theo giftId mỗi khi có quà làm đầy máu → overlay vẽ thanh máu cạn dần.
+  setStreaks(streaks) {
+    const next = {};
+    if (streaks && typeof streaks === 'object') {
+      for (const k of Object.keys(streaks)) next[String(k)] = Math.max(0, Number(streaks[k]) || 0);
+    }
+    this.streaks = next;
+    this._emit();
+  }
+  _rtFor(giftId) {
+    const k = String(giftId || '');
+    if (!this.rt[k]) this.rt[k] = { received: 0, performed: 0, points: 0 };
+    return this.rt[k];
+  }
+  routeGift(ev) {
+    const rep = Math.max(1, Number(ev.repeatCount) || 1);
+    const dia = Math.max(0, resolveDiamond(ev));
+    let matched = false;
+    for (const c of (this.config.cells || [])) {
+      if (giftMatches(c, ev)) {
+        const rt = this._rtFor(c.giftId);
+        rt.received += rep;
+        rt.points += dia * rep;
+        matched = true;
+      }
+    }
+    if (matched) this._emit();
+  }
+  // Renderer báo trạng thái phát clip (chỉ với quà có clip trong DANH SÁCH NHẠC):
+  //  perform-start → đang biểu diễn; perform-end → phát xong (đếm lùi thì performed++).
+  signal({ type, giftId, pending, streaks } = {}) {
+    if (type === 'queue') { this.setQueued(pending); return; }
+    if (type === 'streak') { this.setStreaks(streaks); return; }
+    if (!giftId) return;
+    const rt = this._rtFor(giftId);
+    const gid = String(giftId || '');
+    if (type === 'perform-start') {
+      // Quà mới lên diễn = nguồn sự thật; ghi đè thẳng nên không thể "kẹt to" vì thừa tín hiệu.
+      this.performingId = gid;
+    } else if (type === 'perform-end') {
+      // Chỉ tắt khi đúng quà đang diễn (đề phòng tín hiệu kết thúc trễ của quà cũ xoá nhầm quà mới).
+      if (this.performingId === gid) this.performingId = '';
+      if (this.config.countMode === 'countdown') rt.performed += 1;
+    } else return;
+    this._emit();
+  }
+  getStateForOverlay() {
+    const rows = Math.max(1, Math.min(20, Number(this.config.rows) || 1));
+    const cols = Math.max(1, Math.min(20, Number(this.config.cols) || 1));
+    const mode = this.config.countMode === 'countdown' ? 'countdown' : 'cumulative';
+    const cells = (this.config.cells || []).map(c => {
+      const rt = this._rtFor(c.giftId);
+      // Đếm lùi = số lượt của quà này còn trong HÀNG ĐỢI HIỆU ỨNG (đang chờ + đang phát); Đếm tăng = tổng đã nhận.
+      const count = mode === 'countdown' ? (this.queuedByGift[String(c.giftId || '')] || 0) : rt.received;
+      return {
+        row: Number(c.row) || 0,
+        col: Number(c.col) || 0,
+        giftId: c.giftId || '',
+        giftName: c.giftName || '',
+        icon: c.icon || '',
+        diamond: Number(c.diamond) || 0,
+        text: c.text || '',
+        target: Math.max(0, Number(c.target) || 0),
+        special: !!c.special,
+        count,
+        points: rt.points,
+        performing: !!this.performingId && this.performingId === String(c.giftId || ''),
+        streakUntil: Number(this.streaks[String(c.giftId || '')]) || 0,
+        rank: 0,
+      };
+    });
+    // Xếp hạng (top để phóng to + vương miện, huy chương Top 3): ưu tiên theo ĐIỂM (kim cương quà thật).
+    // Khi CHƯA ai có điểm (vd đang thử bằng nút phát nhạc, chưa nhận quà thật) → xếp theo SỐ ĐẾM đang hiện
+    // để các hiệu ứng vẫn xuất hiện thay vì "im lặng".
+    const anyPoints = cells.some(c => (c.points || 0) > 0);
+    const rankVal = c => (anyPoints ? (c.points || 0) : (c.count || 0));
+    let topGiftId = '', topVal = 0;
+    for (const c of cells) { const v = rankVal(c); if (v > topVal) { topVal = v; topGiftId = String(c.giftId || ''); } }
+    // Huy chương: xếp hạng 3 ô đứng đầu (giá trị > 0). Sort trên bản sao mảng nhưng vẫn tham chiếu
+    // CÙNG object nên gán rank phản ánh thẳng vào cells.
+    if (this.config.showMedals !== false) {
+      [...cells].filter(c => rankVal(c) > 0).sort((a, b) => rankVal(b) - rankVal(a))
+        .slice(0, 3).forEach((c, i) => { c.rank = i + 1; });
+    }
+    return {
+      content: this.config.content || 'STICKER DANCE',
+      rows, cols,
+      countMode: mode,
+      labelPos: this.config.labelPos === 'top' ? 'top' : 'bottom',
+      cells,
+      topGiftId: (this.config.enlargeTop !== false && topVal > 0) ? topGiftId : '',
+      crownGiftId: (this.config.showCrown !== false && topVal > 0) ? topGiftId : '',
+      bg: this.config.bg || '#2b2f3a',
+      bgOpacity: Number.isFinite(Number(this.config.bgOpacity)) ? Number(this.config.bgOpacity) : 55,
+      iconSize: Number(this.config.iconSize) || 66,
+      textSize: Number(this.config.textSize) || 14,
+      overlayScale: Number(this.config.overlayScale) || 100,
+      gap: Number.isFinite(Number(this.config.gap)) ? Number(this.config.gap) : 14,
+      colGap: Number.isFinite(Number(this.config.colGap)) ? Number(this.config.colGap) : (Number.isFinite(Number(this.config.gap)) ? Number(this.config.gap) : 14),
+      rowGap: Number.isFinite(Number(this.config.rowGap)) ? Number(this.config.rowGap) : (Number.isFinite(Number(this.config.gap)) ? Number(this.config.gap) : 14),
+      animIcon: this.config.animIcon !== false,
+      perfBg: ['none', 'gold', 'pink', 'blue', 'dark'].includes(this.config.perfBg) ? this.config.perfBg : 'gold',
+      perfBorder: ['none', 'glow', 'neon', 'rainbow', 'ring'].includes(this.config.perfBorder) ? this.config.perfBorder : 'glow',
+      perfSparkle: !!this.config.perfSparkle,
+      perfRipple: !!this.config.perfRipple,
+      perfShine: !!this.config.perfShine,
+      perfNotes: !!this.config.perfNotes,
+      showMedals: this.config.showMedals !== false,
+      showPerfBanner: this.config.showPerfBanner !== false,
+      showLevelUp: this.config.showLevelUp !== false,
+      eggWhenZero: this.config.eggWhenZero !== false,
+      eggSize: Math.max(40, Math.min(140, Number(this.config.eggSize) || 85)),
+      eggSkin: ['ivory', 'gold', 'pink', 'blue', 'dino'].includes(this.config.eggSkin) ? this.config.eggSkin : 'ivory',
+      eggSkinRandom: !!this.config.eggSkinRandom,
+      streakOn: !!this.config.streakEnabled,
+      streakDur: Math.max(1, Math.min(120, Number(this.config.streakSeconds) || 10)) * 1000,
+      streakBarColor: ['tiktok', 'blue', 'health'].includes(this.config.streakBarColor) ? this.config.streakBarColor : 'tiktok',
+    };
+  }
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
+// ----------------- MVP Honor (thẻ vinh danh avatar: Creator idol TOP / User cống hiến) -----------------
+// Config-only engine (như StickerEngine): renderer là "nguồn sự thật", engine chỉ chuẩn hoá + phát cho overlay.
+// Thẻ mode='creator' → avatar/tên lấy REALTIME từ Hồ sơ Creator theo creatorId (đổi ảnh Creator là thẻ đổi theo).
+// Thẻ mode='user' → avatar là ảnh tải lên (data URL) hoặc URL người xem, tên & chữ do người dùng gõ.
+const _mvpNum = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+const _mvpClamp = (v, min, max, d) => Math.max(min, Math.min(max, _mvpNum(v, d)));
+const _mvpHex = (v, d) => (/^#[0-9a-f]{6}$/i.test(String(v || '')) ? String(v) : d);
+class MvpHonorEngine {
+  constructor({ onState, getCreators, primeAvatar }) {
+    this.onState = onState;
+    this.getCreators = typeof getCreators === 'function' ? getCreators : () => [];
+    this.primeAvatar = typeof primeAvatar === 'function' ? primeAvatar : () => {};
+    this.config = { cards: [] };
+  }
+  setConfig(patch) {
+    this.config = { ...this.config, ...(patch || {}) };
+    this.config.cards = Array.isArray(this.config.cards) ? this.config.cards : [];
+    this._emit();
+  }
+  reset() { this.config.cards = []; this._emit(); }
+  _resolveCard(c, byId) {
+    let avatar = c.avatar || '';
+    let name = c.name || '';
+    const mode = c.mode === 'user' ? 'user' : 'creator';
+    if (mode === 'creator' && c.creatorId) {
+      const cr = byId.get(String(c.creatorId));
+      if (cr) {
+        avatar = cr.avatar || avatar;            // avatar Creator mới nhất
+        if (!name) name = cr.nickname || cr.tiktokId || '';
+      }
+    }
+    if (avatar && /^https?:\/\//i.test(avatar)) { try { this.primeAvatar(avatar); } catch {} }
+    return {
+      id: c.id,
+      mode,
+      avatar,
+      name,
+      text: typeof c.text === 'string' ? c.text : '',
+      frame: c.frame || '',
+      layout: c.layout === 'vertical' ? 'vertical' : 'horizontal',
+      avatarSize: _mvpClamp(c.avatarSize, 60, 400, 150),
+      frameScale: _mvpClamp(c.frameScale, 80, 300, 150),
+      fontSize: _mvpClamp(c.fontSize, 12, 140, 40),
+      color: _mvpHex(c.color, '#ffffff'),
+      textStyle: ['solid', 'gradient', 'neon', 'plaque'].includes(c.textStyle) ? c.textStyle : 'solid',
+      bgColor: _mvpHex(c.bgColor, '#e84c88'),
+      bgColor2: _mvpHex(c.bgColor2, '#7a3cff'),
+      bgOpacity: _mvpClamp(c.bgOpacity, 0, 100, 100),
+      entryAnim: ['none', 'popBounce', 'zoomFade', 'slideRight', 'slideUp'].includes(c.entryAnim) ? c.entryAnim : 'popBounce',
+      showName: !!c.showName,
+      overlay: {
+        x: _mvpNum(c.overlay?.x, 120),
+        y: _mvpNum(c.overlay?.y, 200),
+        scale: _mvpClamp(c.overlay?.scale, 0.2, 4, 1),
+        rot: _mvpClamp(c.overlay?.rot, -180, 180, 0),
+      },
+    };
+  }
+  getStateForOverlay() {
+    const creators = this.getCreators() || [];
+    const byId = new Map(creators.map(c => [String(c.id), c]));
+    const cards = (this.config.cards || [])
+      .filter(c => c && c.show !== false)
+      .map(c => this._resolveCard(c, byId));
+    const canvas = ['1:1', '3:4', '9:16'].includes(this.config.canvas) ? this.config.canvas : '3:4';
+    return { cards, canvas };
+  }
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
+// ----------------- Vòng quay may mắn (Lucky Wheel) -----------------
+// Ô = thông tin do người dùng ghi (phần thưởng / hình phạt / ghi chú). Quay ĐỀU nhau (random đồng xác suất),
+// máy chủ chọn ô trúng rồi phát lệnh quay {spinId, index, duration} qua SSE → overlay OBS quay tới đúng ô đó.
+// Kết quả lưu vào history (kèm tên người quay) để dựng lịch sử + bảng thống kê.
+const _LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
+function _lwHex(v, def) { return /^#[0-9a-fA-F]{6}$/.test(String(v || '')) ? v : def; }
+function _lwNum(v, def, min, max) { let n = Number(v); if (!isFinite(n)) n = def; return Math.max(min, Math.min(max, n)); }
+class LuckyWheelEngine {
+  constructor({ onState }) {
+    this.onState = onState;
+    this.config = {
+      title: 'VÒNG QUAY MAY MẮN',
+      style: 'neon',            // neon | gold | pastel | dark
+      spinSeconds: 5,
+      sound: true,
+      confetti: true,
+      showResult: true,
+      segments: [],             // [{ id, text, note, type: reward|penalty|info, color }]
+      history: [],              // [{ id, time, member, segId, text, note, type }]
+    };
+    this.spin = null;           // { spinId, index, duration, startAt, spinner:{name,avatar} }
+    this._seq = 0;
+  }
+  setConfig(patch) {
+    const p = patch || {};
+    this.config = { ...this.config, ...p };
+    if (!Array.isArray(this.config.segments)) this.config.segments = [];
+    if (!Array.isArray(this.config.history)) this.config.history = [];
+    this._emit();
+  }
+  reset() { this.spin = null; this._emit(); }
+  clearHistory() { this.config.history = []; this._emit(); }
+  doSpin({ spinner } = {}) {
+    const segs = this.config.segments || [];
+    if (!segs.length) return null;
+    const index = Math.floor(Math.random() * segs.length);
+    const seg = segs[index] || {};
+    const duration = _lwNum(this.config.spinSeconds, 5, 2, 15);
+    this._seq += 1;
+    const spinId = 'sp_' + Date.now().toString(36) + '_' + this._seq;
+    const sp = (spinner && spinner.name) ? { name: String(spinner.name), avatar: String(spinner.avatar || '') } : null;
+    this.spin = { spinId, index, duration, startAt: Date.now(), spinner: sp };
+    const rec = {
+      id: spinId,
+      time: new Date().toISOString(),
+      member: sp ? sp.name : '',
+      segId: seg.id || '', text: seg.text || '', note: seg.note || '', type: seg.type || 'info',
+    };
+    this.config.history.unshift(rec);
+    if (this.config.history.length > 300) this.config.history.length = 300;
+    this._emit();
+    return { spinId, index, record: rec };
+  }
+  getStateForOverlay() {
+    const c = this.config;
+    return {
+      title: c.title || '',
+      style: ['neon', 'gold', 'pastel', 'dark'].includes(c.style) ? c.style : 'neon',
+      spinSeconds: _lwNum(c.spinSeconds, 5, 2, 15),
+      sound: c.sound !== false,
+      confetti: c.confetti !== false,
+      showResult: c.showResult !== false,
+      segments: (c.segments || []).map((s, i) => ({
+        id: s.id, text: String(s.text || ''), note: String(s.note || ''),
+        type: ['reward', 'penalty', 'info'].includes(s.type) ? s.type : 'info',
+        color: _lwHex(s.color, _LW_PALETTE[i % _LW_PALETTE.length]),
+      })),
+      spin: this.spin,
+    };
+  }
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
 // ----------------- Ranking (BXH theo creator hoặc nhóm) -----------------
 // Schema theo spec BIGO port: rows[] với {id, rank, name, avatar, initials, points,
 // round, giftIconId, giftIcon, giftName, hideScore, lost, active, activePoints}
@@ -1582,6 +1935,7 @@ class ScoreEngine {
       hideAvatar: false,
       hideCreator: false,
       milestoneGradientEnabled: false,
+      colorByProgress: false,
       customMilestoneValues: [],
       startSound: '',
       warningSound: '',
@@ -1855,12 +2209,41 @@ function bootstrapEngines() {
     },
   });
   if (settings.score) scoreEngine.setConfig(settings.score);
+  stickerEngine = new StickerEngine({
+    onState: (st) => {
+      overlayServer?.sendSticker(st);
+      broadcast('stickerdance:state', st);
+    },
+  });
+  const savedSticker = loadStickerConfig();
+  if (savedSticker) stickerEngine.setConfig(savedSticker);
+  mvpHonorEngine = new MvpHonorEngine({
+    onState: (st) => {
+      overlayServer?.sendMvpHonor(st);
+      broadcast('mvphonor:state', st);
+    },
+    getCreators: loadCreators,
+    primeAvatar: (url) => overlayServer?.primeAvatar(url),
+  });
+  const savedMvpHonor = loadMvpHonorConfig();
+  if (savedMvpHonor) mvpHonorEngine.setConfig(savedMvpHonor);
+  luckyWheelEngine = new LuckyWheelEngine({
+    onState: (st) => {
+      overlayServer?.sendLuckyWheel(st);
+      broadcast('luckywheel:state', st);
+    },
+  });
+  const savedLuckyWheel = loadLuckyWheelConfig();
+  if (savedLuckyWheel) luckyWheelEngine.setConfig(savedLuckyWheel);
 
   // Phát state khởi tạo cho overlay khi mới connect
   pkDuoEngine._emit();
   pkGroupEngine._emit();
   rankingEngine._emit();
   scoreEngine._emit();
+  stickerEngine._emit();
+  mvpHonorEngine._emit();
+  luckyWheelEngine._emit();
 }
 
 // Cache avatar theo user — TikTok hay gửi GIFT event THIẾU avatar (user data tối giản);
@@ -1898,6 +2281,7 @@ function bootstrapTikTok() {
       pkGroupEngine?.routeGift(d);
       rankingEngine?.routeGift(d);
       scoreEngine?.routeGift(d);
+      stickerEngine?.routeGift(d);
     }
   });
   ttClient.on('like', (d) => { _cacheAvatar(d); broadcast('tt:like', d); });
@@ -2127,6 +2511,38 @@ function registerIpc() {
   ipcMain.handle('pkgroup:testGift', (_e, { id }) => pkGroupEngine.testGift(id));
   ipcMain.handle('pkgroup:getUrl', () => overlayServer.getPkGroupUrl());
 
+  // DANH SÁCH NHẠC (quà → clip audio). Audio phát ở renderer; main chỉ lưu cấu hình.
+  ipcMain.handle('musiclist:getState', () => loadMusicList() || { items: [], duckWaiting: true, bgEnabled: false });
+  ipcMain.handle('musiclist:setConfig', (_e, cfg) => { const c = cfg || {}; saveMusicList(c); return c; });
+
+  // STICKER DANCE
+  ipcMain.handle('stickerdance:getState', () => stickerEngine.getStateForOverlay());
+  // getConfig trả về cấu hình GỐC (TALENT SHOW) trong file — engine live có thể đang là
+  // cấu hình của một nhóm (nạp qua :apply) nên không dùng engine.config làm nguồn base.
+  ipcMain.handle('stickerdance:getConfig', () => loadStickerConfig() || stickerEngine.config);
+  ipcMain.handle('stickerdance:setConfig', (_e, cfg) => { stickerEngine.setConfig(cfg); saveStickerConfig(stickerEngine.config); return stickerEngine.config; });
+  // apply: nạp cấu hình lên engine (để OBS đổi ngay) NHƯNG không ghi file gốc —
+  // dùng khi hiển thị cấu hình riêng của một nhóm (lưu ở group-profiles.json).
+  ipcMain.handle('stickerdance:apply', (_e, cfg) => { stickerEngine.setConfig(cfg); return stickerEngine.config; });
+  ipcMain.handle('stickerdance:reset', () => { stickerEngine.reset(); return true; });
+  ipcMain.handle('stickerdance:getUrl', () => overlayServer.getStickerUrl());
+  ipcMain.handle('stickerdance:signal', (_e, sig) => { stickerEngine.signal(sig || {}); return true; });
+
+  // ===== MVP Honor (thẻ vinh danh) =====
+  ipcMain.handle('mvphonor:getState', () => mvpHonorEngine?.getStateForOverlay());
+  ipcMain.handle('mvphonor:getConfig', () => loadMvpHonorConfig() || mvpHonorEngine?.config || { cards: [] });
+  ipcMain.handle('mvphonor:setConfig', (_e, cfg) => { mvpHonorEngine?.setConfig(cfg); saveMvpHonorConfig(mvpHonorEngine?.config); return mvpHonorEngine?.config; });
+  ipcMain.handle('mvphonor:reset', () => { mvpHonorEngine?.reset(); saveMvpHonorConfig(mvpHonorEngine?.config); return true; });
+  ipcMain.handle('mvphonor:getUrl', () => overlayServer?.getMvpHonorUrl());
+
+  ipcMain.handle('luckywheel:getState', () => luckyWheelEngine?.getStateForOverlay());
+  ipcMain.handle('luckywheel:getConfig', () => loadLuckyWheelConfig() || luckyWheelEngine?.config || { segments: [], history: [] });
+  ipcMain.handle('luckywheel:setConfig', (_e, cfg) => { luckyWheelEngine?.setConfig(cfg); saveLuckyWheelConfig(luckyWheelEngine?.config); return luckyWheelEngine?.config; });
+  ipcMain.handle('luckywheel:spin', (_e, opts) => { const r = luckyWheelEngine?.doSpin(opts || {}); saveLuckyWheelConfig(luckyWheelEngine?.config); return r; });
+  ipcMain.handle('luckywheel:clearHistory', () => { luckyWheelEngine?.clearHistory(); saveLuckyWheelConfig(luckyWheelEngine?.config); return true; });
+  ipcMain.handle('luckywheel:reset', () => { luckyWheelEngine?.reset(); return true; });
+  ipcMain.handle('luckywheel:getUrl', () => overlayServer?.getLuckyWheelUrl());
+
   // Match history (LỊCH SỬ trận đấu)
   ipcMain.handle('history:list', (_e, filter) => {
     let list = loadMatchHistory();
@@ -2322,6 +2738,20 @@ function registerIpc() {
   // Shell
   ipcMain.handle('shell:openExternal', (_e, url) => shell.openExternal(url));
   ipcMain.handle('shell:copyText', (_e, text) => { clipboard.writeText(String(text || '')); return true; });
+  // Hộp thoại xác nhận CÓ/KHÔNG (native). Trả về true nếu bấm CÓ.
+  ipcMain.handle('shell:confirm', async (_e, opts = {}) => {
+    const r = await dialog.showMessageBox(win, {
+      type: opts.type || 'warning',
+      buttons: ['Có', 'Không'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+      title: opts.title || 'Xác nhận',
+      message: opts.message || 'Bạn có chắc chắn?',
+      detail: opts.detail || '',
+    });
+    return r.response === 0;
+  });
   ipcMain.handle('shell:pickAudio', async () => {
     const r = await dialog.showOpenDialog(win, {
       title: 'Chọn file âm thanh',
@@ -2330,6 +2760,15 @@ function registerIpc() {
     });
     if (r.canceled || !r.filePaths?.[0]) return '';
     return r.filePaths[0];
+  });
+  ipcMain.handle('shell:pickAudios', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Chọn một hoặc nhiều file âm thanh',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] }],
+    });
+    if (r.canceled || !Array.isArray(r.filePaths)) return [];
+    return r.filePaths;
   });
   ipcMain.handle('shell:prepareGiftDrag', async (_e, { url, giftId, giftName }) => {
     if (!url) return null;
@@ -2374,6 +2813,9 @@ app.whenReady().then(async () => {
   bootstrapEngines();
   bootstrapTikTok();
   await bootstrapOverlay();
+  // Overlay server sẵn sàng SAU khi engine đã nạp config đã lưu → phát lại state một lần
+  // để OBS/Review nhận ĐÚNG cấu hình ngay khi kết nối, không phải chờ lần chỉnh sửa kế tiếp.
+  pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit();
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 

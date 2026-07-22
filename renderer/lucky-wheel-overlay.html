@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vòng quay may mắn</title>
+  <link rel="stylesheet" href="/overlay-common.css" />
+  <link rel="stylesheet" href="/lucky-wheel-overlay.css" />
+</head>
+<body>
+  <div class="lw-stage" id="lwStage" data-style="neon">
+    <div class="lw-title" id="lwTitle">VÒNG QUAY MAY MẮN</div>
+    <div class="lw-wheelbox">
+      <canvas class="lw-canvas" id="lwCanvas" width="1120" height="1120"></canvas>
+      <div class="lw-pointer" aria-hidden="true"></div>
+      <button class="lw-hub" id="lwHub" type="button" aria-label="hub">
+        <img class="lw-hub-av" id="lwHubAv" alt="" />
+        <span class="lw-hub-txt" id="lwHubTxt">QUAY</span>
+      </button>
+      <canvas class="lw-confetti" id="lwConfetti" width="1120" height="1120"></canvas>
+    </div>
+    <div class="lw-spinner" id="lwSpinner"></div>
+    <div class="lw-result" id="lwResult" data-show="0">
+      <div class="lw-result-tag" id="lwResultTag"></div>
+      <div class="lw-result-text" id="lwResultText"></div>
+      <div class="lw-result-note" id="lwResultNote"></div>
+    </div>
+  </div>
+  <script src="/overlay-sse.js"></script>
+  <script src="/lucky-wheel-overlay.js"></script>
+  <script src="/review-resize.js"></script>
+</body>
+</html>

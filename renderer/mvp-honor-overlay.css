@@ -1,0 +1,136 @@
+/* MVP Honor overlay — thẻ vinh danh avatar cho OBS.
+   Sân khấu cố định 1080x1920 (khớp canvas dọc TikTok); mỗi thẻ đặt tuyệt đối theo overlay{x,y,scale,rot}. */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@700;800;900&family=Oswald:wght@600;700&display=swap');
+
+#mvpStage {
+  position: relative;
+  width: 1080px;
+  height: 1440px; /* mặc định 3:4; JS đặt lại theo cấu hình khung (1:1 / 3:4 / 9:16) */
+  overflow: visible;
+}
+
+/* Lớp NGOÀI chỉ lo VỊ TRÍ (left/top + scale/rot). Animation xuất hiện đặt ở lớp .mvp-inner
+   để không đè lên transform định vị của thẻ. */
+.mvp-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  will-change: transform;
+}
+.mvp-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+.mvp-card.is-vertical .mvp-inner {
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Avatar + khung xếp chồng: avatar tròn nằm giữa, khung PNG đè lên trên */
+.mvp-avwrap {
+  position: relative;
+  flex-shrink: 0;
+  line-height: 0;
+  display: block;
+}
+.mvp-avwrap .mvp-av {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  z-index: 1;
+}
+.mvp-avwrap .mvp-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  z-index: 2;
+  pointer-events: none;
+}
+/* Tên hiển thị dưới avatar (nếu bật) */
+.mvp-avwrap .mvp-name {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: rgba(12, 16, 22, .78);
+  color: #fff;
+  font: 800 22px/1.15 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+  white-space: nowrap;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .5);
+}
+
+/* Chữ vinh danh (ribbon) */
+.mvp-text {
+  font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+  font-weight: 900;
+  line-height: 1.1;
+  white-space: pre-line;
+  text-align: center;
+  padding: 8px 18px;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+}
+.mvp-text.style-neon {
+  box-shadow: none;
+  padding: 6px 14px;
+}
+
+/* Khung viền nổi (plaque) — tấm biển vinh danh kiểu "KING OF TODAY":
+   rìa sáng ngoài + đường viền tối bao quanh (khung đôi) + khung khắc chìm bên trong + nền chuyển dọc bóng kim loại. */
+.mvp-text.style-plaque {
+  position: relative;
+  padding: 12px 26px;
+  border: 2px solid rgba(255, 255, 255, .62);
+  border-radius: 13px;
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, .34),                 /* đường viền tối ngoài → khung đôi */
+    inset 0 2px 2px rgba(255, 255, 255, .42),      /* gờ sáng trên (bóng) */
+    inset 0 -5px 9px rgba(0, 0, 0, .40),           /* đổ tối dưới (chiều sâu) */
+    0 8px 18px rgba(0, 0, 0, .42);                 /* bóng đổ */
+}
+.mvp-text.style-plaque::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, .30);      /* khung khắc chìm bên trong */
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .28);
+  pointer-events: none;
+}
+
+/* ===== Animation xuất hiện (đặt trên .mvp-inner, không đụng vị trí thẻ) ===== */
+.mvp-inner.anim-popBounce { animation: mvpPop .9s cubic-bezier(.22, 1.2, .36, 1) both; }
+.mvp-inner.anim-zoomFade { animation: mvpZoom .8s ease-out both; }
+.mvp-inner.anim-slideRight { animation: mvpSlideR .7s cubic-bezier(.2, .9, .3, 1) both; }
+.mvp-inner.anim-slideUp { animation: mvpSlideU .7s cubic-bezier(.2, .9, .3, 1) both; }
+
+@keyframes mvpPop {
+  0% { opacity: 0; transform: scale(.2); }
+  1% { opacity: 1; }
+  60% { transform: scale(1.12); }
+  80% { transform: scale(.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes mvpZoom {
+  0% { opacity: 0; filter: blur(12px); }
+  100% { opacity: 1; filter: blur(0); }
+}
+@keyframes mvpSlideR {
+  0% { opacity: 0; transform: translateX(140px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes mvpSlideU {
+  0% { opacity: 0; transform: translateY(120px); }
+  100% { opacity: 1; transform: translateY(0); }
+}

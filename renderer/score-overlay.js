@@ -34,6 +34,21 @@ function scoreStatusText(status, timeText) {
   return timeText || '03:00';
 }
 
+// Màu thanh biến đổi theo % tiến độ — hành trình sắc màu tím → lam → lục → vàng,
+// không hiện số %, tạo cảm giác "ảo diệu" khi thanh đầy dần.
+function progressFillGradient(pct) {
+  const t = Math.max(0, Math.min(1, pct / 100));
+  const hue = 280 - 250 * t;            // 0% tím → 100% vàng-cam
+  const head = `hsl(${(hue - 14).toFixed(0)}, 92%, 55%)`;  // mép đang tiến: đậm nhất
+  const mid  = `hsl(${hue.toFixed(0)}, 90%, 61%)`;
+  const tail = `hsl(${(hue + 16).toFixed(0)}, 88%, 67%)`;   // đuôi: nhạt, hơi lệch tông
+  return `linear-gradient(90deg,`
+    + ` color-mix(in srgb, ${tail}, transparent 74%) 0%,`
+    + ` color-mix(in srgb, ${tail}, transparent 30%) 22%,`
+    + ` ${mid} 52%,`
+    + ` ${head} 100%)`;
+}
+
 function playSound(soundUrl) {
   if (!soundUrl) return;
   audio.src = soundUrl;
@@ -76,7 +91,7 @@ function render(state = {}) {
   const reachedMilestones = milestoneValues.filter(v => score >= v).length;
   const topUsers = Array.isArray(state.topUsers) ? state.topUsers : [];
   const topText = topUsers.length ? topUsers.map(u => `${esc(u.user || '?')} ${fmt(u.points)}`).join(' | ') : '';
-  root.className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${state.milestoneGradientEnabled ? ' milestone-gradient' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}`;
+  root.className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${state.milestoneGradientEnabled ? ' milestone-gradient' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}${state.colorByProgress ? ' color-progress' : ''}`;
   root.style.setProperty('--score-time-color', state.timeColor || '#ffffff');
   const rawScale = parseInt(state.overlayScale, 10);
   if (Number.isFinite(rawScale)) { try { localStorage.setItem('scoreScale', rawScale); } catch {} }
@@ -95,9 +110,12 @@ function render(state = {}) {
   const c1 = state.barColor1 || '#b93678';
   const c2 = state.barColor2 || '#ff8ed1';
   // Đuôi mờ trong suốt → đầu (mép đang tiến) đậm/sáng nhất
-  root.style.setProperty('--score-fill-gradient', state.milestoneGradientEnabled && reachedMilestones > 0
-    ? `linear-gradient(90deg, color-mix(in srgb, ${usedColors[0]}, transparent 62%) 0%, ${usedColors.join(', ')})`
-    : `linear-gradient(90deg, color-mix(in srgb, ${c2}, transparent 74%) 0%, color-mix(in srgb, ${c2}, transparent 34%) 22%, ${c2} 46%, ${c1} 88%, color-mix(in srgb, ${c1}, #000 8%) 100%)`);
+  root.style.setProperty('--score-fill-gradient',
+    state.colorByProgress
+      ? progressFillGradient(pct)
+      : (state.milestoneGradientEnabled && reachedMilestones > 0
+        ? `linear-gradient(90deg, color-mix(in srgb, ${usedColors[0]}, transparent 62%) 0%, ${usedColors.join(', ')})`
+        : `linear-gradient(90deg, color-mix(in srgb, ${c2}, transparent 74%) 0%, color-mix(in srgb, ${c2}, transparent 34%) 22%, ${c2} 46%, ${c1} 88%, color-mix(in srgb, ${c1}, #000 8%) 100%)`));
   root.innerHTML = `
     <div class="score-time"><i class="score-time-icon ${['success','failed'].includes(status) ? 'off' : 'clock'}" aria-hidden="true"></i><span>${esc(statusText)}</span></div>
     <div class="score-bar" style="--score-pct:${pct}%">

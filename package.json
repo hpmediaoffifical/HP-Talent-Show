@@ -1,6 +1,6 @@
 {
   "name": "hp-talent-show",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "HP Talent Show — phần mềm tổ chức Talent Show TikTok: PK đôi, BXH, tính điểm, overlay OBS",
   "main": "src/main.js",
   "scripts": {

@@ -4,12 +4,16 @@
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
 
+const TOAST_MAX = 5; // chỉ hiển thị tối đa 5 thông báo; dư thì bỏ cái cũ nhất cho gọn
 function toast(msg, kind = '') {
   const c = $('#toastContainer');
   const t = document.createElement('div');
   t.className = `toast ${kind}`;
   t.textContent = msg;
   c.appendChild(t);
+  // Giữ tối đa TOAST_MAX toast trên màn hình — vượt quá thì xoá ngay các toast cũ nhất.
+  const items = c.querySelectorAll('.toast');
+  for (let i = 0; i < items.length - TOAST_MAX; i++) items[i].remove();
   setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .25s'; }, 2400);
   setTimeout(() => t.remove(), 2800);
 }
@@ -68,7 +72,24 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
   const id = b.dataset.tab;
   $$('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === id));
   if (id === 'settings') refreshOverlayUrls();
+  if (id === 'mvphonor') mvpRenderStage?.();
+  if (id === 'luckywheel') { lwRefreshSpinners?.(); renderLwPreview?.(); }
 }));
+
+// ===== Thu gọn sidebar (bấm logo HP) =====
+(() => {
+  const sidebar = document.querySelector('.sidebar');
+  const btn = $('#brandToggle');
+  if (!sidebar || !btn) return;
+  const KEY = 'hp.sidebarCollapsed';
+  const apply = (on) => sidebar.classList.toggle('collapsed', !!on);
+  try { apply(localStorage.getItem(KEY) === '1'); } catch {}
+  btn.addEventListener('click', () => {
+    const on = !sidebar.classList.contains('collapsed');
+    apply(on);
+    try { localStorage.setItem(KEY, on ? '1' : '0'); } catch {}
+  });
+})();
 
 // Open external
 document.addEventListener('click', (e) => {
@@ -84,6 +105,13 @@ let groups = [];
 let giftMaster = []; // [{id, name, icon, webm, diamond}]
 let pkCfg = null;
 let pkGroupCfg = null;
+let musicItems = [];                 // DANH SÁCH NHẠC: [{giftId, giftName, icon, diamond, audioPath, volume}]
+let musicCfg = { duckWaiting: true, bgEnabled: false, paused: false };
+// NHẠC DANCE theo NHÓM: mỗi nhóm một danh sách quà riêng ('' = TALENT SHOW dùng file gốc).
+// musicGroupId: nhóm mà musicItems đang hiển thị. musicBaseItems: danh sách gốc (TALENT SHOW).
+let musicGroupId = '';
+let musicBaseItems = [];
+let stickerCfg = null;               // STICKER DANCE config (editor model)
 let groupProfiles = {}; // { [groupId]: { pkGroup, defaultGift, stats } } — thông số riêng mỗi nhóm
 let currentEditingCreator = null;
 let currentEditingGroup = null;
@@ -132,9 +160,15 @@ function pkGiftModeKey() { return pkCfg?.joinMode ? 'joinGifts' : 'fixedGifts'; 
 
 function getTeam(side) { return side === 'A' ? pkCfg.teamA : pkCfg.teamB; }
 
-function creatorGiftUsage(exceptCreatorId = '') {
+// Quà mặc định đã dùng — CHỈ xét creator trong CÙNG NHÓM (khác nhóm dùng lại quà là hợp lệ,
+// không được ẩn xám). groupId truyền vào để lọc theo nhóm của creator đang sửa; nếu không truyền
+// thì theo nhóm đang chọn (activeGroupId), '' = TALENT SHOW xét tất cả.
+function creatorGiftUsage(exceptCreatorId = '', groupId = null) {
   const usedBy = {};
-  for (const c of creators) {
+  const scope = groupId != null
+    ? creators.filter(c => String(c.groupId || '') === String(groupId || ''))
+    : (activeGroupId ? creators.filter(c => c.groupId === activeGroupId) : creators);
+  for (const c of scope) {
     if (exceptCreatorId && c.id === exceptCreatorId) continue;
     if (c.defaultGiftId) usedBy[String(c.defaultGiftId)] = c.nickname || c.tiktokId || 'Creator';
   }
@@ -163,6 +197,9 @@ function soundNameFromValue(value) {
     return s.split(/[\\/]/).filter(Boolean).pop() || s;
   }
 }
+
+// Tên file KHÔNG kèm đuôi (mp3/wav/…): "Một hai ba.mp3" → "Một hai ba".
+function soundBaseName(value) { return soundNameFromValue(value).replace(/\.[^.\s\\/]+$/, ''); }
 
 function setSoundInput(id, value) {
   const input = $('#' + id);
@@ -487,6 +524,8 @@ const GiftPicker = (() => {
     const sort = $('#gpSort').value;
     const disabledIds = new Set((currentOpts.disabledIds || []).map(String));
     const excludeIds = new Set((currentOpts.excludeIds || []).map(String));
+    const priorityIds = new Set((currentOpts.priorityIds || []).map(String));
+    const priorityLabel = currentOpts.priorityLabel || '🎵';
     const usedBy = currentOpts.usedBy || {};
     filtered = giftMaster.filter(g => {
       if (excludeIds.has(String(g.id))) return false;
@@ -502,6 +541,8 @@ const GiftPicker = (() => {
       case 'id-asc': filtered.sort((a, b) => Number(a.id) - Number(b.id)); break;
     }
     filtered.sort((a, b) => Number(selectedIds.has(String(b.id))) - Number(selectedIds.has(String(a.id))));
+    // Quà ưu tiên (vd đã gán nhạc ở NHẠC DANCE) luôn lên ĐẦU danh sách.
+    if (priorityIds.size) filtered.sort((a, b) => Number(priorityIds.has(String(b.id))) - Number(priorityIds.has(String(a.id))));
     const grid = $('#gpGrid');
     if (filtered.length === 0) {
       grid.innerHTML = '<div class="gp-empty">Không tìm thấy quà phù hợp.</div>';
@@ -512,8 +553,10 @@ const GiftPicker = (() => {
       const id = String(g.id);
       const disabled = disabledIds.has(id);
       const selected = selectedIds.has(id);
+      const priority = priorityIds.has(id);
       return `
-      <div class="gp-item${disabled ? ' is-disabled' : ''}${selected ? ' is-selected' : ''}" data-id="${escapeAttr(g.id)}" title="${escapeAttr(g.name)}">
+      <div class="gp-item${disabled ? ' is-disabled' : ''}${selected ? ' is-selected' : ''}${priority ? ' is-priority' : ''}" data-id="${escapeAttr(g.id)}" title="${escapeAttr(g.name)}">
+        ${priority ? `<div class="gp-prio">${escapeHtml(priorityLabel)}</div>` : ''}
         ${g.icon ? `<img loading="lazy" src="${escapeAttr(g.icon)}" onerror="this.style.visibility='hidden'" />` : '<div style="width:56px;height:56px"></div>'}
         <div class="gp-iname">${escapeHtml(g.name)}</div>
         <div class="gp-iid">ID ${escapeHtml(g.id)}</div>
@@ -597,6 +640,1298 @@ async function loadGiftMaster() {
 // ============================================================
 // Init
 // ============================================================
+// ============================================================
+// DANH SÁCH NHẠC — quà → clip audio, hàng đợi phát, nhạc nền (Nhạc chờ)
+// ============================================================
+function clampVol01(v) { return Math.max(0, Math.min(1, (Number(v) || 0) / 100)); }
+function currentOutputDeviceId() { const el = $('#audioOutput'); return el && el.value ? el.value : 'default'; }
+
+// Nhạc nền = "Nhạc chờ" trong Cài đặt. Phát lặp; tạm dừng (duck) khi có clip quà phát.
+const WaitingMusic = (() => {
+  let audio = null, enabled = false, ducked = false, loadedSrc = '';
+  function ensure() { if (!audio) { audio = new Audio(); audio.loop = true; } return audio; }
+  function vol() { return clampVol01($('#waitingVolume')?.value ?? 100); }
+  async function applySink(a) { try { if (a.setSinkId) await a.setSinkId(currentOutputDeviceId()); } catch {} }
+  // Chỉ set src khi ĐỔI file → tránh reset currentTime (phát lại từ đầu).
+  function load() {
+    const s = soundValue('waitingSoundName'); if (!s) return false;
+    const url = filePathToUrl(s);
+    const a = ensure();
+    if (loadedSrc !== url) { a.src = url; loadedSrc = url; }
+    return true;
+  }
+  async function start() {
+    enabled = true; ducked = false;
+    if (!load()) return;
+    const a = ensure();
+    a.volume = vol();
+    await applySink(a);
+    a.play().catch(() => {});
+  }
+  function stop() { enabled = false; ducked = false; if (audio) { audio.pause(); try { audio.currentTime = 0; } catch {} } }
+  // Tạm dừng khi clip quà phát — GIỮ nguyên vị trí.
+  function duck() { if (!enabled || !audio) return; ducked = true; audio.pause(); }
+  // Phát TIẾP từ vị trí đang dừng (không set lại src → không từ đầu).
+  function unduck() {
+    if (!enabled) return;
+    ducked = false;
+    const a = ensure();
+    if (loadedSrc) { a.volume = vol(); a.play().catch(() => {}); }
+  }
+  function refreshVolume() { if (audio && !ducked) audio.volume = vol(); }
+  return { start, stop, duck, unduck, refreshVolume, isEnabled: () => enabled };
+})();
+
+// Bật/tắt nhạc nền — đồng bộ giữa nút "▶ Phát nhạc nền" (toolbar), checkbox và Play/Dừng Nhạc chờ.
+function startBgMusic() {
+  musicCfg.bgEnabled = true; scheduleMusicSave();
+  WaitingMusic.start();
+  updateBgControls();
+}
+function stopBgMusic() {
+  musicCfg.bgEnabled = false; scheduleMusicSave();
+  WaitingMusic.stop();
+  updateBgControls();
+}
+function updateBgControls() {
+  const on = WaitingMusic.isEnabled();
+  const cb = $('#mlBgEnabled'); if (cb) cb.checked = on;
+  const btn = $('#mlBgToggle');
+  if (btn) { btn.textContent = on ? '⏹ Nền' : '▶ Nền'; btn.classList.toggle('is-on', on); }
+}
+
+// ⏸ Ngưng/mở lại toàn bộ NHẠC DANCE (nhạc nền + clip biểu diễn) để dùng tính năng khác không bị tự phát.
+function setMusicPaused(paused) {
+  musicCfg.paused = !!paused;
+  scheduleMusicSave();
+  if (musicCfg.paused) {
+    WaitingMusic.stop();   // dừng nhạc nền (giữ nguyên bgEnabled để mở lại)
+    MusicQueue.stopAll();  // dừng clip đang phát + xóa hàng chờ
+  } else if (musicCfg.bgEnabled) {
+    WaitingMusic.start();  // mở lại nhạc nền nếu trước đó đang bật
+  }
+  updateMusicPausedUI();
+  updateBgControls();
+}
+function updateMusicPausedUI() {
+  const paused = !!musicCfg.paused;
+  const cb = $('#mlPaused'); if (cb) cb.checked = paused;
+  const panel = document.querySelector('.panel[data-panel="musiclist"]');
+  if (panel) panel.classList.toggle('ml-paused', paused);
+  // Khoá điều khiển nhạc nền khi đang ngưng.
+  ['mlBgToggle', 'mlBgEnabled'].forEach(id => { const el = $('#' + id); if (el) el.disabled = paused; });
+}
+
+// Báo cho STICKER DANCE để icon quà phóng to trong lúc phát hiệu ứng.
+// Cấu hình âm thanh MỞ MÀN đọc trực tiếp từ DOM (áp dụng ngay, không cần bấm Lưu).
+function preEffectCfg() {
+  return {
+    enabled: !!$('#preEffectEnabled')?.checked,
+    sound: soundValue('preEffectSoundName'),
+    volume: Number($('#preEffectVolume')?.value) || 0,
+  };
+}
+function signalStickerStart(giftId) { window.api.stickerdance.signal({ type: 'perform-start', giftId }).catch(() => {}); }
+function signalStickerEnd(giftId) { window.api.stickerdance.signal({ type: 'perform-end', giftId }).catch(() => {}); }
+// Đẩy số lượt còn trong hàng đợi (theo giftId) cho STICKER DANCE để chế độ "Đếm lùi" khớp với "Đang chờ".
+function pushStickerQueueCounts(st) {
+  st = st || MusicQueue.state();
+  const pending = {};
+  const add = (it) => { if (it && it.giftId) pending[it.giftId] = (pending[it.giftId] || 0) + 1; };
+  add(st.current);
+  for (const it of st.waiting) add(it);
+  window.api.stickerdance.signal({ type: 'queue', pending }).catch(() => {});
+}
+
+// Hàng đợi hiệu ứng: phát lần lượt. Mỗi ĐƠN VỊ quà = 1 lượt phát (combo x5 → 5 lượt) để STICKER DANCE
+// đếm lùi khớp với số quà đã nhận. Giữ metadata (tên/icon) để hiển thị "đang phát" + "hàng chờ".
+const MusicQueue = (() => {
+  const q = [];              // hàng chờ: {uid, giftId, giftName, icon, name, audioPath, volume}
+  let audio = null, pre = null, current = null, playing = false, seq = 0;
+  let onChange = () => {};
+  // GIỮ CHUỖI: mỗi giftId có "mốc hết máu" (ms). Tặng quà → làm đầy lại; cạn dần theo thời lượng.
+  const streaks = new Map(); // giftId -> mốc hết chuỗi (Date.now ms)
+  function streakGameOn() { return !!(typeof stickerCfg !== 'undefined' && stickerCfg && stickerCfg.streakEnabled); }
+  function stealOn() { return streakGameOn() && stickerCfg && stickerCfg.streakSteal !== false; }
+  function streakMs() { return Math.max(1, Math.min(120, Number(stickerCfg?.streakSeconds) || 10)) * 1000; }
+  function refreshStreak(giftId) { if (!giftId) return; streaks.set(String(giftId), Date.now() + streakMs()); pushStreakState(); }
+  function pushStreakState() {
+    const obj = {}; streaks.forEach((v, k) => { obj[k] = v; });
+    window.api.stickerdance.signal({ type: 'streak', streaks: obj }).catch(() => {});
+  }
+  // Chọn lượt phát kế tiếp. GIỮ CHUỖI: ưu tiên quà CÒN MÁU, giữa chúng lấy quà nhiều clip chờ nhất
+  // (hoà → còn máu lâu hơn). Không quà nào còn máu → phát bình thường (FIFO). Tắt game → FIFO.
+  function pickNext() {
+    if (!q.length) return null;
+    if (!streakGameOn()) return q.shift();
+    const now = Date.now();
+    const groups = new Map(); // giftId -> {count, until}
+    for (const it of q) {
+      const g = String(it.giftId);
+      const e = groups.get(g) || { count: 0, until: streaks.get(g) || 0 };
+      e.count++; groups.set(g, e);
+    }
+    // 1) Ưu tiên quà CÒN MÁU: nhiều clip chờ nhất (hoà → còn máu lâu hơn).
+    let best = null;
+    for (const [g, e] of groups) {
+      if (e.until <= now) continue; // hết máu → chưa xét ở vòng này
+      if (!best || e.count > best.count || (e.count === best.count && e.until > best.until)) best = { g, ...e };
+    }
+    // 2) Không quà nào còn máu → ÉP phát quà có SỐ LƯỢNG lớn nhất (hoà → còn máu lâu hơn, rồi thứ tự hàng chờ).
+    if (!best) {
+      for (const [g, e] of groups) {
+        if (!best || e.count > best.count || (e.count === best.count && e.until > best.until)) best = { g, ...e };
+      }
+    }
+    const i = q.findIndex(it => String(it.giftId) === best.g);
+    return q.splice(i, 1)[0];
+  }
+  // CƯỚP CHUỖI: đang phát quà A, nếu quà B (còn máu, khác A) vượt số lượng → cắt ngang, BỎ A hiện tại,
+  // nhảy sang B ngay. Cũng cướp nếu A đã hết máu mà B còn máu. Gọi mỗi khi có quà mới vào hàng.
+  function trySteal() {
+    if (!stealOn() || !playing || !current) return;
+    const now = Date.now();
+    const counts = new Map();
+    for (const it of q) { const g = String(it.giftId); counts.set(g, (counts.get(g) || 0) + 1); }
+    const curG = String(current.giftId);
+    const curAlive = (streaks.get(curG) || 0) > now;
+    const curCount = (counts.get(curG) || 0) + 1; // +1 cho item đang phát (tránh bị cướp khi hoà)
+    let ch = null; // challenger: quà CÒN MÁU, khác quà đang phát, nhiều clip nhất
+    for (const [g, cnt] of counts) {
+      if (g === curG) continue;
+      const until = streaks.get(g) || 0;
+      if (until <= now) continue;
+      if (!ch || cnt > ch.count || (cnt === ch.count && until > ch.until)) ch = { g, count: cnt, until };
+    }
+    if (!ch) return;
+    if (curAlive && ch.count <= curCount) return; // A còn máu và không thua số lượng → giữ nguyên
+    if (audio) { try { audio.pause(); } catch {} }   // cắt nhạc A; step() sẽ bỏ A hiện tại + chọn B (max còn máu)
+    step();
+  }
+  function ensure() { if (!audio) { audio = new Audio(); audio.addEventListener('ended', step); } return audio; }
+  function enqueue(item) {
+    // Trần 1000 khớp với ô nhập "▶ DS" & repeatCount thực tế — KHÔNG chặn ở 50, kẻo hàng đợi
+    // (và số đếm lùi trên OBS) bị kẹt ở 50 khi tặng/bấm thử > 50 quà.
+    const plays = Math.max(1, Math.min(1000, Number(item.plays) || 1));
+    // Nhiều file nhạc → MỖI lượt phát bốc NGẪU NHIÊN 1 file; lưu luôn tên file (bỏ đuôi) cho hàng đợi hiển thị.
+    const pool = Array.isArray(item.audios) && item.audios.length ? item.audios : (item.audioPath ? [item.audioPath] : []);
+    for (let i = 0; i < plays; i++) {
+      const ap = pool.length ? pool[Math.floor(Math.random() * pool.length)] : '';
+      q.push({ uid: 'q' + (++seq), giftId: String(item.giftId || ''), giftName: item.giftName || '', icon: item.icon || '', name: item.name || item.giftName || '', audioPath: ap, audioName: soundBaseName(ap), volume: item.volume });
+    }
+    if (streakGameOn()) refreshStreak(String(item.giftId || '')); // tặng quà → làm đầy máu chuỗi
+    notify();
+    if (!playing) step();
+    else trySteal(); // đang phát → kiểm tra cướp chuỗi
+  }
+  async function step() {
+    stopPre(); // dừng âm thanh mở màn cũ (nếu đang phát)
+    if (current) { signalStickerEnd(current.giftId); current = null; }
+    const item = pickNext();
+    if (!item) { playing = false; WaitingMusic.unduck(); notify(); return; }
+    playing = true; current = item;
+    if (musicCfg.duckWaiting !== false) WaitingMusic.duck();
+    signalStickerStart(item.giftId);
+    notify();
+    // Âm thanh MỞ MÀN (áp dụng toàn bộ): phát trước, xong mới tới clip biểu diễn.
+    const pe = preEffectCfg();
+    if (pe.enabled && pe.sound) playIntro(pe, () => playClip(item));
+    else playClip(item);
+  }
+  async function playClip(item) {
+    const a = ensure();
+    try { if (a.setSinkId) await a.setSinkId(currentOutputDeviceId()); } catch {}
+    if (current !== item) return; // đã bị chuyển lượt (skip/cướp) trong lúc chờ → bỏ
+    a.src = filePathToUrl(item.audioPath);
+    a.volume = clampVol01(item.volume);
+    try { a.currentTime = 0; } catch {}
+    a.play().catch(() => step());
+  }
+  function ensurePre() { if (!pre) pre = new Audio(); return pre; }
+  function stopPre() { if (pre) { try { pre.onended = null; pre.onerror = null; pre.pause(); } catch {} } }
+  function playIntro(pe, onDone) {
+    const p = ensurePre();
+    try { if (p.setSinkId) p.setSinkId(currentOutputDeviceId()); } catch {}
+    p.src = filePathToUrl(pe.sound);
+    p.volume = clampVol01(pe.volume);
+    try { p.currentTime = 0; } catch {}
+    let done = false;
+    const go = () => { if (done) return; done = true; onDone(); };
+    p.onended = go; p.onerror = go;
+    p.play().catch(go);
+  }
+  function skipCurrent() { stopPre(); if (audio) audio.pause(); step(); }     // bỏ cái đang phát → sang cái kế
+  // 🎲 XÚC XẮC: xáo trộn NGẪU NHIÊN thứ tự hàng chờ (Fisher–Yates) để các quà giống nhau không
+  // dồn 1 cụm — ví dụ 6 AMY liền nhau sẽ được trộn xen kẽ với CoCo/HARLEY/… Giữ nguyên cái đang phát.
+  function shuffle() { for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; } notify(); }
+  function clearAll() { q.length = 0; notify(); }                  // xóa toàn bộ hàng chờ (giữ cái đang phát)
+  // Ngưng hẳn: dừng clip đang phát + âm mở màn, xóa hàng chờ, thả duck nhạc nền.
+  function stopAll() {
+    q.length = 0;
+    stopPre();
+    if (audio) { try { audio.pause(); } catch {} }
+    if (current) { signalStickerEnd(current.giftId); }
+    current = null; playing = false;
+    WaitingMusic.unduck();
+    notify();
+  }
+  function clearCount(n) { q.splice(0, Math.max(0, Number(n) || 0)); notify(); }  // xóa N cái đầu hàng chờ
+  function removeUid(uid) { const i = q.findIndex(x => x.uid === uid); if (i >= 0) { q.splice(i, 1); notify(); } }
+  function state() { return { current, waiting: q.slice(), total: q.length }; }
+  function setOnChange(fn) { onChange = fn || (() => {}); }
+  function notify() { try { onChange(state()); } catch {} }
+  return { enqueue, skipCurrent, shuffle, clearAll, stopAll, clearCount, removeUid, state, setOnChange, pushStreak: pushStreakState };
+})();
+
+const MusicList = {
+  onGift(d) {
+    if (musicCfg.paused) return; // ⏸ NHẠC DANCE đang ngưng → không phát clip biểu diễn
+    if (!musicItems.length) return;
+    const gid = String(d.giftId || ''), gname = String(d.giftName || '').toLowerCase();
+    const item = musicItems.find(m => String(m.giftId) === gid || (m.giftName && String(m.giftName).toLowerCase() === gname));
+    if (!item || !item.audioPath) return;
+    MusicQueue.enqueue({ giftId: item.giftId, giftName: item.giftName, icon: item.icon, name: item.name, audios: item.audios, audioPath: item.audioPath, volume: item.volume, plays: Math.max(1, Number(d.repeatCount) || 1) });
+  },
+};
+
+function normalizeMusicItem(m) {
+  // Hỗ trợ NHIỀU file nhạc cho 1 quà (audios[]). Giữ audioPath = file đầu để tương thích code cũ + hiển thị.
+  let audios = Array.isArray(m.audios) ? m.audios.map(x => String(x || '')).filter(Boolean) : [];
+  if (!audios.length && m.audioPath) audios = [String(m.audioPath)];
+  return {
+    giftId: String(m.giftId || ''), giftName: m.giftName || '', icon: m.icon || '',
+    diamond: Number(m.diamond) || 0, audios, audioPath: audios[0] || '',
+    name: m.name || m.giftName || '',
+    volume: Number.isFinite(Number(m.volume)) ? Number(m.volume) : 100,
+    qty: clampInt(m.qty, 1, 1, 1000),
+  };
+}
+function musicNameFor(giftId) { const m = musicItems.find(x => String(x.giftId) === String(giftId)); return m ? (m.name || m.giftName || '') : ''; }
+// Đồng bộ TÊN 2 chiều giữa 🎵 NHẠC DANCE (m.name) và ✨ Sticker Dance (cell.text) theo cùng giftId.
+// Cập nhật thẳng vào DOM ô đối diện (không re-render) để không mất focus khi đang gõ.
+function syncNameToSticker(giftId, name) {
+  if (!stickerCfg || !Array.isArray(stickerCfg.cells)) return;
+  let changed = false;
+  stickerCfg.cells.forEach(cell => {
+    if (String(cell.giftId) === String(giftId) && cell.text !== name) {
+      cell.text = name; changed = true;
+      const el = $(`.sd-e-cell[data-row="${cell.row}"][data-col="${cell.col}"] .sd-e-text`);
+      if (el && el.value !== name) el.value = name;
+    }
+  });
+  if (changed) scheduleStickerSave();
+}
+function syncNameToMusic(giftId, name) {
+  let changed = false;
+  musicItems.forEach((m, i) => {
+    if (String(m.giftId) === String(giftId) && m.name !== name) {
+      m.name = name; changed = true;
+      const el = $(`.ml-row[data-i="${i}"] .ml-name`);
+      if (el && el.value !== name) el.value = name;
+    }
+  });
+  if (changed) scheduleMusicSave();
+}
+async function loadMusicListConfig() {
+  const st = await window.api.musiclist.getState().catch(() => null);
+  musicItems = Array.isArray(st?.items) ? st.items.map(normalizeMusicItem) : [];
+  musicCfg = { duckWaiting: st?.duckWaiting !== false, bgEnabled: !!st?.bgEnabled, paused: !!st?.paused, displayLimit: clampInt(st?.displayLimit, 50, 1, 500) };
+  musicBaseItems = musicItems.map(normalizeMusicItem); // chốt danh sách gốc TALENT SHOW
+  musicGroupId = '';
+}
+// File gốc (music-list.json) LUÔN giữ danh sách TALENT SHOW + các cờ chung; danh sách riêng của
+// nhóm lưu trong hồ sơ nhóm (groupProfiles[gid].music).
+function collectMusicCfg() {
+  const items = musicGroupId ? (musicBaseItems || []) : musicItems;
+  return { items, duckWaiting: musicCfg.duckWaiting, bgEnabled: musicCfg.bgEnabled, paused: musicCfg.paused, displayLimit: musicCfg.displayLimit };
+}
+let musicSaveTimer = null;
+function scheduleMusicSave() {
+  clearTimeout(musicSaveTimer);
+  musicSaveTimer = setTimeout(() => {
+    // Đang ở nhóm → lưu danh sách quà vào hồ sơ nhóm; cờ chung + danh sách gốc vẫn ghi file gốc.
+    if (musicGroupId) saveGroupProfilePatch(musicGroupId, { music: musicItems.map(normalizeMusicItem) });
+    else musicBaseItems = musicItems.map(normalizeMusicItem);
+    window.api.musiclist.setConfig(collectMusicCfg()).catch(() => {});
+  }, 250);
+}
+// Đổi nhóm đang chọn → chốt danh sách hiện tại, nạp danh sách của nhóm mới.
+// Nhóm chưa có hồ sơ → TỰ THÊM quà mặc định của các Creator trong nhóm (như bấm 👤 Creator).
+// Nhóm đã có hồ sơ → nạp lại, đồng thời bổ sung Creator mới chưa có trong danh sách.
+function musicItemsForGroup(groupId) {
+  const prof = getGroupProfile(groupId).music;
+  const items = Array.isArray(prof) ? prof.map(normalizeMusicItem) : [];
+  const members = (creators || []).filter(c => String(c.groupId || '') === String(groupId || ''));
+  for (const c of members) {
+    if (!c.defaultGiftId && !c.defaultGiftName) continue;
+    const gid = String(c.defaultGiftId || '');
+    if (gid && items.some(m => String(m.giftId) === gid)) continue; // tránh trùng quà
+    const cname = c.nickname || c.tiktokId || 'Creator';
+    const base = gid ? (musicBaseItems || []).find(m => String(m.giftId) === gid) : null;
+    items.push(normalizeMusicItem({
+      giftId: gid, giftName: c.defaultGiftName, icon: c.defaultGiftIcon, name: cname,
+      audios: base?.audios, volume: base?.volume, // kế thừa nhạc/âm lượng nếu quà này đã gán ở bản gốc
+    }));
+  }
+  return items;
+}
+function switchMusicGroup(newId) {
+  newId = newId || '';
+  if (newId === musicGroupId) { renderMusicList(); return; }
+  clearTimeout(musicSaveTimer);
+  // Chốt danh sách hiện tại vào đúng nơi lưu trước khi rời.
+  if (musicGroupId) saveGroupProfilePatch(musicGroupId, { music: musicItems.map(normalizeMusicItem) });
+  else musicBaseItems = musicItems.map(normalizeMusicItem);
+  // Nạp danh sách của nhóm mới (hoặc quay về danh sách gốc TALENT SHOW).
+  musicItems = newId ? musicItemsForGroup(newId) : (musicBaseItems || []).map(normalizeMusicItem);
+  musicGroupId = newId;
+  renderMusicList();
+  scheduleMusicSave(); // lưu danh sách vừa tự-thêm vào hồ sơ nhóm
+}
+
+let musicPreviewAudio = null;
+let musicPreviewGift = '';
+// Nghe thử clip quà: tắt (duck) nhạc nền như khi tặng quà + PHÓNG TO icon bên Sticker Dance,
+// nghe xong phát lại nhạc nền và thu nhỏ icon.
+function previewMusic(m) {
+  const pool = Array.isArray(m.audios) && m.audios.length ? m.audios : (m.audioPath ? [m.audioPath] : []);
+  if (!pool.length) { toast('Chưa chọn file âm thanh', 'error'); return; }
+  stopPreviewMusic();
+  if (musicCfg.duckWaiting !== false) WaitingMusic.duck();
+  musicPreviewGift = String(m.giftId || '');
+  if (musicPreviewGift) signalStickerStart(musicPreviewGift);
+  const done = () => {
+    WaitingMusic.unduck();
+    if (musicPreviewGift) { signalStickerEnd(musicPreviewGift); musicPreviewGift = ''; }
+  };
+  musicPreviewAudio = new Audio(filePathToUrl(pool[Math.floor(Math.random() * pool.length)]));
+  musicPreviewAudio.volume = clampVol01(m.volume);
+  musicPreviewAudio.addEventListener('ended', done);
+  musicPreviewAudio.addEventListener('error', done);
+  musicPreviewAudio.play().catch(() => { done(); toast('Không phát được âm thanh này', 'error'); });
+}
+function stopPreviewMusic() {
+  if (musicPreviewAudio) { musicPreviewAudio.pause(); musicPreviewAudio = null; WaitingMusic.unduck(); }
+  if (musicPreviewGift) { signalStickerEnd(musicPreviewGift); musicPreviewGift = ''; }
+}
+
+function renderMusicList() {
+  const list = $('#mlList'); if (!list) return;
+  if ($('#mlEmpty')) $('#mlEmpty').hidden = musicItems.length > 0;
+  list.innerHTML = musicItems.map((m, i) => {
+    const audios = Array.isArray(m.audios) ? m.audios : [];
+    const audioTitle = audios.length ? audios.map(a => soundBaseName(a)).join('\n') : 'Chưa có nhạc — bấm để chọn';
+    const firstName = audios.length ? soundBaseName(audios[0]) : '';
+    const audioLabel = audios.length
+      ? (audios.length === 1 ? `🎵 ${escapeHtml(firstName)}` : `🎵 ${escapeHtml(firstName)} +${audios.length - 1}`)
+      : '🎵 Chọn nhạc';
+    return `
+    <div class="ml-row${audios.length ? '' : ' no-audio'}" data-i="${i}">
+      <img class="ml-icon" src="${escapeAttr(m.icon || '../logo/hp-logo.png')}" onerror="this.style.visibility='hidden'" />
+      <div class="ml-main">
+        <div class="ml-head">
+          <b class="ml-gift" title="${escapeAttr(m.giftName || ('ID ' + m.giftId))}">${escapeHtml(m.giftName || ('ID ' + m.giftId))}</b>
+          <small class="ml-meta">ID ${escapeHtml(m.giftId)} · 🪙${escapeHtml(String(m.diamond || 0))}${audios.length > 1 ? ` · 🎲 ${audios.length} nhạc` : ''}</small>
+        </div>
+        <div class="ml-fields">
+          <input class="ml-name" type="text" placeholder="Tên hiển thị…" value="${escapeAttr(m.name || '')}" title="Tên này dùng làm nhãn ở Sticker Dance (đồng bộ 2 chiều)" />
+          <button class="ml-audio-btn${audios.length ? '' : ' no-audio'}" type="button" title="${escapeAttr(audioTitle)}"><span class="ml-audio-btn-label">${audioLabel}</span><span class="ml-audio-btn-caret">⚙</span></button>
+        </div>
+      </div>
+      <div class="ml-side">
+        <label class="ml-vol" title="Âm lượng clip">🔊<input type="range" class="ml-vol-input" min="0" max="100" value="${Number(m.volume) || 100}" /></label>
+        <div class="ml-enq">
+          <input class="ml-qty" type="number" min="1" max="1000" value="${clampInt(m.qty, 1, 1, 1000)}" title="Số lượng đưa vào danh sách phát (được ghi nhớ)" />
+          <button class="ghost tiny ml-add" type="button" title="Đưa quà này vào danh sách để phát">▶ DS</button>
+        </div>
+        <button class="ghost tiny danger ml-del" type="button" title="Xóa khỏi danh sách">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.ml-row').forEach(row => {
+    const i = Number(row.dataset.i), m = musicItems[i];
+    if (!m) return;
+    row.querySelector('.ml-name').addEventListener('input', (e) => { m.name = e.target.value; syncNameToSticker(m.giftId, m.name); scheduleMusicSave(); });
+    row.querySelector('.ml-audio-btn').addEventListener('click', () => openAudioModal(m));
+    row.querySelector('.ml-qty').addEventListener('change', (e) => { m.qty = clampInt(e.target.value, 1, 1, 1000); e.target.value = m.qty; scheduleMusicSave(); });
+    row.querySelector('.ml-add').addEventListener('click', () => enqueueFromRow(m, row.querySelector('.ml-qty').value));
+    row.querySelector('.ml-vol-input').addEventListener('input', (e) => { m.volume = Number(e.target.value) || 0; scheduleMusicSave(); });
+    row.querySelector('.ml-del').addEventListener('click', async () => {
+      const nameShown = m.name || m.giftName || ('ID ' + m.giftId);
+      const ok = await window.api.shell.confirm({ title: 'Xóa quà', message: `Xóa "${nameShown}" khỏi danh sách nhạc?`, detail: 'Hành động này không thể hoàn tác.' });
+      if (!ok) return;
+      musicItems.splice(i, 1); renderMusicList(); scheduleMusicSave();
+    });
+  });
+}
+// Popup quản lý danh sách nhạc của 1 quà (gọn hơn khi có nhiều file): thêm / nghe thử / xoá từng file.
+let audioModalPreview = null;
+function stopAudioModalPreview() { if (audioModalPreview) { try { audioModalPreview.pause(); } catch {} audioModalPreview = null; } }
+function openAudioModal(m) {
+  stopAudioModalPreview();
+  const overlay = document.createElement('div');
+  overlay.className = 'ml-modal-overlay';
+  const giftLabel = m.giftName || ('ID ' + m.giftId);
+  overlay.innerHTML = `
+    <div class="ml-modal" role="dialog" aria-modal="true">
+      <div class="ml-modal-head">
+        <img src="${escapeAttr(m.icon || '../logo/hp-logo.png')}" onerror="this.style.visibility='hidden'" />
+        <div class="ml-modal-title"><b>${escapeHtml(m.name || giftLabel)}</b><small>Danh sách nhạc — mỗi lượt phát ngẫu nhiên 1 file</small></div>
+        <button class="ml-modal-close" type="button" title="Đóng">✕</button>
+      </div>
+      <div class="ml-modal-list"></div>
+      <div class="ml-modal-foot">
+        <button class="ml-modal-add primary" type="button">＋ Thêm nhạc</button>
+        <span class="ml-modal-hint hint"></span>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const listEl = overlay.querySelector('.ml-modal-list');
+  const hintEl = overlay.querySelector('.ml-modal-hint');
+  function refresh() {
+    const audios = m.audios || [];
+    hintEl.textContent = audios.length ? `${audios.length} file` : 'Chưa có nhạc';
+    listEl.innerHTML = audios.length
+      ? audios.map((a, ai) => `<div class="ml-modal-item" data-ai="${ai}">
+          <span class="ml-modal-ic">🎵</span>
+          <span class="ml-modal-name" title="${escapeAttr(soundNameFromValue(a))}">${escapeHtml(soundBaseName(a))}</span>
+          <button class="ml-modal-play ghost tiny" type="button" title="Nghe thử">▶</button>
+          <button class="ml-modal-del ghost tiny danger" type="button" title="Bỏ file">✕</button>
+        </div>`).join('')
+      : '<div class="ml-modal-empty">Chưa có file nhạc nào. Bấm “＋ Thêm nhạc”.</div>';
+    listEl.querySelectorAll('.ml-modal-play').forEach(btn => btn.addEventListener('click', () => {
+      const ai = Number(btn.closest('.ml-modal-item').dataset.ai);
+      stopAudioModalPreview();
+      audioModalPreview = new Audio(filePathToUrl(m.audios[ai]));
+      audioModalPreview.volume = clampVol01(m.volume);
+      audioModalPreview.play().catch(() => toast('Không phát được file này', 'error'));
+    }));
+    listEl.querySelectorAll('.ml-modal-del').forEach(btn => btn.addEventListener('click', () => {
+      const ai = Number(btn.closest('.ml-modal-item').dataset.ai);
+      m.audios.splice(ai, 1); m.audioPath = m.audios[0] || '';
+      scheduleMusicSave(); renderMusicList(); refresh();
+    }));
+  }
+  overlay.querySelector('.ml-modal-add').addEventListener('click', async () => {
+    const files = await window.api.shell.pickAudios();
+    if (!Array.isArray(files) || !files.length) return;
+    m.audios = [...(m.audios || []), ...files.map(filePathToUrl)];
+    m.audioPath = m.audios[0] || '';
+    scheduleMusicSave(); renderMusicList(); refresh();
+    toast(`Đã thêm ${files.length} nhạc`, 'success');
+  });
+  const closeModal = () => { stopAudioModalPreview(); overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') closeModal(); };
+  overlay.querySelector('.ml-modal-close').addEventListener('click', closeModal);
+  overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', onKey);
+  refresh();
+}
+
+// Đưa N lượt phát của 1 quà vào hàng đợi hiệu ứng (phát qua MusicQueue: duck nhạc nền + phóng to icon Sticker).
+function enqueueFromRow(m, qty) {
+  if (!m.audioPath) { toast('Quà này chưa chọn file nhạc', 'error'); return; }
+  const n = clampInt(qty, 1, 1, 1000);
+  MusicQueue.enqueue({ giftId: m.giftId, giftName: m.giftName, icon: m.icon, name: m.name, audios: m.audios, audioPath: m.audioPath, volume: m.volume, plays: n });
+  toast(`Đã đưa ${n}× "${m.name || m.giftName || m.giftId}" vào danh sách phát`, 'success');
+}
+
+// ---- Hàng đợi hiệu ứng: "đang phát" + "hàng chờ" (giới hạn hiển thị tránh lag) ----
+function mlqItemHtml(it, cls) {
+  const label = it.name || it.giftName || ('ID ' + it.giftId);
+  const file = it.audioName || soundBaseName(it.audioPath);
+  return `<div class="mlq-item ${cls}" data-uid="${escapeAttr(it.uid || '')}">
+    <img src="${escapeAttr(it.icon || '../logo/hp-logo.png')}" onerror="this.style.visibility='hidden'" />
+    <span class="mlq-name">${escapeHtml(label)}</span>
+    ${file ? `<span class="mlq-file" title="${escapeAttr(file)}">🎵 ${escapeHtml(file)}</span>` : ''}
+    ${cls === 'wait' ? '<button class="mlq-x" type="button" title="Xóa khỏi hàng chờ">✕</button>' : '<em class="mlq-live">Đang phát</em>'}
+  </div>`;
+}
+function renderMusicQueue(st) {
+  st = st || MusicQueue.state();
+  const cur = $('#mlqCurrent'), listEl = $('#mlqList'), countEl = $('#mlqCount');
+  if (!listEl) return;
+  const limit = clampInt(musicCfg.displayLimit, 50, 1, 500);
+  if (cur) cur.innerHTML = st.current ? mlqItemHtml(st.current, 'live') : '<div class="mlq-idle">Chưa có hiệu ứng nào đang phát.</div>';
+  const shown = st.waiting.slice(0, limit);
+  const extra = st.total - shown.length;
+  listEl.innerHTML = shown.map(it => mlqItemHtml(it, 'wait')).join('')
+    + (extra > 0 ? `<div class="mlq-more">+${extra} quà nữa đang chờ…</div>` : '');
+  if (countEl) countEl.textContent = `Đang chờ: ${st.total}`;
+  pushStickerQueueCounts(st);
+  listEl.querySelectorAll('.mlq-item.wait .mlq-x').forEach(btn => {
+    btn.addEventListener('click', () => { MusicQueue.removeUid(btn.closest('.mlq-item').dataset.uid); });
+  });
+  const skip = $('#mlqSkip'); if (skip) skip.disabled = !st.current;
+}
+function updateMusicBgHint() {
+  const el = $('#mlBgHint'); if (!el) return;
+  const name = soundNameFromValue(soundValue('waitingSoundName'));
+  el.textContent = name ? ('Nhạc nền hiện tại: ' + name) : '⚠ Chưa chọn "Nhạc chờ" trong Cài đặt → nhạc nền sẽ không phát.';
+}
+function wireMusicListTab() {
+  $('#mlAddGift')?.addEventListener('click', async () => {
+    const g = await GiftPicker.open({ title: '🎵 Chọn quà cho danh sách nhạc', excludeIds: musicItems.map(m => m.giftId) });
+    if (!g) return;
+    musicItems.push(normalizeMusicItem({ giftId: g.id, giftName: g.name, icon: g.icon, diamond: g.diamond }));
+    renderMusicList(); scheduleMusicSave();
+  });
+  // Thêm quà mặc định của từng Creator vào NHẠC DANCE, đặt TÊN theo Creator đó.
+  $('#mlAddCreators')?.addEventListener('click', () => {
+    const list = (typeof visibleCreators === 'function' ? visibleCreators() : creators) || [];
+    let added = 0;
+    for (const c of list) {
+      if (!c.defaultGiftId && !c.defaultGiftName) continue;
+      const gid = String(c.defaultGiftId || '');
+      if (gid && musicItems.some(m => String(m.giftId) === gid)) continue; // tránh trùng quà
+      const cname = c.nickname || c.tiktokId || 'Creator';
+      musicItems.push(normalizeMusicItem({ giftId: gid, giftName: c.defaultGiftName, icon: c.defaultGiftIcon, name: cname }));
+      added++;
+    }
+    if (added) { renderMusicList(); scheduleMusicSave(); toast(`Đã thêm ${added} quà mặc định từ Creator`, 'success'); }
+    else toast('Không có quà mặc định mới để thêm (có thể đã thêm rồi)', '');
+  });
+  $('#mlBgToggle')?.addEventListener('click', () => { WaitingMusic.isEnabled() ? stopBgMusic() : startBgMusic(); });
+  $('#mlBgEnabled')?.addEventListener('change', (e) => { e.target.checked ? startBgMusic() : stopBgMusic(); });
+  $('#mlDuck')?.addEventListener('change', (e) => { musicCfg.duckWaiting = e.target.checked; scheduleMusicSave(); });
+  $('#mlPaused')?.addEventListener('change', (e) => setMusicPaused(e.target.checked));
+  $('#waitingVolume')?.addEventListener('input', () => WaitingMusic.refreshVolume());
+  if ($('#mlDuck')) $('#mlDuck').checked = musicCfg.duckWaiting !== false;
+  updateMusicPausedUI();
+  // Hàng đợi hiệu ứng
+  MusicQueue.setOnChange(renderMusicQueue);
+  if ($('#mlqLimit')) {
+    $('#mlqLimit').value = clampInt(musicCfg.displayLimit, 50, 1, 500);
+    $('#mlqLimit').addEventListener('input', (e) => { musicCfg.displayLimit = clampInt(e.target.value, 50, 1, 500); scheduleMusicSave(); renderMusicQueue(); });
+  }
+  $('#mlqClearAll')?.addEventListener('click', () => { MusicQueue.clearAll(); toast('Đã xóa toàn bộ hàng chờ', 'success'); });
+  $('#mlqClearN')?.addEventListener('click', () => { const n = clampInt($('#mlqClearNum')?.value, 10, 1, 100000); MusicQueue.clearCount(n); toast(`Đã xóa ${n} quà đầu hàng chờ`, 'success'); });
+  $('#mlqSkip')?.addEventListener('click', () => MusicQueue.skipCurrent());
+  $('#mlqShuffle')?.addEventListener('click', () => { MusicQueue.shuffle(); toast('🎲 Đã xáo trộn thứ tự hàng chờ', 'success'); });
+  updateMusicBgHint();
+  renderMusicList();
+  renderMusicQueue();
+  if (!musicCfg.paused && musicCfg.bgEnabled) WaitingMusic.start();
+  updateBgControls();
+}
+
+// ============================================================
+// STICKER DANCE — bảng lưới quà (cấu hình + kéo-thả)
+// ============================================================
+function clampInt(v, def, min, max) { let n = Math.round(Number(v)); if (!Number.isFinite(n)) n = def; return Math.max(min, Math.min(max, n)); }
+function normalizeStickerCfg(c) {
+  c = c || {};
+  return {
+    content: c.content || 'STICKER DANCE',
+    rows: clampInt(c.rows, 3, 1, 12), cols: clampInt(c.cols, 6, 1, 12),
+    countMode: c.countMode === 'countdown' ? 'countdown' : 'cumulative',
+    labelPos: c.labelPos === 'top' ? 'top' : 'bottom',
+    cells: Array.isArray(c.cells) ? c.cells.map(x => ({
+      row: Number(x.row) || 0, col: Number(x.col) || 0, giftId: String(x.giftId || ''),
+      giftName: x.giftName || '', icon: x.icon || '', diamond: Number(x.diamond) || 0, text: x.text || '',
+      target: Math.max(0, Number(x.target) || 0), special: !!x.special,
+    })) : [],
+    bg: /^#[0-9a-f]{6}$/i.test(c.bg) ? c.bg : '#2b2f3a',
+    bgOpacity: clampInt(c.bgOpacity, 55, 0, 100),
+    iconSize: clampInt(c.iconSize, 66, 36, 140),
+    textSize: clampInt(c.textSize, 14, 8, 40),
+    overlayScale: clampInt(c.overlayScale, 100, 20, 400),
+    gap: clampInt(c.gap, 14, 0, 80),
+    colGap: clampInt(c.colGap, clampInt(c.gap, 14, 0, 80), 0, 120),
+    rowGap: clampInt(c.rowGap, clampInt(c.gap, 14, 0, 80), -120, 120),
+    animIcon: c.animIcon !== false,
+    enlargeTop: c.enlargeTop !== false,
+    perfBg: ['none', 'gold', 'pink', 'blue', 'dark'].includes(c.perfBg) ? c.perfBg : 'gold',
+    perfBorder: ['none', 'glow', 'neon', 'rainbow', 'ring'].includes(c.perfBorder) ? c.perfBorder : 'glow',
+    perfSparkle: !!c.perfSparkle,
+    perfRipple: !!c.perfRipple,
+    perfShine: !!c.perfShine,
+    perfNotes: !!c.perfNotes,
+    showMedals: c.showMedals !== false,
+    showPerfBanner: c.showPerfBanner !== false,
+    showCrown: c.showCrown !== false,
+    showLevelUp: c.showLevelUp !== false,
+    eggWhenZero: c.eggWhenZero !== false,
+    eggSize: clampInt(c.eggSize, 85, 40, 140),
+    eggSkin: ['ivory', 'gold', 'pink', 'blue', 'dino'].includes(c.eggSkin) ? c.eggSkin : 'ivory',
+    eggSkinRandom: !!c.eggSkinRandom,
+    streakEnabled: !!c.streakEnabled,
+    streakSeconds: clampInt(c.streakSeconds, 10, 1, 120),
+    streakSteal: c.streakSteal !== false,
+    streakBarColor: ['tiktok', 'blue', 'health'].includes(c.streakBarColor) ? c.streakBarColor : 'tiktok',
+  };
+}
+// Gói chủ đề: set nhanh cả bộ hiệu ứng ô đang biểu diễn.
+const STICKER_PRESETS = {
+  party:   { perfBg: 'pink', perfBorder: 'rainbow', perfSparkle: true,  perfRipple: true,  perfShine: false, perfNotes: true  },
+  luxury:  { perfBg: 'gold', perfBorder: 'glow',    perfSparkle: true,  perfRipple: false, perfShine: true,  perfNotes: false },
+  neon:    { perfBg: 'dark', perfBorder: 'neon',    perfSparkle: false, perfRipple: true,  perfShine: true,  perfNotes: false },
+  music:   { perfBg: 'blue', perfBorder: 'ring',    perfSparkle: true,  perfRipple: false, perfShine: false, perfNotes: true  },
+  minimal: { perfBg: 'none', perfBorder: 'glow',    perfSparkle: false, perfRipple: false, perfShine: false, perfNotes: false },
+};
+// ===== Sticker Dance theo NHÓM =====
+// stickerGroupId: nhóm mà stickerCfg đang hiển thị ('' = TALENT SHOW dùng file gốc).
+// stickerBaseCfg: bản cấu hình TALENT SHOW (file gốc), giữ để khôi phục khi quay về.
+let stickerGroupId = '';
+let stickerBaseCfg = null;
+function cloneStickerCfg(c) { return normalizeStickerCfg(JSON.parse(JSON.stringify(c || {}))); }
+async function loadStickerDanceConfig() {
+  const cfg = await window.api.stickerdance.getConfig().catch(() => null);
+  stickerCfg = normalizeStickerCfg(cfg);
+  stickerBaseCfg = cloneStickerCfg(stickerCfg);
+  stickerGroupId = '';
+}
+let stickerSaveTimer = null;
+// Đẩy cấu hình hiện tại xuống engine + lưu ĐÚNG CHỖ: file gốc nếu TALENT SHOW, hồ sơ nhóm nếu đang ở nhóm.
+function pushStickerLive() {
+  if (!stickerCfg) return;
+  if (stickerGroupId) {
+    window.api.stickerdance.apply(stickerCfg).catch(() => {});
+    saveGroupProfilePatch(stickerGroupId, { sticker: cloneStickerCfg(stickerCfg) });
+  } else {
+    window.api.stickerdance.setConfig(stickerCfg).catch(() => {});
+    stickerBaseCfg = cloneStickerCfg(stickerCfg);
+  }
+}
+function scheduleStickerSave() { clearTimeout(stickerSaveTimer); stickerSaveTimer = setTimeout(pushStickerLive, 250); }
+// Đổi nhóm đang chọn → lưu cấu hình nhóm/base cũ, nạp cấu hình nhóm mới (hoặc lưới trống nếu nhóm chưa có).
+function switchStickerGroup(newId) {
+  newId = newId || '';
+  if (!stickerCfg || newId === stickerGroupId) return;
+  clearTimeout(stickerSaveTimer);
+  // Chốt cấu hình hiện tại vào đúng nơi lưu trước khi rời.
+  if (stickerGroupId) saveGroupProfilePatch(stickerGroupId, { sticker: cloneStickerCfg(stickerCfg) });
+  else stickerBaseCfg = cloneStickerCfg(stickerCfg);
+  // Nạp cấu hình của nhóm mới.
+  if (!newId) {
+    stickerCfg = cloneStickerCfg(stickerBaseCfg || stickerCfg);
+  } else {
+    const prof = getGroupProfile(newId).sticker;
+    // Nhóm đã có hồ sơ → nạp; chưa có → kế thừa GIAO DIỆN của base nhưng lưới TRỐNG (MC tự đặt quà cho nhóm).
+    stickerCfg = (prof && typeof prof === 'object')
+      ? normalizeStickerCfg(prof)
+      : { ...cloneStickerCfg(stickerBaseCfg || stickerCfg), cells: [] };
+  }
+  stickerGroupId = newId;
+  applyStickerCfgToInputs();
+  renderStickerEditor();
+  // Đẩy live xuống engine để OBS đổi ngay (apply-only cho nhóm; setConfig cho base để khớp file).
+  if (newId) window.api.stickerdance.apply(stickerCfg).catch(() => {});
+  else window.api.stickerdance.setConfig(stickerCfg).catch(() => {});
+}
+function stickerCellAt(r, c) { return stickerCfg.cells.find(x => x.row === r && x.col === c); }
+function setStickerCell(r, c, data) { removeStickerCell(r, c); stickerCfg.cells.push({ row: r, col: c, ...data }); }
+function removeStickerCell(r, c) { stickerCfg.cells = stickerCfg.cells.filter(x => !(x.row === r && x.col === c)); }
+function pruneStickerCells() { stickerCfg.cells = stickerCfg.cells.filter(x => x.row < stickerCfg.rows && x.col < stickerCfg.cols); }
+// Kéo icon: di chuyển sang ô trống (giữ nguyên thông tin), hoặc HOÁN ĐỔI với quà ở ô đích.
+function moveStickerCell(fr, fc, tr, tc) {
+  if (fr === tr && fc === tc) return;
+  const from = stickerCellAt(fr, fc); if (!from) return;
+  const to = stickerCellAt(tr, tc);
+  from.row = tr; from.col = tc;
+  if (to && to !== from) { to.row = fr; to.col = fc; }
+}
+function renderStickerEditor() {
+  const grid = $('#sdGrid'); if (!grid || !stickerCfg) return;
+  grid.style.setProperty('--sd-cols', stickerCfg.cols);
+  let html = '';
+  for (let r = 0; r < stickerCfg.rows; r++) {
+    for (let c = 0; c < stickerCfg.cols; c++) {
+      const cell = stickerCellAt(r, c);
+      const has = !!(cell && cell.giftId);
+      html += `<div class="sd-e-cell${has ? ' has' : ''}${has && cell.special ? ' special' : ''}" data-row="${r}" data-col="${c}" draggable="${has ? 'true' : 'false'}" title="${has ? escapeAttr(cell.giftName || cell.giftId) : ''}">
+        <div class="sd-e-icon">${has ? (cell.icon ? `<img src="${escapeAttr(cell.icon)}" onerror="this.style.visibility='hidden'" />` : '🎁') : '＋'}</div>
+        <input class="sd-e-text" placeholder="Input text" value="${has ? escapeAttr(cell.text || '') : ''}" ${has ? '' : 'disabled'} />
+        ${has ? `<div class="sd-e-extra">
+          <input class="sd-e-target" type="number" min="0" placeholder="🎯" value="${cell.target ? cell.target : ''}" title="Mục tiêu để hiện thanh tiến trình (bỏ trống/0 = tắt)" />
+          <button class="sd-e-special${cell.special ? ' on' : ''}" type="button" title="Quà đặc biệt: viền bong bóng + lấp lánh (dành cho quà không clip/audio)">✨</button>
+        </div>` : ''}
+        ${has ? '<button class="sd-e-del" type="button" title="Xóa quà">✕</button>' : ''}
+      </div>`;
+    }
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.sd-e-cell').forEach(el => {
+    const r = Number(el.dataset.row), c = Number(el.dataset.col);
+    el.querySelector('.sd-e-icon').addEventListener('click', async () => {
+      // Quà đã dùng ở ô KHÁC → ẩn xám tránh trùng. Quà đã gán nhạc ở NHẠC DANCE → ưu tiên lên đầu.
+      const usedElsewhere = stickerCfg.cells.filter(x => x.giftId && !(x.row === r && x.col === c)).map(x => String(x.giftId));
+      const g = await GiftPicker.open({
+        title: '🥚 Chọn quà cho ô Đập Trứng',
+        disabledIds: usedElsewhere,
+        usedBy: Object.fromEntries(usedElsewhere.map(id => [id, 'Đã dùng ở ô khác'])),
+        priorityIds: musicItems.map(m => String(m.giftId)),
+        priorityLabel: '🎵 Có nhạc',
+      });
+      if (!g) return;
+      // Nhãn ưu tiên: giữ nhãn cũ nếu có, nếu trống thì tự lấy TÊN đã đặt ở NHẠC DANCE (liên kết 2 mục).
+      const existing = stickerCellAt(r, c);
+      const label = existing?.text || musicNameFor(String(g.id)) || '';
+      // Giữ nguyên mục tiêu & cờ "đặc biệt" khi đổi quà ở ô này.
+      setStickerCell(r, c, { giftId: String(g.id), giftName: g.name, icon: g.icon, diamond: Number(g.diamond) || 0, text: label, target: Math.max(0, Number(existing?.target) || 0), special: !!existing?.special });
+      renderStickerEditor(); scheduleStickerSave();
+    });
+    const txt = el.querySelector('.sd-e-text');
+    if (txt) txt.addEventListener('input', (e) => { const cell = stickerCellAt(r, c); if (cell) { cell.text = e.target.value; syncNameToMusic(cell.giftId, e.target.value); scheduleStickerSave(); } });
+    const tgt = el.querySelector('.sd-e-target');
+    if (tgt) tgt.addEventListener('input', (e) => { const cell = stickerCellAt(r, c); if (cell) { cell.target = Math.max(0, Number(e.target.value) || 0); scheduleStickerSave(); } });
+    const sp = el.querySelector('.sd-e-special');
+    if (sp) sp.addEventListener('click', () => { const cell = stickerCellAt(r, c); if (cell) { cell.special = !cell.special; renderStickerEditor(); scheduleStickerSave(); } });
+    const del = el.querySelector('.sd-e-del');
+    if (del) del.addEventListener('click', () => { removeStickerCell(r, c); renderStickerEditor(); scheduleStickerSave(); });
+    el.addEventListener('dragstart', (e) => {
+      if (!stickerCellAt(r, c)) { e.preventDefault(); return; }
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('application/x-sticker', JSON.stringify({ r, c }));
+      el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', (e) => {
+      if (!Array.from(e.dataTransfer.types || []).includes('application/x-sticker')) return;
+      e.preventDefault(); el.classList.add('drag-over'); e.dataTransfer.dropEffect = 'move';
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', (e) => {
+      e.preventDefault(); el.classList.remove('drag-over');
+      try { const d = JSON.parse(e.dataTransfer.getData('application/x-sticker') || '{}'); moveStickerCell(Number(d.r), Number(d.c), r, c); renderStickerEditor(); scheduleStickerSave(); } catch {}
+    });
+  });
+}
+function applyStickerCfgToInputs() {
+  if (!stickerCfg) return;
+  const set = (id, v) => { const el = $('#' + id); if (el) el.value = v; };
+  set('sdRows', stickerCfg.rows); set('sdCols', stickerCfg.cols);
+  set('sdCountMode', stickerCfg.countMode); set('sdLabelPos', stickerCfg.labelPos);
+  set('sdIconSize', stickerCfg.iconSize); set('sdTextSize', stickerCfg.textSize);
+  set('sdColGap', stickerCfg.colGap); set('sdRowGap', stickerCfg.rowGap);
+  set('sdBg', stickerCfg.bg); set('sdBgOpacity', stickerCfg.bgOpacity);
+  if ($('#sdAnimIcon')) $('#sdAnimIcon').checked = stickerCfg.animIcon !== false;
+  if ($('#sdEnlargeTop')) $('#sdEnlargeTop').checked = stickerCfg.enlargeTop !== false;
+  set('sdPerfBg', stickerCfg.perfBg); set('sdPerfBorder', stickerCfg.perfBorder);
+  const chk = (id, v) => { const el = $('#' + id); if (el) el.checked = !!v; };
+  chk('sdPerfSparkle', stickerCfg.perfSparkle);
+  chk('sdPerfRipple', stickerCfg.perfRipple);
+  chk('sdPerfShine', stickerCfg.perfShine);
+  chk('sdPerfNotes', stickerCfg.perfNotes);
+  chk('sdShowMedals', stickerCfg.showMedals !== false);
+  chk('sdPerfBanner', stickerCfg.showPerfBanner !== false);
+  chk('sdShowCrown', stickerCfg.showCrown !== false);
+  chk('sdShowLevelUp', stickerCfg.showLevelUp !== false);
+  chk('sdEggZero', stickerCfg.eggWhenZero !== false);
+  set('sdEggSize', stickerCfg.eggSize);
+  set('sdEggSkin', stickerCfg.eggSkin);
+  chk('sdEggSkinRandom', !!stickerCfg.eggSkinRandom);
+  if ($('#sdEggSkin')) $('#sdEggSkin').disabled = !!stickerCfg.eggSkinRandom;
+  chk('sdStreakEnabled', stickerCfg.streakEnabled);
+  set('sdStreakSeconds', stickerCfg.streakSeconds);
+  chk('sdStreakSteal', stickerCfg.streakSteal !== false);
+  set('sdStreakBarColor', stickerCfg.streakBarColor);
+}
+function wireStickerDanceTab() {
+  $('#sdRows')?.addEventListener('change', () => { stickerCfg.rows = clampInt($('#sdRows').value, 3, 1, 12); $('#sdRows').value = stickerCfg.rows; pruneStickerCells(); renderStickerEditor(); scheduleStickerSave(); });
+  $('#sdCols')?.addEventListener('change', () => { stickerCfg.cols = clampInt($('#sdCols').value, 6, 1, 12); $('#sdCols').value = stickerCfg.cols; pruneStickerCells(); renderStickerEditor(); scheduleStickerSave(); });
+  $('#sdCountMode')?.addEventListener('change', () => { stickerCfg.countMode = $('#sdCountMode').value === 'countdown' ? 'countdown' : 'cumulative'; scheduleStickerSave(); });
+  $('#sdLabelPos')?.addEventListener('change', () => { stickerCfg.labelPos = $('#sdLabelPos').value === 'top' ? 'top' : 'bottom'; scheduleStickerSave(); });
+  $('#sdIconSize')?.addEventListener('input', () => { stickerCfg.iconSize = clampInt($('#sdIconSize').value, 66, 36, 140); scheduleStickerSave(); });
+  $('#sdTextSize')?.addEventListener('input', () => { stickerCfg.textSize = clampInt($('#sdTextSize').value, 14, 8, 40); scheduleStickerSave(); });
+  $('#sdColGap')?.addEventListener('input', () => { stickerCfg.colGap = clampInt($('#sdColGap').value, 14, 0, 120); scheduleStickerSave(); });
+  $('#sdRowGap')?.addEventListener('input', () => { stickerCfg.rowGap = clampInt($('#sdRowGap').value, 0, -120, 120); scheduleStickerSave(); });
+  $('#sdBg')?.addEventListener('input', () => { stickerCfg.bg = $('#sdBg').value; scheduleStickerSave(); });
+  $('#sdBgOpacity')?.addEventListener('input', () => { stickerCfg.bgOpacity = clampInt($('#sdBgOpacity').value, 55, 0, 100); scheduleStickerSave(); });
+  $('#sdAnimIcon')?.addEventListener('change', () => { stickerCfg.animIcon = $('#sdAnimIcon').checked; scheduleStickerSave(); });
+  $('#sdEnlargeTop')?.addEventListener('change', () => { stickerCfg.enlargeTop = $('#sdEnlargeTop').checked; scheduleStickerSave(); });
+  $('#sdPerfBg')?.addEventListener('change', () => { stickerCfg.perfBg = $('#sdPerfBg').value; scheduleStickerSave(); });
+  $('#sdPerfBorder')?.addEventListener('change', () => { stickerCfg.perfBorder = $('#sdPerfBorder').value; scheduleStickerSave(); });
+  $('#sdPerfSparkle')?.addEventListener('change', () => { stickerCfg.perfSparkle = $('#sdPerfSparkle').checked; scheduleStickerSave(); });
+  $('#sdPerfRipple')?.addEventListener('change', () => { stickerCfg.perfRipple = $('#sdPerfRipple').checked; scheduleStickerSave(); });
+  $('#sdPerfShine')?.addEventListener('change', () => { stickerCfg.perfShine = $('#sdPerfShine').checked; scheduleStickerSave(); });
+  $('#sdPerfNotes')?.addEventListener('change', () => { stickerCfg.perfNotes = $('#sdPerfNotes').checked; scheduleStickerSave(); });
+  $('#sdShowMedals')?.addEventListener('change', () => { stickerCfg.showMedals = $('#sdShowMedals').checked; scheduleStickerSave(); });
+  $('#sdPerfBanner')?.addEventListener('change', () => { stickerCfg.showPerfBanner = $('#sdPerfBanner').checked; scheduleStickerSave(); });
+  $('#sdShowCrown')?.addEventListener('change', () => { stickerCfg.showCrown = $('#sdShowCrown').checked; scheduleStickerSave(); });
+  $('#sdShowLevelUp')?.addEventListener('change', () => { stickerCfg.showLevelUp = $('#sdShowLevelUp').checked; scheduleStickerSave(); });
+  $('#sdEggZero')?.addEventListener('change', () => { stickerCfg.eggWhenZero = $('#sdEggZero').checked; scheduleStickerSave(); });
+  $('#sdEggSize')?.addEventListener('input', () => { stickerCfg.eggSize = clampInt($('#sdEggSize').value, 85, 40, 140); scheduleStickerSave(); });
+  $('#sdEggSkin')?.addEventListener('change', () => { stickerCfg.eggSkin = $('#sdEggSkin').value; scheduleStickerSave(); });
+  $('#sdEggSkinRandom')?.addEventListener('change', () => { stickerCfg.eggSkinRandom = $('#sdEggSkinRandom').checked; if ($('#sdEggSkin')) $('#sdEggSkin').disabled = stickerCfg.eggSkinRandom; scheduleStickerSave(); });
+  $('#sdStreakEnabled')?.addEventListener('change', () => { stickerCfg.streakEnabled = $('#sdStreakEnabled').checked; scheduleStickerSave(); MusicQueue.pushStreak(); });
+  $('#sdStreakSeconds')?.addEventListener('change', () => { stickerCfg.streakSeconds = clampInt($('#sdStreakSeconds').value, 10, 1, 120); $('#sdStreakSeconds').value = stickerCfg.streakSeconds; scheduleStickerSave(); });
+  $('#sdStreakSteal')?.addEventListener('change', () => { stickerCfg.streakSteal = $('#sdStreakSteal').checked; scheduleStickerSave(); });
+  $('#sdStreakBarColor')?.addEventListener('change', () => { stickerCfg.streakBarColor = $('#sdStreakBarColor').value; scheduleStickerSave(); });
+  $('#sdPerfPreset')?.addEventListener('change', (e) => {
+    const p = STICKER_PRESETS[e.target.value];
+    e.target.value = ''; // trả về "— Chọn nhanh —" vì trạng thái thật nằm ở từng ô
+    if (!p) return;
+    Object.assign(stickerCfg, p);
+    applyStickerCfgToInputs();
+    scheduleStickerSave();
+    toast('Đã áp dụng chủ đề hiệu ứng', 'success');
+  });
+  $('#sdReset')?.addEventListener('click', async () => { await window.api.stickerdance.reset().catch(() => {}); toast('Đã reset số đếm Đập Trứng', 'success'); });
+  $('#sdCopyUrl')?.addEventListener('click', async () => { const url = await window.api.stickerdance.getUrl(); await window.api.shell.copyText(url); toast('Đã copy link OBS Đập Trứng', 'success'); });
+  applyStickerCfgToInputs();
+  renderStickerEditor();
+}
+
+// ============================================================
+// VINH DANH (MVP Honor) — thẻ avatar Creator idol TOP / User cống hiến
+// ============================================================
+let mvpCfg = { cards: [] };
+let mvpSelId = '';
+let mvpSaveTimer = null;
+const MVP_FRAME_COUNT = 41;
+const MVP_FRAMES = Array.from({ length: MVP_FRAME_COUNT }, (_, i) => `mvp-frames/${i + 1}.png`);
+const MVP_CANVAS_H = { '1:1': 1080, '3:4': 1440, '9:16': 1920 }; // rộng luôn 1080; chỉ đổi chiều cao
+
+async function loadMvpHonorConfig() {
+  const cfg = await window.api.mvphonor.getConfig().catch(() => null);
+  mvpCfg = cfg && Array.isArray(cfg.cards) ? cfg : { cards: [] };
+  if (!MVP_CANVAS_H[mvpCfg.canvas]) mvpCfg.canvas = '3:4';
+  if (!mvpCfg.cards.some(c => c.id === mvpSelId)) mvpSelId = mvpCfg.cards[0]?.id || '';
+}
+
+function mvpNewCard() {
+  const id = 'mh_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
+  return {
+    id, mode: 'creator', creatorId: '', avatar: '', name: '', text: 'TOP 1',
+    frame: MVP_FRAMES[0], layout: 'horizontal', avatarSize: 150, frameScale: 150, fontSize: 40,
+    color: '#ffffff', textStyle: 'plaque', bgColor: '#8f8474', bgColor2: '#463f31', bgOpacity: 100,
+    entryAnim: 'popBounce', showName: false, show: true, overlay: { x: 120, y: 200, scale: 1, rot: 0 },
+  };
+}
+function mvpSel() { return mvpCfg.cards.find(c => c.id === mvpSelId) || null; }
+function mvpPush() { window.api.mvphonor.setConfig(mvpCfg).catch(() => {}); }
+function mvpScheduleSave() { clearTimeout(mvpSaveTimer); mvpSaveTimer = setTimeout(mvpPush, 250); }
+
+function mvpCreatorOf(c) { return c.creatorId ? creators.find(x => x.id === c.creatorId) : null; }
+function mvpResolveAvatar(c) {
+  if (c.mode === 'creator') { const cr = mvpCreatorOf(c); if (cr) return cr.avatar || ''; return ''; }
+  return c.avatar || '';
+}
+function mvpResolveName(c) {
+  if (c.name) return c.name;
+  if (c.mode === 'creator') { const cr = mvpCreatorOf(c); if (cr) return cr.nickname || cr.tiktokId || ''; }
+  return '';
+}
+function mvpHexRgba(hex, op) {
+  const h = String(hex || '#000000').replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16) || 0, g = parseInt(h.slice(2, 4), 16) || 0, b = parseInt(h.slice(4, 6), 16) || 0;
+  return `rgba(${r},${g},${b},${Math.max(0, Math.min(100, Number(op) === 0 ? 0 : (Number(op) || 100))) / 100})`;
+}
+function mvpTextBg(c) {
+  if (c.textStyle === 'gradient') return `linear-gradient(135deg, ${mvpHexRgba(c.bgColor, c.bgOpacity)}, ${mvpHexRgba(c.bgColor2, c.bgOpacity)})`;
+  if (c.textStyle === 'plaque') return `linear-gradient(180deg, ${mvpHexRgba(c.bgColor, c.bgOpacity)}, ${mvpHexRgba(c.bgColor2, c.bgOpacity)})`;
+  if (c.textStyle === 'neon') return 'transparent';
+  return mvpHexRgba(c.bgColor, c.bgOpacity);
+}
+
+// Dựng phần tử hình ảnh của thẻ (dùng trong khung xem trước). Cùng cấu trúc với overlay OBS.
+function mvpBuildVisual(c) {
+  const avSize = c.avatarSize, frameW = Math.round(avSize * (c.frameScale / 100)), hasFrame = !!c.frame;
+  const root = document.createElement('div'); root.className = 'mhv-card' + (c.layout === 'vertical' ? ' vertical' : '');
+  const inner = document.createElement('div'); inner.className = 'mhv-inner';
+  const avwrap = document.createElement('div'); avwrap.className = 'mhv-avwrap';
+  avwrap.style.width = (hasFrame ? frameW : avSize) + 'px';
+  if (!hasFrame) avwrap.style.height = avSize + 'px';
+  const av = document.createElement('img'); av.className = 'mhv-av'; av.style.width = av.style.height = avSize + 'px';
+  const src = mvpResolveAvatar(c); av.src = src || '../logo/hp-logo.png';
+  av.onerror = () => { av.onerror = null; av.src = '../logo/hp-logo.png'; };
+  avwrap.appendChild(av);
+  if (hasFrame) { const fr = document.createElement('img'); fr.className = 'mhv-frame'; fr.src = c.frame; avwrap.appendChild(fr); }
+  if (c.showName && mvpResolveName(c)) { const nm = document.createElement('div'); nm.className = 'mhv-name'; nm.textContent = mvpResolveName(c); avwrap.appendChild(nm); }
+  inner.appendChild(avwrap);
+  if (c.text) {
+    const tx = document.createElement('div'); tx.className = 'mhv-text style-' + c.textStyle;
+    tx.textContent = c.text; tx.style.fontSize = c.fontSize + 'px'; tx.style.color = c.color;
+    tx.style.background = mvpTextBg(c);
+    if (c.textStyle === 'neon') tx.style.textShadow = `0 0 6px ${c.bgColor}, 0 0 14px ${c.bgColor}, 0 0 26px ${c.bgColor2}`;
+    else if (c.textStyle === 'plaque') tx.style.textShadow = '0 2px 3px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.18)';
+    inner.appendChild(tx);
+  }
+  root.appendChild(inner);
+  return root;
+}
+
+function mvpRenderStage() {
+  const stage = $('#mhStage'); if (!stage) return;
+  const box = stage.parentElement;
+  const h = MVP_CANVAS_H[mvpCfg.canvas] || MVP_CANVAS_H['3:4'];
+  box.style.aspectRatio = `1080 / ${h}`;
+  stage.style.width = '1080px'; stage.style.height = h + 'px';
+  const scale = (box.clientWidth || 300) / 1080;
+  stage.style.transform = `scale(${scale})`;
+  stage.innerHTML = '';
+  for (const c of mvpCfg.cards) {
+    const el = mvpBuildVisual(c);
+    el.classList.add('mhv-pos');
+    el.style.left = c.overlay.x + 'px'; el.style.top = c.overlay.y + 'px';
+    el.style.setProperty('--mh-t', `scale(${c.overlay.scale}) rotate(${c.overlay.rot}deg)`);
+    if (c.id === mvpSelId) el.classList.add('sel');
+    if (c.show === false) el.classList.add('off');
+    mvpAttachDrag(el, c, scale);
+    stage.appendChild(el);
+  }
+}
+
+function mvpAttachDrag(el, c, scale) {
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (mvpSelId !== c.id) { mvpSelId = c.id; mvpRenderCards(); mvpApplyToInputs(); mvpRenderStage(); return; }
+    const sx = e.clientX, sy = e.clientY, ox = c.overlay.x, oy = c.overlay.y;
+    try { el.setPointerCapture(e.pointerId); } catch {}
+    const move = (ev) => {
+      c.overlay.x = Math.round(ox + (ev.clientX - sx) / scale);
+      c.overlay.y = Math.round(oy + (ev.clientY - sy) / scale);
+      el.style.left = c.overlay.x + 'px'; el.style.top = c.overlay.y + 'px';
+      if ($('#mhX')) $('#mhX').value = c.overlay.x;
+      if ($('#mhY')) $('#mhY').value = c.overlay.y;
+    };
+    const up = (ev) => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      try { el.releasePointerCapture(ev.pointerId); } catch {}
+      mvpScheduleSave();
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+  });
+}
+
+function mvpRenderCards() {
+  const box = $('#mhCards'); if (!box) return;
+  box.innerHTML = '';
+  if (!mvpCfg.cards.length) { box.innerHTML = '<div class="mvp-empty">Chưa có thẻ. Nhấn “＋ Thêm thẻ”.</div>'; }
+  mvpCfg.cards.forEach((c, i) => {
+    const item = document.createElement('div');
+    item.className = 'mvp-card-item' + (c.id === mvpSelId ? ' active' : '') + (c.show === false ? ' off' : '');
+    const av = mvpResolveAvatar(c) || '../logo/hp-logo.png';
+    item.innerHTML =
+      `<div class="mci-thumb"><img src="${av}" onerror="this.onerror=null;this.src='../logo/hp-logo.png'"/>${c.frame ? `<img class="mci-frame" src="${c.frame}"/>` : ''}</div>`
+      + `<div class="mci-info"><div class="mci-title">${(mvpResolveName(c) || 'Thẻ ' + (i + 1))}</div>`
+      + `<div class="mci-sub">${c.mode === 'user' ? '🎁 User' : '⭐ Creator'} · ${(c.text || '').split('\n')[0] || '—'}</div></div>`
+      + `<div class="mci-actions">`
+      + `<button class="mci-btn" data-mh-toggle="${c.id}" title="Hiện/ẩn trên OBS">${c.show === false ? '🚫' : '👁'}</button>`
+      + `<button class="mci-btn" data-mh-del="${c.id}" title="Xoá thẻ">🗑</button>`
+      + `</div>`;
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('[data-mh-toggle]') || e.target.closest('[data-mh-del]')) return;
+      mvpSelId = c.id; mvpRenderCards(); mvpApplyToInputs(); mvpRenderStage();
+    });
+    box.appendChild(item);
+  });
+  box.querySelectorAll('[data-mh-toggle]').forEach(b => b.addEventListener('click', () => {
+    const c = mvpCfg.cards.find(x => x.id === b.dataset.mhToggle); if (!c) return;
+    c.show = c.show === false; mvpRenderCards(); mvpRenderStage(); mvpScheduleSave();
+  }));
+  box.querySelectorAll('[data-mh-del]').forEach(b => b.addEventListener('click', () => {
+    mvpCfg.cards = mvpCfg.cards.filter(x => x.id !== b.dataset.mhDel);
+    if (mvpSelId === b.dataset.mhDel) mvpSelId = mvpCfg.cards[0]?.id || '';
+    mvpRenderCards(); mvpApplyToInputs(); mvpRenderStage(); mvpScheduleSave();
+  }));
+}
+
+function mvpRefreshCreatorSelect() {
+  const sel = $('#mhCreator'); if (!sel) return;
+  const list = visibleCreators();
+  const c = mvpSel();
+  sel.innerHTML = '<option value="">— Chọn Creator —</option>'
+    + list.map(cr => `<option value="${cr.id}">${cr.nickname || cr.tiktokId || cr.id}</option>`).join('');
+  if (c && c.mode === 'creator') sel.value = c.creatorId || '';
+  mvpRenderCards(); mvpRenderStage();
+}
+
+function mvpApplyToInputs() {
+  const c = mvpSel();
+  const body = $('#mhCfgBody'), empty = $('#mhCfgEmpty');
+  if (body) body.style.display = c ? '' : 'none';
+  if (empty) empty.style.display = c ? 'none' : '';
+  if (!c) return;
+  if ($('#mhModeCreator')) $('#mhModeCreator').checked = c.mode !== 'user';
+  if ($('#mhModeUser')) $('#mhModeUser').checked = c.mode === 'user';
+  if ($('#mhCreatorRow')) $('#mhCreatorRow').style.display = c.mode === 'user' ? 'none' : '';
+  if ($('#mhUploadRow')) $('#mhUploadRow').style.display = c.mode === 'user' ? '' : 'none';
+  if ($('#mhCreator')) $('#mhCreator').value = c.creatorId || '';
+  if ($('#mhUploadName')) $('#mhUploadName').textContent = c.mode === 'user' && c.avatar ? 'Đã có ảnh' : 'Chưa có ảnh';
+  const set = (id, v) => { const el = $(id); if (el) el.value = v; };
+  set('#mhName', c.name || ''); if ($('#mhShowName')) $('#mhShowName').checked = !!c.showName;
+  set('#mhText', c.text || ''); set('#mhLayout', c.layout); set('#mhAnim', c.entryAnim);
+  set('#mhAvatarSize', c.avatarSize); set('#mhFrameScale', c.frameScale); set('#mhFontSize', c.fontSize);
+  set('#mhTextStyle', c.textStyle); set('#mhColor', c.color); set('#mhBg', c.bgColor); set('#mhBg2', c.bgColor2);
+  set('#mhBgOpacity', c.bgOpacity); set('#mhX', c.overlay.x); set('#mhY', c.overlay.y);
+  set('#mhScale', Math.round(c.overlay.scale * 100)); set('#mhRot', c.overlay.rot);
+  mvpRenderSkins();
+}
+
+function mvpRenderSkins() {
+  const box = $('#mhSkins'); if (!box) return;
+  const c = mvpSel(); const cur = c?.frame || '';
+  box.innerHTML = `<button class="mvp-skin${cur ? '' : ' sel'}" data-mh-frame="">∅</button>`
+    + MVP_FRAMES.map(f => `<button class="mvp-skin${f === cur ? ' sel' : ''}" data-mh-frame="${f}"><img src="${f}"/></button>`).join('');
+  box.querySelectorAll('[data-mh-frame]').forEach(b => b.addEventListener('click', () => {
+    const c2 = mvpSel(); if (!c2) return; c2.frame = b.dataset.mhFrame || '';
+    mvpRenderSkins(); mvpRenderStage(); mvpRenderCards(); mvpScheduleSave();
+  }));
+}
+
+function mvpEditSel(fn) { const c = mvpSel(); if (!c) return; fn(c); mvpRenderStage(); mvpRenderCards(); mvpScheduleSave(); }
+
+function wireMvpHonorTab() {
+  $('#mhAddCard')?.addEventListener('click', () => {
+    const card = mvpNewCard();
+    // gợi ý: nếu đang xem 1 nhóm & có Creator, gán luôn Creator đầu tiên
+    const first = visibleCreators()[0]; if (first) card.creatorId = first.id;
+    mvpCfg.cards.push(card); mvpSelId = card.id;
+    mvpRenderCards(); mvpRefreshCreatorSelect(); mvpApplyToInputs(); mvpRenderStage(); mvpScheduleSave();
+  });
+  $('#mhClear')?.addEventListener('click', async () => {
+    if (!mvpCfg.cards.length) return;
+    const ok = await window.api.shell.confirm({ message: 'Xoá toàn bộ thẻ vinh danh?', confirmText: 'Xoá hết', cancelText: 'Huỷ' }).catch(() => true);
+    if (!ok) return;
+    mvpCfg.cards = []; mvpSelId = ''; mvpRenderCards(); mvpApplyToInputs(); mvpRenderStage(); mvpScheduleSave();
+  });
+
+  $('#mhModeCreator')?.addEventListener('change', () => mvpEditSel(c => { c.mode = 'creator'; mvpApplyToInputs(); }));
+  $('#mhModeUser')?.addEventListener('change', () => mvpEditSel(c => { c.mode = 'user'; mvpApplyToInputs(); }));
+  $('#mhCreator')?.addEventListener('change', () => mvpEditSel(c => { c.creatorId = $('#mhCreator').value; }));
+  $('#mhUploadBtn')?.addEventListener('click', () => $('#mhUpload')?.click());
+  $('#mhUpload')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (file.size > 4 * 1024 * 1024) { toast('Ảnh quá lớn (tối đa 4MB)', 'error'); e.target.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = () => { mvpEditSel(c => { c.avatar = String(reader.result || ''); }); if ($('#mhUploadName')) $('#mhUploadName').textContent = 'Đã có ảnh'; };
+    reader.readAsDataURL(file); e.target.value = '';
+  });
+  $('#mhName')?.addEventListener('input', () => mvpEditSel(c => { c.name = $('#mhName').value; }));
+  $('#mhShowName')?.addEventListener('change', () => mvpEditSel(c => { c.showName = $('#mhShowName').checked; }));
+  $('#mhText')?.addEventListener('input', () => mvpEditSel(c => { c.text = $('#mhText').value; }));
+  $('#mhLayout')?.addEventListener('change', () => mvpEditSel(c => { c.layout = $('#mhLayout').value === 'vertical' ? 'vertical' : 'horizontal'; }));
+  $('#mhAnim')?.addEventListener('change', () => mvpEditSel(c => { c.entryAnim = $('#mhAnim').value; }));
+  $('#mhAvatarSize')?.addEventListener('input', () => mvpEditSel(c => { c.avatarSize = clampInt($('#mhAvatarSize').value, 150, 60, 400); }));
+  $('#mhFrameScale')?.addEventListener('input', () => mvpEditSel(c => { c.frameScale = clampInt($('#mhFrameScale').value, 150, 80, 300); }));
+  $('#mhFontSize')?.addEventListener('input', () => mvpEditSel(c => { c.fontSize = clampInt($('#mhFontSize').value, 40, 12, 140); }));
+  $('#mhTextStyle')?.addEventListener('change', () => mvpEditSel(c => { c.textStyle = $('#mhTextStyle').value; }));
+  $('#mhColor')?.addEventListener('input', () => mvpEditSel(c => { c.color = $('#mhColor').value; }));
+  $('#mhBg')?.addEventListener('input', () => mvpEditSel(c => { c.bgColor = $('#mhBg').value; }));
+  $('#mhBg2')?.addEventListener('input', () => mvpEditSel(c => { c.bgColor2 = $('#mhBg2').value; }));
+  $('#mhBgOpacity')?.addEventListener('input', () => mvpEditSel(c => { c.bgOpacity = clampInt($('#mhBgOpacity').value, 100, 0, 100); }));
+  $('#mhX')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.x = Math.round(Number($('#mhX').value) || 0); }));
+  $('#mhY')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.y = Math.round(Number($('#mhY').value) || 0); }));
+  $('#mhScale')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.scale = Math.max(0.2, Math.min(4, (Number($('#mhScale').value) || 100) / 100)); }));
+  $('#mhRot')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.rot = Math.max(-180, Math.min(180, Number($('#mhRot').value) || 0)); }));
+  $('#mhCopyUrl')?.addEventListener('click', async () => { const url = await window.api.mvphonor.getUrl(); await window.api.shell.copyText(url); toast('Đã copy link OBS Vinh danh', 'success'); });
+  $('#mhCanvas')?.addEventListener('change', () => {
+    mvpCfg.canvas = MVP_CANVAS_H[$('#mhCanvas').value] ? $('#mhCanvas').value : '3:4';
+    mvpRenderStage(); mvpScheduleSave();
+  });
+
+  window.addEventListener('resize', () => { if ($('.panel[data-panel="mvphonor"]')?.classList.contains('active')) mvpRenderStage(); });
+
+  if ($('#mhCanvas')) $('#mhCanvas').value = mvpCfg.canvas || '3:4';
+  mvpRefreshCreatorSelect();
+  mvpRenderCards();
+  mvpApplyToInputs();
+  mvpRenderStage();
+}
+
+// ============================================================
+// VÒNG QUAY MAY MẮN (Lucky Wheel)
+// ============================================================
+const LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
+let lwCfg = { title: 'VÒNG QUAY MAY MẮN', style: 'neon', spinSeconds: 5, sound: true, confetti: true, showResult: true, segments: [], history: [] };
+let lwSaveTimer = null;
+
+function lwNormalize(cfg) {
+  const c = cfg && typeof cfg === 'object' ? cfg : {};
+  return {
+    title: typeof c.title === 'string' ? c.title : 'VÒNG QUAY MAY MẮN',
+    style: ['neon', 'gold', 'pastel', 'dark'].includes(c.style) ? c.style : 'neon',
+    spinSeconds: clampInt(c.spinSeconds, 5, 2, 15),
+    sound: c.sound !== false, confetti: c.confetti !== false, showResult: c.showResult !== false,
+    segments: Array.isArray(c.segments) ? c.segments.map((s, i) => ({
+      id: s.id || ('lw_' + Math.random().toString(36).slice(2, 9)),
+      text: String(s.text || ''), note: String(s.note || ''),
+      type: ['reward', 'penalty', 'info'].includes(s.type) ? s.type : 'info',
+      color: /^#[0-9a-fA-F]{6}$/.test(s.color || '') ? s.color : LW_PALETTE[i % LW_PALETTE.length],
+    })) : [],
+    history: Array.isArray(c.history) ? c.history : [],
+  };
+}
+
+async function loadLuckyWheelConfig() {
+  const cfg = await window.api.luckywheel.getConfig().catch(() => null);
+  lwCfg = lwNormalize(cfg);
+  if (!lwCfg.segments.length) {
+    // Ô mẫu để người dùng thấy ngay cách dùng
+    lwCfg.segments = [
+      { id: 'lw_a', text: 'Thưởng 50K', note: 'Chuyển khoản', type: 'reward', color: LW_PALETTE[0] },
+      { id: 'lw_b', text: 'Hát 1 bài', note: '', type: 'penalty', color: LW_PALETTE[1] },
+      { id: 'lw_c', text: 'x2 điểm', note: '', type: 'reward', color: LW_PALETTE[2] },
+      { id: 'lw_d', text: 'Hít đất 10 cái', note: '', type: 'penalty', color: LW_PALETTE[3] },
+      { id: 'lw_e', text: 'May mắn lần sau', note: '', type: 'info', color: LW_PALETTE[4] },
+      { id: 'lw_f', text: 'JACKPOT', note: 'Phần thưởng lớn', type: 'reward', color: LW_PALETTE[5] },
+    ];
+    // Đẩy ô mẫu sang engine/overlay ngay để OBS có nội dung ở lần đầu (chưa cần người dùng sửa).
+    lwPush();
+  }
+}
+
+function lwPush() { window.api.luckywheel.setConfig(lwCfg).catch(() => {}); }
+function lwScheduleSave() { clearTimeout(lwSaveTimer); lwSaveTimer = setTimeout(lwPush, 250); }
+function lwNewSeg() {
+  const i = lwCfg.segments.length;
+  return { id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Ô ' + (i + 1), note: '', type: 'info', color: LW_PALETTE[i % LW_PALETTE.length] };
+}
+
+function renderLwSegList() {
+  const box = $('#lwSegList'); if (!box) return;
+  if (!lwCfg.segments.length) { box.innerHTML = '<div class="lw-empty">Chưa có ô nào. Nhấn <b>＋ Thêm ô</b>.</div>'; return; }
+  box.innerHTML = lwCfg.segments.map((s, i) => `
+    <div class="lw-seg-row" data-i="${i}">
+      <input type="color" class="lw-seg-color" data-i="${i}" value="${s.color}" title="Màu ô" />
+      <input type="text" class="lw-seg-text" data-i="${i}" value="${escAttr(s.text)}" placeholder="Nội dung ô" />
+      <input type="text" class="lw-seg-note" data-i="${i}" value="${escAttr(s.note)}" placeholder="Ghi chú (thưởng/phạt cụ thể)" />
+      <select class="lw-seg-type" data-i="${i}">
+        <option value="reward"${s.type === 'reward' ? ' selected' : ''}>🎁 Thưởng</option>
+        <option value="penalty"${s.type === 'penalty' ? ' selected' : ''}>⚡ Phạt</option>
+        <option value="info"${s.type === 'info' ? ' selected' : ''}>✨ Thông tin</option>
+      </select>
+      <button class="lw-seg-del" data-i="${i}" type="button" title="Xoá ô">🗑</button>
+    </div>`).join('');
+  box.querySelectorAll('.lw-seg-color').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].color = el.value; renderLwPreview(); lwScheduleSave(); }));
+  box.querySelectorAll('.lw-seg-text').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].text = el.value; renderLwPreview(); lwScheduleSave(); }));
+  box.querySelectorAll('.lw-seg-note').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].note = el.value; lwScheduleSave(); }));
+  box.querySelectorAll('.lw-seg-type').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].type = el.value; lwScheduleSave(); }));
+  box.querySelectorAll('.lw-seg-del').forEach(el => el.addEventListener('click', () => { lwCfg.segments.splice(+el.dataset.i, 1); renderLwSegList(); renderLwPreview(); lwScheduleSave(); }));
+}
+
+function escAttr(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+function renderLwPreview() {
+  const cv = $('#lwPreview'); if (!cv) return;
+  const ctx = cv.getContext('2d'); const S = cv.width, C = S / 2, R = C - 12;
+  ctx.clearRect(0, 0, S, S);
+  const segs = lwCfg.segments;
+  const rims = { neon: '#0d0d1a', gold: '#3a2607', pastel: '#f0e6ff', dark: '#0b0e13' };
+  const rim = rims[lwCfg.style] || '#0d0d1a';
+  if (!segs.length) { ctx.beginPath(); ctx.arc(C, C, R, 0, Math.PI * 2); ctx.fillStyle = 'rgba(30,30,40,.5)'; ctx.fill(); ctx.lineWidth = 14; ctx.strokeStyle = rim; ctx.stroke(); return; }
+  const seg = Math.PI * 2 / segs.length;
+  const off = -Math.PI / 2 - seg / 2; // ô đầu ở đỉnh
+  ctx.save(); ctx.translate(C, C); ctx.rotate(off);
+  const font = segs.length <= 6 ? 20 : segs.length <= 10 ? 15 : 12;
+  for (let i = 0; i < segs.length; i++) {
+    const a0 = i * seg, a1 = (i + 1) * seg;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a1); ctx.closePath();
+    ctx.fillStyle = segs[i].color; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.stroke();
+    ctx.save(); ctx.rotate(a0 + seg / 2);
+    ctx.fillStyle = lwTextColor(segs[i].color); ctx.font = '700 ' + font + 'px "Be Vietnam Pro", sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    const t = segs[i].text || '';
+    ctx.fillText(t.length > 14 ? t.slice(0, 13) + '…' : t, R - 14, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(C, C, R, 0, Math.PI * 2); ctx.lineWidth = 14; ctx.strokeStyle = rim; ctx.stroke();
+  ctx.beginPath(); ctx.arc(C, C, 34, 0, Math.PI * 2); ctx.fillStyle = ({ neon: '#e8365d', gold: '#c8a24a', pastel: '#ff87ab', dark: '#4c8dff' })[lwCfg.style] || '#e8365d'; ctx.fill();
+  ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.stroke();
+}
+function lwTextColor(hex) {
+  const h = String(hex || '#888').replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16) || 0, g = parseInt(h.slice(2, 4), 16) || 0, b = parseInt(h.slice(4, 6), 16) || 0;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62 ? '#2a2233' : '#fff';
+}
+
+function lwRefreshSpinners() {
+  const sel = $('#lwSpinnerSel'); if (!sel) return;
+  const cur = sel.value;
+  const list = visibleCreators();
+  sel.innerHTML = '<option value="">— Không chọn —</option>' + list.map(cr => `<option value="${cr.id}">${cr.nickname || cr.tiktokId || cr.id}</option>`).join('');
+  if (list.some(cr => cr.id === cur)) sel.value = cur;
+}
+
+function lwGetSpinner() {
+  const sel = $('#lwSpinnerSel'); const free = $('#lwSpinnerName');
+  const id = sel ? sel.value : '';
+  if (id) { const cr = creators.find(c => c.id === id); if (cr) return { name: cr.nickname || cr.tiktokId || 'Creator', avatar: cr.avatar || '' }; }
+  const name = (free && free.value.trim()) || '';
+  return name ? { name, avatar: '' } : null;
+}
+
+function lwTypeLabel(t) { return t === 'reward' ? '🎁 Thưởng' : t === 'penalty' ? '⚡ Phạt' : '✨ Thông tin'; }
+function lwFmtTime(iso) { try { const d = new Date(iso); return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }); } catch { return ''; } }
+
+function renderLwHistory() {
+  const box = $('#lwHistTable'); const stats = $('#lwStats');
+  const h = lwCfg.history || [];
+  if (stats) {
+    const rw = h.filter(x => x.type === 'reward').length, pn = h.filter(x => x.type === 'penalty').length;
+    const byName = {}; h.forEach(x => { if (x.member) byName[x.member] = (byName[x.member] || 0) + 1; });
+    const top = Object.entries(byName).sort((a, b) => b[1] - a[1])[0];
+    stats.innerHTML = `Tổng: <b>${h.length}</b> lượt · 🎁 <b>${rw}</b> · ⚡ <b>${pn}</b>` + (top ? ` · Quay nhiều nhất: <b>${escAttr(top[0])}</b> (${top[1]})` : '');
+  }
+  if (!box) return;
+  if (!h.length) { box.innerHTML = '<div class="lw-empty">Chưa có lượt quay nào.</div>'; return; }
+  box.innerHTML = `<table class="lw-table"><thead><tr><th>Thời gian</th><th>Người quay</th><th>Kết quả</th><th>Ghi chú</th><th>Loại</th></tr></thead><tbody>`
+    + h.slice(0, 60).map(x => `<tr class="lw-r-${x.type}"><td>${lwFmtTime(x.time)}</td><td>${escAttr(x.member) || '—'}</td><td><b>${escAttr(x.text)}</b></td><td>${escAttr(x.note) || ''}</td><td>${lwTypeLabel(x.type)}</td></tr>`).join('')
+    + '</tbody></table>';
+}
+
+async function lwDoSpin() {
+  if (!lwCfg.segments.length) { toast('Chưa có ô nào để quay', 'error'); return; }
+  const btn = $('#lwSpinBtn'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang quay…'; }
+  const spinner = lwGetSpinner();
+  const r = await window.api.luckywheel.spin({ spinner }).catch(() => null);
+  if (r && r.record) {
+    lwCfg.history.unshift(r.record);
+    if (lwCfg.history.length > 300) lwCfg.history.length = 300;
+    renderLwHistory();
+    const last = $('#lwLast');
+    if (last) last.innerHTML = `Kết quả: <b>${escAttr(r.record.text)}</b> · ${lwTypeLabel(r.record.type)}` + (r.record.member ? ` · ${escAttr(r.record.member)}` : '');
+  }
+  const secs = clampInt(lwCfg.spinSeconds, 5, 2, 15);
+  setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY'; } }, secs * 1000 + 300);
+}
+
+function wireLuckyWheelTab() {
+  $('#lwAddSeg')?.addEventListener('click', () => { lwCfg.segments.push(lwNewSeg()); renderLwSegList(); renderLwPreview(); lwScheduleSave(); });
+  $('#lwTitleInput')?.addEventListener('input', () => { lwCfg.title = $('#lwTitleInput').value; lwScheduleSave(); });
+  $('#lwStyle')?.addEventListener('change', () => { lwCfg.style = $('#lwStyle').value; renderLwPreview(); lwScheduleSave(); });
+  $('#lwSeconds')?.addEventListener('input', () => { lwCfg.spinSeconds = clampInt($('#lwSeconds').value, 5, 2, 15); lwScheduleSave(); });
+  $('#lwSound')?.addEventListener('change', () => { lwCfg.sound = $('#lwSound').checked; lwScheduleSave(); });
+  $('#lwConfetti')?.addEventListener('change', () => { lwCfg.confetti = $('#lwConfetti').checked; lwScheduleSave(); });
+  $('#lwShowResult')?.addEventListener('change', () => { lwCfg.showResult = $('#lwShowResult').checked; lwScheduleSave(); });
+  $('#lwSpinBtn')?.addEventListener('click', lwDoSpin);
+  $('#lwClearHist')?.addEventListener('click', async () => {
+    if (!lwCfg.history.length) return;
+    const ok = await window.api.shell.confirm({ message: 'Xoá toàn bộ lịch sử quay?', confirmText: 'Xoá', cancelText: 'Huỷ' }).catch(() => true);
+    if (!ok) return;
+    await window.api.luckywheel.clearHistory().catch(() => {});
+    lwCfg.history = []; renderLwHistory();
+  });
+  $('#lwExport')?.addEventListener('click', async () => {
+    const h = lwCfg.history || []; if (!h.length) { toast('Chưa có dữ liệu', 'error'); return; }
+    const esc = v => '"' + String(v || '').replace(/"/g, '""') + '"';
+    const csv = ['Thời gian,Người quay,Kết quả,Ghi chú,Loại'].concat(
+      h.map(x => [lwFmtTime(x.time), x.member, x.text, x.note, lwTypeLabel(x.type)].map(esc).join(','))
+    ).join('\r\n');
+    await window.api.shell.copyText(csv).catch(() => {});
+    toast('Đã copy CSV lịch sử', 'success');
+  });
+  $('#lwCopyUrl')?.addEventListener('click', async () => { const url = await window.api.luckywheel.getUrl(); await window.api.shell.copyText(url); toast('Đã copy link OBS Vòng quay', 'success'); });
+
+  // Đồng bộ input với config đã tải
+  if ($('#lwTitleInput')) $('#lwTitleInput').value = lwCfg.title;
+  if ($('#lwStyle')) $('#lwStyle').value = lwCfg.style;
+  if ($('#lwSeconds')) $('#lwSeconds').value = lwCfg.spinSeconds;
+  if ($('#lwSound')) $('#lwSound').checked = lwCfg.sound;
+  if ($('#lwConfetti')) $('#lwConfetti').checked = lwCfg.confetti;
+  if ($('#lwShowResult')) $('#lwShowResult').checked = lwCfg.showResult;
+  lwRefreshSpinners();
+  renderLwSegList();
+  renderLwPreview();
+  renderLwHistory();
+}
+
 async function init() {
   await initLicenseGate();
   await loadGiftMaster();
@@ -607,6 +1942,10 @@ async function init() {
   await loadPkGroupConfig();
   await loadRankingConfig();
   await loadScoreConfig();
+  await loadMusicListConfig();
+  await loadStickerDanceConfig();
+  await loadMvpHonorConfig();
+  await loadLuckyWheelConfig();
   await refreshOverlayUrls();
   await loadSettings();
   wireTtEvents();
@@ -619,6 +1958,10 @@ async function init() {
   wireHistoryUI();
   wireRankingTab();
   wireScoreTab();
+  wireMusicListTab();
+  wireStickerDanceTab();
+  wireMvpHonorTab();
+  wireLuckyWheelTab();
   wireOverlaysTab();
   wireSettingsTab();
   initAvatarSelects();
@@ -908,6 +2251,7 @@ function wireTtEvents() {
 
   window.api.on('tt:gift', (d) => {
     const shouldProcess = d.shouldProcess || d.repeatEnd;
+    if (shouldProcess) { try { MusicList.onGift(d); } catch {} }
     stats.gifts += shouldProcess ? Math.max(1, d.repeatCount) : 0;
     const giftDiamond = Number(d.diamondCount) || Number((giftMaster.find(g => String(g.id) === String(d.giftId)) || giftMaster.find(g => String(g.name || '').toLowerCase() === String(d.giftName || '').toLowerCase()))?.diamond) || 0;
     stats.diamond += shouldProcess ? giftDiamond * Math.max(1, d.repeatCount) : 0;
@@ -1288,7 +2632,7 @@ async function updateCreatorQuick(creator) {
 async function pickCreatorGiftQuick(id) {
   const c = creators.find(x => x.id === id || (!x.id && x.tiktokId === id));
   if (!c) { toast('Không tìm thấy creator này', 'error'); return; }
-  const usedBy = creatorGiftUsage(c.id || '');
+  const usedBy = creatorGiftUsage(c.id || '', c.groupId || '');
   const g = await GiftPicker.open({
     title: `🎁 Chọn quà mặc định cho ${c.nickname || c.tiktokId}`,
     disabledIds: Object.keys(usedBy),
@@ -1400,6 +2744,14 @@ function applyActiveGroupMode() {
   renderPkGroupGroupSelect?.();
   renderPkGroupMembers?.();
   renderScoreCreatorSelect?.();
+  // Sticker Dance: mỗi nhóm một bảng quà riêng ('' = TALENT SHOW dùng file gốc).
+  switchStickerGroup?.(activeGroupId);
+  // Vinh danh: cập nhật lại danh sách Creator theo nhóm đang chọn.
+  mvpRefreshCreatorSelect?.();
+  // Vòng quay: danh sách người quay theo nhóm đang chọn.
+  lwRefreshSpinners?.();
+  // NHẠC DANCE: mỗi nhóm một danh sách quà riêng, tự thêm Creator của nhóm & loại nhóm khác.
+  switchMusicGroup?.(activeGroupId);
   // Ranking gom dữ liệu ở main process → đẩy bộ lọc xuống engine
   window.api.ranking?.setConfig({ activeGroupId }).catch(() => {});
 }
@@ -1576,7 +2928,7 @@ function editCreator(id) {
 
 function wireCreatorTab() {
   $('#btnPickCrGift').addEventListener('click', async () => {
-    const usedBy = creatorGiftUsage(currentEditingCreator?.id || '');
+    const usedBy = creatorGiftUsage(currentEditingCreator?.id || '', $('#crGroup')?.value ?? (currentEditingCreator?.groupId || ''));
     const g = await GiftPicker.open({
       title: '🎁 Chọn quà mặc định cho Creator',
       disabledIds: Object.keys(usedBy),
@@ -1637,9 +2989,11 @@ function wireCreatorTab() {
     const tiktokId = $('#crTiktokId').value.trim().replace(/^@/, '');
     if (!tiktokId) { toast('Cần nhập TikTok ID', 'error'); return; }
     const giftId = $('#crGiftId').value.trim();
-    if (giftId && creators.some(c => c.id !== currentEditingCreator?.id && String(c.defaultGiftId) === String(giftId))) {
-      const owner = creators.find(c => c.id !== currentEditingCreator?.id && String(c.defaultGiftId) === String(giftId));
-      toast(`Quà này đã được chọn bởi ${owner?.nickname || owner?.tiktokId || 'Creator khác'}`, 'error');
+    // Chỉ chặn trùng quà trong CÙNG NHÓM — khác nhóm được phép dùng lại.
+    const grp = String($('#crGroup').value || '');
+    const owner = giftId ? creators.find(c => c.id !== currentEditingCreator?.id && String(c.groupId || '') === grp && String(c.defaultGiftId) === String(giftId)) : null;
+    if (owner) {
+      toast(`Quà này đã được chọn bởi ${owner.nickname || owner.tiktokId || 'Creator khác'} trong nhóm này`, 'error');
       return;
     }
     const payload = {
@@ -3524,6 +4878,7 @@ async function loadScoreConfig() {
   $('#scHideAvatar').checked = !!st.hideAvatar;
   $('#scHideCreator').checked = !!st.hideCreator;
   $('#scMilestoneGradient').checked = false;
+  if ($('#scColorByProgress')) $('#scColorByProgress').checked = !!st.colorByProgress;
   $('#scShowGiftUser').checked = false;
   $('#scShowTopUsers').checked = false;
   $('#scShowSpeed').checked = false;
@@ -3534,6 +4889,7 @@ async function loadScoreConfig() {
   $('#scBarColor1').value = st.barColor1 || '#b93678';
   $('#scBarColor2').value = st.barColor2 || '#ff8ed1';
   $('#scWaveColor').value = st.waveColor || '#ffffff';
+  syncScoreThemeChips();
   $('#scBigThreshold').value = st.bigGiftThreshold || 500;
   $('#scPointsBy').value = st.pointsBy || 'diamond';
   $('#scOverlayScale').value = st.overlayScale || 100;
@@ -3572,6 +4928,7 @@ function collectScoreCfg() {
     hideAvatar: $('#scHideAvatar').checked,
     hideCreator: $('#scHideCreator').checked,
     milestoneGradientEnabled: false,
+    colorByProgress: $('#scColorByProgress')?.checked || false,
     showGiftUser: false,
     showTopUsers: false,
     showSpeed: false,
@@ -3665,24 +5022,50 @@ function scheduleScoreAutoSave() {
   }, 250);
 }
 
+// Bảng màu preset: [bar1, bar2, wave, over]
+const SCORE_THEMES = {
+  douyin:  ['#b93678', '#ff8ed1', '#ffffff', '#ff0000'],
+  vip:     ['#b76b00', '#ffd36a', '#fff4c1', '#ffea7a'],
+  neon:    ['#00a6ff', '#35ffcf', '#e7ffff', '#70fff0'],
+  battle:  ['#8f101f', '#ff4b4b', '#ffe1e1', '#ff3b3b'],
+  luxury:  ['#4c2a85', '#c79cff', '#f6edff', '#d7b8ff'],
+  minimal: ['#6b7280', '#d1d5db', '#ffffff', '#ffffff'],
+};
+
+// Chip "đang chọn" = preset có đúng 4 màu trùng với 4 ô màu hiện tại
+function syncScoreThemeChips() {
+  const now = [
+    $('#scBarColor1')?.value, $('#scBarColor2')?.value,
+    $('#scWaveColor')?.value, $('#scOverColor')?.value,
+  ].map(c => (c || '').toLowerCase());
+  $$('#scThemeChips .stc-chip').forEach(chip => {
+    const cols = SCORE_THEMES[chip.dataset.theme] || [];
+    const match = cols.length === 4 && cols.every((c, i) => c.toLowerCase() === now[i]);
+    chip.classList.toggle('is-active', match);
+  });
+}
+
+// Áp preset: đổ 4 màu, cập nhật select + chip, đẩy config để preview cập nhật
+function applyScoreTheme(t, { save = true } = {}) {
+  const cols = SCORE_THEMES[t];
+  if (!cols) return;
+  $('#scTheme').value = t;
+  $('#scBarColor1').value = cols[0];
+  $('#scBarColor2').value = cols[1];
+  $('#scWaveColor').value = cols[2];
+  $('#scOverColor').value = cols[3];
+  syncScoreThemeChips();
+  if (save) scheduleScoreAutoSave();
+}
+
 function wireScoreTab() {
   // Theme picker → auto-fill 4 color pickers
   $('#scTheme').addEventListener('change', () => {
-    const t = $('#scTheme').value;
-    const THEMES = {
-      douyin:  ['#b93678', '#ff8ed1', '#ffffff', '#ff0000'],
-      vip:     ['#b76b00', '#ffd36a', '#fff4c1', '#ffea7a'],
-      neon:    ['#00a6ff', '#35ffcf', '#e7ffff', '#70fff0'],
-      battle:  ['#8f101f', '#ff4b4b', '#ffe1e1', '#ff3b3b'],
-      luxury:  ['#4c2a85', '#c79cff', '#f6edff', '#d7b8ff'],
-      minimal: ['#6b7280', '#d1d5db', '#ffffff', '#ffffff'],
-    };
-    if (THEMES[t]) {
-      $('#scBarColor1').value = THEMES[t][0];
-      $('#scBarColor2').value = THEMES[t][1];
-      $('#scWaveColor').value = THEMES[t][2];
-      $('#scOverColor').value = THEMES[t][3];
-    }
+    applyScoreTheme($('#scTheme').value);
+  });
+  // Chip preset nhanh (ngoài drawer) → áp theme 1 chạm
+  $$('#scThemeChips .stc-chip').forEach(chip => {
+    chip.addEventListener('click', () => applyScoreTheme(chip.dataset.theme));
   });
   $('#scTarget').addEventListener('input', syncScoreTargetFromScoreTab);
   $('#scTarget').addEventListener('blur', () => {
@@ -3690,10 +5073,14 @@ function wireScoreTab() {
   });
   ['scDurH', 'scDurM', 'scDurS'].forEach(id => $('#' + id).addEventListener('input', syncScoreDurationFromScoreTab));
   $('#scOverlayScale').addEventListener('input', () => { $('#scOverlayScaleValue').textContent = `${$('#scOverlayScale').value}%`; scheduleScoreAutoSave(); });
-  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scHideAvatar','scHideCreator','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
+  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scHideAvatar','scHideCreator','scColorByProgress','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', scheduleScoreAutoSave);
+  });
+  // Sửa tay một trong 4 ô màu preset → cập nhật lại chip cho khớp
+  ['scBarColor1','scBarColor2','scWaveColor','scOverColor'].forEach(id => {
+    $('#' + id)?.addEventListener('input', syncScoreThemeChips);
   });
   $('#scCreatorSelect').addEventListener('change', applyScoreCreatorSelect);
   $$('.score-sound-file').forEach(btn => btn.addEventListener('click', async () => {
@@ -3778,6 +5165,11 @@ function renderScPreview(st) {
   const pct = Math.min(100, Math.round((score / target) * 100));
   const barColor1 = st.barColor1 || '#ff6aa9';
   const barColor2 = st.barColor2 || '#8eb6ff';
+  // Đổi màu theo %: hành trình sắc màu theo tiến độ (khớp overlay OBS)
+  const reviewFill = st.colorByProgress
+    ? (() => { const h = 280 - 250 * Math.max(0, Math.min(1, pct / 100));
+        return `linear-gradient(90deg, hsl(${(h + 16).toFixed(0)},88%,67%), hsl(${h.toFixed(0)},90%,61%), hsl(${(h - 14).toFixed(0)},92%,55%))`; })()
+    : `linear-gradient(90deg, ${barColor1}, ${barColor2})`;
   const status = st.status || 'idle';
   const running = ['prestart', 'running', 'grace'].includes(status);
   const startBtn = $('#scStart');
@@ -3800,7 +5192,7 @@ function renderScPreview(st) {
   $('#scPreview').innerHTML = `
     <div class="score-review-card${score >= target ? ' kpi-met' : ''}">
       <div class="score-review-time">${escapeHtml(status === 'grace' ? 'ĐANG TÍNH ĐIỂM' : (st.timeText || '00:00'))}</div>
-      <div class="score-review-progress" style="--score-review-fill:linear-gradient(90deg, ${escapeAttr(barColor1)}, ${escapeAttr(barColor2)})"><i style="width:${pct}%"></i><span class="score-review-sheen" style="width:${pct}%"></span><b>⚑</b></div>
+      <div class="score-review-progress" style="--score-review-fill:${escapeAttr(reviewFill)}"><i style="width:${pct}%"></i><span class="score-review-sheen" style="width:${pct}%"></span><b>⚑</b></div>
       <div class="score-review-head">
         <div class="score-review-creator">
           ${st.creatorAvatar ? `<img class="js-avatar" src="${escapeAttr(st.creatorAvatar)}" />` : '<span>HP</span>'}
@@ -3861,10 +5253,10 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, pkfx, pkg, rk, rkGrid, sc] = await Promise.all([
-    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(),
+  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker] = await Promise.all([
+    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(),
   ]);
-  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc };
+  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker };
   $$('[data-copy]').forEach(button => { button.dataset.url = urls[button.dataset.copy]; });
   await refreshReviewButtons();
 }
@@ -4025,6 +5417,7 @@ async function loadSettings() {
   $('#preEffectSoundName').dataset.path = audio.preEffectSound || '';
   $('#preEffectSoundName').value = soundNameFromValue(audio.preEffectSound || '');
   $('#preEffectVolume').value = audio.preEffectVolume ?? 100;
+  if ($('#preEffectEnabled')) $('#preEffectEnabled').checked = !!audio.preEffectEnabled;
   if (audio.startSound) setSoundInput('scSndStart', audio.startSound);
   if (audio.warningSound) setSoundInput('scSndWarn', audio.warningSound);
   if (audio.goalSound) setSoundInput('scSndGoal', audio.goalSound);
@@ -4078,10 +5471,12 @@ function wireSettingsTab() {
     const file = await window.api.shell.pickAudio();
     if (file) setSoundInput('preEffectSoundName', filePathToUrl(file));
   });
-  $('#btnPlayWaitingSound')?.addEventListener('click', () => playSettingsSound('waitingSoundName', 'waitingVolume'));
-  $('#btnStopWaitingSound')?.addEventListener('click', stopSettingsSound);
+  // Nhạc chờ = nhạc nền của NHẠC DANCE: Play/Dừng điều khiển vòng lặp duckable (để clip quà tạm dừng được).
+  $('#btnPlayWaitingSound')?.addEventListener('click', startBgMusic);
+  $('#btnStopWaitingSound')?.addEventListener('click', stopBgMusic);
   $('#btnPlayPreEffectSound')?.addEventListener('click', () => playSettingsSound('preEffectSoundName', 'preEffectVolume'));
   $('#btnStopPreEffectSound')?.addEventListener('click', stopSettingsSound);
+  $('#preEffectEnabled')?.addEventListener('change', () => window.api.settings.set({ audio: { preEffectEnabled: !!$('#preEffectEnabled').checked } }).catch(() => {}));
   $('#gameSoundEnabled')?.addEventListener('change', async () => {
     await window.api.settings.set({ audio: { gameSoundEnabled: gameplaySoundEnabled() } });
     scheduleScoreAutoSave();
@@ -4101,6 +5496,7 @@ function wireSettingsTab() {
         waitingVolume: Number($('#waitingVolume').value) || 0,
         preEffectSound: soundValue('preEffectSoundName'),
         preEffectVolume: Number($('#preEffectVolume').value) || 0,
+        preEffectEnabled: !!$('#preEffectEnabled')?.checked,
       },
     });
     toast('💾 Đã lưu cài đặt âm thanh', 'success');

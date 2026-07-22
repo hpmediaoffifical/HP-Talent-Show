@@ -157,21 +157,27 @@
   <div class="app">
     <aside class="sidebar" aria-label="Điều hướng">
       <div class="brand" title="HP Talent Show">
-        <img src="../logo/hp-logo.png" alt="HP" />
+        <button id="brandToggle" class="brand-logo-btn" type="button" title="Bấm logo để thu gọn / mở rộng menu">
+          <img src="../logo/hp-logo.png" alt="HP" />
+        </button>
         <div class="brand-text">
           <strong>HP TALENT SHOW</strong>
           <button id="versionCheckBtn" class="brand-ver version-check" type="button" title="Bấm để kiểm tra cập nhật">v<span id="appVersionText">0.1.0</span></button>
         </div>
       </div>
       <nav class="nav">
-        <button class="nav-btn active" data-tab="connect">💬 <span>TƯƠNG TÁC</span></button>
-        <button class="nav-btn" data-tab="score">🎯 <span>TÍNH ĐIỂM</span></button>
-        <button class="nav-btn" data-tab="pkduo">⚔️ <span>PK ĐÔI</span></button>
-        <button class="nav-btn" data-tab="pkgroup">🧩 <span>PK NHÓM</span></button>
-        <button class="nav-btn" data-tab="ranking">🏆 <span>THI ĐẤU NHÓM</span></button>
-        <button class="nav-btn" data-tab="creators">👤 <span>HỒ SƠ CREATOR</span></button>
-        <button class="nav-btn" data-tab="groups">👥 <span>HỒ SƠ NHÓM</span></button>
-        <button class="nav-btn" data-tab="settings">⚙️ <span>CÀI ĐẶT</span></button>
+        <button class="nav-btn active" data-tab="connect" title="TƯƠNG TÁC"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span><span class="nav-txt">TƯƠNG TÁC</span></button>
+        <button class="nav-btn" data-tab="score" title="TÍNH ĐIỂM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><span class="nav-txt">TÍNH ĐIỂM</span></button>
+        <button class="nav-btn" data-tab="pkduo" title="PK ĐÔI"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/></svg></span><span class="nav-txt">PK ĐÔI</span></button>
+        <button class="nav-btn" data-tab="pkgroup" title="PK NHÓM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5a2.121 2.121 0 0 1 3 3L9 16l-4 1 1-4Z"/><path d="M8.5 8.5a2.121 2.121 0 0 0-3 3L15 21l4-1-1-4Z"/></svg></span><span class="nav-txt">PK NHÓM</span></button>
+        <button class="nav-btn" data-tab="ranking" title="THI ĐẤU NHÓM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span><span class="nav-txt">THI ĐẤU NHÓM</span></button>
+        <button class="nav-btn" data-tab="musiclist" title="NHẠC DANCE"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span><span class="nav-txt">NHẠC DANCE</span></button>
+        <button class="nav-btn" data-tab="stickerdance" title="ĐẬP TRỨNG"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c6.23-.05 7.87-5.57 7.5-10-.36-4.34-3.95-9.96-7.5-10-3.55.04-7.14 5.66-7.5 10-.37 4.43 1.27 9.95 7.5 10z"/></svg></span><span class="nav-txt">ĐẬP TRỨNG</span></button>
+        <button class="nav-btn" data-tab="mvphonor" title="VINH DANH"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span><span class="nav-txt">VINH DANH</span></button>
+        <button class="nav-btn" data-tab="luckywheel" title="VÒNG QUAY"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/><path d="M12 12 6.5 8"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span><span class="nav-txt">VÒNG QUAY</span></button>
+        <button class="nav-btn" data-tab="creators" title="HỒ SƠ CREATOR"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="nav-txt">HỒ SƠ CREATOR</span></button>
+        <button class="nav-btn" data-tab="groups" title="HỒ SƠ NHÓM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="nav-txt">HỒ SƠ NHÓM</span></button>
+        <button class="nav-btn" data-tab="settings" title="CÀI ĐẶT"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="nav-txt">CÀI ĐẶT</span></button>
       </nav>
     </aside>
 
@@ -743,6 +749,17 @@
                 </div>
               </div>
             </div>
+            <div class="score-theme-chips" id="scThemeChips">
+              <span class="stc-label">🎨 Preset nhanh</span>
+              <div class="stc-row">
+                <button type="button" class="stc-chip" data-theme="douyin" style="--c1:#b93678;--c2:#ff8ed1">Douyin</button>
+                <button type="button" class="stc-chip" data-theme="vip" style="--c1:#b76b00;--c2:#ffd36a">VIP</button>
+                <button type="button" class="stc-chip" data-theme="neon" style="--c1:#00a6ff;--c2:#35ffcf">Neon</button>
+                <button type="button" class="stc-chip" data-theme="battle" style="--c1:#8f101f;--c2:#ff4b4b">Battle</button>
+                <button type="button" class="stc-chip" data-theme="luxury" style="--c1:#4c2a85;--c2:#c79cff">Luxury</button>
+                <button type="button" class="stc-chip" data-theme="minimal" style="--c1:#6b7280;--c2:#d1d5db">Minimal</button>
+              </div>
+            </div>
           </div>
 
           <div class="score-ops-grid">
@@ -808,16 +825,21 @@
                 <label>Bar màu 1 <input id="scBarColor1" type="color" value="#b93678" /></label>
                 <label>Bar màu 2 <input id="scBarColor2" type="color" value="#ff8ed1" /></label>
                 <label>Wave màu <input id="scWaveColor" type="color" value="#ffffff" /></label>
+                <label class="full">Hiệu ứng màu
+                  <div class="option-pills">
+                    <span title="Màu thanh tự biến đổi theo % tiến độ (tím→lam→lục→vàng), không hiện số %"><input id="scColorByProgress" type="checkbox" /> ✨ Đổi màu theo % (ảo diệu)</span>
+                  </div>
+                </label>
                 <input id="scCompact" type="checkbox" hidden />
                 <input id="scShowGiftUser" type="checkbox" hidden />
                 <input id="scShowTopUsers" type="checkbox" hidden />
                 <input id="scShowSpeed" type="checkbox" hidden />
-                <label>Avatar/Creator
+                <div class="fld">Avatar/Creator
                   <div class="option-pills">
-                    <span><input id="scHideAvatar" type="checkbox" /> Ẩn avatar</span>
-                    <span><input id="scHideCreator" type="checkbox" /> Ẩn creator</span>
+                    <label><input id="scHideAvatar" type="checkbox" /> Ẩn avatar</label>
+                    <label><input id="scHideCreator" type="checkbox" /> Ẩn creator</label>
                   </div>
-                </label>
+                </div>
                 <label class="full">Scale Tính điểm OBS
                   <div class="range-inline">
                     <input id="scOverlayScale" type="range" min="80" max="300" step="5" value="100" />
@@ -834,6 +856,423 @@
             <input id="scMilestoneGradient" type="checkbox" hidden />
           </div>
 
+        </div>
+      </section>
+
+      <section class="panel" data-panel="musiclist">
+        <h1>🎵 NHẠC DANCE</h1>
+        <p class="sub">Gán mỗi quà một clip audio. Khi có người tặng quà đó, clip sẽ phát (xếp hàng lần lượt) và tạm dừng nhạc nền, phát xong tự chạy tiếp.</p>
+        <div class="card ml-card">
+          <div class="ml-toolbar">
+            <button id="mlAddGift" class="primary" type="button">＋ Thêm quà</button>
+            <button id="mlAddCreators" class="ghost" type="button" title="Thêm quà mặc định của các Creator (đặt tên theo Creator)">👤 Creator</button>
+            <button id="mlBgToggle" class="ml-bgbtn" type="button">▶ Nền</button>
+            <label class="ml-switch" title="Nhạc nền = Nhạc chờ; bật để phát khi bắt đầu game"><input type="checkbox" id="mlBgEnabled" /> 🎶 Nhạc nền</label>
+            <label class="ml-switch" title="Tạm dừng nhạc nền khi phát clip"><input type="checkbox" id="mlDuck" checked /> Tạm dừng nhạc nền</label>
+            <span class="mlq-spacer"></span>
+            <label class="ml-switch ml-master" title="STOP ALL — Ngưng toàn bộ NHẠC DANCE: không tự phát nhạc nền & nhạc biểu diễn khi đang dùng tính năng khác"><input type="checkbox" id="mlPaused" /> ⏸ STOP ALL</label>
+          </div>
+          <div class="ml-list" id="mlList"></div>
+          <div class="ml-empty hint" id="mlEmpty">Chưa có quà nào. Bấm “＋ Thêm quà” để bắt đầu.</div>
+        </div>
+
+        <div class="card ml-queue-card">
+          <div class="mlq-head">
+            <h3>🎬 Hàng đợi hiệu ứng</h3>
+            <span class="mlq-count hint" id="mlqCount">Đang chờ: 0</span>
+            <span class="mlq-spacer"></span>
+            <label class="mlq-limit">Hiển thị tối đa <input id="mlqLimit" type="number" min="1" max="500" value="50" /></label>
+            <button id="mlqSkip" class="ghost tiny" type="button" title="Bỏ qua hiệu ứng đang phát">⏭ Bỏ qua</button>
+            <button id="mlqShuffle" class="ghost tiny" type="button" title="Xáo trộn ngẫu nhiên thứ tự hàng chờ (các quà giống nhau không dồn cụm)">🎲 Xúc xắc</button>
+            <label class="mlq-clearn">Xóa <input id="mlqClearNum" type="number" min="1" value="10" /> cái</label>
+            <button id="mlqClearN" class="ghost tiny" type="button">Xóa N</button>
+            <button id="mlqClearAll" class="ghost tiny danger" type="button">Xóa tất cả</button>
+          </div>
+          <div class="mlq-current" id="mlqCurrent"></div>
+          <div class="mlq-list" id="mlqList"></div>
+        </div>
+
+        <details class="card settings-card audio-settings-card ml-device-card">
+          <summary><h3>⚙️ Thiết bị phát &amp; Nhạc nền (Cài đặt)</h3></summary>
+          <div class="audio-device-layout">
+            <label class="audio-device-row audio-device-output"><span>Thiết bị phát</span>
+              <select id="audioOutput">
+                <option value="default">Thiết bị phát mặc định</option>
+              </select>
+            </label>
+            <div class="audio-device-row">
+              <label><span>Nhạc chờ (nhạc nền)</span>
+                <div class="inline tight">
+                  <input id="waitingSoundName" type="text" placeholder="Chưa chọn âm thanh" readonly />
+                  <button id="btnPickWaitingSound" class="ghost tiny" type="button">Chọn file</button>
+                  <button id="btnPlayWaitingSound" class="ghost tiny" type="button">Play</button>
+                  <button id="btnStopWaitingSound" class="ghost tiny" type="button">Dừng</button>
+                </div>
+              </label>
+              <label><span>Âm lượng nhạc chờ</span>
+                <input id="waitingVolume" type="range" min="0" max="100" value="100" />
+              </label>
+            </div>
+            <div class="audio-device-row">
+              <label><span>Âm thanh trước khi phát hiệu ứng <small class="hint">(phát trước MỌI clip biểu diễn)</small></span>
+                <div class="inline tight">
+                  <label class="ml-switch" title="Bật/tắt phát âm thanh mở màn trước mỗi clip biểu diễn"><input type="checkbox" id="preEffectEnabled" /> Bật</label>
+                  <input id="preEffectSoundName" type="text" placeholder="Chưa chọn âm thanh" readonly />
+                  <button id="btnPickPreEffectSound" class="ghost tiny" type="button">Chọn file</button>
+                  <button id="btnPlayPreEffectSound" class="ghost tiny" type="button">Play</button>
+                  <button id="btnStopPreEffectSound" class="ghost tiny" type="button">Dừng</button>
+                </div>
+              </label>
+              <label><span>Âm lượng âm thanh trước hiệu ứng</span>
+                <input id="preEffectVolume" type="range" min="0" max="100" value="100" />
+              </label>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button id="btnSaveSettings" class="primary" type="button">💾 Lưu cài đặt</button>
+          </div>
+          <div class="hint">Thiết bị phát phụ thuộc quyền trình duyệt/Electron; nếu danh sách trống, app sẽ dùng thiết bị mặc định.</div>
+        </details>
+      </section>
+
+      <section class="panel" data-panel="stickerdance">
+        <h1>🥚 Đập Trứng</h1>
+        <p class="sub">Bảng lưới quà cho OBS: nền xám mờ, icon quà nhô lên, số đếm bên dưới. Kéo icon để di chuyển sang ô trống hoặc đổi chỗ 2 quà.</p>
+        <div class="card sd-card">
+          <div class="sd-actions">
+            <button class="primary" id="sdCopyUrl" type="button">📋 Link OBS</button>
+            <button class="ghost" data-review-toggle="stickerdance" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="stickerdance" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-click="stickerdance" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="stickerdance" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="stickerdance" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="stickerdance" type="button">Trong suốt</button>
+            <button class="ghost danger" id="sdReset" type="button">↺ Reset số đếm</button>
+          </div>
+          <div class="sd-grid-editor" id="sdGrid"></div>
+          <details class="sd-cfg-collapse">
+            <summary class="sd-cfg-summary">
+              <span class="sd-cfg-summary__ico">⚙️</span>
+              <span class="sd-cfg-summary__txt">Tùy chỉnh lưới, huy hiệu &amp; hiệu ứng</span>
+              <span class="sd-cfg-summary__hint">bấm để mở / thu gọn</span>
+              <span class="sd-cfg-summary__chev">▾</span>
+            </summary>
+          <div class="sd-cfg">
+            <div class="sd-cfg-group">
+              <span class="sd-cfg-h">📐 Lưới &amp; đếm</span>
+              <div class="sd-cfg-grid">
+                <label>Hàng <input type="number" id="sdRows" min="1" max="12" value="3" /></label>
+                <label>Cột <input type="number" id="sdCols" min="1" max="12" value="6" /></label>
+                <label>Chế độ đếm
+                  <select id="sdCountMode">
+                    <option value="cumulative">Đếm tăng (tích lũy)</option>
+                    <option value="countdown">Đếm lùi (đang chờ biểu diễn)</option>
+                  </select>
+                </label>
+                <label>Vị trí chữ
+                  <select id="sdLabelPos">
+                    <option value="bottom">Dưới icon</option>
+                    <option value="top">Trên icon</option>
+                  </select>
+                </label>
+                <label>Cỡ icon <input type="range" id="sdIconSize" min="36" max="140" value="66" /></label>
+                <label>Cỡ chữ <input type="range" id="sdTextSize" min="8" max="40" value="14" /></label>
+                <label title="Khoảng cách giữa các CỘT (ngang)">↔ Cách cột <input type="range" id="sdColGap" min="0" max="120" value="14" /></label>
+                <label title="Khoảng cách giữa các HÀNG (dọc). Về giữa (0) là khít; kéo trái = hàng đè sát/chồng lên nhau.">↕ Cách hàng <input type="range" id="sdRowGap" min="-120" max="120" value="0" /></label>
+                <label>Cỡ trứng <input type="range" id="sdEggSize" min="40" max="140" value="85" /></label>
+                <label>Skin trứng
+                  <select id="sdEggSkin">
+                    <option value="ivory">🥚 Trắng ngà</option>
+                    <option value="gold">🟡 Vàng gold</option>
+                    <option value="pink">🩷 Hồng pastel</option>
+                    <option value="blue">🔵 Xanh dương</option>
+                    <option value="dino">🦖 Khủng long (đốm)</option>
+                  </select>
+                </label>
+                <label class="sd-switch"><input type="checkbox" id="sdEggSkinRandom" /> 🎲 Skin trứng ngẫu nhiên</label>
+                <label>Màu nền <input type="color" id="sdBg" value="#2b2f3a" /></label>
+                <label>Độ mờ nền <input type="range" id="sdBgOpacity" min="0" max="100" value="55" /></label>
+              </div>
+            </div>
+            <div class="sd-cfg-group">
+              <span class="sd-cfg-h">🏷 Hiển thị &amp; huy hiệu</span>
+              <div class="sd-cfg-grid">
+                <label class="sd-switch"><input type="checkbox" id="sdAnimIcon" checked /> Anim icon</label>
+                <label class="sd-switch"><input type="checkbox" id="sdEnlargeTop" checked /> Phóng to quà nhiều điểm</label>
+                <label class="sd-switch"><input type="checkbox" id="sdShowCrown" checked /> 👑 Vương miện ô top</label>
+                <label class="sd-switch"><input type="checkbox" id="sdShowMedals" checked /> 🏅 Huy chương Top 3</label>
+                <label class="sd-switch"><input type="checkbox" id="sdPerfBanner" checked /> 🎤 Ruy-băng "Đang diễn"</label>
+                <label class="sd-switch"><input type="checkbox" id="sdShowLevelUp" checked /> ⭐ Hiệu ứng Level Up</label>
+                <label class="sd-switch"><input type="checkbox" id="sdEggZero" checked /> 🥚 Hiện trứng khi chưa có quà (đập trứng)</label>
+              </div>
+            </div>
+            <div class="sd-cfg-group">
+              <span class="sd-cfg-h">🔥 Giữ chuỗi (gameplay)</span>
+              <div class="sd-cfg-grid">
+                <label class="sd-switch"><input type="checkbox" id="sdStreakEnabled" /> 🔥 Bật GIỮ CHUỖI (ưu tiên quà còn máu lên diễn)</label>
+                <label>Thời lượng chuỗi (giây) <input type="number" id="sdStreakSeconds" min="1" max="120" value="10" /></label>
+                <label>Màu thanh máu
+                  <select id="sdStreakBarColor">
+                    <option value="tiktok">Hồng đỏ TikTok</option>
+                    <option value="blue">Xanh</option>
+                    <option value="health">Theo mức (xanh→đỏ)</option>
+                  </select>
+                </label>
+                <label class="sd-switch"><input type="checkbox" id="sdStreakSteal" checked /> ⚔️ Cướp chuỗi (cắt ngang khi quà khác vượt)</label>
+              </div>
+              <span class="sd-cfg-note">Tặng quà làm đầy thanh máu; cạn dần trong thời lượng. Quà còn máu &amp; nhiều clip chờ hơn được ưu tiên lên sân khấu — hết máu thì nhường quà khác, không ai còn máu thì phát nốt bình thường. <b>Cướp chuỗi</b>: đang phát quà A mà quà B còn máu vượt số lượng sẽ cắt ngang, bỏ lượt A hiện tại để nhảy sang B.</span>
+            </div>
+            <div class="sd-cfg-group">
+              <span class="sd-cfg-h">✨ Hiệu ứng khi biểu diễn</span>
+              <div class="sd-cfg-grid">
+                <label>Chủ đề
+                  <select id="sdPerfPreset">
+                    <option value="">— Chọn nhanh —</option>
+                    <option value="party">Tiệc tùng 🎉</option>
+                    <option value="luxury">Sang trọng ✨</option>
+                    <option value="neon">Neon 🌈</option>
+                    <option value="music">Sôi động 🎵</option>
+                    <option value="minimal">Tối giản</option>
+                  </select>
+                </label>
+                <label>Nền
+                  <select id="sdPerfBg">
+                    <option value="none">Không (giữ nền xám)</option>
+                    <option value="gold">Vàng ánh kim</option>
+                    <option value="pink">Hồng tím</option>
+                    <option value="blue">Xanh dương tím</option>
+                    <option value="dark">Kính đen</option>
+                  </select>
+                </label>
+                <label>Viền
+                  <select id="sdPerfBorder">
+                    <option value="none">Không</option>
+                    <option value="glow">Quầng sáng nhấp nháy</option>
+                    <option value="neon">Viền neon chạy</option>
+                    <option value="rainbow">Viền cầu vồng chạy</option>
+                    <option value="ring">Viền sáng đập nhịp</option>
+                  </select>
+                </label>
+                <label class="sd-switch"><input type="checkbox" id="sdPerfSparkle" /> ✨ Hạt lấp lánh</label>
+                <label class="sd-switch"><input type="checkbox" id="sdPerfRipple" /> 🌊 Vòng sáng lan toả</label>
+                <label class="sd-switch"><input type="checkbox" id="sdPerfShine" /> 💫 Tia sáng quét</label>
+                <label class="sd-switch"><input type="checkbox" id="sdPerfNotes" /> 🎵 Nốt nhạc bay</label>
+              </div>
+            </div>
+          </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="mvphonor">
+        <h1>🏅 Vinh danh</h1>
+        <p class="sub">Thẻ avatar vinh danh trên OBS: khung PNG + ảnh đại diện + chữ. Vinh danh <b>Creator idol TOP</b> (chọn trong nhóm) hoặc <b>User cống hiến</b> (tải ảnh lên). Kéo thẻ trong khung xem trước để đặt vị trí.</p>
+        <div class="card mvp-panel">
+          <div class="mvp-toolbar">
+            <button class="primary" id="mhAddCard" type="button">＋ Thêm thẻ</button>
+            <label class="mvp-hint" style="display:inline-flex;align-items:center;gap:6px">Khung
+              <select id="mhCanvas">
+                <option value="1:1">Vuông 1:1</option>
+                <option value="3:4">Đứng 3:4</option>
+                <option value="9:16">Dọc 9:16</option>
+              </select>
+            </label>
+            <span class="mvp-hint" id="mhGroupHint"></span>
+            <span class="mvp-spacer"></span>
+            <button class="ghost danger" id="mhClear" type="button">🗑 Xoá hết thẻ</button>
+          </div>
+
+          <div class="mvp-workspace">
+            <!-- CONSOLE: danh sách thẻ -->
+            <div class="mvp-col mvp-console">
+              <div class="mvp-col-h">Bảng điều khiển</div>
+              <div class="mvp-cards" id="mhCards"></div>
+            </div>
+
+            <!-- PREVIEW: sân khấu 1080x1920 thu nhỏ, kéo thẻ để đặt vị trí -->
+            <div class="mvp-col mvp-preview">
+              <div class="mvp-col-h">Xem trước &amp; đặt vị trí</div>
+              <div class="mvp-stage-box">
+                <div class="mvp-stage" id="mhStage"></div>
+              </div>
+              <div class="mvp-pos-row">
+                <label>X <input type="number" id="mhX" value="120" /></label>
+                <label>Y <input type="number" id="mhY" value="200" /></label>
+                <label>Cỡ <input type="range" id="mhScale" min="20" max="300" value="100" /></label>
+                <label>Xoay <input type="range" id="mhRot" min="-180" max="180" value="0" /></label>
+              </div>
+            </div>
+
+            <!-- CONFIG: cấu hình thẻ đang chọn -->
+            <div class="mvp-col mvp-config" id="mhConfig">
+              <div class="mvp-col-h">Cấu hình thẻ</div>
+              <div class="mvp-cfg-body" id="mhCfgBody">
+                <div class="mvp-cfg-group">
+                  <span class="mvp-cfg-h">Kiểu vinh danh</span>
+                  <div class="mvp-mode">
+                    <label class="mvp-radio"><input type="radio" name="mhMode" id="mhModeCreator" value="creator" checked /> ⭐ Creator idol TOP</label>
+                    <label class="mvp-radio"><input type="radio" name="mhMode" id="mhModeUser" value="user" /> 🎁 User cống hiến</label>
+                  </div>
+                  <div id="mhCreatorRow" class="mvp-field">
+                    <label>Chọn Creator trong nhóm
+                      <select id="mhCreator"></select>
+                    </label>
+                  </div>
+                  <div id="mhUploadRow" class="mvp-field" style="display:none">
+                    <label>Ảnh đại diện (tải lên)</label>
+                    <div class="mvp-upload">
+                      <button class="ghost" id="mhUploadBtn" type="button">＋ Chọn ảnh</button>
+                      <input type="file" id="mhUpload" accept="image/*" hidden />
+                      <span class="mvp-hint" id="mhUploadName">Chưa có ảnh</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mvp-cfg-group">
+                  <span class="mvp-cfg-h">Nội dung</span>
+                  <div class="mvp-field">
+                    <label>Tên hiển thị
+                      <input type="text" id="mhName" placeholder="@tên hoặc biệt danh" />
+                    </label>
+                    <label class="mvp-switch"><input type="checkbox" id="mhShowName" /> Hiện tên dưới avatar</label>
+                    <label>Chữ vinh danh (Enter để xuống dòng)
+                      <textarea id="mhText" rows="2" placeholder="VD: TOP 1 CỐNG HIẾN"></textarea>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="mvp-cfg-group">
+                  <span class="mvp-cfg-h">Khung (skin)</span>
+                  <div class="mvp-skins" id="mhSkins"></div>
+                </div>
+
+                <div class="mvp-cfg-group">
+                  <span class="mvp-cfg-h">Bố cục &amp; kích thước</span>
+                  <div class="mvp-cfg-grid">
+                    <label>Bố cục
+                      <select id="mhLayout">
+                        <option value="horizontal">Ngang</option>
+                        <option value="vertical">Dọc</option>
+                      </select>
+                    </label>
+                    <label>Anim xuất hiện
+                      <select id="mhAnim">
+                        <option value="popBounce">Bật nảy</option>
+                        <option value="zoomFade">Phóng mờ</option>
+                        <option value="slideRight">Trượt ngang</option>
+                        <option value="slideUp">Trượt lên</option>
+                        <option value="none">Không</option>
+                      </select>
+                    </label>
+                    <label>Cỡ avatar <input type="range" id="mhAvatarSize" min="60" max="400" value="150" /></label>
+                    <label>Cỡ khung <input type="range" id="mhFrameScale" min="80" max="300" value="150" /></label>
+                    <label>Cỡ chữ <input type="range" id="mhFontSize" min="12" max="140" value="40" /></label>
+                  </div>
+                </div>
+
+                <div class="mvp-cfg-group">
+                  <span class="mvp-cfg-h">Màu chữ &amp; nền chữ</span>
+                  <div class="mvp-cfg-grid">
+                    <label>Kiểu chữ
+                      <select id="mhTextStyle">
+                        <option value="plaque">Khung viền nổi ✨</option>
+                        <option value="solid">Nền đặc</option>
+                        <option value="gradient">Nền chuyển màu</option>
+                        <option value="neon">Neon (không nền)</option>
+                      </select>
+                    </label>
+                    <label>Màu chữ <input type="color" id="mhColor" value="#ffffff" /></label>
+                    <label>Màu nền 1 <input type="color" id="mhBg" value="#e84c88" /></label>
+                    <label>Màu nền 2 <input type="color" id="mhBg2" value="#7a3cff" /></label>
+                    <label>Độ mờ nền <input type="range" id="mhBgOpacity" min="0" max="100" value="100" /></label>
+                  </div>
+                </div>
+              </div>
+              <div class="mvp-cfg-empty" id="mhCfgEmpty">Chưa có thẻ nào. Nhấn <b>＋ Thêm thẻ</b> để bắt đầu.</div>
+            </div>
+          </div>
+
+          <div class="sd-actions">
+            <button class="primary" id="mhCopyUrl" type="button">📋 Link OBS</button>
+            <button class="ghost" data-review-toggle="mvphonor" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="mvphonor" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-click="mvphonor" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="mvphonor" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="mvphonor" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="mvphonor" type="button">Trong suốt</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="luckywheel">
+        <h1>🎡 Vòng quay may mắn</h1>
+        <div class="card lw-card">
+          <div class="sd-actions">
+            <button class="primary" id="lwCopyUrl" type="button">📋 Link OBS</button>
+            <button class="ghost" data-review-toggle="luckywheel" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="luckywheel" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-click="luckywheel" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="luckywheel" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="luckywheel" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="luckywheel" type="button">Trong suốt</button>
+          </div>
+
+          <div class="lw-workspace">
+            <!-- Cột trái: xem trước + quay -->
+            <div class="lw-col lw-play">
+              <div class="lw-col-h">Quay</div>
+              <div class="lw-preview-box">
+                <canvas id="lwPreview" width="600" height="600"></canvas>
+                <div class="lw-preview-pointer"></div>
+              </div>
+              <div class="lw-spin-row">
+                <label>Người quay
+                  <select id="lwSpinnerSel"><option value="">— Không chọn —</option></select>
+                </label>
+                <input type="text" id="lwSpinnerName" placeholder="hoặc gõ tên tự do…" />
+              </div>
+              <button class="primary lw-big-spin" id="lwSpinBtn" type="button">🎯 QUAY NGAY</button>
+              <div class="lw-last" id="lwLast"></div>
+            </div>
+
+            <!-- Cột giữa: danh sách ô -->
+            <div class="lw-col lw-segs">
+              <div class="lw-col-h">Các ô (ghi nội dung)
+                <button class="ghost lw-add" id="lwAddSeg" type="button">＋ Thêm ô</button>
+              </div>
+              <div class="lw-seg-list" id="lwSegList"></div>
+            </div>
+
+            <!-- Cột phải: cấu hình -->
+            <div class="lw-col lw-config">
+              <div class="lw-col-h">Cấu hình</div>
+              <label>Tiêu đề <input type="text" id="lwTitleInput" placeholder="VÒNG QUAY MAY MẮN" /></label>
+              <label>Kiểu (style)
+                <select id="lwStyle">
+                  <option value="neon">TikTok Neon</option>
+                  <option value="gold">Casino Vàng</option>
+                  <option value="pastel">Pastel Kẹo</option>
+                  <option value="dark">Tối Sang</option>
+                </select>
+              </label>
+              <label>Thời gian quay (giây) <input type="number" id="lwSeconds" min="2" max="15" value="5" /></label>
+              <label class="lw-chk"><input type="checkbox" id="lwSound" checked /> 🔊 Âm thanh tự động</label>
+              <label class="lw-chk"><input type="checkbox" id="lwConfetti" checked /> 🎊 Pháo giấy khi thưởng</label>
+              <label class="lw-chk"><input type="checkbox" id="lwShowResult" checked /> 🏆 Hiện thẻ kết quả</label>
+            </div>
+          </div>
+
+          <!-- Lịch sử + thống kê -->
+          <details class="lw-hist-collapse" open>
+            <summary>📜 Lịch sử quay & thống kê</summary>
+            <div class="lw-hist-actions">
+              <span class="lw-stats" id="lwStats"></span>
+              <span class="lw-spacer"></span>
+              <button class="ghost" id="lwExport" type="button">⬇ Copy CSV</button>
+              <button class="ghost danger" id="lwClearHist" type="button">🗑 Xoá lịch sử</button>
+            </div>
+            <div class="lw-hist-table" id="lwHistTable"></div>
+          </details>
         </div>
       </section>
 
@@ -984,6 +1423,16 @@
             <input class="review-bg-alpha" data-review-alpha="score" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="score" type="button">Trong suốt</button>
           </div>
+          <div class="ovl-row">
+            <label>🥚 Đập Trứng</label>
+            <button class="primary" data-copy="urlSticker" type="button">📋 OBS</button>
+            <button class="ghost" data-review-toggle="stickerdance" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="stickerdance" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-click="stickerdance" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="stickerdance" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="stickerdance" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="stickerdance" type="button">Trong suốt</button>
+          </div>
         </details>
         <details class="card settings-card audio-settings-card">
           <summary><h3>🔊 Âm thanh Gameplay</h3></summary>
@@ -997,46 +1446,6 @@
           </div>
         </details>
 
-        <details class="card settings-card audio-settings-card">
-          <summary><h3>🎧 Thiết bị phát</h3></summary>
-          <div class="audio-device-layout">
-            <label class="audio-device-row audio-device-output"><span>Thiết bị phát</span>
-              <select id="audioOutput">
-                <option value="default">Thiết bị phát mặc định</option>
-              </select>
-            </label>
-            <div class="audio-device-row">
-              <label><span>Nhạc chờ</span>
-                <div class="inline tight">
-                  <input id="waitingSoundName" type="text" placeholder="Chưa chọn âm thanh" readonly />
-                  <button id="btnPickWaitingSound" class="ghost tiny" type="button">Chọn file</button>
-                  <button id="btnPlayWaitingSound" class="ghost tiny" type="button">Play</button>
-                  <button id="btnStopWaitingSound" class="ghost tiny" type="button">Dừng</button>
-                </div>
-              </label>
-              <label><span>Âm lượng nhạc chờ</span>
-                <input id="waitingVolume" type="range" min="0" max="100" value="100" />
-              </label>
-            </div>
-            <div class="audio-device-row">
-              <label><span>Âm thanh trước khi phát hiệu ứng</span>
-                <div class="inline tight">
-                  <input id="preEffectSoundName" type="text" placeholder="Chưa chọn âm thanh" readonly />
-                  <button id="btnPickPreEffectSound" class="ghost tiny" type="button">Chọn file</button>
-                  <button id="btnPlayPreEffectSound" class="ghost tiny" type="button">Play</button>
-                  <button id="btnStopPreEffectSound" class="ghost tiny" type="button">Dừng</button>
-                </div>
-              </label>
-              <label><span>Âm lượng âm thanh trước hiệu ứng</span>
-                <input id="preEffectVolume" type="range" min="0" max="100" value="100" />
-              </label>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button id="btnSaveSettings" class="primary" type="button">💾 Lưu cài đặt</button>
-          </div>
-          <div class="hint">Thiết bị phát phụ thuộc quyền trình duyệt/Electron; nếu danh sách trống, app sẽ dùng thiết bị mặc định.</div>
-        </details>
       </section>
 
       <footer class="bottom-live" id="bottomLive">

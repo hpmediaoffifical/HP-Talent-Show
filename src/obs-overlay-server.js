@@ -29,10 +29,16 @@ class ObsOverlayServer {
     this.pkGroupClients = new Set();
     this.rankingClients = new Set();
     this.scoreClients = new Set();
+    this.stickerClients = new Set();
+    this.mvpHonorClients = new Set();
+    this.luckyWheelClients = new Set();
     this.pkDuoState = {};
     this.pkGroupState = {};
     this.rankingState = {};
     this.scoreState = {};
+    this.stickerState = {};
+    this.mvpHonorState = {};
+    this.luckyWheelState = {};
     this.heartbeatTimer = null;
     // Cache avatar theo "danh tính ảnh" = PATH của URL (bỏ query chữ ký/expires): URL avatar TikTok
     // đã chứa hash ảnh trong path nên đổi ảnh = đổi path. Nhờ vậy URL ký lại (đổi x-signature/x-expires)
@@ -61,7 +67,7 @@ class ObsOverlayServer {
   stop() {
     clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
-    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients]) {
+    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients]) {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
     }
@@ -74,11 +80,17 @@ class ObsOverlayServer {
   getPkGroupUrl() { return `http://127.0.0.1:${this.port}/pk-group?token=${encodeURIComponent(this.token)}`; }
   getRankingUrl() { return `http://127.0.0.1:${this.port}/ranking?token=${encodeURIComponent(this.token)}`; }
   getScoreUrl() { return `http://127.0.0.1:${this.port}/score?token=${encodeURIComponent(this.token)}`; }
+  getStickerUrl() { return `http://127.0.0.1:${this.port}/sticker?token=${encodeURIComponent(this.token)}`; }
+  getMvpHonorUrl() { return `http://127.0.0.1:${this.port}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
+  getLuckyWheelUrl() { return `http://127.0.0.1:${this.port}/lucky-wheel?token=${encodeURIComponent(this.token)}`; }
 
   sendPkDuo(state) { this.pkDuoState = state || {}; this._broadcast(this.pkDuoClients, 'pkduo', this.pkDuoState); }
   sendPkGroup(state) { this.pkGroupState = state || {}; this._broadcast(this.pkGroupClients, 'pkgroup', this.pkGroupState); }
   sendRanking(state) { this.rankingState = state || {}; this._broadcast(this.rankingClients, 'ranking', this.rankingState); }
   sendScore(state) { this.scoreState = state || {}; this._broadcast(this.scoreClients, 'score', this.scoreState); }
+  sendSticker(state) { this.stickerState = state || {}; this._broadcast(this.stickerClients, 'sticker', this.stickerState); }
+  sendMvpHonor(state) { this.mvpHonorState = state || {}; this._broadcast(this.mvpHonorClients, 'mvphonor', this.mvpHonorState); }
+  sendLuckyWheel(state) { this.luckyWheelState = state || {}; this._broadcast(this.luckyWheelClients, 'luckywheel', this.luckyWheelState); }
 
   _broadcast(set, event, data) {
     const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
@@ -94,6 +106,9 @@ class ObsOverlayServer {
       [this.pkGroupClients, 'pkgroup', this.pkGroupState],
       [this.rankingClients, 'ranking', this.rankingState],
       [this.scoreClients, 'score', this.scoreState],
+      [this.stickerClients, 'sticker', this.stickerState],
+      [this.mvpHonorClients, 'mvphonor', this.mvpHonorState],
+      [this.luckyWheelClients, 'luckywheel', this.luckyWheelState],
     ];
     for (const [set, event, data] of beats) {
       const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
@@ -123,6 +138,12 @@ class ObsOverlayServer {
       '/ranking-overlay.css': 'renderer/ranking-overlay.css',
       '/score-overlay.js': 'renderer/score-overlay.js',
       '/score-overlay.css': 'renderer/score-overlay.css',
+      '/sticker-overlay.js': 'renderer/sticker-overlay.js',
+      '/sticker-overlay.css': 'renderer/sticker-overlay.css',
+      '/mvp-honor-overlay.js': 'renderer/mvp-honor-overlay.js',
+      '/mvp-honor-overlay.css': 'renderer/mvp-honor-overlay.css',
+      '/lucky-wheel-overlay.js': 'renderer/lucky-wheel-overlay.js',
+      '/lucky-wheel-overlay.css': 'renderer/lucky-wheel-overlay.css',
       '/overlay-common.css': 'renderer/overlay-common.css',
       '/overlay-sse.js': 'renderer/overlay-sse.js',
       '/review-resize.js': 'renderer/review-resize.js',
@@ -135,6 +156,16 @@ class ObsOverlayServer {
     };
     if (req.method === 'GET' && staticMap[reqUrl.pathname]) {
       return this._serveFile(path.join(this.root, staticMap[reqUrl.pathname]), res);
+    }
+
+    // Khung vinh danh (MVP Honor): phục vụ PNG khung từ renderer/mvp-frames (không cần token,
+    // vì OBS Browser Source phải load được ảnh trước khi có state). Chỉ cho tên file .png an toàn.
+    if (req.method === 'GET' && reqUrl.pathname.startsWith('/mvp-frames/')) {
+      const name = path.basename(reqUrl.pathname);
+      if (/^[\w.-]+\.png$/i.test(name)) {
+        return this._serveFile(path.join(this.root, 'renderer', 'mvp-frames', name), res);
+      }
+      return this._reject(res, 404, 'not found');
     }
 
     // Avatar proxy: cho phép overlay load avatar từ TikTok CDN qua proxy đơn giản
@@ -162,12 +193,27 @@ class ObsOverlayServer {
     if (req.method === 'GET' && reqUrl.pathname === '/score') {
       return this._serveFile(path.join(this.root, 'renderer', 'score-overlay.html'), res);
     }
+    if (req.method === 'GET' && reqUrl.pathname === '/sticker') {
+      return this._serveFile(path.join(this.root, 'renderer', 'sticker-overlay.html'), res);
+    }
+    if (req.method === 'GET' && reqUrl.pathname === '/mvp-honor') {
+      return this._serveFile(path.join(this.root, 'renderer', 'mvp-honor-overlay.html'), res);
+    }
+    if (req.method === 'GET' && reqUrl.pathname === '/lucky-wheel') {
+      return this._serveFile(path.join(this.root, 'renderer', 'lucky-wheel-overlay.html'), res);
+    }
 
     // SSE event streams
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo-events') return this._sse(req, res, this.pkDuoClients, 'pkduo', this.pkDuoState);
     if (req.method === 'GET' && reqUrl.pathname === '/pk-group-events') return this._sse(req, res, this.pkGroupClients, 'pkgroup', this.pkGroupState);
     if (req.method === 'GET' && reqUrl.pathname === '/ranking-events') return this._sse(req, res, this.rankingClients, 'ranking', this.rankingState);
     if (req.method === 'GET' && reqUrl.pathname === '/score-events') return this._sse(req, res, this.scoreClients, 'score', this.scoreState);
+    if (req.method === 'GET' && reqUrl.pathname === '/sticker-events') return this._sse(req, res, this.stickerClients, 'sticker', this.stickerState);
+    if (req.method === 'GET' && reqUrl.pathname === '/mvp-honor-events') return this._sse(req, res, this.mvpHonorClients, 'mvphonor', this.mvpHonorState);
+    // Fallback cho Browser Source/CEF không nhận EventSource ổn định: MVP Honor có thể
+    // lấy state bằng HTTP ngay lúc mở, sau đó client poll nhẹ để không bị màn hình trắng.
+    if (req.method === 'GET' && reqUrl.pathname === '/mvp-honor-state') return this._json(res, this.mvpHonorState);
+    if (req.method === 'GET' && reqUrl.pathname === '/lucky-wheel-events') return this._sse(req, res, this.luckyWheelClients, 'luckywheel', this.luckyWheelState);
 
     return this._reject(res, 404, 'not found');
   }
@@ -338,6 +384,11 @@ class ObsOverlayServer {
       'Cache-Control': 'no-store',
     });
     fs.createReadStream(filePath).pipe(res);
+  }
+
+  _json(res, data) {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(data || {}));
   }
 
   _okToken(reqUrl) { return reqUrl.searchParams.get('token') === this.token; }

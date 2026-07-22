@@ -58,6 +58,43 @@ const api = {
     getUrl: () => ipcRenderer.invoke('pkgroup:getUrl'),
   },
 
+  // ===== DANH SÁCH NHẠC (quà → clip audio) =====
+  musiclist: {
+    getState: () => ipcRenderer.invoke('musiclist:getState'),
+    setConfig: (cfg) => ipcRenderer.invoke('musiclist:setConfig', cfg),
+  },
+
+  // ===== STICKER DANCE =====
+  stickerdance: {
+    getState: () => ipcRenderer.invoke('stickerdance:getState'),
+    getConfig: () => ipcRenderer.invoke('stickerdance:getConfig'),
+    setConfig: (cfg) => ipcRenderer.invoke('stickerdance:setConfig', cfg),
+    apply: (cfg) => ipcRenderer.invoke('stickerdance:apply', cfg),
+    reset: () => ipcRenderer.invoke('stickerdance:reset'),
+    getUrl: () => ipcRenderer.invoke('stickerdance:getUrl'),
+    signal: (sig) => ipcRenderer.invoke('stickerdance:signal', sig),
+  },
+
+  // ===== MVP HONOR (thẻ vinh danh avatar) =====
+  mvphonor: {
+    getState: () => ipcRenderer.invoke('mvphonor:getState'),
+    getConfig: () => ipcRenderer.invoke('mvphonor:getConfig'),
+    setConfig: (cfg) => ipcRenderer.invoke('mvphonor:setConfig', cfg),
+    reset: () => ipcRenderer.invoke('mvphonor:reset'),
+    getUrl: () => ipcRenderer.invoke('mvphonor:getUrl'),
+  },
+
+  // ===== VÒNG QUAY MAY MẮN (Lucky Wheel) =====
+  luckywheel: {
+    getState: () => ipcRenderer.invoke('luckywheel:getState'),
+    getConfig: () => ipcRenderer.invoke('luckywheel:getConfig'),
+    setConfig: (cfg) => ipcRenderer.invoke('luckywheel:setConfig', cfg),
+    spin: (opts) => ipcRenderer.invoke('luckywheel:spin', opts),
+    clearHistory: () => ipcRenderer.invoke('luckywheel:clearHistory'),
+    reset: () => ipcRenderer.invoke('luckywheel:reset'),
+    getUrl: () => ipcRenderer.invoke('luckywheel:getUrl'),
+  },
+
   // ===== Match history (LỊCH SỬ trận đấu) =====
   history: {
     list: (filter) => ipcRenderer.invoke('history:list', filter),
@@ -147,7 +184,7 @@ const api = {
     const allowed = new Set([
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
-      'pkduo:state', 'pkgroup:state', 'ranking:state', 'score:state',
+      'pkduo:state', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state',
       'history:changed',
       'log',
     ]);
@@ -161,8 +198,10 @@ const api = {
     openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
     copyText: (text) => ipcRenderer.invoke('shell:copyText', text),
     pickAudio: () => ipcRenderer.invoke('shell:pickAudio'),
+    pickAudios: () => ipcRenderer.invoke('shell:pickAudios'),
     prepareGiftDrag: (data) => ipcRenderer.invoke('shell:prepareGiftDrag', data),
     startGiftDrag: (file) => ipcRenderer.send('shell:startGiftDrag', file),
+    confirm: (opts) => ipcRenderer.invoke('shell:confirm', opts),
   },
 };
 

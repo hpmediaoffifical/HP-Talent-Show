@@ -1,0 +1,659 @@
+/* Sticker Dance overlay — bảng lưới quà cho OBS.
+   Nền xám mờ, icon quà NHÔ LÊN trên mép nền, số đếm bên dưới, nhãn chữ trên/dưới.
+   Tránh lỗi OBS tô đen: KHÔNG vừa animate vừa để CSS filter trên CÙNG 1 phần tử
+   (bob-anim ở .sd-iconwrap = transform; drop-shadow ở .sd-icon = tĩnh). */
+
+#stickerRoot {
+  display: inline-block;
+  /* Chừa đủ chỗ phía trên cho ruy-băng "ĐANG DIỄN" + vương miện (tỉ lệ theo cỡ icon). */
+  padding: calc(var(--icon, 66px) * 0.5) 12px 14px;
+  zoom: var(--scale, 1);
+  transform: translateZ(0);
+}
+
+/* OBS: canh GIỮA cả cụm bảng quà trong khung Browser Source, để cụm luôn nằm chính giữa
+   dù kéo/co khung nguồn. KHÔNG áp cho cửa sổ Review — Review phải neo góc trên-trái để lớp
+   .review-zoom tự ôm nội dung (width:max-content) và đặt đúng tay kéo góc dưới-phải. */
+body:not(.overlay-review) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+}
+
+.sd-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 6), calc(var(--icon, 66px) * 1.55));
+  /* Cách NGANG (giữa cột) dùng grid column-gap. Cách DỌC (giữa hàng) KHÔNG dùng row-gap ở đây
+     mà áp bằng margin-top từng hàng (xem sticker-overlay.js) để cho phép giá trị ÂM (hàng đè sát). */
+  row-gap: 0;
+  column-gap: var(--col-gap, var(--gap, 10px));
+  justify-content: start;
+  align-items: end;
+}
+
+.sd-cell {
+  min-height: calc(var(--icon, 66px) * 1.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+.sd-cell.empty { visibility: hidden; }
+
+.sd-sticker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  transform: scale(1);
+  transition: transform .28s cubic-bezier(.2, .8, .3, 1.25);
+  transform-origin: bottom center;
+}
+.sd-sticker.big { transform: scale(1.22); z-index: 4; }
+
+/* Icon quà — nhô lên trên mép panel. Wrapper mang animation (transform),
+   img mang drop-shadow (tĩnh) → không dính lỗi OBS blackbox. */
+.sd-iconwrap {
+  width: var(--icon, 66px);
+  height: var(--icon, 66px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+.sd-iconwrap.anim { animation: sd-bob 2.4s ease-in-out infinite; }
+.sd-sticker.big .sd-iconwrap.anim { animation-duration: 1.15s; }
+/* Ô ĐANG BIỂU DIỄN (đang phát nhạc): LUÔN nhún nhảy + lắc nhẹ, kể cả khi TẮT "Anim icon".
+   Đặt SAU rule .big để thắng về thứ tự nguồn khi cùng độ ưu tiên. */
+.sd-sticker.performing .sd-iconwrap,
+.sd-sticker.performing .sd-iconwrap.anim { animation: sd-dance 1.05s ease-in-out infinite; }
+
+.sd-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .45));
+}
+.sd-icon.ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--icon, 66px) * .62);
+  filter: none;
+}
+
+/* Panel nền xám mờ — icon phủ lên nửa trên, số đếm nằm nửa dưới. */
+.sd-panel {
+  margin-top: calc(var(--icon, 66px) * -0.46);
+  width: calc(var(--icon, 66px) * 1.32);
+  padding: calc(var(--icon, 66px) * 0.5) 10px 8px;
+  border-radius: 14px;
+  background: var(--sd-bg, rgba(43, 47, 58, .55));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  position: relative;
+}
+
+/* ===== Ô ĐANG BIỂU DIỄN — bộ hiệu ứng NỀN + VIỀN chọn ở tab Sticker Dance =====
+   Panel luôn nổi bóng khi biểu diễn. KHÔNG dùng CSS filter (tránh OBS tô đen).
+   Viền chạy (neon/rainbow) xoay MÀU bằng @property (phần tử đứng yên → không lệch góc);
+   glow/ring đập nhịp bằng opacity/outline — nhẹ cho OBS. */
+.sd-sticker.performing .sd-panel {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(255, 255, 255, .3);
+}
+
+/* --- NỀN --- */
+#stickerRoot[data-perf-bg="gold"] .sd-sticker.performing .sd-panel { background: linear-gradient(155deg, #ffd24a, #ff9e2c 55%, #ff7a3d); }
+#stickerRoot[data-perf-bg="gold"] .sd-sticker.performing .sd-count { color: #3a2400; text-shadow: 0 1px 1px rgba(255, 255, 255, .5); }
+#stickerRoot[data-perf-bg="pink"] .sd-sticker.performing .sd-panel { background: linear-gradient(155deg, #ff6fae, #c74be0 60%, #8b3bff); }
+#stickerRoot[data-perf-bg="blue"] .sd-sticker.performing .sd-panel { background: linear-gradient(155deg, #3fd0ff, #3f7bff 60%, #7a3bff); }
+#stickerRoot[data-perf-bg="dark"] .sd-sticker.performing .sd-panel { background: rgba(12, 14, 20, .85); }
+
+/* --- VIỀN: glow (quầng sáng đập nhịp) --- */
+#stickerRoot[data-perf-border="glow"] .sd-sticker.performing .sd-panel::after {
+  content: ""; position: absolute; inset: -6px; border-radius: 20px; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 205, 80, .85), rgba(255, 205, 80, 0) 72%);
+  animation: sd-glowpulse 1.15s ease-in-out infinite;
+}
+/* --- VIỀN: neon chạy (lam→tím) --- */
+#stickerRoot[data-perf-border="neon"] .sd-sticker.performing .sd-panel::before {
+  content: ""; position: absolute; inset: -3px; border-radius: 17px; padding: 3px; z-index: -1; pointer-events: none;
+  background: conic-gradient(from var(--sd-ang, 0deg), #38e6ff, #6f9bff, #b06bff, #38e6ff);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: sd-angle 1.6s linear infinite;
+}
+/* --- VIỀN: cầu vồng chạy --- */
+#stickerRoot[data-perf-border="rainbow"] .sd-sticker.performing .sd-panel::before {
+  content: ""; position: absolute; inset: -3px; border-radius: 17px; padding: 3px; z-index: -1; pointer-events: none;
+  background: conic-gradient(from var(--sd-ang, 0deg), #ff5f6d, #ffc371, #47e5bc, #4d9fff, #c56cff, #ff5f6d);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: sd-angle 2.6s linear infinite;
+}
+/* --- VIỀN: ring (viền sáng đập nhịp) --- */
+#stickerRoot[data-perf-border="ring"] .sd-sticker.performing .sd-panel {
+  outline: 3px solid rgba(255, 255, 255, .9); outline-offset: 2px;
+  animation: sd-ringpulse 1.05s ease-in-out infinite;
+}
+
+/* --- Hạt lấp lánh: sao trắng nhấp nháy quanh ô (transform + opacity, KHÔNG filter → an toàn OBS). --- */
+.sd-sparks { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.sd-spark {
+  position: absolute;
+  width: calc(var(--icon, 66px) * .26); height: calc(var(--icon, 66px) * .26);
+  background: #fff;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  opacity: 0; transform: scale(.3);
+  animation: sd-twinkle 1.4s ease-in-out infinite;
+}
+.sd-spark.s2, .sd-spark.s5 { width: calc(var(--icon, 66px) * .17); height: calc(var(--icon, 66px) * .17); }
+.sd-spark.s0 { top: 2%;  left: 8%;   animation-delay: 0s; }
+.sd-spark.s1 { top: -3%; right: 12%; animation-delay: .55s; }
+.sd-spark.s2 { top: 26%; left: -2%;  animation-delay: .9s; }
+.sd-spark.s3 { top: 16%; right: 0;   animation-delay: .3s; }
+.sd-spark.s4 { top: 44%; left: 13%;  animation-delay: 1.1s; }
+.sd-spark.s5 { top: 36%; right: 17%; animation-delay: .75s; }
+
+/* --- Số đếm "pop": phóng to giật 1 nhịp mỗi khi số thay đổi (đếm lùi/tăng). --- */
+.sd-count.sd-pop { animation: sd-pop .42s cubic-bezier(.2, .9, .3, 1.5); }
+
+/* --- Vòng sáng lan toả: 2 vòng nở ra từ panel rồi mờ dần (transform scale → an toàn OBS). --- */
+.sd-ripple {
+  position: absolute; inset: 0; border-radius: 14px;
+  border: 3px solid rgba(255, 255, 255, .7);
+  opacity: 0; z-index: 0; pointer-events: none;
+  animation: sd-ripple 1.7s ease-out infinite;
+}
+.sd-ripple.r2 { animation-delay: .85s; }
+
+/* --- Tia sáng quét: vệt sáng chéo lướt ngang panel (clip gọn trong panel). --- */
+.sd-shine { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; z-index: 0; pointer-events: none; }
+.sd-shine-bar {
+  position: absolute; top: -30%; left: -60%; width: 45%; height: 160%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
+  transform: translateX(0) skewX(-18deg);
+  animation: sd-shine 2.4s ease-in-out infinite;
+}
+
+/* --- Nốt nhạc bay lên rồi mờ dần. --- */
+.sd-notes { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.sd-note {
+  position: absolute; bottom: 32%;
+  font-size: calc(var(--icon, 66px) * .32); font-style: normal; line-height: 1;
+  opacity: 0; pointer-events: none;
+  animation: sd-notefly 2.4s ease-in infinite;
+}
+.sd-note.n0 { left: 20%; animation-delay: 0s; }
+.sd-note.n1 { left: 48%; animation-delay: .8s; }
+.sd-note.n2 { left: 72%; animation-delay: 1.6s; }
+
+.sd-count {
+  font: 800 calc(var(--icon, 66px) * 0.34) / 1 'Inter', 'Segoe UI', sans-serif;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .6), 0 0 6px rgba(0, 0, 0, .4);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .3px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Nhãn = chip bo tròn liền mạch. KHÔNG dùng overflow:hidden (sẽ cắt text-shadow
+   thành vệt dọc ở đầu/cuối chữ); để text tự do + padding cân 2 bên. */
+.sd-label {
+  margin-top: 8px;
+  display: inline-block;
+  max-width: calc(var(--icon, 66px) * 2.4);
+  padding: 3px 11px;
+  font: 700 var(--text, 14px) / 1.25 'Inter', 'Segoe UI', sans-serif;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  background: rgba(18, 20, 28, .62);
+  border-radius: 9px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .28);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+}
+/* Nhãn ở TRÊN icon: cách icon một chút. */
+.sd-sticker .sd-label:first-child { margin-top: 0; margin-bottom: 8px; }
+
+/* ===== NHÃN Ở TRÊN → ĐẢO NGƯỢC bố cục theo chiều dọc cho CÂN ĐỐI:
+   tên (trên) · số đếm trong nền xám (giữa) · icon THÒ XUỐNG dưới mép nền — đối xứng với kiểu
+   nhãn-ở-dưới. Icon nằm trong khung cố định nên khi thò xuống, mép dưới nền xám luôn thẳng hàng
+   giữa các ô, KHÔNG lệch dù icon quà to/nhỏ khác nhau. DOM lúc này: nền xám ĐỨNG TRƯỚC icon,
+   nên đổi margin âm sang MÉP DƯỚI để kéo icon lên đè nửa dưới nền (thay vì kéo nền lên như mặc định). */
+#stickerRoot[data-label-pos="top"] .sd-panel {
+  margin-top: 0;
+  margin-bottom: calc(var(--icon, 66px) * -0.46); /* kéo icon (đứng sau) lên đè nửa dưới nền */
+  padding: 8px 10px calc(var(--icon, 66px) * 0.5); /* chừa chỗ dưới cho icon; số đếm dồn lên trên */
+}
+/* Thanh tiến trình / giữ-chuỗi: dời lên MÉP TRÊN nền để icon (thò xuống) không che. */
+#stickerRoot[data-label-pos="top"] .sd-prog,
+#stickerRoot[data-label-pos="top"] .sd-streak { bottom: auto; top: 4px; }
+
+@keyframes sd-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7%); }
+}
+/* Nhún nhảy sinh động khi đang biểu diễn: nảy lên + lắc trái/phải. */
+@keyframes sd-dance {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25%      { transform: translateY(-10%) rotate(-4deg); }
+  50%      { transform: translateY(-2%) rotate(0deg); }
+  75%      { transform: translateY(-10%) rotate(4deg); }
+}
+/* Quầng sáng đập nhẹ quanh ô đang biểu diễn. */
+@keyframes sd-glowpulse {
+  0%, 100% { opacity: .5; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.12); }
+}
+/* Góc quét cho viền chạy (neon/rainbow) — xoay MÀU, giữ phần tử đứng yên nên không lệch góc. */
+@property --sd-ang { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes sd-angle { to { --sd-ang: 360deg; } }
+/* Viền sáng ring đập nhịp. */
+@keyframes sd-ringpulse {
+  0%, 100% { outline-color: rgba(255, 255, 255, .35); outline-offset: 1px; }
+  50%      { outline-color: rgba(255, 255, 255, .95); outline-offset: 3px; }
+}
+/* Sao lấp lánh: hiện ra + xoay nhẹ rồi tắt. */
+@keyframes sd-twinkle {
+  0%, 100% { opacity: 0; transform: scale(.3) rotate(0deg); }
+  50%      { opacity: 1; transform: scale(1) rotate(40deg); }
+}
+/* Số đếm nảy 1 nhịp khi đổi giá trị. */
+@keyframes sd-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+/* Vòng sáng nở ra rồi mờ. */
+@keyframes sd-ripple {
+  0%   { opacity: .7; transform: scale(1); }
+  100% { opacity: 0;  transform: scale(1.85); }
+}
+/* Tia sáng quét qua panel (bar nằm ngoài mép ở đầu & cuối nên không giật khi lặp). */
+@keyframes sd-shine {
+  0%        { transform: translateX(0) skewX(-18deg); }
+  55%, 100% { transform: translateX(360%) skewX(-18deg); }
+}
+/* Nốt nhạc bay lên, hơi lệch ngang + xoay nhẹ. */
+@keyframes sd-notefly {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(-8deg) scale(.6); }
+  18%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(10px, -130%) rotate(12deg) scale(1.05); }
+}
+
+/* ===== Huy chương 🥇🥈🥉 — badge góc trên ô nhiều điểm nhất (tĩnh, filter trên phần tử
+   không animate nên an toàn OBS). ===== */
+.sd-medal {
+  position: absolute;
+  top: calc(var(--icon, 66px) * -0.12);
+  right: calc(var(--icon, 66px) * -0.04);
+  font-size: calc(var(--icon, 66px) * 0.42);
+  line-height: 1; z-index: 7; pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5));
+}
+
+/* ===== Thanh tiến trình tới mục tiêu — dải nhỏ đáy panel; đầy (.done) đổi màu vàng. ===== */
+.sd-prog {
+  position: absolute; left: 9px; right: 9px; bottom: 4px; height: 5px;
+  border-radius: 4px; background: rgba(0, 0, 0, .38);
+  overflow: hidden; z-index: 2; pointer-events: none;
+}
+.sd-prog > i {
+  display: block; height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, #4dd0ff, #7cf29a);
+  box-shadow: 0 0 6px rgba(124, 242, 154, .6);
+}
+.sd-prog.done > i {
+  background: linear-gradient(90deg, #ffd24a, #ff9e2c);
+  box-shadow: 0 0 8px rgba(255, 200, 80, .85);
+}
+
+/* ===== GIỮ CHUỖI: thanh máu cạn dần — bề rộng & màu (xanh→vàng→đỏ) do JS đặt inline mỗi frame. ===== */
+.sd-streak {
+  position: absolute; left: 9px; right: 9px; bottom: 4px; height: 6px;
+  border-radius: 4px; background: rgba(0, 0, 0, .42);
+  overflow: hidden; z-index: 2; pointer-events: none;
+}
+.sd-streak > i {
+  display: block; height: 100%; width: 100%; border-radius: 4px;
+  background: #4be36b;
+  box-shadow: 0 0 6px rgba(255, 255, 255, .3);
+}
+/* Màu cố định theo lựa chọn (tiktok/blue). 'health' để JS đặt màu inline theo mức. */
+#stickerRoot[data-streak-color="tiktok"] .sd-streak > i { background: linear-gradient(90deg, #fe2c55, #ff5b8f); box-shadow: 0 0 7px rgba(254, 44, 85, .55); }
+#stickerRoot[data-streak-color="blue"] .sd-streak > i { background: linear-gradient(90deg, #2f8bff, #56d0ff); box-shadow: 0 0 7px rgba(86, 208, 255, .55); }
+.sd-streak.dead { opacity: .45; }
+.sd-streak.dead > i { box-shadow: none; }
+
+/* ===== Ruy-băng "ĐANG DIỄN" nổi trên ô đang biểu diễn (chỉ transform+opacity). ===== */
+.sd-ribbon {
+  position: absolute;
+  top: calc(var(--icon, 66px) * -0.32);
+  left: 50%;
+  padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  font: 800 calc(var(--icon, 66px) * 0.155) / 1.1 'Inter', 'Segoe UI', sans-serif;
+  color: #fff; letter-spacing: .3px;
+  background: linear-gradient(90deg, #ff416c, #ff4b2b);
+  box-shadow: 0 3px 10px rgba(255, 60, 80, .5), inset 0 1px 0 rgba(255, 255, 255, .35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+  z-index: 8; pointer-events: none;
+  animation: sd-ribbon-pulse 1.3s ease-in-out infinite;
+}
+@keyframes sd-ribbon-pulse {
+  0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+  50%      { transform: translateX(-50%) translateY(-8%) scale(1.05); }
+}
+
+/* ===== Ô quà ĐẶC BIỆT: viền bong bóng (gradient pastel xoay màu) + bong bóng bay + sparkle luôn bật.
+   Dành cho quà KHÔNG có clip/audio nhưng vẫn muốn nổi bật. Dùng lại @property --sd-ang / sd-angle. ===== */
+.sd-sticker.special .sd-panel {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .28), 0 0 14px rgba(150, 120, 255, .45), inset 0 1px 0 rgba(255, 255, 255, .15);
+}
+.sd-sticker.special .sd-panel::before {
+  content: ""; position: absolute; inset: -3px; border-radius: 17px; padding: 3px; z-index: -1; pointer-events: none;
+  background: conic-gradient(from var(--sd-ang, 0deg), #7ef9ff, #b58cff, #ff9ad5, #7ef9ff);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: sd-angle 3.2s linear infinite;
+}
+/* Bong bóng nổi lên quanh ô (transform+opacity, background radial → an toàn OBS). */
+.sd-bubbles { position: absolute; inset: -8% -6%; pointer-events: none; z-index: 5; }
+.sd-bubble {
+  position: absolute; bottom: 18%;
+  width: calc(var(--icon, 66px) * .16); height: calc(var(--icon, 66px) * .16);
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95), rgba(180, 220, 255, .5) 45%, rgba(160, 140, 255, .15) 70%);
+  box-shadow: inset 0 0 4px rgba(255, 255, 255, .6);
+  opacity: 0;
+  animation: sd-bubble-rise 3.4s ease-in infinite;
+}
+.sd-bubble.b0 { left: 12%; animation-delay: 0s; }
+.sd-bubble.b1 { left: 34%; animation-delay: .7s;  width: calc(var(--icon, 66px) * .1);  height: calc(var(--icon, 66px) * .1); }
+.sd-bubble.b2 { left: 56%; animation-delay: 1.4s; }
+.sd-bubble.b3 { left: 76%; animation-delay: 2.0s; width: calc(var(--icon, 66px) * .12); height: calc(var(--icon, 66px) * .12); }
+.sd-bubble.b4 { left: 88%; animation-delay: 2.7s; }
+@keyframes sd-bubble-rise {
+  0%   { opacity: 0;  transform: translateY(0) scale(.6); }
+  15%  { opacity: .9; }
+  70%  { opacity: .8; }
+  100% { opacity: 0;  transform: translateY(-160%) scale(1.05); }
+}
+
+/* ===== Quả BONG BÓNG NƯỚC bao bọc quanh icon (chỉ ô quà đặc biệt).
+   Glass sphere mô phỏng bằng radial-gradient + box-shadow inset (KHÔNG filter/backdrop-filter
+   → không dính blackbox & không cần blur lớp video → an toàn OBS). Tâm trong suốt để lộ icon,
+   viền phản quang ôm mép icon = "bọc trong bong bóng". Chỉ animate transform/opacity. ===== */
+.sd-waterball {
+  /* 2 NÚM chỉnh nhanh: --wb-size = độ TO bong bóng (âm nhiều = to hơn / rộng hơn icon),
+     --wb-lift = dịch DỌC (âm = lên, dương = xuống). ĐỂ 0 = bong bóng ĐỒNG TÂM với icon
+     (icon nằm chính giữa). Inset đối xứng nên luôn tròn. */
+  --wb-size: -10%;
+  --wb-lift: 0%;
+  position: absolute;
+  inset: var(--wb-size);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 3;                  /* nằm ĐÈ lên icon nhưng tâm trong suốt nên vẫn thấy icon */
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(255, 255, 255, 0)   50%,
+      rgba(200, 240, 255, .16) 63%,
+      rgba(150, 200, 255, .30) 82%,
+      rgba(120, 160, 255, 0)  100%);
+  box-shadow:
+    inset  0    0   10px rgba(255, 255, 255, .55),
+    inset  7px  9px 16px rgba(120, 185, 255, .38),
+    inset -7px -9px 16px rgba(190, 140, 255, .32),
+    0 0 14px rgba(150, 205, 255, .55);
+  animation: sd-waterball-wobble 4.2s ease-in-out infinite;
+}
+/* Vệt sáng specular (bong bóng xà phòng): 1 lớn ở trên-trái + 1 nhỏ ở dưới-phải. */
+.sd-wb-hi, .sd-wb-hi2 {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 70%);
+}
+.sd-wb-hi  { top: 11%; left: 18%; width: 34%; height: 22%; transform: rotate(-24deg); }
+.sd-wb-hi2 { bottom: 15%; right: 20%; width: 15%; height: 12%; opacity: .7; }
+/* Rung nhẹ như mặt nước căng (squash & stretch) — kèm kéo lên theo --wb-lift. Chỉ transform. */
+@keyframes sd-waterball-wobble {
+  0%, 100% { transform: translateY(var(--wb-lift, 0)) scale(1,    1);    }
+  25%      { transform: translateY(var(--wb-lift, 0)) scale(1.045, .965); }
+  50%      { transform: translateY(var(--wb-lift, 0)) scale(.975, 1.03);  }
+  75%      { transform: translateY(var(--wb-lift, 0)) scale(1.03,  .975); }
+}
+/* Ô quà đặc biệt: TÊN nằm theo dòng DƯỚI icon, đẩy xuống qua khỏi phần bong bóng nhô ra
+   (bong bóng lồi xuống ~ |--wb-size| so với icon) → tên tách hẳn khỏi vùng bong bóng. */
+.sd-sticker.special .sd-label {
+  position: relative;
+  z-index: 6;                  /* trên quả bong bóng (.sd-waterball z-index:3) nếu có chạm mép */
+  margin-top: calc(var(--icon, 66px) * 0.08);
+}
+
+/* ===== Vương miện 👑 trên ô nhiều điểm nhất — đặt trên đỉnh icon, đung đưa nhẹ.
+   Dùng text-shadow (KHÔNG filter) để animate transform an toàn trên OBS. ===== */
+.sd-crown {
+  position: absolute;
+  top: calc(var(--icon, 66px) * -0.44);
+  left: 50%;
+  font-size: calc(var(--icon, 66px) * 0.46);
+  line-height: 1; z-index: 7; pointer-events: none;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, .45);
+  transform-origin: bottom center;
+  animation: sd-crown-sway 2.4s ease-in-out infinite;
+}
+@keyframes sd-crown-sway {
+  0%, 100% { transform: translateX(-50%) rotate(-6deg); }
+  50%      { transform: translateX(-50%) rotate(6deg); }
+}
+/* Khi ô vừa đội vương miện VỪA đang biểu diễn: nâng ruy-băng lên để không đè vương miện. */
+.sd-sticker.crowned .sd-ribbon { top: calc(var(--icon, 66px) * -0.6); }
+
+/* ===== LEVEL UP: khi ô đạt mục tiêu → chữ vàng bùng lên + tia sáng loé (chạy 1 lần). ===== */
+.sd-levelup {
+  position: absolute;
+  top: 28%; left: 50%;
+  font: 900 calc(var(--icon, 66px) * 0.28) / 1 'Inter', 'Segoe UI', sans-serif;
+  white-space: nowrap; letter-spacing: .5px;
+  color: #ffd83a;
+  text-shadow: 0 0 8px rgba(255, 180, 40, .95), 0 2px 4px rgba(0, 0, 0, .6);
+  z-index: 9; pointer-events: none;
+  animation: sd-levelup .95s cubic-bezier(.2, .8, .3, 1.2) forwards;
+}
+@keyframes sd-levelup {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.5); }
+  25%  { opacity: 1; transform: translate(-50%, -30%) scale(1.15); }
+  70%  { opacity: 1; transform: translate(-50%, -70%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -120%) scale(1); }
+}
+/* Tia sáng loé toả ra khi level up (transform+opacity → an toàn OBS). */
+.sd-sticker.leveling::after {
+  content: ""; position: absolute; inset: 18% 0 28%;
+  border-radius: 16px; z-index: 3; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .85), rgba(255, 255, 255, 0) 70%);
+  animation: sd-levelflash .6s ease-out forwards;
+}
+@keyframes sd-levelflash {
+  0%   { opacity: 0;  transform: scale(.6); }
+  30%  { opacity: .9; }
+  100% { opacity: 0;  transform: scale(1.5); }
+}
+
+/* ===== "ĐẬP TRỨNG": khi count = 0 → hiện QUẢ TRỨNG thay số 0 trong panel.
+   Vỏ trắng ngà, dựng 3D bằng radial-gradient. An toàn OBS: wrapper .sd-egg animate
+   (chỉ transform lắc lư), con tĩnh .sd-egg-body mang filter drop-shadow (tránh OBS tô đen). ===== */
+/* Cỡ trứng = icon × hệ số 0.46/0.58 × --egg-scale (thanh "Cỡ trứng", mặc định .85). */
+#stickerRoot {
+  --egg-w: calc(var(--icon, 66px) * 0.46 * var(--egg-scale, .85));
+  --egg-h: calc(var(--icon, 66px) * 0.58 * var(--egg-scale, .85));
+}
+.sd-egg {
+  position: relative;
+  width: var(--egg-w);
+  height: var(--egg-h);
+  z-index: 1;
+  transform-origin: 50% 90%;
+  animation: sd-egg-wobble 2.6s ease-in-out infinite;
+}
+.sd-egg-body {
+  position: absolute; inset: 0;
+  border-radius: 50% 50% 50% 50% / 60% 60% 42% 42%;
+  background:
+    radial-gradient(58% 22% at 36% 20%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(circle at 76% 66%, rgba(150, 140, 120, .22), rgba(150, 140, 120, 0) 26%),
+    radial-gradient(circle at 40% 74%, rgba(120, 110, 90, .16), rgba(120, 110, 90, 0) 22%),
+    radial-gradient(125% 130% at 34% 26%, #fffefb 0%, #fbf6ea 26%, #efe6d2 58%, #ddceb2 82%, #c9b894 100%);
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .42));
+}
+/* Chấm sáng bóng góc trên-trái cho khối trứng có chiều sâu. */
+.sd-egg-body::after {
+  content: ""; position: absolute; left: 22%; top: 13%;
+  width: 30%; height: 24%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0));
+}
+
+/* ===== SKIN VỎ TRỨNG (chọn ở tab Sticker Dance). Mặc định = ivory (rule gốc ở trên).
+   Mỗi skin ghi đè NỀN vỏ (.sd-egg-body) + màu vỏ vỡ/mảnh bắn (biến --egg-shell/--egg-bit).
+   Selector dùng [data-egg-skin] (không neo #stickerRoot) để chạy được ở CẢ 2 cấp:
+   - Toàn cục: đặt trên #stickerRoot (chọn 1 skin cố định).
+   - Theo TỪNG Ô: đặt trên .sd-sticker khi bật "Skin ngẫu nhiên" (mỗi trứng 1 skin riêng).
+   Lớp sáng góc trên-trái (58% 22% at 36% 20%) giữ nguyên để trứng nào cũng có khối 3D. ===== */
+/* Vàng gold */
+[data-egg-skin="gold"] { --egg-shell: radial-gradient(125% 130% at 34% 26%, #fffdf0, #ffcf5a 60%, #cf9022); --egg-bit: #f5d67a; }
+[data-egg-skin="gold"] .sd-egg-body {
+  background:
+    radial-gradient(58% 22% at 36% 20%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(circle at 76% 66%, rgba(150, 100, 20, .22), rgba(150, 100, 20, 0) 26%),
+    radial-gradient(125% 130% at 34% 26%, #fffdf0 0%, #ffe9a8 24%, #ffcf5a 56%, #eab036 82%, #cf9022 100%);
+}
+/* Hồng pastel */
+[data-egg-skin="pink"] { --egg-shell: radial-gradient(125% 130% at 34% 26%, #fff6fa, #ff9ec4 60%, #d4557f); --egg-bit: #ffb8d4; }
+[data-egg-skin="pink"] .sd-egg-body {
+  background:
+    radial-gradient(58% 22% at 36% 20%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(circle at 76% 66%, rgba(180, 60, 110, .2), rgba(180, 60, 110, 0) 26%),
+    radial-gradient(125% 130% at 34% 26%, #fff6fa 0%, #ffd3e6 24%, #ff9ec4 56%, #ee74a2 82%, #d4557f 100%);
+}
+/* Xanh dương */
+[data-egg-skin="blue"] { --egg-shell: radial-gradient(125% 130% at 34% 26%, #f2fbff, #7cd4ff 60%, #2b7ec0); --egg-bit: #a9ddff; }
+[data-egg-skin="blue"] .sd-egg-body {
+  background:
+    radial-gradient(58% 22% at 36% 20%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(circle at 76% 66%, rgba(20, 90, 150, .22), rgba(20, 90, 150, 0) 26%),
+    radial-gradient(125% 130% at 34% 26%, #f2fbff 0%, #c2ecff 24%, #7cd4ff 56%, #3f9fe0 82%, #2b7ec0 100%);
+}
+/* Khủng long — vỏ xanh ngọc + đốm sẫm (dot cứng bằng hard-stop radial). */
+[data-egg-skin="dino"] { --egg-shell: radial-gradient(125% 130% at 34% 26%, #eafff6, #5fce9f 60%, #1c8563); --egg-bit: #2ea778; }
+[data-egg-skin="dino"] .sd-egg-body {
+  background:
+    radial-gradient(58% 22% at 36% 20%, rgba(255, 255, 255, .9), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(circle at 30% 42%, #17604a 0 7%, transparent 8%),
+    radial-gradient(circle at 63% 30%, #17604a 0 5.5%, transparent 6.5%),
+    radial-gradient(circle at 52% 64%, #17604a 0 8%, transparent 9%),
+    radial-gradient(circle at 75% 66%, #17604a 0 5%, transparent 6%),
+    radial-gradient(circle at 24% 70%, #17604a 0 5.5%, transparent 6.5%),
+    radial-gradient(circle at 46% 22%, #17604a 0 4%, transparent 5%),
+    radial-gradient(125% 130% at 34% 26%, #eafff6 0%, #a9edcf 24%, #5fce9f 56%, #2ea778 82%, #1c8563 100%);
+}
+@keyframes sd-egg-wobble {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  20%      { transform: rotate(-5deg); }
+  40%      { transform: rotate(4deg); }
+  55%      { transform: rotate(-2deg) translateY(-5%); }
+  70%      { transform: rotate(1deg); }
+}
+
+/* Số đếm BUNG ra khi trứng nở (một nhịp). */
+.sd-count.sd-hatch { animation: sd-hatch .5s cubic-bezier(.2, .9, .3, 1.6); }
+@keyframes sd-hatch {
+  0%   { transform: scale(.2); opacity: 0; }
+  60%  { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* ===== Lớp VỠ VỎ (một lần khi nở): 2 nửa vỏ văng ra + vòng chớp + mảnh vỏ bắn + nốt nhạc bay lên.
+   Chỉ transform/opacity/radial-gradient → an toàn OBS. ===== */
+.sd-crack { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.sd-shell {
+  position: absolute; top: 50%; left: 50%;
+  width: var(--egg-w); height: var(--egg-h);
+  margin: calc(var(--egg-h) * -0.5) 0 0 calc(var(--egg-w) * -0.5);
+}
+.sd-shell::before, .sd-shell::after {
+  content: ""; position: absolute; top: 0; width: 50%; height: 100%;
+  background: var(--egg-shell, radial-gradient(125% 130% at 34% 26%, #fffefb, #efe6d2 60%, #c9b894));
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .4));
+}
+.sd-shell::before { left: 0;  border-radius: 50% 0 0 50% / 60% 0 0 42%; transform-origin: 100% 60%; animation: sd-shell-l .6s cubic-bezier(.3, .7, .4, 1) forwards; }
+.sd-shell::after  { right: 0; border-radius: 0 50% 50% 0 / 0 60% 42% 0; transform-origin: 0 60%;   animation: sd-shell-r .6s cubic-bezier(.3, .7, .4, 1) forwards; }
+@keyframes sd-shell-l { to { transform: translate(-150%, 70%) rotate(-75deg); opacity: 0; } }
+@keyframes sd-shell-r { to { transform: translate(150%, 70%) rotate(75deg);  opacity: 0; } }
+.sd-flash {
+  position: absolute; top: 50%; left: 50%;
+  width: calc(var(--egg-w) * 1.35); height: calc(var(--egg-w) * 1.35);
+  margin: calc(var(--egg-w) * -0.675) 0 0 calc(var(--egg-w) * -0.675);
+  border-radius: 50%; border: 3px solid rgba(255, 240, 200, .9); opacity: 0;
+  animation: sd-eggflash .55s ease-out forwards;
+}
+@keyframes sd-eggflash {
+  0%   { transform: scale(.4); opacity: .9; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+.sd-egg-note {
+  position: absolute; top: 34%; left: 50%;
+  font-size: calc(var(--egg-h) * 0.55); line-height: 1; font-style: normal; opacity: 0;
+  animation: sd-eggnote 1s ease-in .05s forwards;
+}
+@keyframes sd-eggnote {
+  0%   { transform: translate(-50%, 0) scale(.6) rotate(-8deg); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translate(-50%, -130%) scale(1.05) rotate(12deg); opacity: 0; }
+}
+.sd-bit {
+  position: absolute; top: 50%; left: 50%;
+  width: calc(var(--egg-w) * 0.18); height: calc(var(--egg-w) * 0.18);
+  border-radius: 1px; background: var(--egg-bit, #f0e3c4); opacity: 0;
+  animation: sd-bit-fly .6s ease-out forwards;
+}
+.sd-bit.b0 { --bx: -150%; --by: -120%; }
+.sd-bit.b1 { --bx: 150%;  --by: -110%; }
+.sd-bit.b2 { --bx: -180%; --by: 40%; }
+.sd-bit.b3 { --bx: 190%;  --by: 30%; }
+.sd-bit.b4 { --bx: -60%;  --by: -170%; }
+.sd-bit.b5 { --bx: 70%;   --by: -160%; }
+@keyframes sd-bit-fly {
+  0%   { transform: translate(-50%, -50%); opacity: 1; }
+  100% { transform: translate(var(--bx, 120%), var(--by, -120%)); opacity: 0; }
+}
+
+/* ===== Ô "QUÀ ĐẶC BIỆT": bỏ số/trứng (JS trả panel rỗng) → panel co lại thành BADGE phát sáng gọn;
+   icon TỤT xuống nằm giữa badge, dùng motion "nổi bồng bềnh" (float + phồng nhẹ) để KHÁC hẳn
+   kiểu "nhảy beat" khi biểu diễn (sd-dance nảy + lắc). Chỉ transform/opacity → an toàn OBS. ===== */
+.sd-sticker.special .sd-panel {
+  width: calc(var(--icon, 66px) * 1.16);
+  min-height: calc(var(--icon, 66px) * 0.7);
+  padding: calc(var(--icon, 66px) * 0.34) 8px calc(var(--icon, 66px) * 0.2);
+}
+.sd-sticker.special .sd-iconwrap,
+.sd-sticker.special .sd-iconwrap.anim {
+  position: relative;            /* mốc cho quả bong bóng nước (.sd-waterball) bám quanh icon */
+  animation: sd-special-float 2.4s ease-in-out infinite;
+}
+/* OBS: icon nằm trong wrapper ĐANG ANIMATE mà lại có filter (drop-shadow) → CEF của OBS xoá icon
+   (chỉ còn bong bóng rỗng). Bỏ filter cho icon đặc biệt; độ nổi đã có sẵn nhờ quầng sáng bong bóng. */
+.sd-sticker.special .sd-icon { filter: none; }
+/* Float CHỈ dịch dọc (translate) — KHÔNG scale: scale-animate trên nhánh chứa icon dễ làm OBS
+   rơi icon. Bong bóng vẫn tự rung (sd-waterball-wobble) nên cảm giác "nổi" vẫn còn. */
+@keyframes sd-special-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6%); }
+}

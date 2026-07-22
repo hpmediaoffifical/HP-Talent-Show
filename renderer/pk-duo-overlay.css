@@ -110,12 +110,16 @@ body { display:flex; justify-content:center; align-items:center; }
 /* KHÔNG đặt filter:drop-shadow lên chính <em> vì <em> ĐANG animate transform:
    trên OBS (OSR/CEF) lớp vừa filter vừa animate hay bị tô ĐEN cả khối. Bóng chuyển
    xuống phần tử con TĨNH (svg/img) — giống .pkduo-gift-icon img vốn chạy tốt trên OBS. */
-.pkduo-bar em { position:absolute; left:var(--pk-a-width, 50%); top:50%; z-index:4; display:grid; place-items:center; width:76px; height:44px; font-style:normal; pointer-events:none; transform:translate(-50%,-50%); animation:pkDuoRocketFly .62s ease-in-out infinite; }
+/* Đĩa mũi tên tròn gọn (~40px) nên XOAY không lòi khỏi thanh cao 42px → OBS không cắt.
+   Đứng yên: xoay vòng tròn liên tục. Có quà: .gain-* ở board ghi đè bằng dash 1 nhịp (lao/đẩy). */
+.pkduo-bar em { position:absolute; left:var(--pk-a-width, 50%); top:50%; z-index:4; display:grid; place-items:center; width:44px; height:42px; font-style:normal; pointer-events:none; transform:translate(-50%,-50%); animation:pkDuoArrowSpin 2.6s linear infinite; }
 /* Icon giữa nhúng INLINE (<svg>) thay vì <img src=*.svg> để gradient luôn render trên OBS. */
-.pkduo-bar em svg, .pkduo-bar em img { width:72px; height:auto; display:block; filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
+.pkduo-bar em svg, .pkduo-bar em img { width:40px; height:auto; display:block; filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
+/* Hướng mũi tên (flip) đặt trên <svg> con → độc lập với vòng xoay của <em>; lúc dash ngừng xoay nên lộ đúng hướng. */
 .pkduo-bar em.flip svg, .pkduo-bar em.flip img { transform:scaleX(-1); }
-.pkduo-bar em.neutral { animation:pkDuoNeutralPulse 1.15s ease-in-out infinite; }
-.pkduo-bar em.neutral svg, .pkduo-bar em.neutral img { width:56px; }
+/* Lao tới (bên nhà vừa ghi điểm, đẩy ranh giới đi) / bị đẩy lùi — ngừng xoay, nhào 1 nhịp theo hướng đẩy. */
+.pkduo-board.gain-a .pkduo-bar em { animation:pkDuoArrowDashRight .6s ease-out; }
+.pkduo-board.gain-b .pkduo-bar em { animation:pkDuoArrowDashLeft .6s ease-out; }
 
 .pkduo-board.status-prestart .pkduo-head > span,
 .pkduo-board.urgent .pkduo-head > span { animation:pkDuoBlink .5s ease-in-out infinite; color:#fff1a6; }
@@ -126,8 +130,11 @@ body { display:flex; justify-content:center; align-items:center; }
 
 /* "10s cuối": nhấp bằng GLOW (không hạ opacity/scale) → OBS/CEF không drop layer, overlay luôn hiển thị. */
 @keyframes pkDuoBlink { 0%,100%{color:#fff1a6;text-shadow:0 2px 4px rgba(0,0,0,.55)} 50%{color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.55),0 0 16px rgba(255,80,110,.95),0 0 6px #fff} }
-@keyframes pkDuoRocketFly { 0%,100%{transform:translate(-50%,-50%) rotate(-2deg) scale(1)} 50%{transform:translate(calc(-50% + 8px),calc(-50% - 1px)) rotate(2deg) scale(1.08)} }
-@keyframes pkDuoNeutralPulse { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.1)} }
+/* Đứng yên → xoay vòng tròn. translate(-50%,-50%) giữ tâm khi rAF đổi --pk-a-width. */
+@keyframes pkDuoArrowSpin { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(360deg)} }
+/* Dash: KHÔNG rotate (ngừng xoay) → lộ đúng hướng mũi tên; nhào tới rồi bật về, kèm phình nhẹ. */
+@keyframes pkDuoArrowDashRight { 0%{transform:translate(-50%,-50%) scale(1)} 32%{transform:translate(calc(-50% + 16px),-50%) scale(1.16)} 100%{transform:translate(-50%,-50%) scale(1)} }
+@keyframes pkDuoArrowDashLeft { 0%{transform:translate(-50%,-50%) scale(1)} 32%{transform:translate(calc(-50% - 16px),-50%) scale(1.16)} 100%{transform:translate(-50%,-50%) scale(1)} }
 @keyframes pkDuoGiftMarquee { 0%{transform:translateX(0)} 100%{transform:translateX(-33.333%)} }
 @keyframes pkDuoGiftMarqueeRev { 0%{transform:translateX(-33.333%)} 100%{transform:translateX(0)} }
 @keyframes pkDuoFlowRight { from{transform:translate3d(-34px,0,0)} to{transform:translate3d(0,0,0)} }
