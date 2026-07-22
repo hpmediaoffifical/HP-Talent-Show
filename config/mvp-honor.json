@@ -1,0 +1,59 @@
+{
+  "cards": [
+    {
+      "id": "mh_nysg7wuy1t",
+      "mode": "creator",
+      "creatorId": "c_mrtg28mrb1ni1",
+      "avatar": "",
+      "name": "Phụng",
+      "text": "TOP 1",
+      "frame": "mvp-frames/37.png",
+      "layout": "vertical",
+      "avatarSize": 150,
+      "frameScale": 150,
+      "fontSize": 40,
+      "color": "#ffffff",
+      "textStyle": "solid",
+      "bgColor": "#e84c88",
+      "bgColor2": "#7a3cff",
+      "bgOpacity": 100,
+      "entryAnim": "popBounce",
+      "showName": false,
+      "show": true,
+      "overlay": {
+        "x": 60,
+        "y": 119,
+        "scale": 1,
+        "rot": 0
+      }
+    },
+    {
+      "id": "mh_ecmz7urhd7",
+      "mode": "user",
+      "creatorId": "c_mrtg28mrb1ni1",
+      "avatar": "",
+      "name": "Sandy",
+      "text": "TOP 1",
+      "frame": "mvp-frames/39.png",
+      "layout": "vertical",
+      "avatarSize": 150,
+      "frameScale": 150,
+      "fontSize": 40,
+      "color": "#ffffff",
+      "textStyle": "solid",
+      "bgColor": "#e84c88",
+      "bgColor2": "#7a3cff",
+      "bgOpacity": 100,
+      "entryAnim": "zoomFade",
+      "showName": false,
+      "show": true,
+      "overlay": {
+        "x": 46,
+        "y": 421,
+        "scale": 2.34,
+        "rot": -1
+      }
+    }
+  ],
+  "canvas": "1:1"
+}

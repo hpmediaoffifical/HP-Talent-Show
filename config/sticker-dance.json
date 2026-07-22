@@ -1,0 +1,95 @@
+{
+  "content": "STICKER DANCE",
+  "rows": 3,
+  "cols": 6,
+  "countMode": "countdown",
+  "labelPos": "bottom",
+  "cells": [
+    {
+      "row": 0,
+      "col": 0,
+      "giftId": "14543",
+      "giftName": "Congratulations",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8e73d843b23a9e68f8d3cf8c46fc0bee.png~tplv-obj.webp",
+      "diamond": 1,
+      "text": "CoCo neee"
+    },
+    {
+      "row": 0,
+      "col": 1,
+      "giftId": "13651",
+      "giftName": "Go Popular",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp",
+      "diamond": 1,
+      "text": "HARLEY"
+    },
+    {
+      "row": 0,
+      "col": 2,
+      "giftId": "231955",
+      "giftName": "Good Job",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/047bfa2dcc6813c72fd2d8f649ee8ee2.png~tplv-obj.webp",
+      "diamond": 1,
+      "text": "Nami"
+    },
+    {
+      "row": 1,
+      "col": 0,
+      "giftId": "59881",
+      "giftName": "A Shard of Hope",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/34207c50c472435d7d582ef5c1ca8ff2.png~tplv-obj.webp",
+      "diamond": 1,
+      "text": ""
+    },
+    {
+      "row": 1,
+      "col": 5,
+      "giftId": "9340",
+      "giftName": "Birthday Cake",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3ac5ec732f6f4ba7b1492248bfea83d6~tplv-obj.webp",
+      "diamond": 1,
+      "text": ""
+    },
+    {
+      "row": 0,
+      "col": 3,
+      "giftId": "5269",
+      "giftName": "TikTok",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
+      "diamond": 1,
+      "text": "𝚠𝚒𝚗𝚗𝚒𝚎"
+    },
+    {
+      "row": 0,
+      "col": 4,
+      "giftId": "5487",
+      "giftName": "Finger Heart",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/a4c4dc437fd3a6632aba149769491f49.png~tplv-obj.webp",
+      "diamond": 5,
+      "text": "Enni"
+    },
+    {
+      "row": 0,
+      "col": 5,
+      "giftId": "8635",
+      "giftName": "Okay",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/0573114db41d2cf9c7dd70c8b0fab38e.png~tplv-obj.webp",
+      "diamond": 5,
+      "text": "AMY"
+    }
+  ],
+  "bg": "#1f1f1f",
+  "bgOpacity": 49,
+  "iconSize": 83,
+  "textSize": 15,
+  "overlayScale": 100,
+  "gap": 14,
+  "animIcon": false,
+  "enlargeTop": true,
+  "perfBg": "gold",
+  "perfBorder": "ring",
+  "perfSparkle": true,
+  "perfRipple": true,
+  "perfShine": true,
+  "perfNotes": true
+}

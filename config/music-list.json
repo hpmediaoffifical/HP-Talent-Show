@@ -1,0 +1,120 @@
+{
+  "items": [
+    {
+      "giftId": "9340",
+      "giftName": "Birthday Cake",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3ac5ec732f6f4ba7b1492248bfea83d6~tplv-obj.webp",
+      "diamond": 0,
+      "audios": [
+        "file:///G:/NPC%202026/Yuna%20-%20Ai%20C%E1%BA%ADp/MP3/Dance%20(6).mp3"
+      ],
+      "audioPath": "file:///G:/NPC%202026/Yuna%20-%20Ai%20C%E1%BA%ADp/MP3/Dance%20(6).mp3",
+      "name": "Em Dance",
+      "volume": 100,
+      "qty": 111
+    },
+    {
+      "giftId": "5827",
+      "giftName": "Ice Cream Cone",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/968820bc85e274713c795a6aef3f7c67~tplv-obj.webp",
+      "diamond": 0,
+      "audios": [],
+      "audioPath": "",
+      "name": "𝙼𝚒𝚕𝚊 𝚍𝚊𝚗𝚐𝚒𝚞 🐰",
+      "volume": 100,
+      "qty": 1
+    },
+    {
+      "giftId": "15231",
+      "giftName": "Love you so much",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/fc549cf1bc61f9c8a1c97ebab68dced7.png~tplv-obj.webp",
+      "diamond": 0,
+      "audios": [],
+      "audioPath": "",
+      "name": "hi",
+      "volume": 100,
+      "qty": 1
+    },
+    {
+      "giftId": "19446",
+      "giftName": "Wink wink",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/4a68411b3e92fc2bf68d458d5f906b74.png~tplv-obj.webp",
+      "diamond": 0,
+      "audios": [],
+      "audioPath": "",
+      "name": "kiwi0507_",
+      "volume": 100,
+      "qty": 1
+    },
+    {
+      "giftId": "6788",
+      "giftName": "Glow Stick",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/8e1a5d66370c5586545e358e37c10d25~tplv-obj.webp",
+      "diamond": 0,
+      "audios": [],
+      "audioPath": "",
+      "name": "Dori 🐷",
+      "volume": 100,
+      "qty": 1
+    },
+    {
+      "giftId": "15232",
+      "giftName": "You're awesome",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.webp",
+      "diamond": 0,
+      "audios": [],
+      "audioPath": "",
+      "name": "Nguyễn Thanh Loan",
+      "volume": 100,
+      "qty": 1
+    },
+    {
+      "giftId": "5655",
+      "giftName": "Cute",
+      "icon": "https://hpvn.media/quatiktok/5655.png",
+      "diamond": 0,
+      "audios": [],
+      "audioPath": "",
+      "name": "Raiden",
+      "volume": 100,
+      "qty": 1
+    },
+    {
+      "giftId": "6784",
+      "giftName": "Cake Slice",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.webp",
+      "diamond": 0,
+      "audios": [],
+      "audioPath": "",
+      "name": "Im Xuhào☘️",
+      "volume": 100,
+      "qty": 1
+    },
+    {
+      "giftId": "6064",
+      "giftName": "GG",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp",
+      "diamond": 0,
+      "audios": [],
+      "audioPath": "",
+      "name": "I.CE❄️⚡️",
+      "volume": 100,
+      "qty": 1
+    },
+    {
+      "giftId": "6093",
+      "giftName": "Football",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/c043cd9e418f13017793ddf6e0c6ee99~tplv-obj.webp",
+      "diamond": 0,
+      "audios": [],
+      "audioPath": "",
+      "name": "D-ONE✨🪐",
+      "volume": 100,
+      "qty": 1
+    }
+  ],
+  "duckWaiting": true,
+  "bgEnabled": false,
+  "paused": false,
+  "displayLimit": 5
+}
