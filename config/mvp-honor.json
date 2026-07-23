@@ -21,7 +21,7 @@
       "showName": false,
       "show": true,
       "overlay": {
-        "x": 60,
+        "x": 40,
         "y": 119,
         "scale": 1,
         "rot": 0
@@ -48,8 +48,8 @@
       "showName": false,
       "show": true,
       "overlay": {
-        "x": 46,
-        "y": 421,
+        "x": 360,
+        "y": 303,
         "scale": 2.34,
         "rot": -1
       }

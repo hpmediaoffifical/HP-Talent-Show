@@ -1633,7 +1633,7 @@ class MvpHonorEngine {
       name,
       text: typeof c.text === 'string' ? c.text : '',
       frame: c.frame || '',
-      layout: c.layout === 'vertical' ? 'vertical' : 'horizontal',
+      layout: ['horizontal', 'vertical', 'attached'].includes(c.layout) ? c.layout : 'attached',
       avatarSize: _mvpClamp(c.avatarSize, 60, 400, 150),
       frameScale: _mvpClamp(c.frameScale, 80, 300, 150),
       fontSize: _mvpClamp(c.fontSize, 12, 140, 40),
@@ -1665,10 +1665,11 @@ class MvpHonorEngine {
 }
 
 // ----------------- Vòng quay may mắn (Lucky Wheel) -----------------
-// Ô = thông tin do người dùng ghi (phần thưởng / hình phạt / ghi chú). Quay ĐỀU nhau (random đồng xác suất),
-// máy chủ chọn ô trúng rồi phát lệnh quay {spinId, index, duration} qua SSE → overlay OBS quay tới đúng ô đó.
+// Ô = thông tin do người dùng ghi (phần thưởng / hình phạt / ghi chú). Mỗi ô có trọng số quay riêng,
+// máy chủ chọn ô trúng rồi phát lệnh quay {spinId, index, landingOffset, edgeCatch, duration} qua SSE → overlay OBS quay tới đúng ô đó.
 // Kết quả lưu vào history (kèm tên người quay) để dựng lịch sử + bảng thống kê.
 const _LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
+const _LW_OVERLAY_REVISION = 13;
 function _lwHex(v, def) { return /^#[0-9a-fA-F]{6}$/.test(String(v || '')) ? v : def; }
 function _lwNum(v, def, min, max) { let n = Number(v); if (!isFinite(n)) n = def; return Math.max(min, Math.min(max, n)); }
 class LuckyWheelEngine {
@@ -1676,6 +1677,7 @@ class LuckyWheelEngine {
     this.onState = onState;
     this.config = {
       title: 'VÒNG QUAY MAY MẮN',
+      showTitle: true,          // hiện tiêu đề trên OBS/Review
       style: 'neon',            // neon | gold | pastel | dark
       fontScale: 100,           // % cỡ chữ trên ô (50–200)
       spinSeconds: 5,
@@ -1683,17 +1685,28 @@ class LuckyWheelEngine {
       confetti: true,
       showResult: true,
       showCount: true,          // hiện bộ đếm lượt quay trên OBS
+      edgeStops: true,          // thỉnh thoảng dừng sát vạch ngăn ô, nhưng vẫn trong ô trúng
       spinCount: 0,             // số lượt đã quay (trừ tay được khi xoá lượt lỗi)
-      segments: [],             // [{ id, text, note, type: reward|penalty|info, color }]
+      selectedSpinner: null,    // người đang chọn trước khi quay, để tâm vòng quay đồng bộ với bảng điều khiển
+      segments: [],             // [{ id, text, note, type: reward|penalty|info, color, weight, jackpot }]
       history: [],              // [{ id, time, member, segId, text, note, type }]
     };
-    this.spin = null;           // { spinId, index, duration, startAt, spinner:{name,avatar} }
+    this.spin = null;           // { spinId, index, landingOffset, edgeCatch, result, duration, startAt, spinner:{name,avatar} }
     this._seq = 0;
+    this._stateRevision = 0;    // chặn HTTP fallback trả state cũ sau event SSE mới hơn
   }
   setConfig(patch) {
     const p = patch || {};
     this.config = { ...this.config, ...p };
     if (!Array.isArray(this.config.segments)) this.config.segments = [];
+    this.config.segments = this.config.segments.map((s, i) => ({
+      ...s,
+      weight: _lwNum(s?.weight, 10, 1, 100),
+      jackpot: s?.jackpot === true,
+      color: _lwHex(s?.color, _LW_PALETTE[i % _LW_PALETTE.length]),
+    }));
+    const selected = this.config.selectedSpinner;
+    this.config.selectedSpinner = selected?.name ? { id: String(selected.id || ''), name: String(selected.name), avatar: String(selected.avatar || '') } : null;
     if (!Array.isArray(this.config.history)) this.config.history = [];
     this._emit();
   }
@@ -1711,29 +1724,50 @@ class LuckyWheelEngine {
   doSpin({ spinner } = {}) {
     const segs = this.config.segments || [];
     if (!segs.length) return null;
-    const index = Math.floor(Math.random() * segs.length);
+    const totalWeight = segs.reduce((sum, seg) => sum + _lwNum(seg.weight, 10, 1, 100), 0);
+    let pick = Math.random() * totalWeight;
+    let index = segs.length - 1;
+    for (let i = 0; i < segs.length; i++) {
+      pick -= _lwNum(segs[i].weight, 10, 1, 100);
+      if (pick < 0) { index = i; break; }
+    }
     const seg = segs[index] || {};
     const duration = _lwNum(this.config.spinSeconds, 5, 2, 15);
+    // Độ lệch tính theo nửa ô (-.5 đến .5). Một phần lượt cố ý sát vạch,
+    // nhưng luôn chừa biên để kết quả chọn ở đây không bao giờ đổi sang ô khác.
+    const nearEdge = this.config.edgeStops !== false && Math.random() < 0.32;
+    const offsetMin = nearEdge ? 0.37 : 0.04;
+    const offsetMax = nearEdge ? 0.465 : 0.34;
+    const landingOffset = (Math.random() < 0.5 ? -1 : 1) * (offsetMin + Math.random() * (offsetMax - offsetMin));
+    // Chỉ các lượt sát vạch nhất mới có nhịp "mắc kim". Cờ này được gửi cho mọi client
+    // để preview và OBS cùng vượt vạch rồi bật lại về ô đã chọn.
+    const edgeCatch = nearEdge && Math.abs(landingOffset) > 0.425;
     this._seq += 1;
     const spinId = 'sp_' + Date.now().toString(36) + '_' + this._seq;
     const sp = (spinner && spinner.name) ? { name: String(spinner.name), avatar: String(spinner.avatar || '') } : null;
-    this.spin = { spinId, index, duration, startAt: Date.now(), spinner: sp };
+    // Snapshot bất biến: mọi overlay hiển thị đúng kết quả đã chốt, không phụ thuộc
+    // danh sách ô có bị sửa trong lúc quay hay client nhận state chậm.
+    const result = { id: seg.id || '', text: seg.text || '', note: seg.note || '', type: seg.type || 'info', jackpot: seg.jackpot === true };
+    this.spin = { spinId, index, landingOffset, edgeCatch, result, duration, startAt: Date.now(), spinner: sp };
     const rec = {
       id: spinId,
       time: new Date().toISOString(),
       member: sp ? sp.name : '',
-      segId: seg.id || '', text: seg.text || '', note: seg.note || '', type: seg.type || 'info',
+      segId: result.id, text: result.text, note: result.note, type: result.type,
     };
     this.config.history.unshift(rec);
     if (this.config.history.length > 300) this.config.history.length = 300;
     this.config.spinCount = (this.config.spinCount || 0) + 1;
     this._emit();
-    return { spinId, index, record: rec, spinCount: this.config.spinCount };
+    return { spinId, index, landingOffset, edgeCatch, record: rec, spinCount: this.config.spinCount };
   }
   getStateForOverlay() {
     const c = this.config;
     return {
+      overlayRevision: _LW_OVERLAY_REVISION,
+      stateRevision: this._stateRevision,
       title: c.title || '',
+      showTitle: c.showTitle !== false,
       style: ['neon', 'gold', 'pastel', 'dark'].includes(c.style) ? c.style : 'neon',
       fontScale: _lwNum(c.fontScale, 100, 50, 200),
       spinSeconds: _lwNum(c.spinSeconds, 5, 2, 15),
@@ -1741,16 +1775,23 @@ class LuckyWheelEngine {
       confetti: c.confetti !== false,
       showResult: c.showResult !== false,
       showCount: c.showCount !== false,
+      edgeStops: c.edgeStops !== false,
       spinCount: Math.max(0, Math.round(Number(c.spinCount) || 0)),
+      selectedSpinner: c.selectedSpinner,
       segments: (c.segments || []).map((s, i) => ({
         id: s.id, text: String(s.text || ''), note: String(s.note || ''),
         type: ['reward', 'penalty', 'info'].includes(s.type) ? s.type : 'info',
         color: _lwHex(s.color, _LW_PALETTE[i % _LW_PALETTE.length]),
+        weight: _lwNum(s.weight, 10, 1, 100),
+        jackpot: s.jackpot === true,
       })),
       spin: this.spin,
     };
   }
-  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+  _emit() {
+    this._stateRevision += 1;
+    try { this.onState(this.getStateForOverlay()); } catch {}
+  }
 }
 
 // ----------------- Ranking (BXH theo creator hoặc nhóm) -----------------
@@ -2317,6 +2358,11 @@ async function bootstrapOverlay() {
       const image = nativeImage.createFromBuffer(buf);
       return image.isEmpty() ? buf : image.toPNG();
     },
+    onLuckyWheelSpin: () => {
+      const result = luckyWheelEngine?.doSpin();
+      if (result) saveLuckyWheelConfig(luckyWheelEngine.config);
+      return result;
+    },
     onLog: (m) => broadcast('log', { source: 'overlay', message: m }),
   });
   await overlayServer.start();
@@ -2558,6 +2604,28 @@ function registerIpc() {
   ipcMain.handle('luckywheel:clearHistory', () => { luckyWheelEngine?.clearHistory(); saveLuckyWheelConfig(luckyWheelEngine?.config); return true; });
   ipcMain.handle('luckywheel:setCount', (_e, n) => { luckyWheelEngine?.setCount(n); saveLuckyWheelConfig(luckyWheelEngine?.config); return luckyWheelEngine?.config?.spinCount; });
   ipcMain.handle('luckywheel:removeHistory', (_e, id) => { luckyWheelEngine?.removeHistory(id); saveLuckyWheelConfig(luckyWheelEngine?.config); return luckyWheelEngine?.config?.spinCount; });
+  ipcMain.handle('luckywheel:export', async () => {
+    const list = luckyWheelEngine?.config?.history || [];
+    if (!list.length) return { ok: false, reason: 'empty' };
+    const esc = v => '"' + String(v || '').replace(/"/g, '""') + '"';
+    const csv = ['Thời gian,Người quay,Kết quả,Ghi chú,Loại'].concat(
+      list.map(x => [x.time || '', x.member || '', x.text || '', x.note || '', x.type || 'info'].map(esc).join(','))
+    ).join('\r\n');
+    const stamp = new Date().toISOString().slice(0, 10);
+    const res = await dialog.showSaveDialog(win, {
+      title: 'Tải lịch sử vòng quay',
+      defaultPath: `Lich-su-Vong-quay-${stamp}.csv`,
+      filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }],
+    });
+    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' };
+    try {
+      // BOM giúp Excel trên Windows đọc đúng tiếng Việt ngay khi mở file.
+      fs.writeFileSync(res.filePath, '\ufeff' + csv, 'utf8');
+      return { ok: true, filePath: res.filePath, count: list.length };
+    } catch (err) {
+      return { ok: false, reason: String(err && err.message || err) };
+    }
+  });
   ipcMain.handle('luckywheel:reset', () => { luckyWheelEngine?.reset(); return true; });
   ipcMain.handle('luckywheel:getUrl', () => overlayServer?.getLuckyWheelUrl());
 

@@ -1494,7 +1494,7 @@ function mvpNewCard() {
   const id = 'mh_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
   return {
     id, mode: 'creator', creatorId: '', avatar: '', name: '', text: 'TOP 1',
-    frame: MVP_FRAMES[0], layout: 'horizontal', avatarSize: 150, frameScale: 150, fontSize: 40,
+    frame: MVP_FRAMES[0], layout: 'attached', avatarSize: 150, frameScale: 150, fontSize: 40,
     color: '#ffffff', textStyle: 'plaque', bgColor: '#8f8474', bgColor2: '#463f31', bgOpacity: 100,
     entryAnim: 'popBounce', showName: false, show: true, overlay: { x: 120, y: 200, scale: 1, rot: 0 },
   };
@@ -1528,7 +1528,7 @@ function mvpTextBg(c) {
 // Dựng phần tử hình ảnh của thẻ (dùng trong khung xem trước). Cùng cấu trúc với overlay OBS.
 function mvpBuildVisual(c) {
   const avSize = c.avatarSize, frameW = Math.round(avSize * (c.frameScale / 100)), hasFrame = !!c.frame;
-  const root = document.createElement('div'); root.className = 'mhv-card' + (c.layout === 'vertical' ? ' vertical' : '');
+  const root = document.createElement('div'); root.className = 'mhv-card' + (c.layout === 'vertical' ? ' vertical' : c.layout === 'attached' ? ' attached' : '');
   const inner = document.createElement('div'); inner.className = 'mhv-inner';
   const avwrap = document.createElement('div'); avwrap.className = 'mhv-avwrap';
   avwrap.style.width = (hasFrame ? frameW : avSize) + 'px';
@@ -1543,7 +1543,7 @@ function mvpBuildVisual(c) {
   if (c.text) {
     const tx = document.createElement('div'); tx.className = 'mhv-text style-' + c.textStyle;
     tx.textContent = c.text; tx.style.fontSize = c.fontSize + 'px'; tx.style.color = c.color;
-    tx.style.background = mvpTextBg(c);
+    tx.style.background = mvpTextBg(c); tx.style.setProperty('--mvp-link-color', c.bgColor);
     if (c.textStyle === 'neon') tx.style.textShadow = `0 0 6px ${c.bgColor}, 0 0 14px ${c.bgColor}, 0 0 26px ${c.bgColor2}`;
     else if (c.textStyle === 'plaque') tx.style.textShadow = '0 2px 3px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.18)';
     inner.appendChild(tx);
@@ -1654,7 +1654,7 @@ function mvpApplyToInputs() {
   if ($('#mhUploadName')) $('#mhUploadName').textContent = c.mode === 'user' && c.avatar ? 'Đã có ảnh' : 'Chưa có ảnh';
   const set = (id, v) => { const el = $(id); if (el) el.value = v; };
   set('#mhName', c.name || ''); if ($('#mhShowName')) $('#mhShowName').checked = !!c.showName;
-  set('#mhText', c.text || ''); set('#mhLayout', c.layout); set('#mhAnim', c.entryAnim);
+  set('#mhText', c.text || ''); set('#mhLayout', ['horizontal', 'vertical', 'attached'].includes(c.layout) ? c.layout : 'attached'); set('#mhAnim', c.entryAnim);
   set('#mhAvatarSize', c.avatarSize); set('#mhFrameScale', c.frameScale); set('#mhFontSize', c.fontSize);
   set('#mhTextStyle', c.textStyle); set('#mhColor', c.color); set('#mhBg', c.bgColor); set('#mhBg2', c.bgColor2);
   set('#mhBgOpacity', c.bgOpacity); set('#mhX', c.overlay.x); set('#mhY', c.overlay.y);
@@ -1704,7 +1704,7 @@ function wireMvpHonorTab() {
   $('#mhName')?.addEventListener('input', () => mvpEditSel(c => { c.name = $('#mhName').value; }));
   $('#mhShowName')?.addEventListener('change', () => mvpEditSel(c => { c.showName = $('#mhShowName').checked; }));
   $('#mhText')?.addEventListener('input', () => mvpEditSel(c => { c.text = $('#mhText').value; }));
-  $('#mhLayout')?.addEventListener('change', () => mvpEditSel(c => { c.layout = $('#mhLayout').value === 'vertical' ? 'vertical' : 'horizontal'; }));
+  $('#mhLayout')?.addEventListener('change', () => mvpEditSel(c => { c.layout = ['horizontal', 'vertical', 'attached'].includes($('#mhLayout').value) ? $('#mhLayout').value : 'attached'; }));
   $('#mhAnim')?.addEventListener('change', () => mvpEditSel(c => { c.entryAnim = $('#mhAnim').value; }));
   $('#mhAvatarSize')?.addEventListener('input', () => mvpEditSel(c => { c.avatarSize = clampInt($('#mhAvatarSize').value, 150, 60, 400); }));
   $('#mhFrameScale')?.addEventListener('input', () => mvpEditSel(c => { c.frameScale = clampInt($('#mhFrameScale').value, 150, 80, 300); }));
@@ -1737,23 +1737,28 @@ function wireMvpHonorTab() {
 // VÒNG QUAY MAY MẮN (Lucky Wheel)
 // ============================================================
 const LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
-let lwCfg = { title: 'VÒNG QUAY MAY MẮN', style: 'neon', spinSeconds: 5, sound: true, confetti: true, showResult: true, segments: [], history: [] };
+let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, sound: true, confetti: true, showResult: true, edgeStops: true, selectedSpinner: null, segments: [], history: [] };
 let lwSaveTimer = null;
 
 function lwNormalize(cfg) {
   const c = cfg && typeof cfg === 'object' ? cfg : {};
   return {
     title: typeof c.title === 'string' ? c.title : 'VÒNG QUAY MAY MẮN',
+    showTitle: c.showTitle !== false,
     style: ['neon', 'gold', 'pastel', 'dark'].includes(c.style) ? c.style : 'neon',
     fontScale: clampInt(c.fontScale, 100, 50, 200),
     spinSeconds: clampInt(c.spinSeconds, 5, 2, 15),
     sound: c.sound !== false, confetti: c.confetti !== false, showResult: c.showResult !== false,
+    edgeStops: c.edgeStops !== false,
     showCount: c.showCount !== false, spinCount: Math.max(0, Math.round(Number(c.spinCount) || 0)),
+    selectedSpinner: c.selectedSpinner?.name ? { id: String(c.selectedSpinner.id || ''), name: String(c.selectedSpinner.name), avatar: String(c.selectedSpinner.avatar || '') } : null,
     segments: Array.isArray(c.segments) ? c.segments.map((s, i) => ({
       id: s.id || ('lw_' + Math.random().toString(36).slice(2, 9)),
       text: String(s.text || ''), note: String(s.note || ''),
       type: ['reward', 'penalty', 'info'].includes(s.type) ? s.type : 'info',
       color: /^#[0-9a-fA-F]{6}$/.test(s.color || '') ? s.color : LW_PALETTE[i % LW_PALETTE.length],
+      weight: clampInt(s.weight, 10, 1, 100),
+      jackpot: s.jackpot === true,
     })) : [],
     history: Array.isArray(c.history) ? c.history : [],
   };
@@ -1770,7 +1775,7 @@ async function loadLuckyWheelConfig() {
       { id: 'lw_c', text: 'x2 điểm', note: '', type: 'reward', color: LW_PALETTE[2] },
       { id: 'lw_d', text: 'Hít đất 10 cái', note: '', type: 'penalty', color: LW_PALETTE[3] },
       { id: 'lw_e', text: 'May mắn lần sau', note: '', type: 'info', color: LW_PALETTE[4] },
-      { id: 'lw_f', text: 'JACKPOT', note: 'Phần thưởng lớn', type: 'reward', color: LW_PALETTE[5] },
+      { id: 'lw_f', text: 'JACKPOT', note: 'Phần thưởng lớn', type: 'reward', color: LW_PALETTE[5], weight: 1, jackpot: true },
     ];
     // Đẩy ô mẫu sang engine/overlay ngay để OBS có nội dung ở lần đầu (chưa cần người dùng sửa).
     lwPush();
@@ -1781,7 +1786,7 @@ function lwPush() { window.api.luckywheel.setConfig(lwCfg).catch(() => {}); }
 function lwScheduleSave() { clearTimeout(lwSaveTimer); lwSaveTimer = setTimeout(lwPush, 250); }
 function lwNewSeg() {
   const i = lwCfg.segments.length;
-  return { id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Ô ' + (i + 1), note: '', type: 'info', color: LW_PALETTE[i % LW_PALETTE.length] };
+  return { id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Ô ' + (i + 1), note: '', type: 'info', color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false };
 }
 
 function renderLwSegList() {
@@ -1792,17 +1797,21 @@ function renderLwSegList() {
       <input type="color" class="lw-seg-color" data-i="${i}" value="${s.color}" title="Màu ô" />
       <input type="text" class="lw-seg-text" data-i="${i}" value="${escAttr(s.text)}" placeholder="Nội dung ô" />
       <input type="text" class="lw-seg-note" data-i="${i}" value="${escAttr(s.note)}" placeholder="Ghi chú (thưởng/phạt cụ thể)" />
-      <select class="lw-seg-type" data-i="${i}">
-        <option value="reward"${s.type === 'reward' ? ' selected' : ''}>🎁 Thưởng</option>
-        <option value="penalty"${s.type === 'penalty' ? ' selected' : ''}>⚡ Phạt</option>
-        <option value="info"${s.type === 'info' ? ' selected' : ''}>✨ Thông tin</option>
-      </select>
-      <button class="lw-seg-del" data-i="${i}" type="button" title="Xoá ô">🗑</button>
+       <select class="lw-seg-type" data-i="${i}" title="Loại kết quả">
+         <option value="reward"${s.type === 'reward' ? ' selected' : ''}>🎁 Thưởng</option>
+         <option value="penalty"${s.type === 'penalty' ? ' selected' : ''}>⚡ Phạt</option>
+         <option value="info"${s.type === 'info' ? ' selected' : ''}>✨ Thông tin</option>
+       </select>
+       <label class="lw-seg-weight" title="Tỷ lệ tương đối"><span>×</span><input type="number" class="lw-seg-weight-input" data-i="${i}" min="1" max="100" value="${s.weight}" /></label>
+       <label class="lw-seg-jackpot" title="Quà lớn: hiệu ứng ánh sáng và âm thanh riêng"><input type="checkbox" data-i="${i}"${s.jackpot ? ' checked' : ''} /><span>⭐</span></label>
+       <button class="lw-seg-del" data-i="${i}" type="button" title="Xoá ô">🗑</button>
     </div>`).join('');
   box.querySelectorAll('.lw-seg-color').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].color = el.value; renderLwPreview(); lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-text').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].text = el.value; renderLwPreview(); lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-note').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].note = el.value; lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-type').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].type = el.value; lwScheduleSave(); }));
+  box.querySelectorAll('.lw-seg-weight-input').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].weight = clampInt(el.value, 10, 1, 100); lwScheduleSave(); }));
+  box.querySelectorAll('.lw-seg-jackpot input').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].jackpot = el.checked; lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-del').forEach(el => el.addEventListener('click', () => { lwCfg.segments.splice(+el.dataset.i, 1); renderLwSegList(); renderLwPreview(); lwScheduleSave(); }));
 }
 
@@ -1827,7 +1836,11 @@ function lwDrawPreviewAt(rot) {
   for (let i = 0; i < segs.length; i++) {
     const a0 = i * seg, a1 = (i + 1) * seg;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a1); ctx.closePath();
-    ctx.fillStyle = segs[i].color; ctx.fill();
+    const face = ctx.createRadialGradient(0, 0, R * .06, 0, 0, R);
+    face.addColorStop(0, lwShadeColor(segs[i].color, .3));
+    face.addColorStop(.48, segs[i].color);
+    face.addColorStop(1, lwShadeColor(segs[i].color, -.22));
+    ctx.fillStyle = face; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.stroke();
     ctx.save(); ctx.rotate(a0 + seg / 2);
     ctx.fillStyle = lwTextColor(segs[i].color); ctx.font = '800 ' + font + 'px "Be Vietnam Pro", sans-serif';
@@ -1845,22 +1858,43 @@ function lwDrawPreviewAt(rot) {
 }
 function renderLwPreview() { if (!lwPreviewSpinning) lwDrawPreviewAt(lwPreviewRot); }
 
-function lwAnimatePreview(index, durSec) {
+function lwPlayPreviewEdgeCatch(offset) {
+  const pointer = document.querySelector('.lw-preview-pointer');
+  if (!pointer) return;
+  const cls = offset < 0 ? 'lw-edge-catch-left' : 'lw-edge-catch-right';
+  pointer.classList.remove('lw-edge-catch-left', 'lw-edge-catch-right');
+  void pointer.offsetWidth;
+  pointer.classList.add(cls);
+}
+
+function lwAnimatePreview(index, durSec, landingOffset, edgeCatch) {
   const n = lwCfg.segments.length; if (!n) return;
   const seg = Math.PI * 2 / n;
   const norm = (a) => { a %= Math.PI * 2; return a < 0 ? a + Math.PI * 2 : a; };
   const start = (lwPreviewRot == null) ? (-Math.PI / 2 - seg / 2) : lwPreviewRot;
-  const target = -Math.PI / 2 - index * seg - seg / 2;
+  const offset = Math.max(-0.465, Math.min(0.465, Number(landingOffset) || 0));
+  const target = -Math.PI / 2 - index * seg - seg / 2 - offset * seg;
   const dur = Math.max(2, Math.min(15, durSec || 5)) * 1000;
   const turns = 5 + Math.floor(dur / 1500);
   const final = start + turns * Math.PI * 2 + norm(target - norm(start));
-  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+  // Minimum-jerk: vận tốc và gia tốc đều về 0 ở hai đầu, không giật lúc bắt đầu/dừng.
+  const easeSpin = (t) => t * t * t * (t * (t * 6 - 15) + 10);
   lwPreviewSpinning = true;
-  let t0 = null;
+  let t0 = null, catchTriggered = false;
   function frame(ts) {
     if (!t0) t0 = ts;
     const p = Math.min((ts - t0) / dur, 1);
-    lwPreviewRot = start + (final - start) * easeOut(p);
+    lwPreviewRot = start + (final - start) * easeSpin(p);
+    if (p > 0.93 && Math.abs(offset) > 0.36) {
+      const settle = (p - 0.93) / 0.07;
+      const edgeStrength = Math.max(0, Math.min(1, (Math.abs(offset) - 0.36) / 0.105));
+      const settleAmount = 0.035 + edgeStrength * 0.085;
+      lwPreviewRot += -Math.sign(offset) * seg * settleAmount * Math.sin(Math.PI * settle) * (1 - 0.25 * settle);
+    }
+    if (!catchTriggered && edgeCatch && p > 0.935) {
+      catchTriggered = true;
+      lwPlayPreviewEdgeCatch(offset);
+    }
     lwDrawPreviewAt(lwPreviewRot);
     if (p < 1) requestAnimationFrame(frame);
     else { lwPreviewRot = norm(final); lwPreviewSpinning = false; }
@@ -1872,25 +1906,59 @@ function lwTextColor(hex) {
   const r = parseInt(h.slice(0, 2), 16) || 0, g = parseInt(h.slice(2, 4), 16) || 0, b = parseInt(h.slice(4, 6), 16) || 0;
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62 ? '#2a2233' : '#fff';
 }
+function lwShadeColor(hex, amount) {
+  const h = String(hex || '#888').replace('#', '');
+  const rgb = [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0];
+  return 'rgb(' + rgb.map(v => Math.round(amount >= 0 ? v + (255 - v) * amount : v * (1 + amount))).join(',') + ')';
+}
 
 function lwRefreshSpinners() {
   const sel = $('#lwSpinnerSel'); if (!sel) return;
   const cur = sel.value;
   const list = visibleCreators();
   sel.innerHTML = '<option value="">— Không chọn —</option>' + list.map(cr => `<option value="${cr.id}">${cr.nickname || cr.tiktokId || cr.id}</option>`).join('');
-  if (list.some(cr => cr.id === cur)) sel.value = cur;
+  const savedId = lwCfg.selectedSpinner?.id || '';
+  const target = list.some(cr => cr.id === cur) ? cur : savedId;
+  const selected = list.find(cr => cr.id === target);
+  if (selected) {
+    sel.value = target;
+    if (lwCfg.selectedSpinner?.id === selected.id) {
+      const next = { id: selected.id, name: selected.nickname || selected.tiktokId || 'Creator', avatar: selected.avatar || '' };
+      if (next.name !== lwCfg.selectedSpinner.name || next.avatar !== lwCfg.selectedSpinner.avatar) {
+        lwCfg.selectedSpinner = next;
+        lwPush();
+      }
+    }
+  }
+  else if (lwCfg.selectedSpinner?.id) {
+    // Đổi nhóm: không giữ avatar của thành viên thuộc nhóm trước trên overlay.
+    lwCfg.selectedSpinner = null;
+    lwPush();
+  }
 }
 
 function lwGetSpinner() {
   const sel = $('#lwSpinnerSel'); const free = $('#lwSpinnerName');
   const id = sel ? sel.value : '';
-  if (id) { const cr = creators.find(c => c.id === id); if (cr) return { name: cr.nickname || cr.tiktokId || 'Creator', avatar: cr.avatar || '' }; }
+  // Dropdown chỉ hiển thị nhóm active, vì vậy avatar cũng phải lấy từ đúng tập này.
+  if (id) { const cr = visibleCreators().find(c => c.id === id); if (cr) return { id: cr.id, name: cr.nickname || cr.tiktokId || 'Creator', avatar: cr.avatar || '' }; }
   const name = (free && free.value.trim()) || '';
   return name ? { name, avatar: '' } : null;
 }
 
+function lwSyncSelectedSpinner() {
+  lwCfg.selectedSpinner = lwGetSpinner();
+  lwPush();
+}
+
 function lwTypeLabel(t) { return t === 'reward' ? '🎁 Thưởng' : t === 'penalty' ? '⚡ Phạt' : '✨ Thông tin'; }
 function lwFmtTime(iso) { try { const d = new Date(iso); return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }); } catch { return ''; } }
+function lwBuildCsv() {
+  const esc = v => '"' + String(v || '').replace(/"/g, '""') + '"';
+  return ['Thời gian,Người quay,Kết quả,Ghi chú,Loại'].concat(
+    (lwCfg.history || []).map(x => [lwFmtTime(x.time), x.member, x.text, x.note, lwTypeLabel(x.type)].map(esc).join(','))
+  ).join('\r\n');
+}
 
 function lwUpdateCountInput() { const inp = $('#lwSpinCount'); if (inp && document.activeElement !== inp) inp.value = lwCfg.spinCount || 0; }
 
@@ -1920,11 +1988,13 @@ function renderLwHistory() {
 
 async function lwDoSpin() {
   if (!lwCfg.segments.length) { toast('Chưa có ô nào để quay', 'error'); return; }
-  const btn = $('#lwSpinBtn'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang quay…'; }
+  const btn = $('#lwSpinBtn');
+  if (btn?.disabled) return;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang quay…'; }
   const spinner = lwGetSpinner();
   const r = await window.api.luckywheel.spin({ spinner }).catch(() => null);
   const secs = clampInt(lwCfg.spinSeconds, 5, 2, 15);
-  if (r && typeof r.index === 'number') lwAnimatePreview(r.index, secs);
+  if (r && typeof r.index === 'number') lwAnimatePreview(r.index, secs, r.landingOffset, r.edgeCatch);
   if (r && typeof r.spinCount === 'number') { lwCfg.spinCount = r.spinCount; lwUpdateCountInput(); }
   if (r && r.record) {
     lwCfg.history.unshift(r.record);
@@ -1944,12 +2014,13 @@ async function lwDoSpin() {
       }
     }, secs * 1000 + 150);
   }
-  setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY'; } }, secs * 1000 + 300);
+  setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY · Ctrl + Space'; } }, secs * 1000 + 300);
 }
 
 function wireLuckyWheelTab() {
   $('#lwAddSeg')?.addEventListener('click', () => { lwCfg.segments.push(lwNewSeg()); renderLwSegList(); renderLwPreview(); lwScheduleSave(); });
   $('#lwTitleInput')?.addEventListener('input', () => { lwCfg.title = $('#lwTitleInput').value; lwScheduleSave(); });
+  $('#lwShowTitle')?.addEventListener('change', () => { lwCfg.showTitle = $('#lwShowTitle').checked; lwPush(); });
   $('#lwStyle')?.addEventListener('change', () => { lwCfg.style = $('#lwStyle').value; renderLwPreview(); lwScheduleSave(); });
   $('#lwFontScale')?.addEventListener('input', () => { lwCfg.fontScale = clampInt($('#lwFontScale').value, 100, 50, 200); if ($('#lwFontVal')) $('#lwFontVal').textContent = lwCfg.fontScale + '%'; renderLwPreview(); lwScheduleSave(); });
   $('#lwSeconds')?.addEventListener('input', () => { lwCfg.spinSeconds = clampInt($('#lwSeconds').value, 5, 2, 15); lwScheduleSave(); });
@@ -1957,6 +2028,9 @@ function wireLuckyWheelTab() {
   $('#lwConfetti')?.addEventListener('change', () => { lwCfg.confetti = $('#lwConfetti').checked; lwScheduleSave(); });
   $('#lwShowResult')?.addEventListener('change', () => { lwCfg.showResult = $('#lwShowResult').checked; lwScheduleSave(); });
   $('#lwShowCount')?.addEventListener('change', () => { lwCfg.showCount = $('#lwShowCount').checked; lwScheduleSave(); });
+  $('#lwEdgeStops')?.addEventListener('change', () => { lwCfg.edgeStops = $('#lwEdgeStops').checked; lwScheduleSave(); });
+  $('#lwSpinnerSel')?.addEventListener('change', () => { if ($('#lwSpinnerSel').value && $('#lwSpinnerName')) $('#lwSpinnerName').value = ''; lwSyncSelectedSpinner(); });
+  $('#lwSpinnerName')?.addEventListener('input', () => { if ($('#lwSpinnerName').value.trim() && $('#lwSpinnerSel')) $('#lwSpinnerSel').value = ''; lwSyncSelectedSpinner(); });
   $('#lwSpinCount')?.addEventListener('change', async () => {
     const n = Math.max(0, Math.round(Number($('#lwSpinCount').value) || 0));
     lwCfg.spinCount = n; await window.api.luckywheel.setCount(n).catch(() => {}); renderLwHistory();
@@ -1967,6 +2041,14 @@ function wireLuckyWheelTab() {
     await window.api.luckywheel.setCount(n).catch(() => {}); renderLwHistory();
   });
   $('#lwSpinBtn')?.addEventListener('click', lwDoSpin);
+  document.addEventListener('keydown', (e) => {
+    const active = document.querySelector('.panel[data-panel="luckywheel"]')?.classList.contains('active');
+    const target = e.target;
+    const editing = target instanceof HTMLElement && !!target.closest('input, textarea, select, [contenteditable="true"]');
+    if (!active || editing || !e.ctrlKey || e.shiftKey || e.altKey || e.code !== 'Space') return;
+    e.preventDefault();
+    lwDoSpin();
+  });
   $('#lwClearHist')?.addEventListener('click', async () => {
     if (!lwCfg.history.length) return;
     const ok = await window.api.shell.confirm({ message: 'Xoá toàn bộ lịch sử quay?', confirmText: 'Xoá', cancelText: 'Huỷ' }).catch(() => true);
@@ -1976,17 +2058,20 @@ function wireLuckyWheelTab() {
   });
   $('#lwExport')?.addEventListener('click', async () => {
     const h = lwCfg.history || []; if (!h.length) { toast('Chưa có dữ liệu', 'error'); return; }
-    const esc = v => '"' + String(v || '').replace(/"/g, '""') + '"';
-    const csv = ['Thời gian,Người quay,Kết quả,Ghi chú,Loại'].concat(
-      h.map(x => [lwFmtTime(x.time), x.member, x.text, x.note, lwTypeLabel(x.type)].map(esc).join(','))
-    ).join('\r\n');
-    await window.api.shell.copyText(csv).catch(() => {});
+    await window.api.shell.copyText(lwBuildCsv()).catch(() => {});
     toast('Đã copy CSV lịch sử', 'success');
+  });
+  $('#lwDownload')?.addEventListener('click', async () => {
+    const r = await window.api.luckywheel.export().catch(() => null);
+    if (r?.ok) toast(`Đã tải ${r.count} lượt quay`, 'success');
+    else if (r?.reason === 'empty') toast('Chưa có dữ liệu', 'error');
+    else if (r?.reason !== 'canceled') toast('Không thể tải CSV', 'error');
   });
   $('#lwCopyUrl')?.addEventListener('click', async () => { const url = await window.api.luckywheel.getUrl(); await window.api.shell.copyText(url); toast('Đã copy link OBS Vòng quay', 'success'); });
 
   // Đồng bộ input với config đã tải
   if ($('#lwTitleInput')) $('#lwTitleInput').value = lwCfg.title;
+  if ($('#lwShowTitle')) $('#lwShowTitle').checked = lwCfg.showTitle;
   if ($('#lwStyle')) $('#lwStyle').value = lwCfg.style;
   if ($('#lwFontScale')) $('#lwFontScale').value = lwCfg.fontScale;
   if ($('#lwFontVal')) $('#lwFontVal').textContent = (lwCfg.fontScale || 100) + '%';
@@ -1995,8 +2080,10 @@ function wireLuckyWheelTab() {
   if ($('#lwConfetti')) $('#lwConfetti').checked = lwCfg.confetti;
   if ($('#lwShowResult')) $('#lwShowResult').checked = lwCfg.showResult;
   if ($('#lwShowCount')) $('#lwShowCount').checked = lwCfg.showCount;
+  if ($('#lwEdgeStops')) $('#lwEdgeStops').checked = lwCfg.edgeStops;
   if ($('#lwSpinCount')) $('#lwSpinCount').value = lwCfg.spinCount || 0;
   lwRefreshSpinners();
+  if ($('#lwSpinnerName') && !lwCfg.selectedSpinner?.id) $('#lwSpinnerName').value = lwCfg.selectedSpinner?.name || '';
   renderLwSegList();
   renderLwPreview();
   renderLwHistory();

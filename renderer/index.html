@@ -1073,8 +1073,8 @@
       </section>
 
       <section class="panel" data-panel="mvphonor">
-        <h1>🏅 Vinh danh</h1>
-        <p class="sub">Thẻ avatar vinh danh trên OBS: khung PNG + ảnh đại diện + chữ. Vinh danh <b>Creator idol TOP</b> (chọn trong nhóm) hoặc <b>User cống hiến</b> (tải ảnh lên). Kéo thẻ trong khung xem trước để đặt vị trí.</p>
+        <h1>🏅 Danh hiệu &amp; vinh danh</h1>
+        <p class="sub">Tạo huy hiệu OBS từ khung PNG, avatar và danh hiệu. Chọn <b>Liền dưới avatar</b> để plaque danh hiệu nối trực quan với khung avatar; kiểu này phù hợp nhất khi vinh danh Creator idol TOP hoặc User cống hiến.</p>
         <div class="card mvp-panel">
           <div class="mvp-toolbar">
             <button class="primary" id="mhAddCard" type="button">＋ Thêm thẻ</button>
@@ -1143,7 +1143,7 @@
                       <input type="text" id="mhName" placeholder="@tên hoặc biệt danh" />
                     </label>
                     <label class="mvp-switch"><input type="checkbox" id="mhShowName" /> Hiện tên dưới avatar</label>
-                    <label>Chữ vinh danh (Enter để xuống dòng)
+                    <label>Danh hiệu / lời vinh danh (Enter để xuống dòng)
                       <textarea id="mhText" rows="2" placeholder="VD: TOP 1 CỐNG HIẾN"></textarea>
                     </label>
                   </div>
@@ -1159,8 +1159,9 @@
                   <div class="mvp-cfg-grid">
                     <label>Bố cục
                       <select id="mhLayout">
+                        <option value="attached">Liền dưới avatar</option>
                         <option value="horizontal">Ngang</option>
-                        <option value="vertical">Dọc</option>
+                        <option value="vertical">Dọc, tách rời</option>
                       </select>
                     </label>
                     <label>Anim xuất hiện
@@ -1239,13 +1240,13 @@
                 </label>
                 <input type="text" id="lwSpinnerName" placeholder="hoặc gõ tên tự do…" />
               </div>
-              <button class="primary lw-big-spin" id="lwSpinBtn" type="button">🎯 QUAY NGAY</button>
+              <button class="primary lw-big-spin" id="lwSpinBtn" type="button" title="Phím tắt: Ctrl + Space">🎯 QUAY NGAY · Ctrl + Space</button>
               <div class="lw-last" id="lwLast"></div>
             </div>
 
             <!-- Cột giữa: danh sách ô -->
             <div class="lw-col lw-segs">
-              <div class="lw-col-h">Các ô (ghi nội dung)
+              <div class="lw-col-h">Các ô (nội dung, tỷ lệ, quà lớn)
                 <button class="ghost lw-add" id="lwAddSeg" type="button">＋ Thêm ô</button>
               </div>
               <div class="lw-seg-list" id="lwSegList"></div>
@@ -1255,6 +1256,7 @@
             <div class="lw-col lw-config">
               <div class="lw-col-h">Cấu hình</div>
               <label>Tiêu đề <input type="text" id="lwTitleInput" placeholder="VÒNG QUAY MAY MẮN" /></label>
+              <label class="lw-chk"><input type="checkbox" id="lwShowTitle" checked /> 🪧 Tiêu đề OBS</label>
               <label>Kiểu (style)
                 <select id="lwStyle">
                   <option value="neon">TikTok Neon</option>
@@ -1271,6 +1273,7 @@
               <label class="lw-chk"><input type="checkbox" id="lwConfetti" checked /> 🎊 Pháo giấy khi thưởng</label>
               <label class="lw-chk"><input type="checkbox" id="lwShowResult" checked /> 🏆 Hiện thẻ kết quả</label>
               <label class="lw-chk"><input type="checkbox" id="lwShowCount" checked /> 🔢 Hiện lượt quay trên OBS</label>
+              <label class="lw-chk" title="32% lượt quay sẽ dừng sát vạch ngăn ô, nhưng kết quả vẫn thuộc đúng ô đã chọn."><input type="checkbox" id="lwEdgeStops" checked /> 🎭 Dừng sát mép ô ngẫu nhiên</label>
               <label>Số lượt đã quay
                 <div class="lw-count-ctl">
                   <input type="number" id="lwSpinCount" min="0" value="0" />
@@ -1287,6 +1290,7 @@
               <span class="lw-stats" id="lwStats"></span>
               <span class="lw-spacer"></span>
               <button class="ghost" id="lwExport" type="button">⬇ Copy CSV</button>
+              <button class="ghost" id="lwDownload" type="button">💾 Tải CSV</button>
               <button class="ghost danger" id="lwClearHist" type="button">🗑 Xoá lịch sử</button>
             </div>
             <div class="lw-hist-table" id="lwHistTable"></div>

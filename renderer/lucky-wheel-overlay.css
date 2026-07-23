@@ -20,6 +20,23 @@ html, body {
   padding: 4px 0 8px;
   user-select: none;
 }
+.lw-stage::before {
+  content: ''; position: absolute; inset: 38px 0 0; border-radius: 50%; pointer-events: none;
+  opacity: 0; z-index: 7; mix-blend-mode: screen;
+}
+.lw-stage.win-lights::before { animation: lwWinLights 1.1s ease-out; }
+.lw-stage.jackpot-lights::before { animation: lwJackpotLights 1.8s ease-out; }
+@keyframes lwWinLights {
+  0%, 100% { opacity: 0; transform: scale(.55); background: radial-gradient(circle, rgba(255,255,255,.9), rgba(255,215,70,.3) 38%, transparent 72%); }
+  18% { opacity: .95; transform: scale(1.15); }
+  42% { opacity: .35; transform: scale(1.32); }
+}
+@keyframes lwJackpotLights {
+  0%, 100% { opacity: 0; transform: scale(.45) rotate(0deg); background: conic-gradient(from 0deg, transparent, rgba(255,255,255,.95), rgba(255,211,58,.65), transparent, rgba(255,98,177,.65), transparent); }
+  12%, 32%, 52% { opacity: 1; }
+  22%, 42%, 72% { opacity: .2; }
+  78% { opacity: .6; transform: scale(1.45) rotate(260deg); }
+}
 
 .lw-count {
   align-self: center;
@@ -49,19 +66,20 @@ html, body {
 .lw-canvas {
   width: 560px; height: 560px; display: block;
   border-radius: 50%;
-  filter: drop-shadow(0 10px 26px rgba(0,0,0,.45));
+  filter: drop-shadow(0 16px 22px rgba(0,0,0,.48)) drop-shadow(0 2px 0 rgba(255,255,255,.22));
 }
 
 /* Kim chỉ ở đỉnh (12 giờ), mũi hướng xuống tâm */
 .lw-pointer {
-  position: absolute; top: -6px; left: 50%;
+  position: absolute; top: -7px; left: 50%;
   width: 0; height: 0; transform: translateX(-50%);
-  border-left: 24px solid transparent;
-  border-right: 24px solid transparent;
-  border-top: 46px solid var(--lw-hub);
+  border-left: 25px solid transparent;
+  border-right: 25px solid transparent;
+  border-top: 58px solid var(--lw-hub);
   filter: drop-shadow(0 3px 4px rgba(0,0,0,.5));
   z-index: 5;
-  transform-origin: 50% 20%;
+  transform-origin: 50% 0;
+  will-change: transform;
 }
 .lw-pointer.tick { animation: lwPoke .09s ease-out; }
 @keyframes lwPoke {
@@ -69,17 +87,37 @@ html, body {
   50% { transform: translateX(-50%) rotate(-13deg); }
   100% { transform: translateX(-50%) rotate(0deg); }
 }
+/* Kim dài chạm vạch, lún nhẹ rồi bật về ô trúng như bánh cóc cơ khí. */
+.lw-pointer.edge-catch-left { animation: lwEdgeCatchLeft .48s cubic-bezier(.2,.82,.24,1) both; }
+.lw-pointer.edge-catch-right { animation: lwEdgeCatchRight .48s cubic-bezier(.2,.82,.24,1) both; }
+@keyframes lwEdgeCatchLeft {
+  0% { transform: translateX(-50%) rotate(0deg) scaleY(1); }
+  34% { transform: translateX(-50%) rotate(-8deg) scaleY(1.07); }
+  55% { transform: translateX(-50%) rotate(-15deg) scaleY(1.12); }
+  76% { transform: translateX(-50%) rotate(6deg) scaleY(.98); }
+  100% { transform: translateX(-50%) rotate(0deg) scaleY(1); }
+}
+@keyframes lwEdgeCatchRight {
+  0% { transform: translateX(-50%) rotate(0deg) scaleY(1); }
+  34% { transform: translateX(-50%) rotate(8deg) scaleY(1.07); }
+  55% { transform: translateX(-50%) rotate(15deg) scaleY(1.12); }
+  76% { transform: translateX(-50%) rotate(-6deg) scaleY(.98); }
+  100% { transform: translateX(-50%) rotate(0deg) scaleY(1); }
+}
 
 /* Hub trung tâm (nút + avatar người quay) */
 .lw-hub {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
   width: 132px; height: 132px; border-radius: 50%;
-  border: 6px solid #fff; background: var(--lw-hub);
-  color: #fff; font-weight: 800; font-size: 26px; letter-spacing: 1px;
-  cursor: default; z-index: 4; overflow: hidden;
-  box-shadow: 0 6px 18px rgba(0,0,0,.4), 0 0 0 3px rgba(0,0,0,.15) inset;
+  border: 6px solid #fff;
+  background: radial-gradient(circle at 31% 24%, rgba(255,255,255,.55), var(--lw-hub) 44%, rgba(0,0,0,.28));
+  color: #fff; font-weight: 800; font-size: 23px; letter-spacing: .5px;
+  cursor: pointer; z-index: 4; overflow: hidden;
+  box-shadow: 0 10px 18px rgba(0,0,0,.45), 0 0 0 3px rgba(0,0,0,.15) inset, 0 -5px 0 rgba(0,0,0,.12) inset;
   display: flex; align-items: center; justify-content: center;
 }
+.lw-hub:disabled { cursor: wait; filter: saturate(.8) brightness(.9); }
+body.overlay-review #lwHub { -webkit-app-region: no-drag; cursor: pointer; }
 .lw-hub-av {
   position: absolute; inset: 0; width: 100%; height: 100%;
   object-fit: cover; border-radius: 50%; display: none;
@@ -148,6 +186,8 @@ html, body {
 .lw-result[data-type="reward"] { --lw-res: #38d67a; }
 .lw-result[data-type="penalty"] { --lw-res: #ff4d4f; }
 .lw-result[data-type="info"] { --lw-res: #6aa0ff; }
+.lw-result[data-jackpot="1"] { --lw-res: #ffd23f; }
+.lw-result[data-jackpot="1"] .lw-result-tag { background: rgba(255,210,63,.25); color: #ffe89a; }
 .lw-result-text {
   font-size: 40px; font-weight: 800; color: #fff; line-height: 1.1;
   text-shadow: 0 2px 6px rgba(0,0,0,.5);

@@ -16,3 +16,9 @@ hpkey/secret.local.js
 
 # Avatar cache tải sẵn (runtime, tự sinh)
 config/avatar-cache/
+
+# Công cụ/cấu hình cục bộ của Claude Code (không commit)
+.claude/
+
+# File demo scratch (không đóng gói, không commit)
+renderer/_demo*.html

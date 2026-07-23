@@ -95,6 +95,7 @@
     root.style.top = c.overlay.y + 'px';
     root.style.transform = `scale(${c.overlay.scale}) rotate(${c.overlay.rot}deg)`;
     root.classList.toggle('is-vertical', c.layout === 'vertical');
+    root.classList.toggle('is-attached', c.layout === 'attached');
 
     // Avatar (chỉ đổi src khi khác → tránh nháy)
     const avSrc = avatarUrl(c.avatar);
@@ -120,6 +121,7 @@
     text.style.color = c.color;
     text.className = 'mvp-text style-' + c.textStyle;
     text.style.background = c.text ? textBackground(c) : 'transparent';
+    text.style.setProperty('--mvp-link-color', c.bgColor);
     if (c.textStyle === 'neon') {
       text.style.textShadow = `0 0 6px ${c.bgColor}, 0 0 14px ${c.bgColor}, 0 0 26px ${c.bgColor2}`;
       text.style.webkitTextStroke = '';

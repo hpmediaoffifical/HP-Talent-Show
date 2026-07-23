@@ -78,7 +78,9 @@
     const ws = await connectAny(port);
     try {
       const { inputs } = await request(ws, 'GetInputList', { inputKind: 'browser_source' });
-      const needles = [`127.0.0.1:${overlayPort}`, `localhost:${overlayPort}`];
+      // Overlay của app trải trên DẢI cổng overlayPort..overlayPort+7 (mỗi loại 1 cổng riêng để né
+      // trần 6 kết nối/host của CEF) → khớp theo dải cổng, không chỉ mỗi cổng chính.
+      const base = Number(overlayPort) || 18282;
       const targets = [];
       for (const inp of (inputs || [])) {
         const name = inp.inputName;
@@ -86,7 +88,10 @@
         try { inputSettings = (await request(ws, 'GetInputSettings', { inputName: name })).inputSettings || {}; }
         catch { continue; }
         const url = String(inputSettings.url || '');
-        if (!needles.some(n => url.includes(n))) continue;
+        const m = url.match(/^https?:\/\/(?:127\.0\.0\.1|localhost):(\d+)\b/i);
+        if (!m) continue;
+        const pnum = Number(m[1]);
+        if (pnum < base || pnum > base + 7) continue;
         targets.push(name);
       }
       // Bấm nút "Refresh cache of current page" của Browser Source → reload sạch trang overlay.

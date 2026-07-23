@@ -93,6 +93,7 @@ const api = {
     clearHistory: () => ipcRenderer.invoke('luckywheel:clearHistory'),
     setCount: (n) => ipcRenderer.invoke('luckywheel:setCount', n),
     removeHistory: (id) => ipcRenderer.invoke('luckywheel:removeHistory', id),
+    export: () => ipcRenderer.invoke('luckywheel:export'),
     reset: () => ipcRenderer.invoke('luckywheel:reset'),
     getUrl: () => ipcRenderer.invoke('luckywheel:getUrl'),
   },

@@ -1,6 +1,6 @@
 {
   "teamA": {
-    "name": "BABY AMY ƠI ❤️‍🔥🔥",
+    "name": "Raiden",
     "color": "#fe2c55",
     "gifts": [
       {
@@ -40,12 +40,6 @@
         "diamond": 5
       },
       {
-        "giftName": "Ice cream",
-        "giftId": "7412",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/a40b91f7a11d4cbce780989e2d20a1f4~tplv-obj.webp",
-        "diamond": 5
-      },
-      {
         "giftName": "Name shoutout",
         "giftId": "19445",
         "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/9b1d432109c95e77e8de11dd442c0a1f.png~tplv-obj.webp",
@@ -74,6 +68,12 @@
         "giftId": "5658",
         "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/20b8f61246c7b6032777bb81bf4ee055~tplv-obj.webp",
         "diamond": 20
+      },
+      {
+        "giftName": "Ice cream",
+        "giftId": "7412",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/a40b91f7a11d4cbce780989e2d20a1f4~tplv-obj.webp",
+        "diamond": 5
       },
       {
         "giftName": "Doughnut",
@@ -120,12 +120,6 @@
         "diamond": 5
       },
       {
-        "giftName": "Ice cream",
-        "giftId": "7412",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/a40b91f7a11d4cbce780989e2d20a1f4~tplv-obj.webp",
-        "diamond": 5
-      },
-      {
         "giftName": "Name shoutout",
         "giftId": "19445",
         "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/9b1d432109c95e77e8de11dd442c0a1f.png~tplv-obj.webp",
@@ -156,6 +150,12 @@
         "diamond": 20
       },
       {
+        "giftName": "Ice cream",
+        "giftId": "7412",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/a40b91f7a11d4cbce780989e2d20a1f4~tplv-obj.webp",
+        "diamond": 5
+      },
+      {
         "giftName": "Doughnut",
         "giftId": "5879",
         "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/4e7ad6bdf0a1d860c538f38026d4e812~tplv-obj.webp",
@@ -172,13 +172,13 @@
     ],
     "groupId": "g_mrtg107e1aqmz",
     "groupName": "HP•VITAMIN B",
-    "creatorId": "",
-    "creatorName": "",
-    "creatorAvatar": "../logo/hp-logo.png",
-    "creatorAvatarKey": "78b61f4e30d6f277bc9790fe336aa44d97da0764"
+    "creatorId": "c_mrtg28mrb1ni1",
+    "creatorName": "Raiden",
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/4212cc580704c9f032c4fa5d7412b570~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=619cf45a&x-expires=1784815200&x-signature=P0uKM8DVUnaS2AKOKgv4qRReLJ0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+    "creatorAvatarKey": ""
   },
   "teamB": {
-    "name": "CoCo neee 🥥 🐰",
+    "name": "Im Xuhào☘️",
     "color": "#25f4ee",
     "gifts": [
       {
@@ -338,10 +338,10 @@
     ],
     "groupId": "g_mrtg107e1aqmz",
     "groupName": "HP•VITAMIN B",
-    "creatorId": "",
-    "creatorName": "",
-    "creatorAvatar": "../logo/hp-logo.png",
-    "creatorAvatarKey": "f3a38d1c7227eeb64b5fa4052d250ff4b5ce1a3e"
+    "creatorId": "c_mrtg2crd6d27p",
+    "creatorName": "Im Xuhào☘️",
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=2f677412&x-expires=1784815200&x-signature=TmxHWjlSGqpfeh8lRu1Hr%2BWNLfo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+    "creatorAvatarKey": ""
   },
   "durationSec": 180,
   "prepSec": 1,

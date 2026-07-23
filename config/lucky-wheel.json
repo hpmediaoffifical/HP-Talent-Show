@@ -1,243 +1,247 @@
 {
-  "title": ".",
-  "style": "dark",
-  "fontScale": 100,
-  "spinSeconds": 5,
+  "title": "VÒNG QUAY MAY MẮN",
+  "showTitle": true,
+  "style": "pastel",
+  "fontScale": 200,
+  "spinSeconds": 8,
   "sound": true,
   "confetti": true,
   "showResult": true,
   "showCount": true,
-  "spinCount": 1,
+  "edgeStops": true,
+  "spinCount": 13,
+  "selectedSpinner": {
+    "id": "c_mrtg8p4yb0tkt",
+    "name": "🥑 Enni 🦊",
+    "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/2db1c14469508a7a607b44f5c77b4c2c~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=3e6dd235&x-expires=1784815200&x-signature=UiH4X6hdPCZOHn8cKn1XoD1sJko%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
+  },
   "segments": [
     {
       "id": "lw_a",
       "text": "Thưởng 50K",
       "note": "Chuyển khoản",
       "type": "reward",
-      "color": "#ff3d71"
+      "color": "#ff3d71",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_b",
       "text": "Hát 1 bài",
       "note": "",
       "type": "penalty",
-      "color": "#00e0c7"
+      "color": "#00e0c7",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_c",
       "text": "x2 điểm",
       "note": "",
       "type": "reward",
-      "color": "#7a5cff"
+      "color": "#7a5cff",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_d",
       "text": "Hít đất 10 cái",
       "note": "",
       "type": "penalty",
-      "color": "#ff9f1c"
+      "color": "#ff9f1c",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_e",
       "text": "May mắn lần sau",
       "note": "",
       "type": "reward",
-      "color": "#2ec4ff"
+      "color": "#2ec4ff",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_f",
       "text": "JACKPOT",
       "note": "Phần thưởng lớn",
-      "type": "penalty",
-      "color": "#ff5db1"
+      "type": "reward",
+      "color": "#ff5db1",
+      "weight": 1,
+      "jackpot": true
     },
     {
       "id": "lw_mmeqohi",
       "text": "Nhảy lò cò",
       "note": "",
       "type": "penalty",
-      "color": "#38d67a"
+      "color": "#38d67a",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_jjrv55c",
       "text": "Đi bộ",
       "note": "",
       "type": "penalty",
-      "color": "#ffd23f"
+      "color": "#ffd23f",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_5w0pily",
       "text": "Cà tưng",
       "note": "",
       "type": "reward",
-      "color": "#c86bff"
+      "color": "#c86bff",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_hph66xh",
       "text": "Thụt xì",
       "note": "",
       "type": "reward",
-      "color": "#4c8dff"
+      "color": "#4c8dff",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_uy0j3cu",
       "text": "5ngày",
       "note": "",
       "type": "penalty",
-      "color": "#ff3d71"
+      "color": "#ff3d71",
+      "weight": 10,
+      "jackpot": false
     },
     {
       "id": "lw_rrpb685",
       "text": "6 ngày",
       "note": "",
       "type": "reward",
-      "color": "#00e0c7"
+      "color": "#00e0c7",
+      "weight": 10,
+      "jackpot": false
     }
   ],
   "history": [
     {
-      "id": "sp_mrwh36qk_1",
-      "time": "2026-07-22T19:25:52.988Z",
-      "member": "I.CE❄️⚡️",
-      "segId": "lw_rrpb685",
-      "text": "6 ngày",
+      "id": "sp_mrxdu6sp_1",
+      "time": "2026-07-23T10:42:40.489Z",
+      "member": "🥑 Enni 🦊",
+      "segId": "lw_hph66xh",
+      "text": "Thụt xì",
       "note": "",
       "type": "reward"
     },
     {
-      "id": "sp_mrwgyjt4_7",
-      "time": "2026-07-22T19:22:16.648Z",
-      "member": "I.CE❄️⚡️",
+      "id": "sp_mrxdnndw_3",
+      "time": "2026-07-23T10:37:35.396Z",
+      "member": "🥑 Enni 🦊",
       "segId": "lw_a",
       "text": "Thưởng 50K",
       "note": "Chuyển khoản",
       "type": "reward"
     },
     {
-      "id": "sp_mrwgyeue_6",
-      "time": "2026-07-22T19:22:10.214Z",
-      "member": "I.CE❄️⚡️",
-      "segId": "lw_hph66xh",
-      "text": "Thụt xì",
-      "note": "",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrwgxvi2_5",
-      "time": "2026-07-22T19:21:45.146Z",
-      "member": "I.CE❄️⚡️",
-      "segId": "lw_mmeqohi",
-      "text": "Nhảy lò cò",
+      "id": "sp_mrxdly10_2",
+      "time": "2026-07-23T10:36:15.876Z",
+      "member": "𝚠𝚒𝚗𝚗𝚒𝚎 𝚗𝚎̀🤍🦢ྀི",
+      "segId": "lw_uy0j3cu",
+      "text": "5ngày",
       "note": "",
       "type": "penalty"
     },
     {
-      "id": "sp_mrwgib78_4",
-      "time": "2026-07-22T19:09:38.996Z",
-      "member": "I.CE❄️⚡️",
-      "segId": "lw_hph66xh",
-      "text": "Thụt xì",
-      "note": "",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrwgi1t5_3",
-      "time": "2026-07-22T19:09:26.825Z",
-      "member": "I.CE❄️⚡️",
-      "segId": "lw_f",
-      "text": "JACKPOT",
-      "note": "Phần thưởng lớn",
-      "type": "penalty"
-    },
-    {
-      "id": "sp_mrwghu5v_2",
-      "time": "2026-07-22T19:09:16.915Z",
-      "member": "I.CE❄️⚡️",
+      "id": "sp_mrxdlpj3_1",
+      "time": "2026-07-23T10:36:04.863Z",
+      "member": "CoCo neee 🥥 🐰",
       "segId": "lw_jjrv55c",
       "text": "Đi bộ",
       "note": "",
       "type": "penalty"
     },
     {
-      "id": "sp_mrwghmgw_1",
-      "time": "2026-07-22T19:09:06.944Z",
-      "member": "I.CE❄️⚡️",
+      "id": "sp_mrxcc9qb_11",
+      "time": "2026-07-23T10:00:44.867Z",
+      "member": "",
+      "segId": "lw_a",
+      "text": "Thưởng 50K",
+      "note": "Chuyển khoản",
+      "type": "reward"
+    },
+    {
+      "id": "sp_mrxcbie3_10",
+      "time": "2026-07-23T10:00:09.435Z",
+      "member": "",
+      "segId": "lw_uy0j3cu",
+      "text": "5ngày",
+      "note": "",
+      "type": "penalty"
+    },
+    {
+      "id": "sp_mrxc07gv_9",
+      "time": "2026-07-23T09:51:22.063Z",
+      "member": "",
       "segId": "lw_c",
       "text": "x2 điểm",
       "note": "",
       "type": "reward"
     },
     {
-      "id": "sp_mrwgfgn0_2",
-      "time": "2026-07-22T19:07:26.076Z",
-      "member": "GIN",
+      "id": "sp_mrxbzt3e_8",
+      "time": "2026-07-23T09:51:03.434Z",
+      "member": "",
       "segId": "lw_b",
       "text": "Hát 1 bài",
       "note": "",
       "type": "penalty"
     },
     {
-      "id": "sp_mrwgf12b_1",
-      "time": "2026-07-22T19:07:05.891Z",
-      "member": "GIN",
-      "segId": "lw_b",
-      "text": "Hát 1 bài",
+      "id": "sp_mrxbyp2x_7",
+      "time": "2026-07-23T09:50:11.577Z",
+      "member": "",
+      "segId": "lw_rrpb685",
+      "text": "6 ngày",
       "note": "",
-      "type": "penalty"
+      "type": "reward"
     },
     {
-      "id": "sp_mrwg969m_4",
-      "time": "2026-07-22T19:02:32.698Z",
-      "member": "Raiden",
+      "id": "sp_mrxbyapm_6",
+      "time": "2026-07-23T09:49:52.954Z",
+      "member": "",
+      "segId": "lw_c",
+      "text": "x2 điểm",
+      "note": "",
+      "type": "reward"
+    },
+    {
+      "id": "sp_mrxbx6iz_5",
+      "time": "2026-07-23T09:49:00.875Z",
+      "member": "",
+      "segId": "lw_hph66xh",
+      "text": "Thụt xì",
+      "note": "",
+      "type": "reward"
+    },
+    {
+      "id": "sp_mrxbwsab_4",
+      "time": "2026-07-23T09:48:42.419Z",
+      "member": "",
       "segId": "lw_5w0pily",
       "text": "Cà tưng",
       "note": "",
       "type": "reward"
     },
     {
-      "id": "sp_mrwg8l2u_3",
-      "time": "2026-07-22T19:02:05.238Z",
-      "member": "Raiden",
-      "segId": "lw_5w0pily",
-      "text": "Cà tưng",
-      "note": "",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrwg7vnv_2",
-      "time": "2026-07-22T19:01:32.299Z",
-      "member": "Raiden",
+      "id": "sp_mrxbwhu5_3",
+      "time": "2026-07-23T09:48:28.877Z",
+      "member": "",
       "segId": "lw_e",
       "text": "May mắn lần sau",
       "note": "",
       "type": "reward"
-    },
-    {
-      "id": "sp_mrwg63yj_1",
-      "time": "2026-07-22T19:00:09.739Z",
-      "member": "Raiden",
-      "segId": "lw_uy0j3cu",
-      "text": "5ngày",
-      "note": "",
-      "type": "penalty"
-    },
-    {
-      "id": "sp_mrwfyjac_1",
-      "time": "2026-07-22T18:54:16.356Z",
-      "member": "Raiden",
-      "segId": "lw_uy0j3cu",
-      "text": "5ngày",
-      "note": "",
-      "type": "penalty"
-    },
-    {
-      "id": "sp_mrwfr7fr_3",
-      "time": "2026-07-22T18:48:34.407Z",
-      "member": "Raiden",
-      "segId": "lw_uy0j3cu",
-      "text": "5ngày",
-      "note": "",
-      "type": "info"
     }
   ]
 }

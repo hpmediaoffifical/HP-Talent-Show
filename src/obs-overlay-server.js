@@ -19,12 +19,22 @@ const MIME = {
 };
 
 class ObsOverlayServer {
-  constructor({ root, port = 18282, token, onLog, cacheDir, normalizeAvatar } = {}) {
+  constructor({ root, port = 18282, token, onLog, cacheDir, normalizeAvatar, onLuckyWheelSpin } = {}) {
     this.root = root;
     this.port = port;
     this.token = token || crypto.randomBytes(18).toString('hex');
     this.onLog = onLog || (() => {});
-    this.server = null;
+    this.onLuckyWheelSpin = typeof onLuckyWheelSpin === 'function' ? onLuckyWheelSpin : null;
+    // MỘT CỔNG RIÊNG cho MỖI loại overlay. Lý do: OBS chạy mọi Browser Source trong CÙNG một
+    // tiến trình CEF, mà Chromium giới hạn 6 KẾT NỐI đồng thời / host:port. Mỗi overlay giữ 1 luồng
+    // SSE thường trực → khi tổng số nguồn > 6 (user có ~15), các nguồn "đến sau" (vd Vòng quay)
+    // KHÔNG xin được kết nối → tải trang trắng/không chạy JS. Tách mỗi loại sang 1 cổng loopback
+    // riêng = mỗi loại có "ngân sách 6 kết nối" riêng, không tranh nhau. (Đã xác minh bằng netstat:
+    // obs-browser-page giữ đúng 6 kết nối tới 18282, Vòng quay bị đói.)
+    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7 };
+    this.portCount = 8;
+    this.servers = [];
+    this._boundPorts = new Set();
     this.pkDuoClients = new Set();
     this.pkGroupClients = new Set();
     this.rankingClients = new Set();
@@ -52,16 +62,36 @@ class ObsOverlayServer {
   }
 
   async start() {
-    if (this.server) return;
-    this.server = http.createServer((req, res) => this._handle(req, res));
-    await new Promise((resolve, reject) => {
-      this.server.once('error', reject);
-      this.server.listen(this.port, '127.0.0.1', resolve);
-    });
+    if (this.servers.length) return;
+    // Cổng chính (this.port) BẮT BUỘC phải bind được; các cổng phụ nếu kẹt thì bỏ qua
+    // và loại overlay đó tự lùi về cổng chính (_portFor).
+    for (let i = 0; i < this.portCount; i++) {
+      const p = this.port + i;
+      const server = http.createServer((req, res) => this._handle(req, res));
+      try {
+        await new Promise((resolve, reject) => {
+          server.once('error', reject);
+          server.listen(p, '127.0.0.1', resolve);
+        });
+        this.servers.push(server);
+        this._boundPorts.add(p);
+      } catch (e) {
+        try { server.close(); } catch {}
+        if (i === 0) throw e; // không có cổng chính thì overlay vô dụng → ném lỗi như cũ
+        this.onLog(`OBS overlay: cổng phụ ${p} bận, bỏ qua (một loại overlay sẽ dùng lại cổng chính)`);
+      }
+    }
     // Keep OBS's embedded browser connected while the OBS window is backgrounded.
     // Some machines/network stacks otherwise leave an idle localhost SSE stream stale.
     this.heartbeatTimer = setInterval(() => this._heartbeat(), 5000);
-    this.onLog(`OBS overlay server: http://127.0.0.1:${this.port}`);
+    this.onLog(`OBS overlay server: http://127.0.0.1:${this.port}-${this.port + this.portCount - 1}`);
+  }
+
+  // Cổng riêng cho từng loại overlay (né trần 6 kết nối/host của CEF). Nếu cổng phụ không bind được
+  // thì lùi về cổng chính để URL vẫn hoạt động.
+  _portFor(kind) {
+    const p = this.port + (this.portOffsets[kind] || 0);
+    return this._boundPorts.has(p) ? p : this.port;
   }
 
   stop() {
@@ -71,18 +101,19 @@ class ObsOverlayServer {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
     }
-    if (this.server) { try { this.server.close(); } catch {} }
-    this.server = null;
+    for (const server of this.servers) { try { server.close(); } catch {} }
+    this.servers = [];
+    this._boundPorts.clear();
   }
 
-  getPkDuoUrl() { return `http://127.0.0.1:${this.port}/pk-duo?token=${encodeURIComponent(this.token)}`; }
-  getPkDuoFxUrl() { return `http://127.0.0.1:${this.port}/pk-duo-fx?token=${encodeURIComponent(this.token)}`; }
-  getPkGroupUrl() { return `http://127.0.0.1:${this.port}/pk-group?token=${encodeURIComponent(this.token)}`; }
-  getRankingUrl() { return `http://127.0.0.1:${this.port}/ranking?token=${encodeURIComponent(this.token)}`; }
-  getScoreUrl() { return `http://127.0.0.1:${this.port}/score?token=${encodeURIComponent(this.token)}`; }
-  getStickerUrl() { return `http://127.0.0.1:${this.port}/sticker?token=${encodeURIComponent(this.token)}`; }
-  getMvpHonorUrl() { return `http://127.0.0.1:${this.port}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
-  getLuckyWheelUrl() { return `http://127.0.0.1:${this.port}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=3`; }
+  getPkDuoUrl() { return `http://127.0.0.1:${this._portFor('pk-duo')}/pk-duo?token=${encodeURIComponent(this.token)}`; }
+  getPkDuoFxUrl() { return `http://127.0.0.1:${this._portFor('pk-duo-fx')}/pk-duo-fx?token=${encodeURIComponent(this.token)}`; }
+  getPkGroupUrl() { return `http://127.0.0.1:${this._portFor('pk-group')}/pk-group?token=${encodeURIComponent(this.token)}`; }
+  getRankingUrl() { return `http://127.0.0.1:${this._portFor('ranking')}/ranking?token=${encodeURIComponent(this.token)}`; }
+  getScoreUrl() { return `http://127.0.0.1:${this._portFor('score')}/score?token=${encodeURIComponent(this.token)}`; }
+  getStickerUrl() { return `http://127.0.0.1:${this._portFor('sticker')}/sticker?token=${encodeURIComponent(this.token)}`; }
+  getMvpHonorUrl() { return `http://127.0.0.1:${this._portFor('mvp-honor')}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
+  getLuckyWheelUrl() { return `http://127.0.0.1:${this._portFor('lucky-wheel')}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=13`; }
 
   sendPkDuo(state) { this.pkDuoState = state || {}; this._broadcast(this.pkDuoClients, 'pkduo', this.pkDuoState); }
   sendPkGroup(state) { this.pkGroupState = state || {}; this._broadcast(this.pkGroupClients, 'pkgroup', this.pkGroupState); }
@@ -176,6 +207,16 @@ class ObsOverlayServer {
 
     if (!this._okToken(reqUrl)) return this._reject(res, 401, 'bad token');
 
+    // Nút giữa vòng quay gọi endpoint này từ Review hoặc OBS Interact. Chỉ quay
+    // khi lượt trước đã kết thúc để nhiều cửa sổ overlay không thể chồng lệnh.
+    if (req.method === 'POST' && reqUrl.pathname === '/lucky-wheel-spin') {
+      const activeSpin = this.luckyWheelState?.spin;
+      const endsAt = activeSpin ? Number(activeSpin.startAt) + Number(activeSpin.duration || 0) * 1000 : 0;
+      if (endsAt > Date.now()) return this._json(res, { ok: false, error: 'wheel-is-spinning' });
+      const result = this.onLuckyWheelSpin ? this.onLuckyWheelSpin() : null;
+      return this._json(res, result ? { ok: true, result } : { ok: false, error: 'wheel-unavailable' });
+    }
+
     // Overlay HTML pages
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo') {
       return this._serveFile(path.join(this.root, 'renderer', 'pk-duo-overlay.html'), res);
@@ -213,6 +254,9 @@ class ObsOverlayServer {
     // Fallback cho Browser Source/CEF không nhận EventSource ổn định: MVP Honor có thể
     // lấy state bằng HTTP ngay lúc mở, sau đó client poll nhẹ để không bị màn hình trắng.
     if (req.method === 'GET' && reqUrl.pathname === '/mvp-honor-state') return this._json(res, this.mvpHonorState);
+    // Lucky Wheel cũng cần fallback này: một số bản OBS CEF tải HTML nhưng bỏ lỡ
+    // EventSource ban đầu, khiến canvas chỉ hiện vòng rỗng dù server vẫn có state.
+    if (req.method === 'GET' && reqUrl.pathname === '/lucky-wheel-state') return this._json(res, this.luckyWheelState);
     if (req.method === 'GET' && reqUrl.pathname === '/lucky-wheel-events') return this._sse(req, res, this.luckyWheelClients, 'luckywheel', this.luckyWheelState);
 
     return this._reject(res, 404, 'not found');

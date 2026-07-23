@@ -1,8 +1,16 @@
 // Vòng quay may mắn (OBS Browser Source).
 // State {title, style, spinSeconds, sound, confetti, showResult, segments:[{id,text,note,type,color}], spin}
-// đến qua SSE /lucky-wheel-events. Máy chủ đã chọn ô trúng (spin.index) → overlay quay TỚI đúng ô đó,
+// đến qua SSE /lucky-wheel-events. Máy chủ đã chọn ô trúng và điểm dừng (spin.index, spin.landingOffset) → overlay quay TỚI đúng ô đó,
 // nên OBS và cửa sổ Review luôn dừng cùng kết quả. Âm thanh tạo bằng WebAudio (không cần file rời).
 (function () {
+  if (new URLSearchParams(location.search).get('review') === '1') {
+    document.body.classList.add('overlay-review');
+    var reviewBg = new URLSearchParams(location.search).get('reviewBg') || 'transparent';
+    if (/^(#[0-9a-f]{6}|rgba\(\d{1,3},\d{1,3},\d{1,3},(?:0|1|0?\.\d+)\))$/i.test(reviewBg)) {
+      document.body.style.setProperty('--review-bg', reviewBg);
+    }
+  }
+
   var stage = document.getElementById('lwStage');
   var titleEl = document.getElementById('lwTitle');
   var countEl = document.getElementById('lwCount');
@@ -37,6 +45,7 @@
   var spinning = false;
   var lastSpinId = '';
   var soundOn = true, confettiOn = true, showResultOn = true, fontScale = 100;
+  var SPIN_BUFFER_MS = 4000; // vẫn coi là "còn tươi" trong ~4s sau khi lượt quay kết thúc
 
   // ---------- Avatar proxy (giống các overlay khác) ----------
   function avatarUrl(a) {
@@ -55,6 +64,10 @@
     if (actx && actx.state === 'suspended') { try { actx.resume(); } catch (e) {} }
     return actx;
   }
+  // OBS/CEF có thể khóa WebAudio sau khi Browser Source reset. Một lần click hoặc
+  // Ctrl+Space trên overlay sẽ mở lại context để các lượt quay từ app vẫn có tiếng.
+  document.addEventListener('pointerdown', ac, { passive: true });
+  document.addEventListener('keydown', ac);
   function blip(freq, dur, type, vol) {
     var a = ac(); if (!a) return;
     var t = a.currentTime;
@@ -71,6 +84,10 @@
     if (!soundOn) return;
     [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { blip(f, 0.16, 'triangle', 0.2); }, i * 110); });
   }
+  function playJackpot() {
+    if (!soundOn) return;
+    [523, 659, 784, 1047, 1319].forEach(function (f, i) { setTimeout(function () { blip(f, 0.24, 'triangle', 0.24); }, i * 105); });
+  }
   function playLose() {
     if (!soundOn) return;
     [392, 330, 262].forEach(function (f, i) { setTimeout(function () { blip(f, 0.22, 'sawtooth', 0.16); }, i * 150); });
@@ -83,6 +100,11 @@
   }
   function maxCharsFor(n) { if (n <= 6) return 17; if (n <= 10) return 15; if (n <= 16) return 12; return 10; }
   function trunc(s, m) { s = String(s || ''); return s.length > m ? s.slice(0, m - 1) + '…' : s; }
+  function shade(hex, amount) {
+    var h = String(hex || '#888888').replace('#', '');
+    var rgb = [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0];
+    return 'rgb(' + rgb.map(function (v) { return Math.round(amount >= 0 ? v + (255 - v) * amount : v * (1 + amount)); }).join(',') + ')';
+  }
 
   function draw() {
     ctx.clearRect(0, 0, SIZE, SIZE);
@@ -99,7 +121,21 @@
     for (var i = 0; i < n; i++) {
       var a0 = i * seg, a1 = (i + 1) * seg;
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a1); ctx.closePath();
-      ctx.fillStyle = segs[i].color || '#888'; ctx.fill();
+      var base = segs[i].color || '#888';
+      // Tối dần ra mép và sáng quanh tâm tạo mặt cong 3D, nhưng không thay đổi hình học ô.
+      var face = ctx.createRadialGradient(0, 0, R * 0.06, 0, 0, R);
+      face.addColorStop(0, shade(base, 0.3));
+      face.addColorStop(0.48, base);
+      face.addColorStop(1, shade(base, -0.22));
+      ctx.fillStyle = face; ctx.fill();
+      ctx.save(); ctx.clip();
+      var shine = ctx.createLinearGradient(-R, -R, R, R);
+      shine.addColorStop(0, 'rgba(255,255,255,.28)');
+      shine.addColorStop(0.3, 'rgba(255,255,255,0)');
+      shine.addColorStop(0.72, 'rgba(0,0,0,0)');
+      shine.addColorStop(1, 'rgba(0,0,0,.2)');
+      ctx.fillStyle = shine; ctx.fillRect(-R, -R, R * 2, R * 2);
+      ctx.restore();
       ctx.lineWidth = 3; ctx.strokeStyle = st.stroke; ctx.stroke();
       // Chữ trên ô
       ctx.save(); ctx.rotate(a0 + seg / 2);
@@ -112,8 +148,14 @@
     }
     ctx.restore();
     // Vành ngoài
+    var rim = ctx.createLinearGradient(CX - R, CY - R, CX + R, CY + R);
+    rim.addColorStop(0, '#ffffff'); rim.addColorStop(0.14, st.rim); rim.addColorStop(0.54, '#ffffff'); rim.addColorStop(0.72, st.rim); rim.addColorStop(1, '#08090f');
     ctx.beginPath(); ctx.arc(CX, CY, R, 0, TWO_PI);
-    ctx.lineWidth = 26; ctx.strokeStyle = st.rim; ctx.stroke();
+    ctx.lineWidth = 26; ctx.strokeStyle = rim; ctx.stroke();
+    ctx.beginPath(); ctx.arc(CX, CY, R - 18, 0, TWO_PI);
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,255,255,.46)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(CX, CY, R - 29, 0, TWO_PI);
+    ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(0,0,0,.23)'; ctx.stroke();
     // Chấm bi trang trí trên vành
     var dots = Math.min(24, Math.max(8, n * 2));
     for (var d = 0; d < dots; d++) {
@@ -134,14 +176,23 @@
 
   // ---------- Animation quay ----------
   function norm(a) { a %= TWO_PI; return a < 0 ? a + TWO_PI : a; }
-  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+  // Minimum-jerk tạo vận tốc/gia tốc bằng 0 ở đầu và cuối, nên quay-hãm tự nhiên hơn ease-out đơn thuần.
+  function easeSpin(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  function playEdgeCatch(offset) {
+    var cls = offset < 0 ? 'edge-catch-left' : 'edge-catch-right';
+    pointer.classList.remove('tick', 'edge-catch-left', 'edge-catch-right');
+    void pointer.offsetWidth;
+    pointer.classList.add(cls);
+    playTick();
+  }
 
   function startSpin(spin) {
     var n = segs.length; if (!n) return;
     var idx = Math.max(0, Math.min(n - 1, spin.index | 0));
     var seg = TWO_PI / n;
-    var center = idx * seg + seg / 2;
-    var desired = norm(POINTER - center);
+    var offset = Math.max(-0.465, Math.min(0.465, Number(spin.landingOffset) || 0));
+    var landing = idx * seg + seg / 2 + offset * seg;
+    var desired = norm(POINTER - landing);
     var startRot = rot;
     var delta = norm(desired - norm(startRot));
     var dur = Math.max(2, Math.min(15, Number(spin.duration) || 5)) * 1000;
@@ -153,11 +204,23 @@
     hub.classList.add('spinning');
     setSpinner(spin.spinner);
 
-    var lastIdx = -1, t0 = null;
+    var lastIdx = -1, t0 = null, catchTriggered = false;
     function frame(ts) {
       if (!t0) t0 = ts;
       var p = Math.min((ts - t0) / dur, 1);
-      rot = startRot + (finalRot - startRot) * easeOut(p);
+      rot = startRot + (finalRot - startRot) * easeSpin(p);
+      // Hãm rất nhẹ về điểm dừng. Khi sát vạch, kim có thể lướt qua mép rồi trở lại,
+      // tạo cảm giác cơ khí nhưng khung cuối luôn nằm trong ô mà máy chủ đã chọn.
+      if (p > 0.93 && Math.abs(offset) > 0.36) {
+        var settle = (p - 0.93) / 0.07;
+        var edgeStrength = Math.max(0, Math.min(1, (Math.abs(offset) - 0.36) / 0.105));
+        var settleAmount = 0.035 + edgeStrength * 0.085;
+        rot += -Math.sign(offset) * seg * settleAmount * Math.sin(Math.PI * settle) * (1 - 0.25 * settle);
+      }
+      if (!catchTriggered && spin.edgeCatch && p > 0.935) {
+        catchTriggered = true;
+        playEdgeCatch(offset);
+      }
       draw();
       // tick khi ô dưới kim đổi
       var curIdx = Math.floor(norm(POINTER - rot) / seg) % n;
@@ -166,15 +229,16 @@
         if (p < 0.995) { playTick(); pointer.classList.remove('tick'); void pointer.offsetWidth; pointer.classList.add('tick'); }
       }
       if (p < 1) { requestAnimationFrame(frame); }
-      else { spinning = false; hub.classList.remove('spinning'); land(idx); }
+      else { spinning = false; hub.disabled = false; hub.classList.remove('spinning'); land(idx, spin.result); }
     }
     requestAnimationFrame(frame);
   }
 
-  function land(idx) {
-    var seg = segs[idx]; if (!seg) return;
+  function land(idx, spinResult) {
+    var seg = spinResult || segs[idx]; if (!seg) return;
     var type = seg.type || 'info';
-    if (type === 'reward') { playWin(); if (confettiOn) burstConfetti('reward'); }
+    if (seg.jackpot) { playJackpot(); flashWinLights(true); if (confettiOn) burstConfetti('jackpot'); }
+    else if (type === 'reward') { playWin(); flashWinLights(false); if (confettiOn) burstConfetti('reward'); }
     else if (type === 'penalty') { playLose(); }
     else { playWin(); if (confettiOn) burstConfetti('info'); }
     if (showResultOn) showResult(seg);
@@ -192,10 +256,29 @@
     }
   }
 
+  function requestSpin() {
+    if (spinning || hub.disabled) return;
+    hub.disabled = true;
+    fetch('/lucky-wheel-spin?token=' + encodeURIComponent(token), { method: 'POST' })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        // SSE sẽ bắt đầu animation khi server chấp nhận; nếu bị từ chối thì mở nút lại.
+        if (!data || !data.ok) hub.disabled = false;
+      })
+      .catch(function () { hub.disabled = false; });
+  }
+  hub.addEventListener('click', requestSpin);
+  document.addEventListener('keydown', function (e) {
+    if (!e.ctrlKey || e.shiftKey || e.altKey || e.code !== 'Space') return;
+    e.preventDefault();
+    requestSpin();
+  });
+
   function showResult(seg) {
     var type = seg.type || 'info';
     resultEl.setAttribute('data-type', type);
-    resultTag.textContent = type === 'reward' ? '🎁 THƯỞNG' : (type === 'penalty' ? '⚡ PHẠT' : '✨ KẾT QUẢ');
+    resultEl.setAttribute('data-jackpot', seg.jackpot ? '1' : '0');
+    resultTag.textContent = seg.jackpot ? '⭐ JACKPOT' : (type === 'reward' ? '🎁 THƯỞNG' : (type === 'penalty' ? '⚡ PHẠT' : '✨ KẾT QUẢ'));
     resultText.textContent = seg.text || '';
     resultNote.textContent = seg.note || '';
     resultEl.setAttribute('data-show', '0');
@@ -204,11 +287,17 @@
   }
   function hideResult() { resultEl.setAttribute('data-show', '0'); }
 
+  function flashWinLights(jackpot) {
+    stage.classList.remove('win-lights', 'jackpot-lights');
+    void stage.offsetWidth;
+    stage.classList.add(jackpot ? 'jackpot-lights' : 'win-lights');
+  }
+
   // ---------- Confetti (tự vẽ, không thư viện) ----------
   var parts = [], confRAF = null;
   var COLORS = ['#ff3d71', '#00e0c7', '#ffd23f', '#7a5cff', '#38d67a', '#ff9f1c', '#ffffff'];
   function burstConfetti(kind) {
-    var count = kind === 'reward' ? 160 : 90;
+    var count = kind === 'jackpot' ? 280 : (kind === 'reward' ? 160 : 90);
     for (var i = 0; i < count; i++) {
       var ang = Math.random() * TWO_PI, spd = 6 + Math.random() * 14;
       parts.push({
@@ -251,7 +340,12 @@
   // ---------- Nhận state ----------
   function render(state) {
     if (!state) return;
-    titleEl.textContent = state.title || '';
+    // CẤU HÌNH HIỂN THỊ: LUÔN áp dụng. Vẽ lại vòng quay là idempotent nên an toàn kể cả
+    // khi state đến từ HTTP poll trễ hay ngay sau khi app khởi động lại. (Trước đây chặn
+    // theo stateRevision — nhưng revision reset về 0 mỗi lần mở lại app, khiến OBS đang
+    // mở sẵn từ chối MỌI state mới → kẹt "vòng rỗng". Bỏ hẳn, đổi sang chống-quay-lại
+    // theo thời điểm thực của lượt quay ở dưới.)
+    titleEl.textContent = state.showTitle !== false ? (state.title || '') : '';
     if (countEl) countEl.textContent = (state.showCount !== false) ? ('🎯 Lượt quay: ' + (state.spinCount || 0)) : '';
     soundOn = state.sound !== false;
     confettiOn = state.confetti !== false;
@@ -263,15 +357,33 @@
     var spin = state.spin;
     if (spin && spin.spinId && spin.spinId !== lastSpinId) {
       lastSpinId = spin.spinId;
-      // Đợi 1 frame để segs đã set, rồi quay
-      if (segs.length) startSpin(spin);
-      else draw();
-    } else if (!spinning) {
-      draw(); // cập nhật ô/màu/style khi không đang quay
+      var dur = Math.max(2, Math.min(15, Number(spin.duration) || 5)) * 1000;
+      var age = Date.now() - (Number(spin.startAt) || 0);
+      // CHỈ quay khi lượt còn trong (hoặc vừa kết thúc) cửa sổ quay. Nhờ vậy:
+      //  (1) một gói poll đến trễ không phát lại một lượt cũ đã xong;
+      //  (2) OBS mới mở/nối lại không tự quay một lượt đã kết thúc từ lâu (spin vẫn nằm
+      //      trong state cho tới lần reset) — chỉ vẽ vòng quay ở trạng thái nghỉ.
+      if (segs.length && age < dur + SPIN_BUFFER_MS) { startSpin(spin); return; }
+      if (!spinning) { draw(); setSpinner(spin.spinner); }
+      return;
     }
-    if (!spin) { lastSpinId = ''; hideResult(); setSpinner(null); }
+    if (!spinning) {
+      draw(); // cập nhật ô/màu/style khi không đang quay
+      setSpinner(spin ? spin.spinner : state.selectedSpinner);
+    }
+    if (!spin) { hideResult(); setSpinner(state.selectedSpinner); }
   }
 
   draw();
+  // Một số bản OBS CEF mở trang nhưng EventSource ở trạng thái connected mà không
+  // đưa event vào JavaScript. Lấy state ngay và poll nhẹ để canvas vẫn có dữ liệu.
+  function pullState() {
+    fetch('/lucky-wheel-state?token=' + encodeURIComponent(token), { cache: 'no-store' })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (state) { if (state) render(state); })
+      .catch(function () {});
+  }
+  pullState();
+  setInterval(pullState, 2500);
   window.connectSSE('/lucky-wheel-events?token=' + encodeURIComponent(token), 'luckywheel', render);
 })();

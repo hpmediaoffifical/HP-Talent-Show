@@ -13,7 +13,8 @@ body.overlay-review #pkGroupRoot, body.overlay-review #pkGroupRoot *,
 body.overlay-review #rankingRoot, body.overlay-review #rankingRoot *,
 body.overlay-review #scoreRoot, body.overlay-review #scoreRoot *,
 body.overlay-review #stickerRoot, body.overlay-review #stickerRoot *,
-body.overlay-review #mvpStage, body.overlay-review #mvpStage * { -webkit-app-region: drag; cursor: move; }
+body.overlay-review #mvpStage, body.overlay-review #mvpStage *,
+body.overlay-review #lwStage, body.overlay-review #lwStage * { -webkit-app-region: drag; cursor: move; }
 
 /* Lớp bọc phóng/thu của cửa sổ Review (review-resize.js dùng CSS zoom): ôm sát nội dung, neo góc trên-trái
    để vùng kéo cửa sổ khớp đúng khối overlay đang hiển thị, không để lại dải "ma" ăn chuột. */
