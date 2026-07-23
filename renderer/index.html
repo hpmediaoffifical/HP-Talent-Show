@@ -216,7 +216,6 @@
       <section class="panel" data-panel="creators">
         <div class="creator-sticky-head">
           <h1>👤 Thành Viên</h1>
-          <p class="sub">Nhập <b>TikTok ID</b> — avatar, tên kênh tự lấy. Mỗi creator có thể được gán <b>quà mặc định</b> để chấm điểm thi đấu nhóm.</p>
 
           <div class="card row-form creator-form">
             <div class="rf-avatar">
@@ -242,10 +241,13 @@
             </label>
             <label class="rf-cell rf-gift-cell">
               <span>Quà mặc định</span>
-              <button id="btnPickCrGift" class="rf-gift-btn" type="button">
-                <img id="crGiftIconPreview" alt="" />
-                <span class="rf-gift-name" id="crGiftDisplay">🎁 Chọn quà</span>
-              </button>
+              <div class="rf-gift-row">
+                <button id="btnPickCrGift" class="rf-gift-btn" type="button">
+                  <img id="crGiftIconPreview" alt="" />
+                  <span class="rf-gift-name" id="crGiftDisplay">🎁 Chọn quà</span>
+                </button>
+                <button id="btnClearCrGift" class="rf-gift-clear" type="button" title="Gỡ quà mặc định" hidden>✕</button>
+              </div>
             </label>
             <div class="rf-actions">
               <button id="btnSaveCreator" class="primary" type="button">💾 Lưu</button>
@@ -319,7 +321,6 @@
 
       <section class="panel" data-panel="pkduo">
         <h1>⚔️ PK Đôi</h1>
-        <p class="sub">2 đội đối đầu gọi quà. <b>Cố định</b>: quà nào cộng cho đội đó. <b>Chọn Phe</b>: quà kích hoạt phe, sau đó mọi quà của user tính cho phe đã chọn.</p>
 
         <div class="card pkduo-cfg">
           <div class="pk-live-preview">
@@ -351,7 +352,7 @@
             <button id="pkReset" class="ghost" type="button">↺ Reset</button>
             <button id="pkAddA" class="ghost tiny" type="button">+100 A</button>
             <button id="pkAddB" class="ghost tiny" type="button">+100 B</button>
-            <button id="pkCopyUrl" class="ghost" type="button">📋 OBS</button>
+            <button id="pkCopyUrl" class="ghost" type="button">📋COPY OBS</button>
             <button id="pkHistory" class="ghost" type="button">📜 Lịch sử</button>
           </div>
 
@@ -494,7 +495,6 @@
 
       <section class="panel" data-panel="pkgroup">
         <h1>🧩 PK Nhóm</h1>
-        <p class="sub">Chọn một nhóm, tích creator tham gia, gán màu/quà riêng. Hỗ trợ quà chỉ định hoặc chọn phe, thanh máu sát nhau hoặc rời nhau.</p>
 
         <div class="card pkgroup-cfg">
           <div class="pk-live-preview">
@@ -505,7 +505,7 @@
           <div class="form-actions pk-action-row">
             <button id="pkgStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="pkgReset" class="ghost" type="button">↺ Reset</button>
-            <button id="pkgCopyUrl" class="ghost" type="button">📋 OBS</button>
+            <button id="pkgCopyUrl" class="ghost" type="button">📋COPY OBS</button>
             <button id="pkgHistory" class="ghost" type="button">📜 Lịch sử</button>
           </div>
 
@@ -609,98 +609,117 @@
 
       <section class="panel" data-panel="ranking">
         <h1>🏆 THI ĐẤU NHÓM</h1>
-        <p class="sub">Thi đấu theo từng <b>Creator</b> (dựa vào quà mặc định mỗi creator) hoặc theo <b>Nhóm</b>. Hỗ trợ 2 layout: <b>vertical</b> và <b>grid</b>.</p>
 
         <div class="card ranking-config-card">
           <div class="rk-config-layout">
-            <fieldset class="rk-config-section rk-main-section">
-              <legend>Thiết lập thi đấu nhóm</legend>
-              <div class="rk-fields two">
-                <label>Tiêu đề <input id="rkTitle" value="TOP IDOL" maxlength="30" /></label>
-                <label>Chế độ
-                  <select id="rkMode">
-                    <option value="creator">Theo Creator</option>
-                    <option value="group">Theo Nhóm</option>
-                  </select>
-                </label>
-                <label>Hiển thị tên
-                  <select id="rkNameMode">
-                    <option value="two-line">Two-line (xuống dòng)</option>
-                    <option value="marquee">Marquee (chạy chữ)</option>
-                  </select>
-                </label>
-                <label>Tính điểm theo
-                  <select id="rkPointsBy">
-                    <option value="diamond">🪙 Coin</option>
-                    <option value="count">Số lượng quà</option>
-                  </select>
-                </label>
-              </div>
-              <div class="rk-grid-inline">
-                <b>Grid OBS</b>
-                <div class="rk-fields compact-three">
-                  <label>Cột <input id="rkGridCols" type="number" min="1" max="10" value="3" /></label>
-                  <label>Hàng <input id="rkGridRows" type="number" min="1" max="20" value="3" /></label>
-                  <label>Sắp xếp
-                    <select id="rkGridFlow">
-                      <option value="row">Theo hàng</option>
-                      <option value="column">Theo cột</option>
-                    </select>
-                  </label>
+            <div class="rk-config-col">
+              <details class="cfg-adv rk-setup-collapse" open>
+                <summary>
+                  <span class="cfg-adv__ico">🏆</span>
+                  <span>Thiết lập thi đấu nhóm</span>
+                  <span class="cfg-adv__hint">chỉnh một lần</span>
+                  <span class="cfg-adv__chev">▾</span>
+                </summary>
+                <div class="cfg-adv__body">
+                  <div class="rk-fields two">
+                    <label>Tiêu đề <input id="rkTitle" value="TOP IDOL" maxlength="30" /></label>
+                    <label>Chế độ
+                      <select id="rkMode">
+                        <option value="creator">Theo Creator</option>
+                        <option value="group">Theo Nhóm</option>
+                      </select>
+                    </label>
+                    <label>Hiển thị tên
+                      <select id="rkNameMode">
+                        <option value="two-line">Two-line (xuống dòng)</option>
+                        <option value="marquee">Marquee (chạy chữ)</option>
+                      </select>
+                    </label>
+                    <label>Tính điểm theo
+                      <select id="rkPointsBy">
+                        <option value="diamond">🪙 Coin</option>
+                        <option value="count">Số lượng quà</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="rk-grid-inline">
+                    <b>Grid OBS</b>
+                    <div class="rk-fields compact-three">
+                      <label>Cột <input id="rkGridCols" type="number" min="1" max="10" value="3" /></label>
+                      <label>Hàng <input id="rkGridRows" type="number" min="1" max="20" value="3" /></label>
+                      <label>Sắp xếp
+                        <select id="rkGridFlow">
+                          <option value="row">Theo hàng</option>
+                          <option value="column">Theo cột</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </fieldset>
+              </details>
 
-            <fieldset class="rk-config-section">
-              <legend>Khoảng hạng</legend>
-              <div class="rk-fields compact-three">
-                <label>Từ <input id="rkRankFrom" type="number" min="1" max="999" value="1" /></label>
-                <label>Đến <input id="rkRankTo" type="number" min="0" max="999" value="0" /></label>
-                <label>Tối đa <input id="rkMaxRows" type="number" min="0" max="50" value="10" /></label>
-              </div>
-              <p class="rk-section-hint">Ví dụ TOP 10: Từ 1, Đến 10, Tối đa 0 hoặc 10.</p>
-            </fieldset>
-
-            <details class="cfg-adv">
-              <summary>
-                <span class="cfg-adv__ico">⚙️</span>
-                <span>Giao diện OBS</span>
-                <span class="cfg-adv__hint">chỉnh một lần</span>
-                <span class="cfg-adv__chev">▾</span>
-              </summary>
-              <div class="cfg-adv__body">
-                <div class="rk-fields three">
-                  <label>Màu active <input id="rkStreak" type="color" value="#67e8f9" /></label>
-                  <label>Màu card <input id="rkBg" type="color" value="#2a2d37" /></label>
-                  <label>Độ đậm <input id="rkBgOpacity" type="number" min="0" max="100" value="74" /></label>
-                  <label class="full">Scale Thi đấu nhóm OBS
-                    <div class="range-inline">
-                      <input id="rkOverlayScale" type="range" min="80" max="300" step="5" value="100" />
-                      <span id="rkOverlayScaleValue" class="prefix">100%</span>
-                    </div>
-                  </label>
-                  <label class="full">Cỡ avatar (dọc + ngang)
-                    <div class="range-inline">
-                      <input id="rkAvatarScale" type="range" min="80" max="170" step="5" value="130" />
-                      <span id="rkAvatarScaleValue" class="prefix">130%</span>
-                    </div>
-                  </label>
-                  <label class="full">Cỡ icon quà (dọc + ngang)
-                    <div class="range-inline">
-                      <input id="rkGiftScale" type="range" min="80" max="180" step="5" value="145" />
-                      <span id="rkGiftScaleValue" class="prefix">145%</span>
-                    </div>
-                  </label>
-                </div>
+              <div class="rk-toggle-box">
+                <span class="rk-toggle-box__title">Hiển thị OBS · bấm nhanh</span>
                 <div class="rk-toggle-row">
                   <label><input id="rkShowRank" type="checkbox" checked /> Rank</label>
                   <label><input id="rkShowAvatar" type="checkbox" checked /> Avatar</label>
-                  <label><input id="rkShowGift" type="checkbox" checked /> Quà</label>
+                  <label title="Tắt = ẩn icon quà trên OBS VÀ ngưng tự cộng điểm theo quà mặc định"><input id="rkShowGift" type="checkbox" checked /> Quà</label>
                   <label><input id="rkShowRound" type="checkbox" checked /> Round</label>
                   <label><input id="rkHideAllScores" type="checkbox" /> Ẩn điểm</label>
                 </div>
               </div>
-            </details>
+            </div>
+
+            <div class="rk-config-col">
+              <fieldset class="rk-config-section">
+                <legend>Khoảng hạng</legend>
+                <div class="rk-fields compact-three">
+                  <label>Từ <input id="rkRankFrom" type="number" min="1" max="999" value="1" /></label>
+                  <label>Đến <input id="rkRankTo" type="number" min="0" max="999" value="0" /></label>
+                  <label>Tối đa <input id="rkMaxRows" type="number" min="0" max="50" value="10" /></label>
+                </div>
+                <p class="rk-section-hint">Ví dụ TOP 10: Từ 1, Đến 10, Tối đa 0 hoặc 10.</p>
+              </fieldset>
+
+              <details class="cfg-adv rk-obs-cfg" open>
+                <summary>
+                  <span class="cfg-adv__ico">⚙️</span>
+                  <span>Giao diện OBS</span>
+                  <span class="cfg-adv__hint">chỉnh một lần</span>
+                  <span class="cfg-adv__chev">▾</span>
+                </summary>
+                <div class="cfg-adv__body">
+                  <div class="rk-fields three">
+                    <label>Màu active <input id="rkStreak" type="color" value="#67e8f9" /></label>
+                    <label>Màu card <input id="rkBg" type="color" value="#2a2d37" /></label>
+                    <label>Độ đậm <input id="rkBgOpacity" type="number" min="0" max="100" value="74" /></label>
+                    <label class="full">Scale Thi đấu nhóm OBS
+                      <div class="range-inline">
+                        <input id="rkOverlayScale" type="range" min="80" max="300" step="5" value="100" />
+                        <span id="rkOverlayScaleValue" class="prefix">100%</span>
+                      </div>
+                    </label>
+                    <label class="full">Cỡ avatar (dọc + ngang)
+                      <div class="range-inline">
+                        <input id="rkAvatarScale" type="range" min="80" max="170" step="5" value="130" />
+                        <span id="rkAvatarScaleValue" class="prefix">130%</span>
+                      </div>
+                    </label>
+                    <label class="full">Cỡ icon quà (dọc + ngang)
+                      <div class="range-inline">
+                        <input id="rkGiftScale" type="range" min="80" max="180" step="5" value="145" />
+                        <span id="rkGiftScaleValue" class="prefix">145%</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </details>
+
+              <div class="rk-copy-actions">
+                <button id="rkCopyUrl" class="ghost" type="button">📋 THI ĐẤU DỌC</button>
+                <button id="rkCopyGridUrl" class="ghost" type="button">📋 THI ĐẤU NGANG</button>
+              </div>
+            </div>
 
           </div>
           <div class="form-actions">
@@ -708,8 +727,6 @@
             <button id="rkStartRound" class="ghost" type="button" title="Tăng round + reset điểm">🔄 NEW ROUND</button>
             <button id="rkResetRound" class="ghost" type="button" title="Đưa round toàn bộ Creator về 0">RESET ROUND</button>
             <button id="rkReset" class="warn" type="button">↺ RESET ĐIỂM</button>
-            <button id="rkCopyUrl" class="ghost" type="button">📋 THI ĐẤU DỌC</button>
-            <button id="rkCopyGridUrl" class="ghost" type="button">📋 THI ĐẤU NGANG</button>
           </div>
           <div class="rk-score-bridge" id="rkScoreBridge" hidden>
             <div><b>🎯 Tính điểm liên kết</b><span id="rkScoreBridgeName">Chưa chọn VOTE</span></div>
@@ -726,7 +743,6 @@
 
       <section class="panel" data-panel="score">
         <h1>🎯 Tính điểm</h1>
-        <p class="sub">Thử thách đạt điểm 🪙 mục tiêu trong thời gian giới hạn. Có theme preset, big-gift highlight, runner, milestones.</p>
 
         <div class="card">
           <div class="score-link-toggle">
@@ -739,7 +755,7 @@
             <div class="score-command-actions">
               <label class="score-command-creator">CHỌN CREATOR
                 <select id="scCreatorSelect">
-                  <option value="">— Chọn Creator —</option>
+                  <option value="">— Chọn —</option>
                 </select>
                 <input id="scCreatorName" type="hidden" />
                 <input id="scCreatorAvatar" type="hidden" />
@@ -747,7 +763,7 @@
               <button id="scStart" class="primary" type="button">▶ BẮT ĐẦU</button>
               <button id="scReset" class="ghost" type="button">↺ Reset</button>
               <button id="scSaveCfg" class="ghost" type="button">💾 Lưu cấu hình</button>
-              <button id="scCopyUrl" class="ghost" type="button">📋 OBS</button>
+              <button id="scCopyUrl" class="ghost" type="button">📋COPY OBS</button>
               <div class="score-command-test">
                 <span>TEST THANH MÁU</span>
                 <div class="score-test-row">
@@ -869,7 +885,6 @@
 
       <section class="panel" data-panel="musiclist">
         <h1>🎵 NHẠC DANCE</h1>
-        <p class="sub">Gán mỗi quà một clip audio. Khi có người tặng quà đó, clip sẽ phát (xếp hàng lần lượt) và tạm dừng nhạc nền, phát xong tự chạy tiếp.</p>
         <div class="card ml-card">
           <div class="ml-toolbar">
             <button id="mlAddGift" class="primary" type="button">＋ Thêm quà</button>
@@ -945,12 +960,11 @@
 
       <section class="panel" data-panel="stickerdance">
         <h1>🥚 Đập Trứng</h1>
-        <p class="sub">Bảng lưới quà cho OBS: nền xám mờ, icon quà nhô lên, số đếm bên dưới. Kéo icon để di chuyển sang ô trống hoặc đổi chỗ 2 quà.</p>
         <div class="card sd-card">
           <div class="sd-actions">
-            <button class="primary" id="sdCopyUrl" type="button">📋 Link OBS</button>
+            <button class="primary" id="sdCopyUrl" type="button">📋COPY OBS</button>
             <button class="ghost" data-review-toggle="stickerdance" type="button">🖥 Review</button>
-            <button class="ghost" data-review-top="stickerdance" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-top="stickerdance" type="button">📌 BỎ GHIM</button>
             <button class="ghost" data-review-click="stickerdance" type="button">🖱 Xuyên</button>
             <input class="review-bg-picker" data-review-bg="stickerdance" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="stickerdance" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
@@ -1074,15 +1088,14 @@
 
       <section class="panel" data-panel="mvphonor">
         <h1>🏅 Danh hiệu &amp; vinh danh</h1>
-        <p class="sub">Tạo huy hiệu OBS từ khung PNG, avatar và danh hiệu. Chọn <b>Liền dưới avatar</b> để plaque danh hiệu nối trực quan với khung avatar; kiểu này phù hợp nhất khi vinh danh Creator hoặc User.</p>
         <div class="card mvp-panel">
           <!-- 1 HÀNG DUY NHẤT — OBS · Trình chiếu (các tuỳ chọn phụ gom vào popup ⚙) -->
           <div class="mvp-toolbar mvp-bar-row mvp-onebar">
             <span class="mvp-bar-tag">OBS</span>
             <div class="sd-actions mvp-obsbar">
-              <button class="primary" id="mhCopyUrl" type="button">📋 Link OBS</button>
+              <button class="primary" id="mhCopyUrl" type="button">📋COPY OBS</button>
               <button class="ghost" data-review-toggle="mvphonor" type="button">🖥 Review</button>
-              <button class="ghost" data-review-top="mvphonor" type="button">📌 Nổi</button>
+              <button class="ghost" data-review-top="mvphonor" type="button">📌 BỎ GHIM</button>
               <button class="ghost" data-review-click="mvphonor" type="button">🖱 Xuyên</button>
               <details class="mvp-pop">
                 <summary class="mvp-pop-btn" title="Nền cửa sổ Review (màu &amp; độ trong suốt)">🎨 Nền</summary>
@@ -1279,9 +1292,9 @@
         <h1>🎡 VÒNG QUAY</h1>
         <div class="card lw-card">
           <div class="sd-actions">
-            <button class="primary" id="lwCopyUrl" type="button">📋 Link OBS</button>
+            <button class="primary" id="lwCopyUrl" type="button">📋COPY OBS</button>
             <button class="ghost" data-review-toggle="luckywheel" type="button">🖥 Review</button>
-            <button class="ghost" data-review-top="luckywheel" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-top="luckywheel" type="button">📌 BỎ GHIM</button>
             <button class="ghost" data-review-click="luckywheel" type="button">🖱 Xuyên</button>
             <input class="review-bg-picker" data-review-bg="luckywheel" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="luckywheel" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
@@ -1477,9 +1490,9 @@
           <summary><h3>🔗 Link Overlay & Review</h3></summary>
           <div class="ovl-row">
             <label>⚔️ PK Đôi</label>
-            <button class="primary" data-copy="urlPk" type="button">📋 OBS (1600×720)</button>
+            <button class="primary" data-copy="urlPk" type="button">📋COPY OBS (1600×720)</button>
             <button class="ghost" data-review-toggle="pkduo" type="button">🖥 Review</button>
-            <button class="ghost" data-review-top="pkduo" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-top="pkduo" type="button">📌 BỎ GHIM</button>
             <button class="ghost" data-review-click="pkduo" type="button">🖱 Xuyên</button>
             <input class="review-bg-picker" data-review-bg="pkduo" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="pkduo" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
@@ -1487,9 +1500,9 @@
           </div>
           <div class="ovl-row">
             <label>⚔️ PK Đôi FX</label>
-            <button class="primary" data-copy="urlPkFx" type="button">📋 OBS (1080×1920)</button>
+            <button class="primary" data-copy="urlPkFx" type="button">📋COPY OBS (1080×1920)</button>
             <button class="ghost" data-review-toggle="pkduofx" type="button">🖥 Review</button>
-            <button class="ghost" data-review-top="pkduofx" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-top="pkduofx" type="button">📌 BỎ GHIM</button>
             <button class="ghost" data-review-click="pkduofx" type="button">🖱 Xuyên</button>
             <input class="review-bg-picker" data-review-bg="pkduofx" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="pkduofx" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
@@ -1497,53 +1510,73 @@
           </div>
           <div class="ovl-row">
             <label>🧩 PK NHÓM</label>
-            <button class="primary" data-copy="urlPkg" type="button">📋 OBS (2284×1150)</button>
+            <button class="primary" data-copy="urlPkg" type="button">📋COPY OBS (2284×1150)</button>
             <button class="ghost" data-review-toggle="pkgroup" type="button">🖥 Review</button>
-            <button class="ghost" data-review-top="pkgroup" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-top="pkgroup" type="button">📌 BỎ GHIM</button>
             <button class="ghost" data-review-click="pkgroup" type="button">🖱 Xuyên</button>
             <input class="review-bg-picker" data-review-bg="pkgroup" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="pkgroup" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="pkgroup" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
-            <label>🏆 THI ĐẤU NHÓM</label>
-            <button class="primary" data-copy="urlRk" type="button">📋 OBS (900×1600)</button>
+            <label>🏆 THI ĐẤU DỌC</label>
+            <button class="primary" data-copy="urlRk" type="button">📋COPY OBS (900×1600)</button>
             <button class="ghost" data-review-toggle="ranking" type="button">🖥 Review</button>
-            <button class="ghost" data-review-top="ranking" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-top="ranking" type="button">📌 BỎ GHIM</button>
             <button class="ghost" data-review-click="ranking" type="button">🖱 Xuyên</button>
             <input class="review-bg-picker" data-review-bg="ranking" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="ranking" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="ranking" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
-            <label>↔ THI ĐẤU NGANG</label>
-            <button class="primary" data-copy="urlRkGrid" type="button">📋 OBS (1600×900)</button>
+            <label>🏆 THI ĐẤU NGANG</label>
+            <button class="primary" data-copy="urlRkGrid" type="button">📋COPY OBS (1600×900)</button>
             <button class="ghost" data-review-toggle="rankinggrid" type="button">🖥 Review</button>
-            <button class="ghost" data-review-top="rankinggrid" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-top="rankinggrid" type="button">📌 BỎ GHIM</button>
             <button class="ghost" data-review-click="rankinggrid" type="button">🖱 Xuyên</button>
             <input class="review-bg-picker" data-review-bg="rankinggrid" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="rankinggrid" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="rankinggrid" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
-            <label>🎯 Score</label>
-            <button class="primary" data-copy="urlSc" type="button">📋 OBS (1400×520)</button>
+            <label>🎯 TÍNH ĐIỂM</label>
+            <button class="primary" data-copy="urlSc" type="button">📋COPY OBS (1400×520)</button>
             <button class="ghost" data-review-toggle="score" type="button">🖥 Review</button>
-            <button class="ghost" data-review-top="score" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-top="score" type="button">📌 BỎ GHIM</button>
             <button class="ghost" data-review-click="score" type="button">🖱 Xuyên</button>
             <input class="review-bg-picker" data-review-bg="score" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="score" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="score" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
-            <label>🥚 Đập Trứng</label>
-            <button class="primary" data-copy="urlSticker" type="button">📋 OBS</button>
+            <label>🥚 ĐẬP TRỨNG</label>
+            <button class="primary" data-copy="urlSticker" type="button">📋COPY OBS</button>
             <button class="ghost" data-review-toggle="stickerdance" type="button">🖥 Review</button>
-            <button class="ghost" data-review-top="stickerdance" type="button">📌 Nổi</button>
+            <button class="ghost" data-review-top="stickerdance" type="button">📌 BỎ GHIM</button>
             <button class="ghost" data-review-click="stickerdance" type="button">🖱 Xuyên</button>
             <input class="review-bg-picker" data-review-bg="stickerdance" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="stickerdance" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="stickerdance" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🎡 VÒNG QUAY</label>
+            <button class="primary" data-copy="urlLw" type="button">📋COPY OBS (760×760)</button>
+            <button class="ghost" data-review-toggle="luckywheel" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="luckywheel" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="luckywheel" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="luckywheel" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="luckywheel" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="luckywheel" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🏅 VINH DANH</label>
+            <button class="primary" data-copy="urlMvp" type="button">📋COPY OBS (540×720)</button>
+            <button class="ghost" data-review-toggle="mvphonor" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="mvphonor" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="mvphonor" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="mvphonor" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="mvphonor" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="mvphonor" type="button">Trong suốt</button>
           </div>
         </details>
         <details class="card settings-card audio-settings-card">

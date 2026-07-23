@@ -1856,11 +1856,14 @@ class RankingEngine {
   setActive(id) { this.activeId = id; this._emit(); }
 
   routeGift(ev) {
+    const creators = this.getCreators();
+    const voted = this.config.mode === 'creator' ? creators.find(c => !!c.voteActive) : null;
+    // Tắt ô "Quà" = ngưng TỰ cộng điểm theo quà mặc định. Vẫn cho VOTE (chấm thủ công) hoạt động,
+    // vì khi có Creator đang VOTE mọi điểm được điều khiển có chủ đích, không phải auto theo quà.
+    if (this.config.showGift === false && !voted) return;
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1)
       : Math.max(1, Number(ev.repeatCount) || 1);
-    const creators = this.getCreators();
-    const voted = this.config.mode === 'creator' ? creators.find(c => !!c.voteActive) : null;
     // Khi có Creator đang VOTE, mọi điểm trong phiên vote chỉ cộng cho Creator đó.
     const matched = voted ? [voted] : creators.filter(c =>
       (c.defaultGiftId && String(c.defaultGiftId) === String(ev.giftId)) ||

@@ -75,7 +75,7 @@ body:not(.overlay-review) .lw-stage::before {
 .lw-count:empty { display: none; }
 
 .lw-title {
-  font-size: 56px; font-weight: 900; letter-spacing: 1.5px;
+  font-size: 42px; font-weight: 900; letter-spacing: 1.5px;
   color: var(--lw-title);
   text-align: center; margin-bottom: 26px; line-height: 1.02;
   text-shadow: 0 4px 0 rgba(0,0,0,.35), 0 0 26px var(--lw-glow);

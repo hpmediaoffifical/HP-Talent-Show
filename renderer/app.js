@@ -2388,10 +2388,11 @@ async function init() {
     setTimeout(() => { if (!ttConnected) startConnect($('#ttUsername').value.trim()); }, 900);
   }
 
-  // Màn hình chọn nhóm khi mở app: chỉ hiện khi KEY đã kích hoạt, có nhóm,
-  // và không bật tự-động-kết-nối (tránh chặn luồng vào nhanh).
+  // Màn hình chọn nhóm (DANH SÁCH NHÓM) khi mở app: vào thẳng đây cho gọn/khoa học,
+  // chỉ cần KEY đã kích hoạt và có ít nhất 1 nhóm. Không còn phụ thuộc tự-động-kết-nối
+  // (auto-connect vẫn chạy nền; user chọn nhóm rồi "Vào ứng dụng").
   const licenseOk = $('#licenseOverlay')?.hidden !== false;
-  if (licenseOk && groups.length && !autoConnectPref) openGroupLauncher(true);
+  if (licenseOk && groups.length) openGroupLauncher(true);
 
   // Nền: tự lấy lại avatar nhóm/creator theo ID TikTok nếu thiếu hoặc URL đã hết hạn.
   autoRefetchStaleAvatars();
@@ -2934,7 +2935,47 @@ async function refreshCreators() {
   renderPkGroupMembers?.();
   renderScoreCreatorSelect?.();
   propagateDefaultGiftToBattles();
+  propagateCreatorNamesToBattles();
   checkDuplicateDefaultGifts();
+}
+
+// Đổi Nick Name ở Hồ sơ Creator → lan tên hiển thị xuống PK Đôi / PK Nhóm.
+// Nickname là "nguồn sự thật" cho tên: nơi nào đang bám 1 creator (theo creatorId) thì luôn
+// đồng bộ theo nickname hiện tại, kể cả tên đã gõ tay trước đó. (Thi đấu nhóm vốn đọc nickname realtime.)
+function propagateCreatorNamesToBattles() {
+  // PK Đôi
+  if (pkCfg) {
+    let changed = false;
+    for (const side of ['A', 'B']) {
+      const team = getTeam(side);
+      if (!team || !team.creatorId) continue;
+      const c = creatorById(team.creatorId);
+      if (!c) continue;
+      const nm = c.nickname || c.tiktokId || '';
+      if (!nm) continue;
+      if (team.creatorName !== nm) { team.creatorName = nm; changed = true; }
+      if (team.name !== nm) { team.name = nm; changed = true; }
+    }
+    if (changed) {
+      if ($('#pkAname')) $('#pkAname').value = pkCfg.teamA?.name || 'TEAM A';
+      if ($('#pkBname')) $('#pkBname').value = pkCfg.teamB?.name || 'TEAM B';
+      window.api.pkduo?.setConfig({ teamA: pkCfg.teamA, teamB: pkCfg.teamB }).catch(() => {});
+    }
+  }
+  // PK Nhóm
+  if (pkGroupCfg && Array.isArray(pkGroupCfg.participants)) {
+    let changed = false;
+    for (const p of pkGroupCfg.participants) {
+      const c = creatorById(p.creatorId || p.id);
+      if (!c) continue;
+      const nm = c.nickname || c.tiktokId || '';
+      if (nm && p.name !== nm) { p.name = nm; changed = true; }
+    }
+    if (changed) {
+      window.api.pkgroup?.setConfig({ participants: pkGroupCfg.participants }).catch(() => {});
+      renderPkGroupMembers?.();
+    }
+  }
 }
 
 // Đổi quà mặc định ở Hồ sơ Creator → đẩy realtime xuống engine PK Nhóm / PK Đôi
@@ -3054,6 +3095,10 @@ function renderCreators() {
     b.addEventListener('click', handler);
     b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
   });
+  list.querySelectorAll('[data-gift-clear]').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearCreatorGiftQuick(b.dataset.giftClear);
+  }));
   list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Xoá Creator này?')) return;
     await window.api.creators.remove(b.dataset.del);
@@ -3089,6 +3134,16 @@ async function pickCreatorGiftQuick(id) {
   toast(`🎁 Đã đặt quà "${g.name}" cho ${c.nickname || c.tiktokId}`, 'success');
 }
 
+// Gỡ quà mặc định của creator (nút "x") — về trạng thái chưa đặt quà.
+async function clearCreatorGiftQuick(id) {
+  const c = creators.find(x => x.id === id || (!x.id && x.tiktokId === id));
+  if (!c) { toast('Không tìm thấy creator này', 'error'); return; }
+  if (!c.defaultGiftId && !c.defaultGiftName) return;
+  await window.api.creators.upsert({ ...c, defaultGiftId: '', defaultGiftName: '', defaultGiftIcon: '' });
+  await refreshCreators();
+  toast(`🗑 Đã gỡ quà mặc định của ${c.nickname || c.tiktokId}`, 'success');
+}
+
 function createCreatorRow(c, g) {
   const creatorKey = c.id || c.tiktokId || '';
   const div = document.createElement('div');
@@ -3103,10 +3158,13 @@ function createCreatorRow(c, g) {
         <div class="cc-meta">
           ${g ? `<span class="cc-group-pill" style="background:${escapeAttr(g.color || '#FE2C55')}">${escapeHtml(g.name)}</span>` : '<span>Chưa thuộc nhóm</span>'}
         </div>
-        <div class="cc-gift cc-gift-pick" data-gift="${escapeAttr(creatorKey)}" role="button" tabindex="0" title="Bấm để chọn quà mặc định">
-          ${c.defaultGiftIcon ? `<img src="${escapeAttr(c.defaultGiftIcon)}" />` : '🎁'}
-          <span>${escapeHtml(c.defaultGiftName || '(chưa đặt quà mặc định)')}</span>
-          <span class="cc-gift-edit">✏️</span>
+        <div class="cc-gift-wrap">
+          <div class="cc-gift cc-gift-pick" data-gift="${escapeAttr(creatorKey)}" role="button" tabindex="0" title="Bấm để chọn quà mặc định">
+            ${c.defaultGiftIcon ? `<img src="${escapeAttr(c.defaultGiftIcon)}" />` : '🎁'}
+            <span>${escapeHtml(c.defaultGiftName || '(chưa đặt quà mặc định)')}</span>
+            <span class="cc-gift-edit">✏️</span>
+          </div>
+          ${(c.defaultGiftId || c.defaultGiftName) ? `<button class="cc-gift-clear" data-gift-clear="${escapeAttr(creatorKey)}" type="button" title="Gỡ quà mặc định">✕</button>` : ''}
         </div>
       </div>
       <div class="cc-actions">
@@ -3347,6 +3405,8 @@ function setCreatorGiftDisplay(g) {
   $('#crGiftIcon').value = g?.icon || '';
   $('#crGiftDisplay').textContent = g ? `${g.name} · 🪙 ${g.diamond}` : '🎁 Chọn quà';
   $('#crGiftIconPreview').src = g?.icon || '';
+  const clearBtn = $('#btnClearCrGift');
+  if (clearBtn) clearBtn.hidden = !g;
 }
 
 function editCreator(id) {
@@ -3380,6 +3440,11 @@ function wireCreatorTab() {
       usedBy,
     });
     if (g) setCreatorGiftDisplay(g);
+  });
+
+  $('#btnClearCrGift').addEventListener('click', () => {
+    setCreatorGiftDisplay(null);
+    toast('Đã gỡ quà mặc định (nhớ bấm 💾 Lưu)');
   });
 
   // Chỉ tải khi bấm nút hoặc Enter. Avatar đã lưu là nguồn cho mọi overlay,
@@ -3644,11 +3709,14 @@ function renderGroupDossier(g, list) {
         <div class="gdm-body">
           <div class="gdm-name">${escapeHtml(c.nickname || c.tiktokId || '')}</div>
           <div class="gdm-handle">@${escapeHtml(c.tiktokId || '')}</div>
-          <div class="gdm-gift${gift ? '' : ' is-empty'}" data-gift="${escapeAttr(memberKey)}" role="button" tabindex="0" title="Bấm để chọn quà riêng">
-            ${gift?.icon ? `<img src="${escapeAttr(gift.icon)}" alt=""/>` : '🎁'}
-            <span>${gift ? escapeHtml(gift.giftName || '') : '(chưa đặt quà)'}</span>
-            ${inherited ? '<em class="gdm-inh">kế thừa nhóm</em>' : ''}
-            <span class="gdm-gift-edit">✏️</span>
+          <div class="cc-gift-wrap">
+            <div class="gdm-gift${gift ? '' : ' is-empty'}" data-gift="${escapeAttr(memberKey)}" role="button" tabindex="0" title="Bấm để chọn quà riêng">
+              ${gift?.icon ? `<img src="${escapeAttr(gift.icon)}" alt=""/>` : '🎁'}
+              <span>${gift ? escapeHtml(gift.giftName || '') : '(chưa đặt quà)'}</span>
+              ${inherited ? '<em class="gdm-inh">kế thừa nhóm</em>' : ''}
+              <span class="gdm-gift-edit">✏️</span>
+            </div>
+            ${own ? `<button class="cc-gift-clear" data-gift-clear="${escapeAttr(memberKey)}" type="button" title="Gỡ quà riêng">✕</button>` : ''}
           </div>
         </div>
         <button class="ghost tiny gdm-edit" data-edit-creator="${escapeAttr(memberKey)}" type="button">Cài đặt</button>
@@ -3671,6 +3739,10 @@ function renderGroupDossier(g, list) {
     b.addEventListener('click', handler);
     b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
   });
+  dossier.querySelectorAll('[data-gift-clear]').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearCreatorGiftQuick(b.dataset.giftClear);
+  }));
   dossier.querySelectorAll('[data-edit-creator]').forEach(b => b.addEventListener('click', () => {
     document.querySelector('.nav-btn[data-tab="creators"]')?.click();
     editCreator(b.dataset.editCreator);
@@ -5568,7 +5640,7 @@ function renderScoreCreatorSelect(st = latestScoreState || {}) {
     const avatarMatches = !currentAvatar || currentAvatar === '../logo/hp-logo.png' || c.avatar === currentAvatar;
     return nameMatches && avatarMatches;
   })?.id || '';
-  sel.innerHTML = '<option value="">— Chọn Creator —</option>' + visibleCreators()
+  sel.innerHTML = '<option value="">— Chọn —</option>' + visibleCreators()
     .slice()
     .sort((a, b) => (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi'))
     .map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.nickname || c.tiktokId)}</option>`)
@@ -5860,10 +5932,10 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker] = await Promise.all([
-    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(),
+  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp] = await Promise.all([
+    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(),
   ]);
-  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker };
+  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp };
   $$('[data-copy]').forEach(button => { button.dataset.url = urls[button.dataset.copy]; });
   await refreshReviewButtons();
 }
@@ -5880,7 +5952,7 @@ async function refreshReviewButtons() {
     const type = btn.dataset.reviewTop;
     const on = state[type]?.alwaysOnTop !== false;
     btn.classList.toggle('is-on', on);
-    btn.textContent = on ? '📌 Nổi bật' : '📍 Thường';
+    btn.textContent = on ? '📌 BỎ GHIM' : '📍 GHIM';
   });
   $$('[data-review-click]').forEach(btn => {
     const type = btn.dataset.reviewClick;
