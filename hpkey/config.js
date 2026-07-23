@@ -1,6 +1,6 @@
 'use strict';
 /**
- * HP KEY - Cau hinh client cho HP Talent Show.
+ * HP KEY - Cau hinh client cho HP GROUP LIVE.
  * HMAC secret KHONG hardcode o day (tranh lo khi push public repo).
  * No nam o hpkey/secret.local.js (da .gitignore) - tao file do tren may build.
  */

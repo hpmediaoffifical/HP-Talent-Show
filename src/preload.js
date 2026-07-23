@@ -7,6 +7,7 @@ const api = {
     disconnect: () => ipcRenderer.invoke('tt:disconnect'),
     status: () => ipcRenderer.invoke('tt:status'),
     fetchProfile: (username) => ipcRenderer.invoke('tt:fetchProfile', { username }),
+    fetchAvatarData: (username) => ipcRenderer.invoke('tt:fetchAvatarData', { username }),
   },
 
   // ===== Creators / Groups =====

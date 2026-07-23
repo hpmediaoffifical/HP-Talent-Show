@@ -178,6 +178,23 @@
   function norm(a) { a %= TWO_PI; return a < 0 ? a + TWO_PI : a; }
   // Minimum-jerk tạo vận tốc/gia tốc bằng 0 ở đầu và cuối, nên quay-hãm tự nhiên hơn ease-out đơn thuần.
   function easeSpin(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  // Quay như đời thực: bung nhanh lúc đầu rồi chậm rải dần, bò từng chút ở cuối.
+  // k càng lớn (slowSec càng cao) đuôi càng dài. Đoạn đầu (a) dùng Hermite bậc 3 khớp
+  // vị trí + vận tốc với ease-out ở mốc a và vận tốc 0 tại t=0 → khởi động êm, không giật.
+  function tailPower(slowSec) { var s = Math.max(0, Math.min(6, Number(slowSec)) || 0); return 2.2 + s * 0.6; }
+  function easeWheel(t, k) {
+    if (t >= 1) return 1;
+    if (t <= 0) return 0;
+    var a = 0.14;
+    var G = 1 - Math.pow(1 - a, k);
+    var D = k * Math.pow(1 - a, k - 1);
+    if (t < a) {
+      var b = (3 * G - D * a) / (a * a);
+      var c = (D - 2 * G / a) / (a * a);
+      return b * t * t + c * t * t * t;
+    }
+    return 1 - Math.pow(1 - t, k);
+  }
   function playEdgeCatch(offset) {
     var cls = offset < 0 ? 'edge-catch-left' : 'edge-catch-right';
     pointer.classList.remove('tick', 'edge-catch-left', 'edge-catch-right');
@@ -198,6 +215,7 @@
     var dur = Math.max(2, Math.min(15, Number(spin.duration) || 5)) * 1000;
     var turns = 5 + Math.floor(dur / 1500);
     var finalRot = startRot + turns * TWO_PI + delta;
+    var k = tailPower(spin.slowSec != null ? spin.slowSec : 3);
 
     hideResult();
     spinning = true;
@@ -208,7 +226,7 @@
     function frame(ts) {
       if (!t0) t0 = ts;
       var p = Math.min((ts - t0) / dur, 1);
-      rot = startRot + (finalRot - startRot) * easeSpin(p);
+      rot = startRot + (finalRot - startRot) * easeWheel(p, k);
       // Hãm rất nhẹ về điểm dừng. Khi sát vạch, kim có thể lướt qua mép rồi trở lại,
       // tạo cảm giác cơ khí nhưng khung cuối luôn nằm trong ô mà máy chủ đã chọn.
       if (p > 0.93 && Math.abs(offset) > 0.36) {
@@ -246,8 +264,24 @@
 
   function setSpinner(sp) {
     if (sp && sp.name) {
-      spinnerEl.textContent = '🎯 ' + sp.name;
       var av = avatarUrl(sp.avatar);
+      // Chip người quay: dùng avatar thành viên thay cho icon 🎯 (fallback 🎯 nếu thiếu avatar)
+      spinnerEl.innerHTML = '';
+      if (av) {
+        var img = document.createElement('img');
+        img.className = 'lw-spinner-av';
+        img.alt = '';
+        img.src = av;
+        // Nếu avatar lỗi thì bỏ ảnh, hiện lại icon 🎯 để không trơ khung trắng
+        img.onerror = function () { img.remove(); spinnerEl.insertBefore(document.createTextNode('🎯 '), spinnerEl.firstChild); };
+        spinnerEl.appendChild(img);
+      } else {
+        spinnerEl.appendChild(document.createTextNode('🎯 '));
+      }
+      var nameEl = document.createElement('span');
+      nameEl.className = 'lw-spinner-name';
+      nameEl.textContent = sp.name;
+      spinnerEl.appendChild(nameEl);
       if (av) { hubAv.src = av; hub.classList.add('has-av'); }
       else { hub.classList.remove('has-av'); }
     } else {

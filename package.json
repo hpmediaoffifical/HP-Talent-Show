@@ -1,7 +1,7 @@
 {
-  "name": "hp-talent-show",
-  "version": "0.1.13",
-  "description": "HP Talent Show — phần mềm tổ chức Talent Show TikTok: PK đôi, BXH, tính điểm, overlay OBS",
+  "name": "hp-group-live",
+  "version": "0.1.14",
+  "description": "HP GROUP LIVE — phần mềm vận hành LIVE nhóm TikTok: PK đôi/nhóm, BXH, tính điểm, vinh danh, vòng quay, overlay OBS",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -12,7 +12,7 @@
   "license": "ISC",
   "build": {
     "appId": "com.hp.talentshow",
-    "productName": "HP Talent Show",
+    "productName": "HP GROUP LIVE",
     "directories": {
       "output": "release"
     },
@@ -50,7 +50,7 @@
           ]
         }
       ],
-      "artifactName": "HP-Talent-Show-Setup-${version}.${ext}"
+      "artifactName": "HP-GROUP-LIVE-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -58,7 +58,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "HP Talent Show",
+      "shortcutName": "HP GROUP LIVE",
       "installerIcon": "logo/hp-logo.ico",
       "uninstallerIcon": "logo/hp-logo.ico",
       "installerHeaderIcon": "logo/hp-logo.ico"

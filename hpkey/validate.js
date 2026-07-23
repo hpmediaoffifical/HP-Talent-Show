@@ -1,6 +1,6 @@
 'use strict';
 /**
- * HP KEY adapter cho HP Talent Show.
+ * HP KEY adapter cho HP GROUP LIVE.
  * Thay backend Google Sheet bang HP KEY (hpvn.media). GIU NGUYEN shape
  * { ok, license:{...} } ma main.js/renderer dang dung => khong phai sua gate.
  */

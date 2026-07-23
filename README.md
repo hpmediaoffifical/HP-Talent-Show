@@ -1,8 +1,9 @@
-# HP Talent Show
+# HP GROUP LIVE
 
-Phần mềm desktop tổ chức **Talent Show TikTok**: kết nối LIVE qua `@username`, chấm điểm bằng quà real-time, hỗ trợ **PK Đôi**, **Bảng Xếp Hạng**, **Tính Điểm**, và phát **overlay OBS** qua link localhost.
+Phần mềm desktop vận hành **LIVE nhóm TikTok**: kết nối LIVE qua `@username`, chấm điểm bằng quà real-time, hỗ trợ **PK Đôi/Nhóm**, **Bảng Xếp Hạng**, **Tính Điểm**, **Vinh danh**, **Vòng quay**, và phát **overlay OBS** qua link localhost.
 
-> Hậu duệ ý tưởng của HP Action - BIGO LIVE / BIGO Action — nhưng dành riêng cho TikTok Talent Show.
+> Hậu duệ ý tưởng của HP Action - BIGO LIVE / BIGO Action — nhưng dành cho TikTok LIVE nhóm.
+> _(Trước đây có tên "HP Talent Show" — dữ liệu vẫn lưu ở `%APPDATA%/HP Talent Show` để giữ tương thích.)_
 
 ## Tính năng
 
@@ -106,4 +107,4 @@ Overlay được phát từ tiến trình nền của App qua SSE localhost, nê
 
 ## Bản quyền
 
-© HP Media. Sử dụng cho mục đích nội bộ Talent Show.
+© HP Media. Sử dụng cho mục đích nội bộ LIVE nhóm.

@@ -1,4 +1,4 @@
-// HP Talent Show — Renderer logic.
+// HP GROUP LIVE — Renderer logic.
 // Mọi giao tiếp với main đi qua window.api (xem preload.js).
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -935,7 +935,8 @@ function syncNameToMusic(giftId, name) {
 async function loadMusicListConfig() {
   const st = await window.api.musiclist.getState().catch(() => null);
   musicItems = Array.isArray(st?.items) ? st.items.map(normalizeMusicItem) : [];
-  musicCfg = { duckWaiting: st?.duckWaiting !== false, bgEnabled: !!st?.bgEnabled, paused: !!st?.paused, displayLimit: clampInt(st?.displayLimit, 50, 1, 500) };
+  // NHẠC DANCE mặc định LUÔN bật STOP ALL khi mở app để không tự phát nhạc; user tự tắt khi cần dùng.
+  musicCfg = { duckWaiting: st?.duckWaiting !== false, bgEnabled: !!st?.bgEnabled, paused: true, displayLimit: clampInt(st?.displayLimit, 50, 1, 500) };
   musicBaseItems = musicItems.map(normalizeMusicItem); // chốt danh sách gốc TALENT SHOW
   musicGroupId = '';
 }
@@ -1481,22 +1482,32 @@ let mvpSelId = '';
 let mvpSaveTimer = null;
 const MVP_FRAME_COUNT = 41;
 const MVP_FRAMES = Array.from({ length: MVP_FRAME_COUNT }, (_, i) => `mvp-frames/${i + 1}.png`);
+// Ảnh plaque danh hiệu cùng bộ với khung avatar: N.png → Na.png.
+function mvpPlaqueSrc(frame) { const s = String(frame || ''); return /\.png$/i.test(s) ? s.replace(/\.png$/i, 'a.png') : ''; }
 const MVP_CANVAS_H = { '1:1': 1080, '3:4': 1440, '9:16': 1920 }; // rộng luôn 1080; chỉ đổi chiều cao
 
 async function loadMvpHonorConfig() {
   const cfg = await window.api.mvphonor.getConfig().catch(() => null);
   mvpCfg = cfg && Array.isArray(cfg.cards) ? cfg : { cards: [] };
-  if (!MVP_CANVAS_H[mvpCfg.canvas]) mvpCfg.canvas = '3:4';
+  if (!MVP_CANVAS_H[mvpCfg.canvas]) mvpCfg.canvas = '1:1';
+  // Cấu hình "trình chiếu" (config-level) — đặt mặc định nếu file cũ chưa có.
+  // revealAutoHide = thời gian "Chuyển" (giây) giữa các khung avatar khi AUTO xoay vòng.
+  if (typeof mvpCfg.revealStagger !== 'number') mvpCfg.revealStagger = 0.6;
+  if (typeof mvpCfg.revealAutoHide !== 'number' || mvpCfg.revealAutoHide < 1) mvpCfg.revealAutoHide = 5;
+  mvpCfg.revealSound = false;   // đã bỏ âm thanh trình chiếu
+  if (!['fade', 'slideDown', 'zoomOut'].includes(mvpCfg.revealExit)) mvpCfg.revealExit = 'fade';
+  mvpCfg.revealNonce = Number(mvpCfg.revealNonce) || 0;
+  if (typeof mvpCfg.autoPlay !== 'boolean') mvpCfg.autoPlay = false;
   if (!mvpCfg.cards.some(c => c.id === mvpSelId)) mvpSelId = mvpCfg.cards[0]?.id || '';
 }
 
 function mvpNewCard() {
   const id = 'mh_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
   return {
-    id, mode: 'creator', creatorId: '', avatar: '', name: '', text: 'TOP 1',
-    frame: MVP_FRAMES[0], layout: 'attached', avatarSize: 150, frameScale: 150, fontSize: 40,
+    id, mode: 'creator', creatorId: '', tiktokId: '', avatar: '', name: '', text: 'TOP 1',
+    frame: MVP_FRAMES[0], usePlaqueImg: true, layout: 'attached', avatarSize: 150, frameScale: 150, nameSize: 40, fontSize: 40,
     color: '#ffffff', textStyle: 'plaque', bgColor: '#8f8474', bgColor2: '#463f31', bgOpacity: 100,
-    entryAnim: 'popBounce', showName: false, show: true, overlay: { x: 120, y: 200, scale: 1, rot: 0 },
+    entryAnim: 'popBounce', celebrate: false, showName: false, showText: true, show: true, overlay: { x: 120, y: 200, scale: 1, rot: 0 },
   };
 }
 function mvpSel() { return mvpCfg.cards.find(c => c.id === mvpSelId) || null; }
@@ -1538,14 +1549,25 @@ function mvpBuildVisual(c) {
   av.onerror = () => { av.onerror = null; av.src = '../logo/hp-logo.png'; };
   avwrap.appendChild(av);
   if (hasFrame) { const fr = document.createElement('img'); fr.className = 'mhv-frame'; fr.src = c.frame; avwrap.appendChild(fr); }
-  if (c.showName && mvpResolveName(c)) { const nm = document.createElement('div'); nm.className = 'mhv-name'; nm.textContent = mvpResolveName(c); avwrap.appendChild(nm); }
+  if (c.showName && mvpResolveName(c)) { const nm = document.createElement('div'); nm.className = 'mhv-name'; nm.style.fontSize = (c.nameSize || 40) + 'px'; nm.textContent = mvpResolveName(c); avwrap.appendChild(nm); }
   inner.appendChild(avwrap);
-  if (c.text) {
+  if (c.text && c.showText !== false) {
     const tx = document.createElement('div'); tx.className = 'mhv-text style-' + c.textStyle;
-    tx.textContent = c.text; tx.style.fontSize = c.fontSize + 'px'; tx.style.color = c.color;
+    tx.style.fontSize = c.fontSize + 'px'; tx.style.color = c.color;
     tx.style.background = mvpTextBg(c); tx.style.setProperty('--mvp-link-color', c.bgColor);
+    tx.style.setProperty('--mvp-plaque-w', frameW + 'px');
     if (c.textStyle === 'neon') tx.style.textShadow = `0 0 6px ${c.bgColor}, 0 0 14px ${c.bgColor}, 0 0 26px ${c.bgColor2}`;
     else if (c.textStyle === 'plaque') tx.style.textShadow = '0 2px 3px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.18)';
+    // Ảnh plaque Na.png (khớp khung) — tải xong thì đè ảnh, lỗi/không có thì giữ plaque CSS.
+    const psrc = (c.textStyle === 'plaque' && c.usePlaqueImg !== false && hasFrame) ? mvpPlaqueSrc(c.frame) : '';
+    if (psrc) {
+      const pim = document.createElement('img'); pim.className = 'mhv-plaque-img'; pim.alt = '';
+      pim.onload = () => { tx.classList.add('has-plaque-img'); if (pim.naturalWidth && pim.naturalHeight) tx.style.aspectRatio = pim.naturalWidth + ' / ' + pim.naturalHeight; };
+      pim.onerror = () => { tx.classList.remove('has-plaque-img'); };
+      pim.src = psrc; tx.appendChild(pim);
+    }
+    const lbl = document.createElement('span'); lbl.className = 'mhv-text-label'; lbl.textContent = c.text;
+    tx.appendChild(lbl);
     inner.appendChild(tx);
   }
   root.appendChild(inner);
@@ -1555,7 +1577,7 @@ function mvpBuildVisual(c) {
 function mvpRenderStage() {
   const stage = $('#mhStage'); if (!stage) return;
   const box = stage.parentElement;
-  const h = MVP_CANVAS_H[mvpCfg.canvas] || MVP_CANVAS_H['3:4'];
+  const h = MVP_CANVAS_H[mvpCfg.canvas] || MVP_CANVAS_H['1:1'];
   box.style.aspectRatio = `1080 / ${h}`;
   stage.style.width = '1080px'; stage.style.height = h + 'px';
   const scale = (box.clientWidth || 300) / 1080;
@@ -1564,6 +1586,7 @@ function mvpRenderStage() {
   for (const c of mvpCfg.cards) {
     const el = mvpBuildVisual(c);
     el.classList.add('mhv-pos');
+    el.dataset.id = c.id;
     el.style.left = c.overlay.x + 'px'; el.style.top = c.overlay.y + 'px';
     el.style.setProperty('--mh-t', `scale(${c.overlay.scale}) rotate(${c.overlay.rot}deg)`);
     if (c.id === mvpSelId) el.classList.add('sel');
@@ -1571,6 +1594,7 @@ function mvpRenderStage() {
     mvpAttachDrag(el, c, scale);
     stage.appendChild(el);
   }
+  if (mvpAuto.on) mvpAutoEnforce();   // giữ đúng chỉ khung hiện tại hiện sau khi dựng lại
 }
 
 function mvpAttachDrag(el, c, scale) {
@@ -1652,21 +1676,51 @@ function mvpApplyToInputs() {
   if ($('#mhUploadRow')) $('#mhUploadRow').style.display = c.mode === 'user' ? '' : 'none';
   if ($('#mhCreator')) $('#mhCreator').value = c.creatorId || '';
   if ($('#mhUploadName')) $('#mhUploadName').textContent = c.mode === 'user' && c.avatar ? 'Đã có ảnh' : 'Chưa có ảnh';
+  if ($('#mhTiktokId')) $('#mhTiktokId').value = c.tiktokId || '';
+  if ($('#mhFetchHint')) $('#mhFetchHint').textContent = 'Lấy 1 lần rồi tự lưu trong máy — không tải lại từ TikTok.';
   const set = (id, v) => { const el = $(id); if (el) el.value = v; };
   set('#mhName', c.name || ''); if ($('#mhShowName')) $('#mhShowName').checked = !!c.showName;
+  if ($('#mhShowText')) $('#mhShowText').checked = c.showText !== false;
   set('#mhText', c.text || ''); set('#mhLayout', ['horizontal', 'vertical', 'attached'].includes(c.layout) ? c.layout : 'attached'); set('#mhAnim', c.entryAnim);
-  set('#mhAvatarSize', c.avatarSize); set('#mhFrameScale', c.frameScale); set('#mhFontSize', c.fontSize);
+  set('#mhAvatarSize', c.avatarSize); set('#mhFrameScale', c.frameScale); set('#mhNameSize', c.nameSize || 40); set('#mhFontSize', c.fontSize);
   set('#mhTextStyle', c.textStyle); set('#mhColor', c.color); set('#mhBg', c.bgColor); set('#mhBg2', c.bgColor2);
   set('#mhBgOpacity', c.bgOpacity); set('#mhX', c.overlay.x); set('#mhY', c.overlay.y);
   set('#mhScale', Math.round(c.overlay.scale * 100)); set('#mhRot', c.overlay.rot);
+  if ($('#mhUsePlaqueImg')) $('#mhUsePlaqueImg').checked = c.usePlaqueImg !== false;
+  if ($('#mhCelebrate')) $('#mhCelebrate').checked = !!c.celebrate;
   mvpRenderSkins();
+}
+
+// Nạp các ô cấu hình "trình chiếu" (config-level, không theo thẻ) từ mvpCfg vào giao diện.
+function mvpApplyRevealInputs() {
+  const set = (id, v) => { const el = $(id); if (el) el.value = v; };
+  set('#mhRevealAutoHide', mvpCfg.revealAutoHide > 0 ? mvpCfg.revealAutoHide : 5);
+  set('#mhRevealExit', mvpCfg.revealExit || 'fade');
+  $('#mhAuto')?.classList.toggle('active', !!mvpCfg.autoPlay);
 }
 
 function mvpRenderSkins() {
   const box = $('#mhSkins'); if (!box) return;
   const c = mvpSel(); const cur = c?.frame || '';
-  box.innerHTML = `<button class="mvp-skin${cur ? '' : ' sel'}" data-mh-frame="">∅</button>`
-    + MVP_FRAMES.map(f => `<button class="mvp-skin${f === cur ? ' sel' : ''}" data-mh-frame="${f}"><img src="${f}"/></button>`).join('');
+  const q = ($('#mhSkinFilter')?.value || '').replace(/\D+/g, '');
+  const list = MVP_FRAMES.map((f, i) => ({ f, num: i + 1 }))
+    .filter(x => !q || String(x.num).includes(q));
+  // Ô "Không khung" chỉ hiện khi không lọc.
+  const noneTile = q ? '' :
+    `<button class="mvp-skin no-frame${cur ? '' : ' sel'}" data-mh-frame="" title="Không khung">`
+    + `<span class="mvp-skin-thumb"><img class="mvp-skin-ava" src="mvp-frames/avatar.png" alt="" onerror="this.style.visibility='hidden'"/></span>`
+    + `<span class="mvp-skin-num">∅</span></button>`;
+  const tiles = list.map(({ f, num }) =>
+    `<button class="mvp-skin${f === cur ? ' sel' : ''}" data-mh-frame="${f}" title="Khung ${num}">`
+    + `<span class="mvp-skin-thumb">`
+    + `<img class="mvp-skin-ava" src="mvp-frames/avatar.png" alt="" onerror="this.style.visibility='hidden'"/>`
+    + `<img class="mvp-skin-frame" src="${f}" alt="" onerror="this.closest('.mvp-skin')?.classList.add('broken')"/>`
+    + `</span>`
+    + `<span class="mvp-skin-num">${num}</span>`
+    + `<span class="mvp-skin-badge" title="Có ảnh khung danh hiệu ${num}a.png">🎀</span>`
+    + `<img class="mvp-skin-probe" src="${mvpPlaqueSrc(f)}" alt="" onload="this.closest('.mvp-skin')?.classList.add('has-plaque');this.remove()" onerror="this.remove()"/>`
+    + `</button>`).join('');
+  box.innerHTML = noneTile + tiles || '<div class="mvp-hint">Không có khung khớp số.</div>';
   box.querySelectorAll('[data-mh-frame]').forEach(b => b.addEventListener('click', () => {
     const c2 = mvpSel(); if (!c2) return; c2.frame = b.dataset.mhFrame || '';
     mvpRenderSkins(); mvpRenderStage(); mvpRenderCards(); mvpScheduleSave();
@@ -1674,6 +1728,111 @@ function mvpRenderSkins() {
 }
 
 function mvpEditSel(fn) { const c = mvpSel(); if (!c) return; fn(c); mvpRenderStage(); mvpRenderCards(); mvpScheduleSave(); }
+
+// ===== Màn công bố — diễn lại trong khung xem trước (khớp hành vi overlay OBS) =====
+const MVP_ANIM_CLASSES = ['anim-popBounce', 'anim-zoomFade', 'anim-slideRight', 'anim-slideUp', 'anim-flip', 'anim-dropBounce', 'anim-spotlight', 'anim-zoomShake'];
+let mvpRevealTimers = [];
+function mvpClearRevealTimers() { mvpRevealTimers.forEach(clearTimeout); mvpRevealTimers = []; }
+function mvpPreviewReveal() {
+  const stage = $('#mhStage'); if (!stage) return;
+  mvpClearRevealTimers();
+  const stagger = Math.max(0, Math.min(5, Number(mvpCfg.revealStagger) || 0));
+  const autoHide = Math.max(0, Math.min(120, Number(mvpCfg.revealAutoHide) || 0));
+  const exit = ['fade', 'slideDown', 'zoomOut'].includes(mvpCfg.revealExit) ? mvpCfg.revealExit : 'fade';
+  const sound = mvpCfg.revealSound !== false;
+  const list = mvpCfg.cards.filter(c => c.show !== false)
+    .map(c => ({ c, el: stage.querySelector(`[data-id="${c.id}"]`) }))
+    .filter(x => x.el);
+  if (!list.length) return;
+  list.forEach(({ el }) => { el.classList.add('reveal-hidden'); el.querySelector('.mhv-inner')?.classList.remove('exit-fade', 'exit-slideDown', 'exit-zoomOut'); });
+  list.forEach(({ c, el }, i) => {
+    mvpRevealTimers.push(setTimeout(() => {
+      el.classList.remove('reveal-hidden');
+      const inner = el.querySelector('.mhv-inner');
+      if (inner) { inner.classList.remove(...MVP_ANIM_CLASSES); if (c.entryAnim && c.entryAnim !== 'none') { void inner.offsetWidth; inner.classList.add('anim-' + c.entryAnim); } }
+      if (sound) mvpRevealBlip(i, list.length);
+      if (c.celebrate) mvpConfettiPreview(el);
+    }, Math.round(i * stagger * 1000)));
+  });
+  if (autoHide > 0) {
+    const endAt = ((list.length - 1) * stagger + autoHide) * 1000;
+    mvpRevealTimers.push(setTimeout(() => {
+      list.forEach(({ el }) => { const inner = el.querySelector('.mhv-inner'); if (inner) { inner.classList.remove(...MVP_ANIM_CLASSES); inner.classList.add('exit-' + exit); } });
+      mvpRevealTimers.push(setTimeout(() => { list.forEach(({ el }) => { el.classList.add('reveal-hidden'); el.querySelector('.mhv-inner')?.classList.remove('exit-' + exit); }); }, 520));
+    }, Math.round(endAt)));
+  }
+}
+function mvpConfettiPreview(el) {
+  const wrap = document.createElement('div'); wrap.className = 'mhv-confetti';
+  const colors = ['#ff3d71', '#ffd23f', '#2ec4ff', '#38d67a', '#c86bff', '#ff9f1c'];
+  for (let i = 0; i < 16; i++) {
+    const p = document.createElement('i');
+    const a = (i / 16) * Math.PI * 2 + (i % 2 ? 0.35 : -0.2), dist = 54 + (i % 4) * 20;
+    p.style.setProperty('--cx', (Math.cos(a) * dist).toFixed(1) + 'px');
+    p.style.setProperty('--cy', (Math.sin(a) * dist - 36).toFixed(1) + 'px');
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = (i * 7) + 'ms';
+    wrap.appendChild(p);
+  }
+  el.appendChild(wrap);
+  setTimeout(() => { try { wrap.remove(); } catch {} }, 1500);
+}
+let mvpActx = null;
+function mvpAc() { try { if (!mvpActx) mvpActx = new (window.AudioContext || window.webkitAudioContext)(); if (mvpActx.state === 'suspended') mvpActx.resume(); } catch { mvpActx = null; } return mvpActx; }
+function mvpBlip(freq, dur, vol) {
+  const a = mvpAc(); if (!a) return;
+  const t = a.currentTime, o = a.createOscillator(), g = a.createGain();
+  o.type = 'triangle'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function mvpRevealBlip(i, total) {
+  const scale = [523, 587, 659, 698, 784, 880, 988, 1047];
+  mvpBlip(scale[Math.min(i, scale.length - 1)], 0.18, 0.18);
+  if (i === total - 1) [523, 659, 784, 1047].forEach((f, k) => setTimeout(() => mvpBlip(f, 0.22, 0.2), 120 + k * 90));
+}
+
+// ===== AUTO — xoay vòng liên tục trong khung xem trước (khớp overlay OBS) =====
+const mvpAuto = { on: false, timers: [], idx: 0, curId: '' };
+function mvpAutoClear() { mvpAuto.timers.forEach(clearTimeout); mvpAuto.timers = []; }
+function mvpAutoStop() {
+  mvpAuto.on = false; mvpAuto.curId = ''; mvpAutoClear();
+  const stage = $('#mhStage'); if (!stage) return;
+  stage.querySelectorAll('.mhv-pos').forEach(el => { el.classList.remove('reveal-hidden'); el.querySelector('.mhv-inner')?.classList.remove('exit-fade', 'exit-slideDown', 'exit-zoomOut'); });
+}
+function mvpAutoStart() { if (mvpAuto.on) return; mvpClearRevealTimers(); mvpAuto.on = true; mvpAuto.idx = 0; mvpAutoTick(); }
+function mvpAutoTick() {
+  if (!mvpAuto.on) return;
+  mvpAutoClear();
+  const stage = $('#mhStage'); if (!stage) return;
+  const list = mvpCfg.cards.filter(c => c.show !== false).map(c => ({ c, el: stage.querySelector(`[data-id="${c.id}"]`) })).filter(x => x.el);
+  if (!list.length) { mvpAuto.timers.push(setTimeout(mvpAutoTick, 1000)); return; }
+  const dwell = (Number(mvpCfg.revealAutoHide) > 0 ? Number(mvpCfg.revealAutoHide) : 5) * 1000;
+  const exit = ['fade', 'slideDown', 'zoomOut'].includes(mvpCfg.revealExit) ? mvpCfg.revealExit : 'fade';
+  const cur = list[mvpAuto.idx % list.length];
+  mvpAuto.curId = cur.c.id;
+  list.forEach(({ el }) => { el.classList.add('reveal-hidden'); el.querySelector('.mhv-inner')?.classList.remove('exit-fade', 'exit-slideDown', 'exit-zoomOut'); });
+  cur.el.classList.remove('reveal-hidden');
+  const inner = cur.el.querySelector('.mhv-inner');
+  if (inner) { inner.classList.remove(...MVP_ANIM_CLASSES); if (cur.c.entryAnim && cur.c.entryAnim !== 'none') { void inner.offsetWidth; inner.classList.add('anim-' + cur.c.entryAnim); } }
+  if (cur.c.celebrate) mvpConfettiPreview(cur.el);
+  mvpAuto.timers.push(setTimeout(() => {
+    if (inner) { inner.classList.remove(...MVP_ANIM_CLASSES); inner.classList.add('exit-' + exit); }
+    mvpAuto.timers.push(setTimeout(() => {
+      if (inner) inner.classList.remove('exit-' + exit);
+      cur.el.classList.add('reveal-hidden');
+      mvpAuto.idx = (mvpAuto.idx + 1) % Math.max(1, list.length);
+      mvpAutoTick();
+    }, 520));
+  }, dwell));
+}
+function mvpAutoEnforce() {
+  const stage = $('#mhStage'); if (!stage) return;
+  stage.querySelectorAll('.mhv-pos').forEach(el => { el.classList.toggle('reveal-hidden', el.dataset.id !== mvpAuto.curId); });
+}
 
 function wireMvpHonorTab() {
   $('#mhAddCard')?.addEventListener('click', () => {
@@ -1701,14 +1860,44 @@ function wireMvpHonorTab() {
     reader.onload = () => { mvpEditSel(c => { c.avatar = String(reader.result || ''); }); if ($('#mhUploadName')) $('#mhUploadName').textContent = 'Đã có ảnh'; };
     reader.readAsDataURL(file); e.target.value = '';
   });
+  $('#mhTiktokId')?.addEventListener('input', () => mvpEditSel(c => { c.tiktokId = $('#mhTiktokId').value.trim(); }));
+  $('#mhTiktokId')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#mhFetchAvatar')?.click(); } });
+  $('#mhFetchAvatar')?.addEventListener('click', async () => {
+    const c = mvpSel(); if (!c) return;
+    const id = ($('#mhTiktokId')?.value || '').trim().replace(/^@/, '');
+    if (!id) { toast('Nhập ID TikTok trước đã', 'error'); return; }
+    const btn = $('#mhFetchAvatar'), hint = $('#mhFetchHint');
+    btn?.classList.add('is-loading'); if (hint) hint.textContent = 'Đang lấy avatar từ TikTok…';
+    try {
+      const r = await window.api.tt.fetchAvatarData(id);
+      if (!r?.dataUrl) { if (hint) hint.textContent = '⚠ Không lấy được avatar cho ID này.'; toast('Không lấy được avatar', 'error'); return; }
+      mvpEditSel(cc => {
+        cc.tiktokId = id;
+        cc.avatar = r.dataUrl;                         // lưu dataURL vào máy, không tải lại từ TikTok
+        if (!cc.name && r.nickname) cc.name = r.nickname;
+      });
+      if ($('#mhName')) $('#mhName').value = mvpSel()?.name || '';
+      if ($('#mhUploadName')) $('#mhUploadName').textContent = 'Đã có ảnh';
+      if (hint) hint.textContent = '✓ Đã lấy & lưu avatar trong máy.';
+      toast('Đã lấy avatar TikTok', 'success');
+    } catch {
+      if (hint) hint.textContent = '⚠ Lỗi khi lấy avatar.';
+      toast('Lỗi khi lấy avatar', 'error');
+    } finally { btn?.classList.remove('is-loading'); }
+  });
   $('#mhName')?.addEventListener('input', () => mvpEditSel(c => { c.name = $('#mhName').value; }));
   $('#mhShowName')?.addEventListener('change', () => mvpEditSel(c => { c.showName = $('#mhShowName').checked; }));
+  $('#mhShowText')?.addEventListener('change', () => mvpEditSel(c => { c.showText = $('#mhShowText').checked; }));
   $('#mhText')?.addEventListener('input', () => mvpEditSel(c => { c.text = $('#mhText').value; }));
   $('#mhLayout')?.addEventListener('change', () => mvpEditSel(c => { c.layout = ['horizontal', 'vertical', 'attached'].includes($('#mhLayout').value) ? $('#mhLayout').value : 'attached'; }));
   $('#mhAnim')?.addEventListener('change', () => mvpEditSel(c => { c.entryAnim = $('#mhAnim').value; }));
+  $('#mhCelebrate')?.addEventListener('change', () => mvpEditSel(c => { c.celebrate = $('#mhCelebrate').checked; }));
   $('#mhAvatarSize')?.addEventListener('input', () => mvpEditSel(c => { c.avatarSize = clampInt($('#mhAvatarSize').value, 150, 60, 400); }));
   $('#mhFrameScale')?.addEventListener('input', () => mvpEditSel(c => { c.frameScale = clampInt($('#mhFrameScale').value, 150, 80, 300); }));
+  $('#mhNameSize')?.addEventListener('input', () => mvpEditSel(c => { c.nameSize = clampInt($('#mhNameSize').value, 40, 12, 120); }));
   $('#mhFontSize')?.addEventListener('input', () => mvpEditSel(c => { c.fontSize = clampInt($('#mhFontSize').value, 40, 12, 140); }));
+  $('#mhUsePlaqueImg')?.addEventListener('change', () => mvpEditSel(c => { c.usePlaqueImg = $('#mhUsePlaqueImg').checked; }));
+  $('#mhSkinFilter')?.addEventListener('input', () => mvpRenderSkins());
   $('#mhTextStyle')?.addEventListener('change', () => mvpEditSel(c => { c.textStyle = $('#mhTextStyle').value; }));
   $('#mhColor')?.addEventListener('input', () => mvpEditSel(c => { c.color = $('#mhColor').value; }));
   $('#mhBg')?.addEventListener('input', () => mvpEditSel(c => { c.bgColor = $('#mhBg').value; }));
@@ -1718,26 +1907,53 @@ function wireMvpHonorTab() {
   $('#mhY')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.y = Math.round(Number($('#mhY').value) || 0); }));
   $('#mhScale')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.scale = Math.max(0.2, Math.min(4, (Number($('#mhScale').value) || 100) / 100)); }));
   $('#mhRot')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.rot = Math.max(-180, Math.min(180, Number($('#mhRot').value) || 0)); }));
+  $('#mhPosReset')?.addEventListener('click', () => mvpEditSel(c => {
+    c.overlay.scale = 1; c.overlay.rot = 0;              // về thẳng hàng ngang/dọc (mặc định)
+    if ($('#mhScale')) $('#mhScale').value = 100;
+    if ($('#mhRot')) $('#mhRot').value = 0;
+  }));
   $('#mhCopyUrl')?.addEventListener('click', async () => { const url = await window.api.mvphonor.getUrl(); await window.api.shell.copyText(url); toast('Đã copy link OBS Vinh danh', 'success'); });
+
+  // ----- Trình chiếu (config-level): thời gian "Chuyển" giữa các khung + kiểu ẩn -----
+  const saveRevealCfg = () => { mvpScheduleSave(); };
+  $('#mhRevealAutoHide')?.addEventListener('input', () => { mvpCfg.revealAutoHide = Math.max(1, Math.min(120, Math.round(Number($('#mhRevealAutoHide').value) || 5))); saveRevealCfg(); });
+  $('#mhRevealExit')?.addEventListener('change', () => { mvpCfg.revealExit = ['fade', 'slideDown', 'zoomOut'].includes($('#mhRevealExit').value) ? $('#mhRevealExit').value : 'fade'; saveRevealCfg(); });
+  $('#mhAuto')?.addEventListener('click', () => {
+    const on = !mvpCfg.autoPlay;
+    if (on && !mvpCfg.cards.some(c => c.show !== false)) { toast('Chưa có thẻ nào để chạy AUTO', 'error'); return; }
+    mvpCfg.autoPlay = on;
+    $('#mhAuto')?.classList.toggle('active', on);
+    mvpPush();                                  // đồng bộ ngay sang overlay OBS
+    if (on) { mvpAutoStart(); toast('⏩ AUTO: đang xoay vòng từng khung avatar', 'success'); }
+    else { mvpAutoStop(); toast('Đã dừng AUTO'); }
+  });
+
   $('#mhCanvas')?.addEventListener('change', () => {
-    mvpCfg.canvas = MVP_CANVAS_H[$('#mhCanvas').value] ? $('#mhCanvas').value : '3:4';
+    mvpCfg.canvas = MVP_CANVAS_H[$('#mhCanvas').value] ? $('#mhCanvas').value : '1:1';
     mvpRenderStage(); mvpScheduleSave();
   });
 
+  // Popup ⚙ (nền Review · AUTO): mở 1 cái thì đóng cái kia; bấm ra ngoài thì đóng.
+  const mhPops = $$('.mvp-panel .mvp-pop');
+  mhPops.forEach(d => d.addEventListener('toggle', () => { if (d.open) mhPops.forEach(o => { if (o !== d) o.open = false; }); }));
+  document.addEventListener('click', (e) => { mhPops.forEach(d => { if (d.open && !d.contains(e.target)) d.open = false; }); });
+
   window.addEventListener('resize', () => { if ($('.panel[data-panel="mvphonor"]')?.classList.contains('active')) mvpRenderStage(); });
 
-  if ($('#mhCanvas')) $('#mhCanvas').value = mvpCfg.canvas || '3:4';
+  if ($('#mhCanvas')) $('#mhCanvas').value = mvpCfg.canvas || '1:1';
   mvpRefreshCreatorSelect();
   mvpRenderCards();
   mvpApplyToInputs();
+  mvpApplyRevealInputs();
   mvpRenderStage();
+  if (mvpCfg.autoPlay) mvpAutoStart();
 }
 
 // ============================================================
 // VÒNG QUAY MAY MẮN (Lucky Wheel)
 // ============================================================
 const LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
-let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, sound: true, confetti: true, showResult: true, edgeStops: true, selectedSpinner: null, segments: [], history: [] };
+let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, slowSec: 3, sound: true, confetti: true, showResult: true, edgeStops: true, selectedSpinner: null, segments: [], history: [] };
 let lwSaveTimer = null;
 
 function lwNormalize(cfg) {
@@ -1748,6 +1964,7 @@ function lwNormalize(cfg) {
     style: ['neon', 'gold', 'pastel', 'dark'].includes(c.style) ? c.style : 'neon',
     fontScale: clampInt(c.fontScale, 100, 50, 200),
     spinSeconds: clampInt(c.spinSeconds, 5, 2, 15),
+    slowSec: clampInt(c.slowSec, 3, 0, 6),
     sound: c.sound !== false, confetti: c.confetti !== false, showResult: c.showResult !== false,
     edgeStops: c.edgeStops !== false,
     showCount: c.showCount !== false, spinCount: Math.max(0, Math.round(Number(c.spinCount) || 0)),
@@ -1793,22 +2010,29 @@ function renderLwSegList() {
   const box = $('#lwSegList'); if (!box) return;
   if (!lwCfg.segments.length) { box.innerHTML = '<div class="lw-empty">Chưa có ô nào. Nhấn <b>＋ Thêm ô</b>.</div>'; return; }
   box.innerHTML = lwCfg.segments.map((s, i) => `
-    <div class="lw-seg-row" data-i="${i}">
-      <input type="color" class="lw-seg-color" data-i="${i}" value="${s.color}" title="Màu ô" />
-      <input type="text" class="lw-seg-text" data-i="${i}" value="${escAttr(s.text)}" placeholder="Nội dung ô" />
-      <input type="text" class="lw-seg-note" data-i="${i}" value="${escAttr(s.note)}" placeholder="Ghi chú (thưởng/phạt cụ thể)" />
-       <select class="lw-seg-type" data-i="${i}" title="Loại kết quả">
-         <option value="reward"${s.type === 'reward' ? ' selected' : ''}>🎁 Thưởng</option>
-         <option value="penalty"${s.type === 'penalty' ? ' selected' : ''}>⚡ Phạt</option>
-         <option value="info"${s.type === 'info' ? ' selected' : ''}>✨ Thông tin</option>
-       </select>
-       <label class="lw-seg-weight" title="Tỷ lệ tương đối"><span>×</span><input type="number" class="lw-seg-weight-input" data-i="${i}" min="1" max="100" value="${s.weight}" /></label>
-       <label class="lw-seg-jackpot" title="Quà lớn: hiệu ứng ánh sáng và âm thanh riêng"><input type="checkbox" data-i="${i}"${s.jackpot ? ' checked' : ''} /><span>⭐</span></label>
-       <button class="lw-seg-del" data-i="${i}" type="button" title="Xoá ô">🗑</button>
+    <div class="lw-seg" data-i="${i}">
+      <div class="lw-seg-row" data-i="${i}">
+        <input type="color" class="lw-seg-color" data-i="${i}" value="${s.color}" title="Màu ô" />
+        <input type="text" class="lw-seg-text" data-i="${i}" value="${escAttr(s.text)}" placeholder="Nội dung ô" />
+        <button class="lw-seg-gear" data-i="${i}" type="button" title="Cài đặt: loại kết quả · tỷ lệ · quà lớn">⚙️</button>
+        <button class="lw-seg-del" data-i="${i}" type="button" title="Xoá ô">🗑</button>
+      </div>
+      <div class="lw-seg-adv" data-i="${i}" hidden>
+        <select class="lw-seg-type" data-i="${i}" title="Loại kết quả">
+          <option value="reward"${s.type === 'reward' ? ' selected' : ''}>🎁 Thưởng</option>
+          <option value="penalty"${s.type === 'penalty' ? ' selected' : ''}>⚡ Phạt</option>
+          <option value="info"${s.type === 'info' ? ' selected' : ''}>✨ Thông tin</option>
+        </select>
+        <label class="lw-seg-weight" title="Tỷ lệ tương đối"><span>×</span><input type="number" class="lw-seg-weight-input" data-i="${i}" min="1" max="100" value="${s.weight}" /></label>
+        <label class="lw-seg-jackpot" title="Quà lớn: hiệu ứng ánh sáng và âm thanh riêng"><input type="checkbox" data-i="${i}"${s.jackpot ? ' checked' : ''} /><span>⭐ Quà lớn</span></label>
+      </div>
     </div>`).join('');
+  box.querySelectorAll('.lw-seg-gear').forEach(el => el.addEventListener('click', () => {
+    const adv = box.querySelector('.lw-seg-adv[data-i="' + el.dataset.i + '"]');
+    if (adv) { adv.hidden = !adv.hidden; el.classList.toggle('open', !adv.hidden); }
+  }));
   box.querySelectorAll('.lw-seg-color').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].color = el.value; renderLwPreview(); lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-text').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].text = el.value; renderLwPreview(); lwScheduleSave(); }));
-  box.querySelectorAll('.lw-seg-note').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].note = el.value; lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-type').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].type = el.value; lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-weight-input').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].weight = clampInt(el.value, 10, 1, 100); lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-jackpot input').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].jackpot = el.checked; lwScheduleSave(); }));
@@ -1877,14 +2101,13 @@ function lwAnimatePreview(index, durSec, landingOffset, edgeCatch) {
   const dur = Math.max(2, Math.min(15, durSec || 5)) * 1000;
   const turns = 5 + Math.floor(dur / 1500);
   const final = start + turns * Math.PI * 2 + norm(target - norm(start));
-  // Minimum-jerk: vận tốc và gia tốc đều về 0 ở hai đầu, không giật lúc bắt đầu/dừng.
-  const easeSpin = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+  const k = lwTailPower(lwCfg.slowSec);
   lwPreviewSpinning = true;
-  let t0 = null, catchTriggered = false;
+  let t0 = null, catchTriggered = false, scanIdx = -1;
   function frame(ts) {
     if (!t0) t0 = ts;
     const p = Math.min((ts - t0) / dur, 1);
-    lwPreviewRot = start + (final - start) * easeSpin(p);
+    lwPreviewRot = start + (final - start) * lwEaseWheel(p, k);
     if (p > 0.93 && Math.abs(offset) > 0.36) {
       const settle = (p - 0.93) / 0.07;
       const edgeStrength = Math.max(0, Math.min(1, (Math.abs(offset) - 0.36) / 0.105));
@@ -1895,11 +2118,42 @@ function lwAnimatePreview(index, durSec, landingOffset, edgeCatch) {
       catchTriggered = true;
       lwPlayPreviewEdgeCatch(offset);
     }
+    // Nháy nhanh ô đang nằm dưới mũi tên → chậm dần theo vòng quay (cảm giác "máy xèng").
+    if (p < 1) {
+      const ci = ((Math.floor(norm(-Math.PI / 2 - lwPreviewRot) / seg) % n) + n) % n;
+      if (ci !== scanIdx) { scanIdx = ci; lwShowScan(lwCfg.segments[ci]); }
+    }
     lwDrawPreviewAt(lwPreviewRot);
     if (p < 1) requestAnimationFrame(frame);
     else { lwPreviewRot = norm(final); lwPreviewSpinning = false; }
   }
   requestAnimationFrame(frame);
+}
+
+// Quay như đời thực: bung nhanh lúc đầu rồi chậm rải dần, bò từng chút ở cuối.
+// slowSec (0–6) càng lớn đuôi càng dài; đoạn đầu (a) là Hermite bậc 3 khớp vị trí+vận tốc
+// với ease-out tại mốc a và vận tốc 0 ở t=0 → khởi động êm, không giật.
+function lwTailPower(slowSec) { const s = Math.max(0, Math.min(6, Number(slowSec)) || 0); return 2.2 + s * 0.6; }
+function lwEaseWheel(t, k) {
+  if (t >= 1) return 1;
+  if (t <= 0) return 0;
+  const a = 0.14;
+  const G = 1 - Math.pow(1 - a, k);
+  const D = k * Math.pow(1 - a, k - 1);
+  if (t < a) {
+    const b = (3 * G - D * a) / (a * a);
+    const c = (D - 2 * G / a) / (a * a);
+    return b * t * t + c * t * t * t;
+  }
+  return 1 - Math.pow(1 - t, k);
+}
+
+// Thẻ "quét nhanh" hiển thị ô đang lướt qua mũi tên trong lúc quay (bảng điều khiển).
+function lwShowScan(s) {
+  const box = $('#lwLast'); if (!box || !s) return;
+  box.className = 'lw-last lw-last-scan';
+  box.style.setProperty('--lw-scan', s.color || '#888');
+  box.innerHTML = `<span class="lw-scan-dot"></span><span class="lw-scan-text">${escAttr(s.text) || '—'}</span>`;
 }
 function lwTextColor(hex) {
   const h = String(hex || '#888').replace('#', '');
@@ -2014,7 +2268,7 @@ async function lwDoSpin() {
       }
     }, secs * 1000 + 150);
   }
-  setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY · Ctrl + Space'; } }, secs * 1000 + 300);
+  setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY'; } }, secs * 1000 + 300);
 }
 
 function wireLuckyWheelTab() {
@@ -2024,6 +2278,7 @@ function wireLuckyWheelTab() {
   $('#lwStyle')?.addEventListener('change', () => { lwCfg.style = $('#lwStyle').value; renderLwPreview(); lwScheduleSave(); });
   $('#lwFontScale')?.addEventListener('input', () => { lwCfg.fontScale = clampInt($('#lwFontScale').value, 100, 50, 200); if ($('#lwFontVal')) $('#lwFontVal').textContent = lwCfg.fontScale + '%'; renderLwPreview(); lwScheduleSave(); });
   $('#lwSeconds')?.addEventListener('input', () => { lwCfg.spinSeconds = clampInt($('#lwSeconds').value, 5, 2, 15); lwScheduleSave(); });
+  $('#lwSlowSec')?.addEventListener('input', () => { lwCfg.slowSec = clampInt($('#lwSlowSec').value, 3, 0, 6); if ($('#lwSlowVal')) $('#lwSlowVal').textContent = lwCfg.slowSec + 's'; lwScheduleSave(); });
   $('#lwSound')?.addEventListener('change', () => { lwCfg.sound = $('#lwSound').checked; lwScheduleSave(); });
   $('#lwConfetti')?.addEventListener('change', () => { lwCfg.confetti = $('#lwConfetti').checked; lwScheduleSave(); });
   $('#lwShowResult')?.addEventListener('change', () => { lwCfg.showResult = $('#lwShowResult').checked; lwScheduleSave(); });
@@ -2076,6 +2331,8 @@ function wireLuckyWheelTab() {
   if ($('#lwFontScale')) $('#lwFontScale').value = lwCfg.fontScale;
   if ($('#lwFontVal')) $('#lwFontVal').textContent = (lwCfg.fontScale || 100) + '%';
   if ($('#lwSeconds')) $('#lwSeconds').value = lwCfg.spinSeconds;
+  if ($('#lwSlowSec')) $('#lwSlowSec').value = lwCfg.slowSec;
+  if ($('#lwSlowVal')) $('#lwSlowVal').textContent = (lwCfg.slowSec != null ? lwCfg.slowSec : 3) + 's';
   if ($('#lwSound')) $('#lwSound').checked = lwCfg.sound;
   if ($('#lwConfetti')) $('#lwConfetti').checked = lwCfg.confetti;
   if ($('#lwShowResult')) $('#lwShowResult').checked = lwCfg.showResult;
@@ -2136,6 +2393,9 @@ async function init() {
   const licenseOk = $('#licenseOverlay')?.hidden !== false;
   if (licenseOk && groups.length && !autoConnectPref) openGroupLauncher(true);
 
+  // Nền: tự lấy lại avatar nhóm/creator theo ID TikTok nếu thiếu hoặc URL đã hết hạn.
+  autoRefetchStaleAvatars();
+
   // Ctrl + R: reset nhanh overlay OBS (chặn reload trang mặc định của Chromium).
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'r' || e.key === 'R')) {
@@ -2152,7 +2412,8 @@ async function initLicenseGate() {
   wireLicenseUi();
   const version = await window.api.app.getVersion().catch(() => '0.1.0');
   $('#appVersionText').textContent = version;
-  document.title = `HP Talent Show — Phiên bản v${version}`;
+  if ($('#updateCurrentVer')) $('#updateCurrentVer').textContent = 'v' + version;
+  document.title = `HP GROUP LIVE — Phiên bản v${version}`;
   const st = await window.api.license.check().catch(e => ({ ok: false, error: e.message || String(e), license: {} }));
   renderLicenseState(st);
   if (!st.ok) showLicenseOverlay(st.error || 'Chưa kích hoạt KEY bản quyền.');
@@ -2224,24 +2485,46 @@ function wireLicenseUi() {
   $('#versionCheckBtn')?.addEventListener('click', () => checkForUpdate(true));
 }
 
+// Dọn nội dung ghi chú bản mới thành các dòng gọn, thân thiện — bỏ các dòng nhạy cảm/kỹ thuật.
+function cleanReleaseNotes(raw) {
+  const text = String(raw || '').replace(/\r/g, '').trim();
+  if (!text) return '• Cải thiện hiệu năng và sửa một số lỗi nhỏ.';
+  const banned = /(github|google\s*sheet|gitlab|\brepo\b|commit|api\.|token|http(s)?:\/\/|\.exe\b|bảo mật|security)/i;
+  const lines = text.split('\n')
+    .map(l => l.replace(/^#{1,6}\s*/, '').replace(/^\s*[-*]\s+/, '• ').replace(/\*\*/g, '').replace(/`/g, '').trim())
+    .filter(l => l && !banned.test(l));
+  const out = lines.slice(0, 14).join('\n').trim();
+  return out || '• Cải thiện hiệu năng và sửa một số lỗi nhỏ.';
+}
+
 async function checkForUpdate(manual = false) {
   const status = $('#updateStatus');
-  if (status) status.textContent = 'Đang kiểm tra bản cập nhật...';
+  const banner = $('#updateBanner');
+  const installBtn = $('#btnInstallUpdate');
+  const card = $('#updateCard');
+  if (status) status.textContent = '⏳ Đang kiểm tra bản cập nhật…';
   try {
     latestUpdateInfo = await window.api.updates.check();
+    const cur = latestUpdateInfo.current || '—';
+    if ($('#updateCurrentVer')) $('#updateCurrentVer').textContent = 'v' + cur;
     if (latestUpdateInfo.hasUpdate) {
-      if (status) status.textContent = `Có bản mới ${latestUpdateInfo.latest}. Bản hiện tại ${latestUpdateInfo.current}.`;
-      $('#btnInstallUpdate').hidden = false;
-      toast(`Có bản mới ${latestUpdateInfo.latest}`, 'success');
+      if ($('#updateLatestVer')) $('#updateLatestVer').textContent = 'v' + latestUpdateInfo.latest;
+      if ($('#updateNotes')) $('#updateNotes').textContent = cleanReleaseNotes(latestUpdateInfo.notes);
+      if (banner) banner.hidden = false;
+      if (installBtn) installBtn.hidden = false;
+      card?.classList.add('has-update');
+      if (status) status.textContent = `🎉 Bản mới v${latestUpdateInfo.latest} đã sẵn sàng — bấm “⬇ Tải & cài bản mới”.`;
+      toast(`🎉 Đã có bản mới v${latestUpdateInfo.latest}`, 'success');
     } else {
-      if (status) status.textContent = `Đang dùng bản mới nhất (${latestUpdateInfo.current}).`;
-      $('#btnInstallUpdate').hidden = true;
+      if (banner) banner.hidden = true;
+      if (installBtn) installBtn.hidden = true;
+      card?.classList.remove('has-update');
+      if (status) status.textContent = `✅ Bạn đang dùng bản mới nhất (v${cur}).`;
       if (manual) toast('Đang dùng bản mới nhất', 'success');
     }
   } catch (e) {
-    const msg = e.message || String(e);
-    if (status) status.textContent = `Không kiểm tra được cập nhật: ${msg}`;
-    if (manual) toast(msg, 'error');
+    if (status) status.textContent = '⚠ Chưa kiểm tra được cập nhật lúc này. Vui lòng thử lại sau.';
+    if (manual) toast('Chưa kiểm tra được cập nhật', 'error');
   }
 }
 
@@ -3018,6 +3301,8 @@ function openGroupLauncher(mandatory = false) {
   if (closeBtn) closeBtn.hidden = launcherMandatory;
   markLauncherSelection();
   ov.hidden = false;
+  // Lấy lại avatar nhóm nếu URL đã hết hạn (mở app lâu rồi mới mở lại màn chọn nhóm).
+  autoRefetchStaleAvatars();
 }
 
 function closeGroupLauncher() {
@@ -3191,12 +3476,74 @@ async function refreshGroups() {
   renderScoreCreatorSelect?.();
 }
 
+// Avatar TikTok là URL ký có tham số 'x-expires' → hết hạn sau ~vài giờ. Nhóm (và creator) lưu URL
+// đã ký lúc setup nên khi mở app lại thường đã hết hạn → ảnh rơi về logo HP. Tự lấy lại avatar theo
+// ID TikTok khi THIẾU hoặc URL ĐÃ HẾT HẠN. Chạy nền, tuần tự, nghỉ nhẹ để không dội TikTok CDN.
+function avatarNeedsRefetch(url) {
+  const s = String(url || '').trim();
+  if (!s) return true;                    // thiếu avatar → cần lấy
+  if (/^data:/i.test(s)) return false;    // dataURL lưu trong máy, không hết hạn
+  const m = s.match(/[?&]x-expires=(\d+)/i);
+  if (!m) return false;                   // URL không ghi hạn → giữ nguyên
+  return Number(m[1]) * 1000 <= Date.now() + 5 * 60 * 1000; // đệm 5 phút
+}
+
+let _avatarRefetchRunning = false;
+async function autoRefetchStaleAvatars() {
+  if (_avatarRefetchRunning) return;
+  _avatarRefetchRunning = true;
+  try {
+    const staleGroups = groups.filter(g => g.tiktokId && avatarNeedsRefetch(g.avatar));
+    const staleCreators = creators.filter(c => c.tiktokId && avatarNeedsRefetch(c.avatar));
+    let groupsChanged = false, creatorsChanged = false;
+    for (const g of staleGroups) {
+      try {
+        const p = await window.api.tt.fetchProfile(g.tiktokId);
+        if (p?.found && p.avatar && p.avatar !== g.avatar) {
+          await window.api.groups.upsert({ id: g.id, avatar: p.avatar });
+          groupsChanged = true;
+        }
+      } catch {}
+      await new Promise(r => setTimeout(r, 150));
+    }
+    for (const c of staleCreators) {
+      try {
+        const p = await window.api.tt.fetchProfile(c.tiktokId);
+        if (p?.found && p.avatar && p.avatar !== c.avatar) {
+          await window.api.creators.upsert({ id: c.id, avatar: p.avatar });
+          creatorsChanged = true;
+        }
+      } catch {}
+      await new Promise(r => setTimeout(r, 150));
+    }
+    if (groupsChanged) await refreshGroups();
+    if (creatorsChanged) await refreshCreators();
+    // Cập nhật lại màn "Chọn nhóm" nếu đang mở để thấy avatar vừa lấy.
+    if ((groupsChanged || creatorsChanged) && !$('#groupLauncher')?.hidden) renderGroupLauncher();
+  } finally {
+    _avatarRefetchRunning = false;
+  }
+}
+
 function renderGroups() {
   const gs = visibleGroups();
   const list = $('#groupsList');
   const countEl = $('#grCount');
+  const panel = document.querySelector('.panel[data-panel="groups"]');
+  const listTitle = $('#grListTitle');
   if (countEl) countEl.textContent = gs.length ? `${gs.length}` : '';
   list.innerHTML = '';
+
+  // NHÓM Riêng: đang chọn đúng 1 nhóm → hồ sơ đầy đủ (full-width dossier) thay vì thẻ nhỏ.
+  if (activeGroupId && gs.length === 1) {
+    panel?.classList.add('groups-solo');
+    if (listTitle) listTitle.style.display = 'none';
+    renderGroupDossier(gs[0], list);
+    return;
+  }
+  panel?.classList.remove('groups-solo');
+  if (listTitle) listTitle.style.display = '';
+
   if (gs.length === 0) {
     list.innerHTML = '<div class="hint">Chưa có nhóm nào.</div>';
     return;

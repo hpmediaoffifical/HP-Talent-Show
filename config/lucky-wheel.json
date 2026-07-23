@@ -1,19 +1,20 @@
 {
   "title": "VÒNG QUAY MAY MẮN",
-  "showTitle": true,
-  "style": "pastel",
-  "fontScale": 200,
+  "showTitle": false,
+  "style": "dark",
+  "fontScale": 180,
   "spinSeconds": 8,
+  "slowSec": 6,
   "sound": true,
   "confetti": true,
   "showResult": true,
   "showCount": true,
   "edgeStops": true,
-  "spinCount": 13,
+  "spinCount": 1,
   "selectedSpinner": {
-    "id": "c_mrtg8p4yb0tkt",
-    "name": "🥑 Enni 🦊",
-    "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/2db1c14469508a7a607b44f5c77b4c2c~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=3e6dd235&x-expires=1784815200&x-signature=UiH4X6hdPCZOHn8cKn1XoD1sJko%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
+    "id": "c_mrtg2crd6d27p",
+    "name": "Im Xuhào☘️",
+    "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=0399acd6&x-expires=1784988000&x-signature=fxjakPZfXB8M12FtEDbOA2pXc%2B8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8"
   },
   "segments": [
     {
@@ -23,7 +24,7 @@
       "type": "reward",
       "color": "#ff3d71",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_b",
@@ -32,7 +33,7 @@
       "type": "penalty",
       "color": "#00e0c7",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_c",
@@ -41,7 +42,7 @@
       "type": "reward",
       "color": "#7a5cff",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_d",
@@ -50,7 +51,7 @@
       "type": "penalty",
       "color": "#ff9f1c",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_e",
@@ -59,7 +60,7 @@
       "type": "reward",
       "color": "#2ec4ff",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_f",
@@ -77,7 +78,7 @@
       "type": "penalty",
       "color": "#38d67a",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_jjrv55c",
@@ -86,7 +87,7 @@
       "type": "penalty",
       "color": "#ffd23f",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_5w0pily",
@@ -95,7 +96,7 @@
       "type": "reward",
       "color": "#c86bff",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_hph66xh",
@@ -104,7 +105,7 @@
       "type": "reward",
       "color": "#4c8dff",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_uy0j3cu",
@@ -113,7 +114,7 @@
       "type": "penalty",
       "color": "#ff3d71",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     },
     {
       "id": "lw_rrpb685",
@@ -122,124 +123,16 @@
       "type": "reward",
       "color": "#00e0c7",
       "weight": 10,
-      "jackpot": false
+      "jackpot": true
     }
   ],
   "history": [
     {
-      "id": "sp_mrxdu6sp_1",
-      "time": "2026-07-23T10:42:40.489Z",
-      "member": "🥑 Enni 🦊",
-      "segId": "lw_hph66xh",
-      "text": "Thụt xì",
-      "note": "",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrxdnndw_3",
-      "time": "2026-07-23T10:37:35.396Z",
-      "member": "🥑 Enni 🦊",
-      "segId": "lw_a",
-      "text": "Thưởng 50K",
-      "note": "Chuyển khoản",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrxdly10_2",
-      "time": "2026-07-23T10:36:15.876Z",
-      "member": "𝚠𝚒𝚗𝚗𝚒𝚎 𝚗𝚎̀🤍🦢ྀི",
-      "segId": "lw_uy0j3cu",
-      "text": "5ngày",
-      "note": "",
-      "type": "penalty"
-    },
-    {
-      "id": "sp_mrxdlpj3_1",
-      "time": "2026-07-23T10:36:04.863Z",
-      "member": "CoCo neee 🥥 🐰",
-      "segId": "lw_jjrv55c",
-      "text": "Đi bộ",
-      "note": "",
-      "type": "penalty"
-    },
-    {
-      "id": "sp_mrxcc9qb_11",
-      "time": "2026-07-23T10:00:44.867Z",
-      "member": "",
-      "segId": "lw_a",
-      "text": "Thưởng 50K",
-      "note": "Chuyển khoản",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrxcbie3_10",
-      "time": "2026-07-23T10:00:09.435Z",
-      "member": "",
-      "segId": "lw_uy0j3cu",
-      "text": "5ngày",
-      "note": "",
-      "type": "penalty"
-    },
-    {
-      "id": "sp_mrxc07gv_9",
-      "time": "2026-07-23T09:51:22.063Z",
-      "member": "",
-      "segId": "lw_c",
-      "text": "x2 điểm",
-      "note": "",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrxbzt3e_8",
-      "time": "2026-07-23T09:51:03.434Z",
-      "member": "",
-      "segId": "lw_b",
-      "text": "Hát 1 bài",
-      "note": "",
-      "type": "penalty"
-    },
-    {
-      "id": "sp_mrxbyp2x_7",
-      "time": "2026-07-23T09:50:11.577Z",
-      "member": "",
-      "segId": "lw_rrpb685",
-      "text": "6 ngày",
-      "note": "",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrxbyapm_6",
-      "time": "2026-07-23T09:49:52.954Z",
-      "member": "",
-      "segId": "lw_c",
-      "text": "x2 điểm",
-      "note": "",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrxbx6iz_5",
-      "time": "2026-07-23T09:49:00.875Z",
-      "member": "",
-      "segId": "lw_hph66xh",
-      "text": "Thụt xì",
-      "note": "",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrxbwsab_4",
-      "time": "2026-07-23T09:48:42.419Z",
-      "member": "",
+      "id": "sp_mrxl7gq4_1",
+      "time": "2026-07-23T14:08:57.196Z",
+      "member": "Im Xuhào☘️",
       "segId": "lw_5w0pily",
       "text": "Cà tưng",
-      "note": "",
-      "type": "reward"
-    },
-    {
-      "id": "sp_mrxbwhu5_3",
-      "time": "2026-07-23T09:48:28.877Z",
-      "member": "",
-      "segId": "lw_e",
-      "text": "May mắn lần sau",
       "note": "",
       "type": "reward"
     }

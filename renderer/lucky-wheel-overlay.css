@@ -38,6 +38,31 @@ html, body {
   78% { opacity: .6; transform: scale(1.45) rotate(260deg); }
 }
 
+/* ====== OBS output: căn vòng quay vào CHÍNH GIỮA khung nguồn ======
+   Chỉ áp cho bản phát OBS. Cửa sổ Review (body.overlay-review) giữ layout dòng cũ
+   để tự ôm nội dung + tay kéo zoom hoạt động bình thường. */
+body:not(.overlay-review) .lw-stage {
+  position: fixed; inset: 0; width: 100%; min-height: 100vh; margin: 0;
+  padding: 0; justify-content: center;
+}
+/* Vòng quay là phần tử DUY NHẤT còn trong dòng → nằm đúng tâm khung nguồn.
+   Tiêu đề / bộ đếm / người quay neo tuyệt đối quanh nó nên không làm lệch tâm. */
+body:not(.overlay-review) .lw-count {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(50% + 356px); margin: 0;
+}
+body:not(.overlay-review) .lw-title {
+  position: absolute; left: 0; right: 0; bottom: calc(50% + 292px); margin: 0 auto;
+}
+body:not(.overlay-review) .lw-spinner {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: calc(50% + 296px); margin: 0;
+}
+body:not(.overlay-review) .lw-stage::before {
+  position: fixed; inset: auto; top: 50%; left: 50%;
+  width: 620px; height: 620px; margin: -310px 0 0 -310px;
+}
+
 .lw-count {
   align-self: center;
   margin-bottom: 6px;
@@ -134,13 +159,22 @@ body.overlay-review #lwHub { -webkit-app-region: no-drag; cursor: pointer; }
 
 .lw-spinner {
   margin-top: 18px;
+  display: inline-flex; align-items: center; gap: 10px;
   font-size: 26px; font-weight: 700; color: #fff;
   text-shadow: 0 2px 6px rgba(0,0,0,.55);
   background: rgba(20,20,28,.5);
   border: 1px solid rgba(255,255,255,.14);
-  padding: 8px 24px; border-radius: 999px;
+  padding: 6px 22px 6px 8px; border-radius: 999px;
 }
 .lw-spinner:empty { display: none; }
+.lw-spinner-av {
+  width: 40px; height: 40px; border-radius: 50%;
+  object-fit: cover; flex: none;
+  background: #fff;
+  border: 2px solid rgba(255,255,255,.85);
+  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+.lw-spinner-name { line-height: 1.1; }
 
 /* Thẻ kết quả nổi lên giữa vòng quay */
 .lw-result {

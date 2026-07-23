@@ -174,8 +174,8 @@
     "groupName": "HP•VITAMIN B",
     "creatorId": "c_mrtg28mrb1ni1",
     "creatorName": "Raiden",
-    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/4212cc580704c9f032c4fa5d7412b570~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=619cf45a&x-expires=1784815200&x-signature=P0uKM8DVUnaS2AKOKgv4qRReLJ0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-    "creatorAvatarKey": ""
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/4212cc580704c9f032c4fa5d7412b570~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=029ab8f7&x-expires=1784988000&x-signature=Rwkp%2BquJaZCdGVSMWyeWnGtpoWk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+    "creatorAvatarKey": "528a77824606caf7f6ab5000e0fa3c565a851ced"
   },
   "teamB": {
     "name": "Im Xuhào☘️",
@@ -340,8 +340,8 @@
     "groupName": "HP•VITAMIN B",
     "creatorId": "c_mrtg2crd6d27p",
     "creatorName": "Im Xuhào☘️",
-    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=2f677412&x-expires=1784815200&x-signature=TmxHWjlSGqpfeh8lRu1Hr%2BWNLfo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-    "creatorAvatarKey": ""
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=0399acd6&x-expires=1784988000&x-signature=fxjakPZfXB8M12FtEDbOA2pXc%2B8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+    "creatorAvatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b"
   },
   "durationSec": 180,
   "prepSec": 1,
@@ -362,7 +362,7 @@
   "giftDisplayMode": "scroll",
   "fxEnabled": true,
   "fxMode": "affliction",
-  "fxStyle": "fire",
+  "fxStyle": "water",
   "fxThreshold": 60,
   "fxMaxGap": 60,
   "fxIntensityCap": 100,

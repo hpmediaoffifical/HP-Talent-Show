@@ -115,6 +115,6 @@
   ],
   "duckWaiting": true,
   "bgEnabled": false,
-  "paused": false,
+  "paused": true,
   "displayLimit": 5
 }

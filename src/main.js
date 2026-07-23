@@ -1,4 +1,4 @@
-// HP Talent Show — Electron main process.
+// HP GROUP LIVE — Electron main process.
 // - TikTok LIVE bridge (qua TikTokClient)
 // - OBS overlay server (localhost SSE)
 // - Persistent store: creators, groups, settings, pkDuo cfg, ranking cfg, score cfg
@@ -13,6 +13,11 @@ const { TikTokClient } = require('./tiktok-client');
 const { ObsOverlayServer } = require('./obs-overlay-server');
 
 const ROOT = path.join(__dirname, '..');
+// Đổi tên hiển thị app → "HP GROUP LIVE" NHƯNG giữ nguyên thư mục dữ liệu cũ.
+// Electron lấy userData theo app.getName() (= productName). Đổi productName sẽ trỏ userData sang
+// thư mục mới và bỏ rơi toàn bộ config cũ ở %APPDATA%/HP Talent Show. Ghim lại về tên cũ để bản
+// cập nhật đọc đúng creators/groups/settings đã lưu (phải đặt TRƯỚC khi gọi getPath('userData')).
+try { app.setPath('userData', path.join(app.getPath('appData'), 'HP Talent Show')); } catch {}
 const USER_DATA_DIR = app.getPath('userData');
 
 // Chặn CRASH toàn cục: một lỗi lẻ (vd icon kéo-thả không load) không được làm sập app đang LIVE.
@@ -301,7 +306,7 @@ function compareVersions(a, b) {
 
 async function checkForUpdate() {
   const current = app.getVersion();
-  const res = await fetch(GITHUB_RELEASES_API, { headers: { 'User-Agent': 'HP Talent Show' } });
+  const res = await fetch(GITHUB_RELEASES_API, { headers: { 'User-Agent': 'HP GROUP LIVE' } });
   if (!res.ok) throw new Error('GitHub Releases HTTP ' + res.status);
   const release = await res.json();
   const latest = String(release.tag_name || release.name || '').replace(/^v/i, '') || current;
@@ -327,9 +332,9 @@ async function downloadAndInstallUpdate(downloadUrl, assetName = '') {
   }
   const dir = path.join(USER_DATA_DIR, 'updates');
   fs.mkdirSync(dir, { recursive: true });
-  const safeName = String(assetName || path.basename(new URL(downloadUrl).pathname) || 'HP-Talent-Show-Setup.exe').replace(/[\\/:*?"<>|]/g, '_');
+  const safeName = String(assetName || path.basename(new URL(downloadUrl).pathname) || 'HP-GROUP-LIVE-Setup.exe').replace(/[\\/:*?"<>|]/g, '_');
   const file = path.join(dir, safeName);
-  const res = await fetch(downloadUrl, { headers: { 'User-Agent': 'HP Talent Show' } });
+  const res = await fetch(downloadUrl, { headers: { 'User-Agent': 'HP GROUP LIVE' } });
   if (!res.ok) throw new Error('Không tải được bản cập nhật HTTP ' + res.status);
   fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
   await shell.openPath(file);
@@ -637,7 +642,7 @@ function csvCell(v) { return `"${String(v ?? '').replace(/"/g, '""')}"`; }
 function buildHistoryCsv(list) {
   const now = Date.now();
   const lines = [];
-  lines.push(csvCell('HP Talent Show — Lịch sử trận đấu'));
+  lines.push(csvCell('HP GROUP LIVE — Lịch sử trận đấu'));
   lines.push([csvCell('Thời gian xuất'), csvCell(`${fmtDate(now)} ${fmtTime(now)}`)].join(','));
   lines.push([csvCell('Số trận'), csvCell(list.length)].join(','));
   lines.push('');
@@ -1636,14 +1641,18 @@ class MvpHonorEngine {
       layout: ['horizontal', 'vertical', 'attached'].includes(c.layout) ? c.layout : 'attached',
       avatarSize: _mvpClamp(c.avatarSize, 60, 400, 150),
       frameScale: _mvpClamp(c.frameScale, 80, 300, 150),
+      nameSize: _mvpClamp(c.nameSize, 12, 120, 40),
       fontSize: _mvpClamp(c.fontSize, 12, 140, 40),
       color: _mvpHex(c.color, '#ffffff'),
       textStyle: ['solid', 'gradient', 'neon', 'plaque'].includes(c.textStyle) ? c.textStyle : 'solid',
       bgColor: _mvpHex(c.bgColor, '#e84c88'),
       bgColor2: _mvpHex(c.bgColor2, '#7a3cff'),
       bgOpacity: _mvpClamp(c.bgOpacity, 0, 100, 100),
-      entryAnim: ['none', 'popBounce', 'zoomFade', 'slideRight', 'slideUp'].includes(c.entryAnim) ? c.entryAnim : 'popBounce',
+      entryAnim: ['none', 'popBounce', 'zoomFade', 'slideRight', 'slideUp', 'flip', 'dropBounce', 'spotlight', 'zoomShake'].includes(c.entryAnim) ? c.entryAnim : 'popBounce',
       showName: !!c.showName,
+      showText: c.showText !== false,
+      usePlaqueImg: c.usePlaqueImg !== false,
+      celebrate: !!c.celebrate,
       overlay: {
         x: _mvpNum(c.overlay?.x, 120),
         y: _mvpNum(c.overlay?.y, 200),
@@ -1658,8 +1667,16 @@ class MvpHonorEngine {
     const cards = (this.config.cards || [])
       .filter(c => c && c.show !== false)
       .map(c => this._resolveCard(c, byId));
-    const canvas = ['1:1', '3:4', '9:16'].includes(this.config.canvas) ? this.config.canvas : '3:4';
-    return { cards, canvas };
+    const canvas = ['1:1', '3:4', '9:16'].includes(this.config.canvas) ? this.config.canvas : '1:1';
+    const reveal = {
+      revealNonce: _mvpNum(this.config.revealNonce, 0),
+      revealStagger: _mvpClamp(this.config.revealStagger, 0, 5, 0.6),
+      revealAutoHide: _mvpClamp(this.config.revealAutoHide, 0, 120, 0),
+      revealSound: this.config.revealSound !== false,
+      revealExit: ['fade', 'slideDown', 'zoomOut'].includes(this.config.revealExit) ? this.config.revealExit : 'fade',
+      autoPlay: !!this.config.autoPlay,   // AUTO: xoay vòng liên tục từng khung avatar
+    };
+    return { cards, canvas, ...reveal };
   }
   _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
 }
@@ -1681,6 +1698,7 @@ class LuckyWheelEngine {
       style: 'neon',            // neon | gold | pastel | dark
       fontScale: 100,           // % cỡ chữ trên ô (50–200)
       spinSeconds: 5,
+      slowSec: 3,               // độ "chậm rải dần" ở đoạn cuối (0–6): càng lớn càng bò từng chút rồi mới dừng
       sound: true,
       confetti: true,
       showResult: true,
@@ -1733,6 +1751,7 @@ class LuckyWheelEngine {
     }
     const seg = segs[index] || {};
     const duration = _lwNum(this.config.spinSeconds, 5, 2, 15);
+    const slowSec = _lwNum(this.config.slowSec, 3, 0, 6);
     // Độ lệch tính theo nửa ô (-.5 đến .5). Một phần lượt cố ý sát vạch,
     // nhưng luôn chừa biên để kết quả chọn ở đây không bao giờ đổi sang ô khác.
     const nearEdge = this.config.edgeStops !== false && Math.random() < 0.32;
@@ -1748,7 +1767,7 @@ class LuckyWheelEngine {
     // Snapshot bất biến: mọi overlay hiển thị đúng kết quả đã chốt, không phụ thuộc
     // danh sách ô có bị sửa trong lúc quay hay client nhận state chậm.
     const result = { id: seg.id || '', text: seg.text || '', note: seg.note || '', type: seg.type || 'info', jackpot: seg.jackpot === true };
-    this.spin = { spinId, index, landingOffset, edgeCatch, result, duration, startAt: Date.now(), spinner: sp };
+    this.spin = { spinId, index, landingOffset, edgeCatch, result, duration, slowSec, startAt: Date.now(), spinner: sp };
     const rec = {
       id: spinId,
       time: new Date().toISOString(),
@@ -1771,6 +1790,7 @@ class LuckyWheelEngine {
       style: ['neon', 'gold', 'pastel', 'dark'].includes(c.style) ? c.style : 'neon',
       fontScale: _lwNum(c.fontScale, 100, 50, 200),
       spinSeconds: _lwNum(c.spinSeconds, 5, 2, 15),
+      slowSec: _lwNum(c.slowSec, 3, 0, 6),
       sound: c.sound !== false,
       confetti: c.confetti !== false,
       showResult: c.showResult !== false,
@@ -2195,7 +2215,7 @@ function createWindow() {
     maxHeight: MAIN_WINDOW_MAX_BOUNDS.height,
     maximizable: false,
     icon: APP_ICON || undefined,
-    title: 'HP Talent Show',
+    title: 'HP GROUP LIVE',
     backgroundColor: '#ffffff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -2399,6 +2419,22 @@ function registerIpc() {
   ipcMain.handle('tt:disconnect', async () => { await ttClient.disconnect(); return true; });
   ipcMain.handle('tt:status', () => ({ connected: ttClient?.isConnected(), info: ttClient?.roomInfo || null }));
   ipcMain.handle('tt:fetchProfile', async (_e, { username }) => ttClient.fetchProfile(username));
+  // Lấy avatar theo ID TikTok rồi TẢI VỀ 1 LẦN dưới dạng dataURL (lưu thẳng vào config, không phải fetch lại từ TikTok).
+  ipcMain.handle('tt:fetchAvatarData', async (_e, { username }) => {
+    const p = await ttClient.fetchProfile(username);
+    let dataUrl = '';
+    if (p?.avatar) {
+      try {
+        const res = await fetch(p.avatar, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (res.ok) {
+          const ct = res.headers.get('content-type') || 'image/jpeg';
+          const buf = Buffer.from(await res.arrayBuffer());
+          if (buf.length && buf.length <= 4 * 1024 * 1024) dataUrl = `data:${ct};base64,${buf.toString('base64')}`;
+        }
+      } catch {}
+    }
+    return { uniqueId: p?.uniqueId || '', nickname: p?.nickname || '', found: !!p?.found, dataUrl };
+  });
 
   // Creators
   ipcMain.handle('creators:list', () => {
@@ -2488,7 +2524,7 @@ function registerIpc() {
   ipcMain.handle('data:counts', () => ({ creators: loadCreators().length, groups: loadGroups().length }));
   ipcMain.handle('data:export', async () => {
     const payload = {
-      app: 'HP Talent Show',
+      app: 'HP GROUP LIVE',
       version: app.getVersion(),
       exportedAt: Date.now(),
       creators: loadCreators(),

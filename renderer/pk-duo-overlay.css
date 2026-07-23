@@ -1,4 +1,4 @@
-/* PK Đôi overlay — port từ BIGO Action với một số adapt cho HP Talent Show */
+/* PK Đôi overlay — port từ BIGO Action với một số adapt cho HP GROUP LIVE */
 html, body { margin:0; width:100%; height:100%; background:transparent; overflow:hidden; font-family:'Inter','Segoe UI', Arial, sans-serif; }
 body { display:flex; justify-content:center; align-items:center; }
 /* zoom (không phải transform:scale) → trình duyệt layout lại + render chữ ở độ phân giải cao thật → nét trên OBS */
