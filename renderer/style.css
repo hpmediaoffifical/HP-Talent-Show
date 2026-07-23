@@ -971,6 +971,73 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .group-card .gc-count { font-size: 11.5px; color: var(--tt-ink-3); padding: 3px 8px; background: var(--tt-bg-3); border-radius: 99px; flex: 0 0 auto; }
 .group-card .gc-actions { display: flex; gap: 4px; }
 
+/* ===== NHÓM Riêng: Hồ sơ nhóm full-width ===== */
+.panel[data-panel="groups"].groups-solo { max-width: none; }
+/* #groupsList vốn là grid 280px → dossier bị nhét vào 1 ô hẹp. Solo mode: trả về block để trải hết. */
+.panel[data-panel="groups"].groups-solo .groups-list { display: block; }
+.group-dossier { display: flex; flex-direction: column; gap: 18px; }
+.group-dossier .gd-hero {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  padding: 22px 24px; border-radius: var(--r-lg, 18px);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gd-color) 16%, var(--tt-bg-2)) 0%, var(--tt-bg-2) 62%);
+  border: 1px solid var(--tt-border);
+  border-left: 6px solid var(--gd-color);
+}
+.group-dossier .gd-avatar {
+  width: 92px; height: 92px; border-radius: 50%; object-fit: cover; flex: 0 0 auto;
+  border: 3px solid var(--gd-color); background: #fff;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--gd-color) 40%, transparent);
+}
+.group-dossier .gd-hero-main { flex: 1 1 320px; min-width: 260px; display: flex; flex-direction: column; gap: 8px; }
+.group-dossier .gd-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.group-dossier .gd-name { margin: 0; font-size: 26px; font-weight: 800; color: var(--tt-ink); letter-spacing: -.2px; }
+.group-dossier .gd-handle { font-size: 14px; color: var(--tt-ink-2); }
+.group-dossier .gd-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.group-dossier .gd-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--tt-ink); background: var(--tt-bg-3);
+  border: 1px solid var(--tt-border); border-radius: 99px; padding: 5px 12px;
+}
+.group-dossier .gd-chip b { color: var(--tt-ink-2); font-weight: 700; }
+.group-dossier .gd-chip i { color: var(--tt-ink-3); font-style: normal; }
+.group-dossier .gd-chip-gift img { width: 18px; height: 18px; object-fit: contain; }
+.group-dossier .gd-stats { display: flex; gap: 10px; flex: 0 0 auto; margin-left: auto; }
+.group-dossier .gd-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 78px; padding: 10px 8px; border-radius: var(--r-md, 12px);
+  background: var(--tt-bg); border: 1px solid var(--tt-border);
+}
+.group-dossier .gd-stat b { font-size: 24px; font-weight: 800; color: var(--gd-color); line-height: 1; }
+.group-dossier .gd-stat span { font-size: 11px; color: var(--tt-ink-3); margin-top: 4px; }
+
+.group-dossier .gd-members-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.group-dossier .gd-members-head h3 { margin: 0; font-size: 16px; color: var(--tt-ink); }
+.group-dossier .gd-members {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;
+}
+.group-dossier .gd-member {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; background: var(--tt-bg-2); border: 1px solid var(--tt-border); border-radius: var(--r-md, 12px);
+}
+.group-dossier .gdm-ava { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; border: 2px solid var(--gd-color); background: #fff; }
+.group-dossier .gdm-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.group-dossier .gdm-name { font-size: 14px; font-weight: 700; color: var(--tt-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.group-dossier .gdm-handle { font-size: 12px; color: var(--tt-ink-3); }
+.group-dossier .gdm-gift {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 2px;
+  font-size: 12px; color: var(--tt-ink); cursor: pointer;
+  background: var(--tt-bg-3); border: 1px solid var(--tt-border); border-radius: 8px; padding: 3px 8px;
+  max-width: 100%;
+}
+.group-dossier .gdm-gift:hover { border-color: var(--gd-color); }
+.group-dossier .gdm-gift.is-empty { color: var(--tt-ink-3); }
+.group-dossier .gdm-gift img { width: 18px; height: 18px; object-fit: contain; flex: 0 0 auto; }
+.group-dossier .gdm-gift > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.group-dossier .gdm-inh { font-style: normal; font-size: 10px; color: #fff; background: var(--gd-color); border-radius: 99px; padding: 1px 6px; flex: 0 0 auto; }
+.group-dossier .gdm-gift-edit { margin-left: auto; opacity: .5; flex: 0 0 auto; }
+.group-dossier .gdm-edit { flex: 0 0 auto; }
+
 /* ===== PK Đôi ===== */
 .pk-sound-row { margin: 14px 0; padding: 10px 14px; background: var(--tt-bg-2); border: 1px solid var(--tt-border); border-radius: var(--r-md); }
 .pk-sound-row summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--tt-ink); user-select: none; padding: 4px 0; }
@@ -1403,6 +1470,11 @@ button.tiny { padding:4px 7px; font-size:12px; }
 .groups-list { grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:9px; }
 .group-card { padding:10px; gap:8px; }
 .group-card .gc-avatar { width:38px; height:38px; }
+.group-dossier .gd-hero { padding:16px; gap:14px; }
+.group-dossier .gd-avatar { width:72px; height:72px; }
+.group-dossier .gd-name { font-size:22px; }
+.group-dossier .gd-stats { margin-left:0; }
+.group-dossier .gd-members { grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:9px; }
 .panel[data-panel="connect"] { height:calc(100vh - 53px); padding:14px 18px; }
 .live-layout { gap:10px; }
 .live-banner-card { padding:8px; }

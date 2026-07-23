@@ -3584,6 +3584,99 @@ function renderGroups() {
   }));
 }
 
+// NHÓM Riêng: hồ sơ nhóm đầy đủ, trải hết chiều ngang màn hình.
+// Hero (avatar, tên, @id, MC/Quản lý/quà nhóm, thống kê) + lưới thành viên (avatar, tên, quà riêng/kế thừa).
+function renderGroupDossier(g, list) {
+  const color = g.color || colorFromId(g.tiktokId || g.id);
+  const prof = getGroupProfile(g.id);
+  const matches = Number(prof.stats?.matches) || 0;
+  const dg = prof.defaultGift;
+  const hasGift = dg && (dg.giftId || dg.giftName);
+  const members = creators.filter(c => c.groupId === g.id)
+    .slice().sort((a, b) => (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi'));
+  const ownGiftCount = members.filter(c => c.defaultGiftId || c.defaultGiftName).length;
+
+  const chips = [];
+  chips.push(`<span class="gd-chip">🎤 <b>MC</b> ${g.mc ? escapeHtml(g.mc) : '<i>—</i>'}</span>`);
+  chips.push(`<span class="gd-chip">🛡️ <b>Quản lý</b> ${g.manager ? escapeHtml(g.manager) : '<i>—</i>'}</span>`);
+  chips.push(`<span class="gd-chip gd-chip-gift">${hasGift && dg.giftIcon ? `<img src="${escapeAttr(dg.giftIcon)}" alt=""/>` : '🎁'} <b>Quà nhóm</b> ${hasGift ? escapeHtml(dg.giftName || '') : '<i>chưa đặt</i>'}</span>`);
+
+  const dossier = document.createElement('div');
+  dossier.className = 'group-dossier';
+  dossier.style.setProperty('--gd-color', color);
+  dossier.innerHTML = `
+    <div class="gd-hero">
+      <img class="gd-avatar" src="${escapeAttr(g.avatar || '../logo/hp-logo.png')}" alt="" />
+      <div class="gd-hero-main">
+        <div class="gd-title-row">
+          <h2 class="gd-name">${escapeHtml(g.name || 'Nhóm')}</h2>
+          <button class="ghost tiny gd-edit-group" type="button">✏️ Sửa nhóm</button>
+        </div>
+        <div class="gd-handle">@${escapeHtml(g.tiktokId || '—')}${g.channelName ? ` · ${escapeHtml(g.channelName)}` : ''}</div>
+        <div class="gd-chips">${chips.join('')}</div>
+      </div>
+      <div class="gd-stats">
+        <div class="gd-stat"><b>${members.length}</b><span>Thành viên</span></div>
+        <div class="gd-stat"><b>${ownGiftCount}</b><span>Có quà riêng</span></div>
+        <div class="gd-stat"><b>${matches}</b><span>Trận đấu</span></div>
+      </div>
+    </div>
+    <div class="gd-members-head">
+      <h3>👤 Thành viên <span class="rf-count">${members.length}</span></h3>
+      <button class="ghost tiny gd-goto-creators" type="button">＋ Quản lý thành viên</button>
+    </div>
+    <div class="gd-members"></div>
+  `;
+
+  const memWrap = dossier.querySelector('.gd-members');
+  if (!members.length) {
+    memWrap.innerHTML = '<div class="hint">Chưa có thành viên. Thêm ở tab THÀNH VIÊN.</div>';
+  } else {
+    for (const c of members) {
+      const own = creatorDefaultGift(c);
+      const inherited = own ? null : groupDefaultGift(g.id);
+      const gift = own || inherited;
+      const memberKey = c.id || c.tiktokId || '';
+      const card = document.createElement('div');
+      card.className = 'gd-member';
+      card.innerHTML = `
+        <img class="gdm-ava" src="${escapeAttr(c.avatar || '../logo/hp-logo.png')}" alt="" style="border-color:${escapeAttr(color)}" />
+        <div class="gdm-body">
+          <div class="gdm-name">${escapeHtml(c.nickname || c.tiktokId || '')}</div>
+          <div class="gdm-handle">@${escapeHtml(c.tiktokId || '')}</div>
+          <div class="gdm-gift${gift ? '' : ' is-empty'}" data-gift="${escapeAttr(memberKey)}" role="button" tabindex="0" title="Bấm để chọn quà riêng">
+            ${gift?.icon ? `<img src="${escapeAttr(gift.icon)}" alt=""/>` : '🎁'}
+            <span>${gift ? escapeHtml(gift.giftName || '') : '(chưa đặt quà)'}</span>
+            ${inherited ? '<em class="gdm-inh">kế thừa nhóm</em>' : ''}
+            <span class="gdm-gift-edit">✏️</span>
+          </div>
+        </div>
+        <button class="ghost tiny gdm-edit" data-edit-creator="${escapeAttr(memberKey)}" type="button">Cài đặt</button>
+      `;
+      memWrap.appendChild(card);
+    }
+  }
+
+  list.appendChild(dossier);
+
+  dossier.querySelector('.gd-edit-group')?.addEventListener('click', () => {
+    editGroup(g.id || g.tiktokId);
+    document.querySelector('.panel[data-panel="groups"]')?.scrollTo?.({ top: 0, behavior: 'smooth' });
+  });
+  dossier.querySelector('.gd-goto-creators')?.addEventListener('click', () => {
+    document.querySelector('.nav-btn[data-tab="creators"]')?.click();
+  });
+  dossier.querySelectorAll('[data-gift]').forEach(b => {
+    const handler = () => pickCreatorGiftQuick(b.dataset.gift);
+    b.addEventListener('click', handler);
+    b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
+  });
+  dossier.querySelectorAll('[data-edit-creator]').forEach(b => b.addEventListener('click', () => {
+    document.querySelector('.nav-btn[data-tab="creators"]')?.click();
+    editCreator(b.dataset.editCreator);
+  }));
+}
+
 function clearGroupForm() {
   currentEditingGroup = null;
   $('#grTiktokId').value = '';
