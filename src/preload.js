@@ -99,6 +99,14 @@ const api = {
     getUrl: () => ipcRenderer.invoke('luckywheel:getUrl'),
   },
 
+  // ===== MENU QUÀ (thông tin quà) =====
+  giftmenu: {
+    getConfig: () => ipcRenderer.invoke('giftmenu:getConfig'),
+    setConfig: (cfg) => ipcRenderer.invoke('giftmenu:setConfig', cfg),
+    apply: (cfg) => ipcRenderer.invoke('giftmenu:apply', cfg),
+    getUrl: () => ipcRenderer.invoke('giftmenu:getUrl'),
+  },
+
   // ===== Match history (LỊCH SỬ trận đấu) =====
   history: {
     list: (filter) => ipcRenderer.invoke('history:list', filter),
@@ -155,6 +163,12 @@ const api = {
     list: () => ipcRenderer.invoke('ticker:list'),
   },
 
+  // ===== KIM CƯƠNG TỔNG theo nhóm (sheet DAILY DATA) =====
+  kc: {
+    getGroups: () => ipcRenderer.invoke('kc:getGroups'),
+    getMonths: () => ipcRenderer.invoke('kc:getMonths'),
+  },
+
   // ===== Settings =====
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
@@ -188,7 +202,7 @@ const api = {
     const allowed = new Set([
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
-      'pkduo:state', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state',
+      'pkduo:state', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state',
       'history:changed',
       'log',
     ]);

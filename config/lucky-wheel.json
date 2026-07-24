@@ -10,7 +10,7 @@
   "showResult": true,
   "showCount": true,
   "edgeStops": true,
-  "spinCount": 1,
+  "spinCount": 2,
   "selectedSpinner": {
     "id": "c_mrtg2s085v57p",
     "name": "GIN",
@@ -127,6 +127,15 @@
     }
   ],
   "history": [
+    {
+      "id": "sp_mryevywg_1",
+      "time": "2026-07-24T03:59:49.360Z",
+      "member": "GIN",
+      "segId": "lw_d",
+      "text": "Hít đất 10 cái",
+      "note": "",
+      "type": "penalty"
+    },
     {
       "id": "sp_mrxl7gq4_1",
       "time": "2026-07-23T14:08:57.196Z",

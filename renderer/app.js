@@ -74,6 +74,7 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
   if (id === 'settings') refreshOverlayUrls();
   if (id === 'mvphonor') mvpRenderStage?.();
   if (id === 'luckywheel') { lwRefreshSpinners?.(); renderLwPreview?.(); }
+  if (id === 'groups') loadKcData?.(); // nạp KIM CƯƠNG TỔNG cho Hồ Sơ Nhóm
 }));
 
 // ===== Thu gọn sidebar (bấm logo HP) =====
@@ -1475,6 +1476,215 @@ function wireStickerDanceTab() {
 }
 
 // ============================================================
+// MENU QUÀ (thông tin quà) — overlay ĐỘC LẬP trong tab Đập Trứng.
+// Chỉ hiển thị danh sách "ICON QUÀ | Nội dung"; không đếm/không nhịp/không số lượng.
+// ============================================================
+let giftMenuCfg = null;
+let gmSaveTimer = null;
+// Menu Quà theo NHÓM (giống Sticker Dance): '' = TALENT SHOW dùng file gốc; nhóm = hồ sơ nhóm.
+let giftMenuGroupId = '';
+let giftMenuBaseCfg = null;
+const GM_ICON_FX = ['none', 'bubble', 'ring', 'glow', 'orbit', 'ripple', 'sparkle', 'neon', 'rays'];
+const GM_ICON_ANIM = ['none', 'float', 'shake', 'flip', 'swing', 'bounce', 'wobble', 'spin', 'pulse', 'tada', 'heartbeat', 'jelly'];
+const GM_TEXT_FX = ['none', 'glow', 'shine', 'rainbow', 'neon', 'fire', 'pulse', 'wave', 'shadow3d', 'glitch'];
+function gmColor(v, fb) { return /^#[0-9a-f]{6}$/i.test(String(v || '')) ? String(v) : fb; }
+function gmNewId() { return 'gm' + Math.random().toString(36).slice(2, 9); }
+function normalizeGiftMenuCfg(c) {
+  c = (c && typeof c === 'object') ? c : {};
+  const items = Array.isArray(c.items) ? c.items : [];
+  return {
+    items: items.filter(x => x && typeof x === 'object').map(x => ({
+      id: x.id || gmNewId(),
+      giftId: x.giftId != null ? String(x.giftId) : '',
+      giftName: x.giftName || '',
+      icon: x.icon || '',
+      text: typeof x.text === 'string' ? x.text : '',
+      color: gmColor(x.color, ''),  // '' = dùng màu chữ chung
+      bg: gmColor(x.bg, ''),        // '' = không có nền riêng
+    })),
+    textColor: gmColor(c.textColor, '#ffe14d'),
+    textSize: clampInt(c.textSize, 34, 12, 80),
+    bold: c.bold !== false,
+    textStroke: c.textStroke !== false,
+    align: c.align === 'center' ? 'center' : 'left',
+    // Chỉ còn 2 trạng thái: 'scroll' (chạy) / 'off' (hiển thị đúng nội dung đã nhập). 'wrap' cũ → 'off'.
+    longText: (c.longText === 'scroll' || (c.longText == null && c.marquee !== false)) ? 'scroll' : 'off',
+    speed: clampInt(c.speed, 5, 1, 10),
+    marqueeWidth: clampInt(c.marqueeWidth, 360, 120, 900),
+    maxChars: clampInt(c.maxChars, 0, 0, 120),
+    textFx: GM_TEXT_FX.includes(c.textFx) ? c.textFx : 'none',
+    iconSize: clampInt(c.iconSize, 84, 40, 180),
+    iconFx: GM_ICON_FX.includes(c.iconFx) ? c.iconFx : 'bubble',
+    iconAnim: GM_ICON_ANIM.includes(c.iconAnim) ? c.iconAnim : 'float',
+    gap: clampInt(c.gap, 18, 0, 80),
+    rowGap: clampInt(c.rowGap, 16, 0, 80),
+    overlayScale: clampInt(c.overlayScale, 100, 40, 200),
+    panel: ['none', 'rows', 'full'].includes(c.panel) ? c.panel : 'none',
+    bg: gmColor(c.bg, '#3a0d12'),
+    bgOpacity: clampInt(c.bgOpacity, 0, 0, 100),
+    showTitle: !!c.showTitle,
+    title: typeof c.title === 'string' ? c.title : '',
+  };
+}
+function cloneGiftMenuCfg(c) { return normalizeGiftMenuCfg(JSON.parse(JSON.stringify(c || {}))); }
+async function loadGiftMenuConfig() {
+  const cfg = await window.api.giftmenu.getConfig().catch(() => null);
+  giftMenuCfg = normalizeGiftMenuCfg(cfg);
+  giftMenuBaseCfg = cloneGiftMenuCfg(giftMenuCfg);
+  giftMenuGroupId = '';
+}
+// Đẩy live + lưu ĐÚNG CHỖ: file gốc nếu TALENT SHOW, hồ sơ nhóm nếu đang ở nhóm.
+function pushGiftMenuLive() {
+  if (!giftMenuCfg) return;
+  if (giftMenuGroupId) {
+    window.api.giftmenu.apply(giftMenuCfg).catch(() => {});
+    saveGroupProfilePatch(giftMenuGroupId, { giftMenu: cloneGiftMenuCfg(giftMenuCfg) });
+  } else {
+    window.api.giftmenu.setConfig(giftMenuCfg).catch(() => {});
+    giftMenuBaseCfg = cloneGiftMenuCfg(giftMenuCfg);
+  }
+}
+function scheduleGiftMenuSave() { clearTimeout(gmSaveTimer); gmSaveTimer = setTimeout(pushGiftMenuLive, 250); }
+// Đổi nhóm đang chọn → chốt cấu hình cũ, nạp cấu hình nhóm mới (kế thừa giao diện base nếu nhóm chưa có).
+function switchGiftMenuGroup(newId) {
+  newId = newId || '';
+  if (!giftMenuCfg || newId === giftMenuGroupId) return;
+  clearTimeout(gmSaveTimer);
+  if (giftMenuGroupId) saveGroupProfilePatch(giftMenuGroupId, { giftMenu: cloneGiftMenuCfg(giftMenuCfg) });
+  else giftMenuBaseCfg = cloneGiftMenuCfg(giftMenuCfg);
+  if (!newId) {
+    giftMenuCfg = cloneGiftMenuCfg(giftMenuBaseCfg || giftMenuCfg);
+  } else {
+    const prof = getGroupProfile(newId).giftMenu;
+    giftMenuCfg = (prof && typeof prof === 'object')
+      ? normalizeGiftMenuCfg(prof)
+      : { ...cloneGiftMenuCfg(giftMenuBaseCfg || giftMenuCfg), items: [] };
+  }
+  giftMenuGroupId = newId;
+  applyGiftMenuCfgToInputs();
+  renderGiftMenuEditor();
+  if (newId) window.api.giftmenu.apply(giftMenuCfg).catch(() => {});
+  else window.api.giftmenu.setConfig(giftMenuCfg).catch(() => {});
+}
+function gmItemAt(id) { return giftMenuCfg.items.find(x => x.id === id); }
+function renderGiftMenuEditor() {
+  const list = $('#gmList'); if (!list || !giftMenuCfg) return;
+  if (!giftMenuCfg.items.length) {
+    list.innerHTML = '<div class="gm-empty-row">Chưa có dòng nào. Bấm “＋ Thêm dòng” để tạo bảng Menu Quà.</div>';
+    return;
+  }
+  list.innerHTML = giftMenuCfg.items.map((it, i) => `
+    <div class="gm-item" data-id="${escapeAttr(it.id)}" draggable="true">
+      <span class="gm-drag" title="Kéo để đổi thứ tự">⠿</span>
+      <span class="gm-item-num">${i + 1}</span>
+      <div class="gm-item-icon${it.icon ? ' has' : ''}" title="${it.giftName ? escapeAttr(it.giftName) : 'Chọn quà'}">${it.icon ? `<img src="${escapeAttr(it.icon)}" onerror="this.style.visibility='hidden'" />` : '🎁'}</div>
+      <textarea class="gm-item-text" rows="1" placeholder="Nội dung (VD: FOCUS CAM) — Enter để xuống dòng">${escapeHtml(it.text || '')}</textarea>
+      <span class="gm-item-opts">
+        <label class="gm-swatch${it.color ? ' is-set' : ''}" data-kind="color" title="Màu chữ riêng cho dòng (mặc định = màu chung)"><input class="gm-item-color" type="color" value="${it.color || giftMenuCfg.textColor}" /><b>A</b></label>
+        <button class="gm-item-color-reset" type="button" title="Ép màu chữ dòng này về màu chung">↺</button>
+        <label class="gm-swatch${it.bg ? ' is-set' : ''}" data-kind="bg" title="Màu nền riêng của dòng"><input class="gm-item-bg" type="color" value="${it.bg || giftMenuCfg.bg}" /><b>▧</b></label>
+        <button class="gm-item-bg-reset" type="button" title="Reset: bỏ nền riêng của dòng">↺</button>
+      </span>
+      <button class="gm-item-del" type="button" title="Xoá dòng">✕</button>
+    </div>`).join('');
+  list.querySelectorAll('.gm-item').forEach(el => {
+    const id = el.dataset.id;
+    const colorSwatch = el.querySelector('.gm-swatch[data-kind="color"]');
+    const bgSwatch = el.querySelector('.gm-swatch[data-kind="bg"]');
+    const colorInput = el.querySelector('.gm-item-color');
+    const bgInput = el.querySelector('.gm-item-bg');
+    el.querySelector('.gm-item-icon').addEventListener('click', async () => {
+      const g = await GiftPicker.open({ title: '📜 Chọn quà cho Menu Quà' });
+      if (!g) return;
+      const it = gmItemAt(id); if (!it) return;
+      it.giftId = String(g.id); it.giftName = g.name; it.icon = g.icon;
+      if (!it.text) it.text = g.name || '';
+      renderGiftMenuEditor(); scheduleGiftMenuSave();
+    });
+    el.querySelector('.gm-item-text').addEventListener('input', (e) => { const it = gmItemAt(id); if (it) { it.text = e.target.value; scheduleGiftMenuSave(); } });
+    colorInput.addEventListener('input', (e) => { const it = gmItemAt(id); if (it) { it.color = e.target.value; colorSwatch.classList.add('is-set'); scheduleGiftMenuSave(); } });
+    el.querySelector('.gm-item-color-reset').addEventListener('click', () => { const it = gmItemAt(id); if (it) { it.color = ''; colorInput.value = giftMenuCfg.textColor; colorSwatch.classList.remove('is-set'); scheduleGiftMenuSave(); } });
+    bgInput.addEventListener('input', (e) => { const it = gmItemAt(id); if (it) { it.bg = e.target.value; bgSwatch.classList.add('is-set'); scheduleGiftMenuSave(); } });
+    el.querySelector('.gm-item-bg-reset').addEventListener('click', () => { const it = gmItemAt(id); if (it) { it.bg = ''; bgInput.value = giftMenuCfg.bg; bgSwatch.classList.remove('is-set'); scheduleGiftMenuSave(); } });
+    el.querySelector('.gm-item-del').addEventListener('click', () => { giftMenuCfg.items = giftMenuCfg.items.filter(x => x.id !== id); renderGiftMenuEditor(); scheduleGiftMenuSave(); });
+    el.addEventListener('dragstart', (e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('application/x-gm', id); el.classList.add('dragging'); });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', (e) => { if (!Array.from(e.dataTransfer.types || []).includes('application/x-gm')) return; e.preventDefault(); el.classList.add('drag-over'); e.dataTransfer.dropEffect = 'move'; });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', (e) => {
+      e.preventDefault(); el.classList.remove('drag-over');
+      const from = e.dataTransfer.getData('application/x-gm'), to = id;
+      if (!from || from === to) return;
+      const arr = giftMenuCfg.items;
+      const fi = arr.findIndex(x => x.id === from), ti = arr.findIndex(x => x.id === to);
+      if (fi < 0 || ti < 0) return;
+      const [moved] = arr.splice(fi, 1); arr.splice(ti, 0, moved);
+      renderGiftMenuEditor(); scheduleGiftMenuSave();
+    });
+  });
+}
+function applyGiftMenuCfgToInputs() {
+  if (!giftMenuCfg) return;
+  const set = (id, v) => { const el = $('#' + id); if (el) el.value = v; };
+  const chk = (id, v) => { const el = $('#' + id); if (el) el.checked = !!v; };
+  set('gmTextColor', giftMenuCfg.textColor);
+  set('gmTextSize', giftMenuCfg.textSize);
+  set('gmAlign', giftMenuCfg.align);
+  set('gmTextFx', giftMenuCfg.textFx);
+  chk('gmBold', giftMenuCfg.bold);
+  chk('gmStroke', giftMenuCfg.textStroke);
+  chk('gmScroll', giftMenuCfg.longText === 'scroll');
+  set('gmSpeed', giftMenuCfg.speed);
+  set('gmMarqueeWidth', giftMenuCfg.marqueeWidth);
+  set('gmMaxChars', giftMenuCfg.maxChars);
+  set('gmIconSize', giftMenuCfg.iconSize);
+  set('gmIconFx', giftMenuCfg.iconFx);
+  set('gmIconAnim', giftMenuCfg.iconAnim);
+  set('gmGap', giftMenuCfg.gap);
+  set('gmRowGap', giftMenuCfg.rowGap);
+  set('gmScale', giftMenuCfg.overlayScale);
+  set('gmPanel', giftMenuCfg.panel);
+  set('gmBg', giftMenuCfg.bg);
+  set('gmBgOpacity', giftMenuCfg.bgOpacity);
+  chk('gmShowTitle', giftMenuCfg.showTitle);
+  set('gmTitle', giftMenuCfg.title);
+}
+function wireGiftMenuTab() {
+  $('#gmAddItem')?.addEventListener('click', () => {
+    giftMenuCfg.items.push({ id: gmNewId(), giftId: '', giftName: '', icon: '', text: '', color: '' });
+    renderGiftMenuEditor(); scheduleGiftMenuSave();
+  });
+  const onColor = (id, key) => $('#' + id)?.addEventListener('input', () => { giftMenuCfg[key] = $('#' + id).value; scheduleGiftMenuSave(); });
+  const onInt = (id, key, def, min, max) => $('#' + id)?.addEventListener('input', () => { giftMenuCfg[key] = clampInt($('#' + id).value, def, min, max); scheduleGiftMenuSave(); });
+  const onSel = (id, key, allowed) => $('#' + id)?.addEventListener('change', () => { const v = $('#' + id).value; giftMenuCfg[key] = allowed.includes(v) ? v : allowed[0]; scheduleGiftMenuSave(); });
+  const onChk = (id, key) => $('#' + id)?.addEventListener('change', () => { giftMenuCfg[key] = $('#' + id).checked; scheduleGiftMenuSave(); });
+  onColor('gmTextColor', 'textColor');
+  onInt('gmTextSize', 'textSize', 34, 12, 80);
+  onSel('gmAlign', 'align', ['left', 'center']);
+  onSel('gmTextFx', 'textFx', GM_TEXT_FX);
+  onChk('gmBold', 'bold');
+  onChk('gmStroke', 'textStroke');
+  $('#gmScroll')?.addEventListener('change', () => { giftMenuCfg.longText = $('#gmScroll').checked ? 'scroll' : 'off'; scheduleGiftMenuSave(); });
+  onInt('gmSpeed', 'speed', 5, 1, 10);
+  onInt('gmMarqueeWidth', 'marqueeWidth', 360, 120, 900);
+  onInt('gmMaxChars', 'maxChars', 0, 0, 120);
+  onInt('gmIconSize', 'iconSize', 84, 40, 180);
+  onSel('gmIconFx', 'iconFx', GM_ICON_FX);
+  onSel('gmIconAnim', 'iconAnim', GM_ICON_ANIM);
+  onInt('gmGap', 'gap', 18, 0, 80);
+  onInt('gmRowGap', 'rowGap', 16, 0, 80);
+  onInt('gmScale', 'overlayScale', 100, 40, 200);
+  onSel('gmPanel', 'panel', ['none', 'rows', 'full']);
+  onColor('gmBg', 'bg');
+  onInt('gmBgOpacity', 'bgOpacity', 0, 0, 100);
+  onChk('gmShowTitle', 'showTitle');
+  $('#gmTitle')?.addEventListener('input', () => { giftMenuCfg.title = $('#gmTitle').value; scheduleGiftMenuSave(); });
+  $('#gmCopyUrl')?.addEventListener('click', async () => { const url = await window.api.giftmenu.getUrl(); await window.api.shell.copyText(url); toast('Đã copy link OBS Menu Quà', 'success'); });
+  applyGiftMenuCfgToInputs();
+  renderGiftMenuEditor();
+}
+
+// ============================================================
 // VINH DANH (MVP Honor) — thẻ avatar Creator idol TOP / User cống hiến
 // ============================================================
 let mvpCfg = { cards: [] };
@@ -2347,11 +2557,16 @@ function wireLuckyWheelTab() {
 }
 
 async function init() {
+  startBootExtras();
   await initLicenseGate();
+  setBootStatus('Đang tải danh sách quà'); setBootProgress(42);
   await loadGiftMaster();
+  setBootStatus('Đang tải thành viên'); setBootProgress(52);
   await refreshCreators();
+  setBootStatus('Đang tải nhóm'); setBootProgress(62);
   await refreshGroups();
   await refreshGroupProfiles();
+  setBootStatus('Đang tải cấu hình'); setBootProgress(74);
   await loadPkConfig();
   await loadPkGroupConfig();
   await loadRankingConfig();
@@ -2360,8 +2575,11 @@ async function init() {
   await loadStickerDanceConfig();
   await loadMvpHonorConfig();
   await loadLuckyWheelConfig();
+  await loadGiftMenuConfig();
+  setBootStatus('Đang chuẩn bị overlay OBS'); setBootProgress(88);
   await refreshOverlayUrls();
   await loadSettings();
+  setBootStatus('Sẵn sàng!'); setBootProgress(100);
   wireTtEvents();
   wireConnectTab();
   wireGroupLauncher();
@@ -2376,6 +2594,7 @@ async function init() {
   wireStickerDanceTab();
   wireMvpHonorTab();
   wireLuckyWheelTab();
+  wireGiftMenuTab();
   wireOverlaysTab();
   wireSettingsTab();
   initAvatarSelects();
@@ -2407,6 +2626,10 @@ async function init() {
   // KHÔNG tự reset khi khởi động. Chỉ chạy nếu user CHỦ ĐỘNG bật "Tự động reset" trong Cài đặt
   // (mặc định TẮT). Overlay đã tự hồi phục qua overlay-sse.js nên không cần auto-reset nữa.
   if (obsResetCfg.autoReset) setTimeout(() => resetObsOverlays(false), 1500);
+
+  // Dự phòng: nếu không có launcher/license overlay nào hiện (vd chưa có nhóm),
+  // vẫn phải gỡ màn hình tải để vào thẳng giao diện chính.
+  hideBootSplash();
 }
 
 async function initLicenseGate() {
@@ -2414,15 +2637,85 @@ async function initLicenseGate() {
   const version = await window.api.app.getVersion().catch(() => '0.1.0');
   $('#appVersionText').textContent = version;
   if ($('#updateCurrentVer')) $('#updateCurrentVer').textContent = 'v' + version;
+  if ($('#bootVer')) $('#bootVer').textContent = 'v' + version;
   document.title = `HP GROUP LIVE — Phiên bản v${version}`;
+  setBootStatus('Đang kiểm tra bản quyền'); setBootProgress(12);
   const st = await window.api.license.check().catch(e => ({ ok: false, error: e.message || String(e), license: {} }));
   renderLicenseState(st);
-  if (!st.ok) showLicenseOverlay(st.error || 'Chưa kích hoạt KEY bản quyền.');
+  if (!st.ok) { showLicenseOverlay(st.error || 'Chưa kích hoạt KEY bản quyền.'); return; }
+  // Bản quyền hợp lệ → hiện gọn tình trạng KEY (VIP · HSD) ngay trên splash.
+  const lic = st.license || {};
+  const bits = ['Bản quyền hợp lệ ✓'];
+  if (lic.vip) bits.push(lic.vip);
+  if (lic.expiresAt) bits.push('HSD ' + lic.expiresAt);
+  setBootStatus(bits.join(' · ')); setBootProgress(30);
+}
+
+// ===== Màn hình tải (boot splash) =====
+// Giữ splash hiện tối thiểu BOOT_MIN_MS để máy mạnh không bị "nháy" 1 cái rồi biến.
+const BOOT_MIN_MS = 1700;
+const bootSplashT0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+let bootTipTimer = null;
+
+// Cập nhật dòng trạng thái đang tải (giữ nguyên 3 chấm động bên cạnh).
+function setBootStatus(text) {
+  const el = document.getElementById('bootStatus');
+  if (el) el.textContent = text;
+}
+// Cập nhật thanh tiến trình (0–100).
+function setBootProgress(pct) {
+  const el = document.getElementById('bootProgress');
+  if (el) el.style.width = Math.max(0, Math.min(100, pct)) + '%';
+}
+// Lời chào theo giờ + mẹo xoay vòng — chạy khi splash bật.
+function startBootExtras() {
+  // Lời chào theo 6 khung giờ (khuya 22h→2h vắt qua nửa đêm; mờ sáng 3–5h).
+  const hour = new Date().getHours();
+  let greet;
+  if (hour >= 6 && hour <= 10) greet = 'Chào buổi sáng ☀️ Khởi động ngày mới nào!';
+  else if (hour >= 11 && hour <= 13) greet = 'Chào buổi trưa 🍜 Nạp năng lượng rồi LIVE thôi!';
+  else if (hour >= 14 && hour <= 17) greet = 'Chào buổi chiều 🌤️ Bùng nổ cùng HP nào!';
+  else if (hour >= 18 && hour <= 21) greet = 'Chào buổi tối 🎤 Giờ vàng lên sóng rồi!';
+  else if (hour >= 3 && hour <= 5) greet = 'Trời còn mờ sáng 🌄 Dậy sớm chiến sớm nhé!';
+  else greet = 'Đã khuya rồi 🌙 Giữ sức, cháy hết mình nhé!';
+  const g = document.getElementById('bootGreet');
+  if (g) g.textContent = greet;
+
+  const tips = [
+    'Mẹo: Ctrl + R để reset nhanh overlay OBS',
+    'Mẹo: Chọn nhóm để lọc mọi thông số theo nhóm đó',
+    'Mẹo: Bật "Tự động kết nối" để vào LIVE ngay khi mở app',
+    'Mẹo: TALENT SHOW gộp toàn bộ creator của mọi nhóm',
+    'Mẹo: Kéo-thả để sắp xếp thứ tự hiển thị trên OBS',
+  ];
+  const tipEl = document.getElementById('bootTip');
+  if (!tipEl) return;
+  let i = 0;
+  tipEl.textContent = tips[0];
+  bootTipTimer = setInterval(() => {
+    i = (i + 1) % tips.length;
+    tipEl.style.opacity = '0';
+    setTimeout(() => { tipEl.textContent = tips[i]; tipEl.style.opacity = '1'; }, 320);
+  }, 2600);
+}
+
+// Ẩn splash — chạy 1 lần, fade mượt rồi gỡ khỏi luồng; dọn timer mẹo.
+function hideBootSplash() {
+  const el = document.getElementById('bootSplash');
+  if (!el || el.hidden || el.classList.contains('is-hiding')) return;
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  const wait = BOOT_MIN_MS - (now - bootSplashT0);
+  if (wait > 0) { setTimeout(hideBootSplash, wait); return; }
+  setBootProgress(100);
+  if (bootTipTimer) { clearInterval(bootTipTimer); bootTipTimer = null; }
+  el.classList.add('is-hiding');
+  setTimeout(() => { el.hidden = true; }, 480);
 }
 
 function showLicenseOverlay(message = '') {
   const ov = $('#licenseOverlay');
   if (!ov) return;
+  hideBootSplash(); // để lộ ô nhập KEY (splash nằm trên license overlay)
   ov.hidden = false;
   $('#licenseOverlayStatus').textContent = message;
   $('#licenseKeyInput').focus();
@@ -3244,6 +3537,8 @@ function applyActiveGroupMode() {
   renderScoreCreatorSelect?.();
   // Sticker Dance: mỗi nhóm một bảng quà riêng ('' = TALENT SHOW dùng file gốc).
   switchStickerGroup?.(activeGroupId);
+  // Menu Quà: mỗi nhóm một bảng menu riêng.
+  switchGiftMenuGroup?.(activeGroupId);
   // Vinh danh: cập nhật lại danh sách Creator theo nhóm đang chọn.
   mvpRefreshCreatorSelect?.();
   // Vòng quay: danh sách người quay theo nhóm đang chọn.
@@ -3264,6 +3559,149 @@ function membersOfGroup(groupId) {
   return creators.filter(c => c.groupId === groupId);
 }
 
+// ===== KIM CƯƠNG TỔNG theo nhóm =====
+// Lấy từ sheet DAILY DATA (khớp tiktokId KÊNH ĐẠI DIỆN nhóm ↔ cột C, Kim cương ở cột H).
+// Dùng để xếp hạng nhóm cao→thấp + gắn vương miện top 1/2/3 ở màn Chọn nhóm và Hồ Sơ Nhóm.
+let kcData = { byGroup: {}, total: 0, totalDeltaPct: null, period: '', fetchedAt: 0, rank: {} };
+let kcLoading = false;
+
+function kcOfGroup(gid) {
+  const e = kcData.byGroup[gid];
+  return e && e.kc != null ? e.kc : null;
+}
+function kcDeltaOf(gid) {
+  const e = kcData.byGroup[gid];
+  return e && e.deltaPct != null ? e.deltaPct : null;
+}
+function kcRankOf(gid) { return kcData.rank[gid] || null; }
+// Vương miện top 1/2/3 (top1 = 👑, top2 = 🥈, top3 = 🥉).
+function kcCrown(rank) { return rank === 1 ? '👑' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : ''; }
+
+// Badge "so với tháng trước": xanh ▲ tăng, đỏ ▼ giảm (dùng % chuẩn hóa của sheet).
+function kcDeltaBadge(delta) {
+  if (delta == null || !isFinite(delta)) return '';
+  const cls = delta > 0 ? 'is-up' : (delta < 0 ? 'is-down' : 'is-flat');
+  const arrow = delta > 0 ? '▲' : (delta < 0 ? '▼' : '▬');
+  const sign = delta > 0 ? '+' : '';
+  const val = `${sign}${delta.toFixed(2)}%`.replace('.', ',');
+  return `<span class="kc-delta ${cls}" title="So với tháng trước (chuẩn hóa theo kỳ)">${arrow} ${val}</span>`;
+}
+
+// Rút gọn "2026-07-01 ~ 2026-07-22" → "22/07/2026" (lấy mốc cuối kỳ).
+function kcPeriodLabel(period) {
+  const s = String(period || '').trim();
+  if (!s) return '';
+  const end = (s.split('~').pop() || s).trim();
+  const m = end.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${String(m[3]).padStart(2, '0')}/${String(m[2]).padStart(2, '0')}/${m[1]}`;
+  return end;
+}
+
+// Sắp xếp nhóm theo Kim cương giảm dần (nhóm chưa có số KC xếp cuối, giữ thứ tự gốc).
+function groupsByKc(list) {
+  return list.slice().sort((a, b) => {
+    const ka = kcOfGroup(a.id), kb = kcOfGroup(b.id);
+    if (ka == null && kb == null) return 0;
+    if (ka == null) return 1;
+    if (kb == null) return -1;
+    return kb - ka;
+  });
+}
+
+// Nạp KC (throttle 60s trừ khi force). Xong thì vẽ lại các màn đang mở.
+async function loadKcData(force = false) {
+  if (kcLoading) return kcData;
+  if (!force && kcData.fetchedAt && Date.now() - kcData.fetchedAt < 60000) return kcData;
+  kcLoading = true;
+  try {
+    const r = await window.api?.kc?.getGroups?.();
+    if (r && r.byGroup) {
+      kcData.byGroup = r.byGroup;
+      kcData.total = Number(r.total) || 0;
+      kcData.totalDeltaPct = (r.totalDeltaPct == null ? null : Number(r.totalDeltaPct));
+      kcData.period = r.period || '';
+      kcData.fetchedAt = Date.now();
+      const ranked = Object.values(r.byGroup).filter(x => x && x.kc != null).sort((a, b) => b.kc - a.kc);
+      const rank = {};
+      ranked.forEach((x, i) => { rank[x.groupId] = i + 1; });
+      kcData.rank = rank;
+      applyKcToUi();
+    }
+  } catch { /* offline: giữ số cũ */ }
+  finally { kcLoading = false; }
+  return kcData;
+}
+
+// Vẽ lại các màn có hiển thị KC (nếu đang mở).
+function applyKcToUi() {
+  if (!$('#groupLauncher')?.hidden) { renderGroupLauncher(); markLauncherSelection(); }
+  if (document.querySelector('.panel[data-panel="groups"]')?.classList.contains('active')) {
+    try { renderGroups(); } catch {}
+  }
+}
+
+// ===== Kim cương 12 tháng (chỉ dùng cho chart trong Hồ Sơ Nhóm đầy đủ) =====
+let kcMonths = { byGroup: {}, fetchedAt: 0 };
+let kcMonthsLoading = false;
+
+async function loadKcMonths(force = false) {
+  if (kcMonthsLoading) return kcMonths;
+  if (!force && kcMonths.fetchedAt && Date.now() - kcMonths.fetchedAt < 3 * 3600 * 1000) return kcMonths;
+  kcMonthsLoading = true;
+  try {
+    const r = await window.api?.kc?.getMonths?.();
+    if (r && r.byGroup) { kcMonths.byGroup = r.byGroup; kcMonths.fetchedAt = r.fetchedAt || Date.now(); }
+  } catch { /* offline: giữ số cũ */ }
+  finally { kcMonthsLoading = false; }
+  return kcMonths;
+}
+
+// Rút gọn số KC cho nhãn chart: 1.200.000 → "1,2M", 913000 → "913k".
+function kcShort(n) {
+  n = Number(n) || 0;
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + 'M';
+  if (n >= 1e3) return Math.round(n / 1e3) + 'k';
+  return String(n);
+}
+
+// Vẽ chart cột 6 tháng gần nhất vào hồ sơ nhóm (bất đồng bộ: nạp xong mới vẽ).
+async function drawGroupTrend(gid) {
+  const sel = `.gd-trend[data-gid="${gid}"] .gd-trend-chart`;
+  await loadKcMonths();
+  const wrap = document.querySelector(sel);
+  if (!wrap) return; // hồ sơ đã đổi/đóng
+  const series = (kcMonths.byGroup[gid] || []).filter(x => x && x.kc != null);
+  // Chỉ lấy các tháng ĐÃ HOÀN THÀNH của năm nay (m < tháng hiện tại) để tránh dữ liệu tháng lẻ/năm cũ.
+  const curMonth = new Date().getMonth() + 1;
+  let done = series.filter(x => x.m < curMonth);
+  if (!done.length) done = series.slice();
+  const data = done.slice(-6);
+  const subEl = document.querySelector(`.gd-trend[data-gid="${gid}"] .gd-trend-sub`);
+  if (!data.length) { wrap.innerHTML = '<div class="hint">Chưa có dữ liệu tháng.</div>'; if (subEl) subEl.textContent = ''; return; }
+  const g = groups.find(x => x.id === gid);
+  const color = (g && g.color) || colorFromId((g && (g.tiktokId || g.id)) || gid);
+  const max = Math.max(...data.map(d => d.kc), 1);
+  const H = 128; // chiều cao cột tối đa (px)
+  const hi = data.reduce((a, b) => b.kc > a.kc ? b : a);
+  const lo = data.reduce((a, b) => b.kc < a.kc ? b : a);
+  wrap.innerHTML = data.map((d) => {
+    const px = Math.max(6, Math.round(d.kc / max * H));
+    const cls = d === hi ? ' is-hi' : (d === lo ? ' is-lo' : '');
+    const cur = d === data[data.length - 1] ? ' is-cur' : '';
+    return `<div class="gd-bar${cls}${cur}">
+      <span class="gd-bar-val">${kcShort(d.kc)}</span>
+      <span class="gd-bar-col" style="height:${px}px;--c:${escapeAttr(color)}"></span>
+      <span class="gd-bar-m">T${d.m}</span>
+    </div>`;
+  }).join('');
+  // Phụ đề: MoM 2 tháng gần nhất trong chart.
+  if (subEl && data.length >= 2) {
+    const a = data[data.length - 2].kc, b = data[data.length - 1].kc;
+    const pct = a > 0 ? (b / a - 1) * 100 : null;
+    subEl.innerHTML = pct == null ? '' : `T${data[data.length - 1].m} vs T${data[data.length - 2].m}: ${kcDeltaBadge(pct)}`;
+  } else if (subEl) subEl.textContent = '';
+}
+
 // Dựng dãy avatar thành viên (chồng nhau) + "+N" nếu vượt quá.
 function memberAvatarStack(members, max = 6) {
   const shown = members.slice(0, max);
@@ -3280,6 +3718,25 @@ function renderGroupLauncher() {
   if (!grid) return;
   grid.innerHTML = '';
 
+  const hasKc = Object.keys(kcData.byGroup || {}).length > 0;
+  const periodLabel = kcPeriodLabel(kcData.period);
+
+  // Lớp KIM CƯƠNG TỔNG — băng ngang đầu lưới (tổng KC toàn bộ nhóm + mốc thời gian).
+  const band = document.createElement('div');
+  band.className = 'lc-kc-band';
+  band.innerHTML = `
+    <span class="lc-kc-band-ic">💎</span>
+    <span class="lc-kc-band-main">
+      <span class="lc-kc-band-label">KIM CƯƠNG TỔNG</span>
+      <span class="lc-kc-band-valrow">
+        <span class="lc-kc-band-val">${hasKc ? formatNumber(kcData.total) : '—'}</span>
+        ${hasKc ? kcDeltaBadge(kcData.totalDeltaPct) : ''}
+      </span>
+    </span>
+    <span class="lc-kc-band-sub">${periodLabel ? `Tính đến ${periodLabel}` : (kcLoading ? 'Đang tải dữ liệu…' : 'Xếp hạng theo Kim cương')}</span>
+  `;
+  grid.appendChild(band);
+
   // Thẻ TALENT SHOW (tất cả nhóm) — hero
   const hero = document.createElement('button');
   hero.type = 'button';
@@ -3293,23 +3750,30 @@ function renderGroupLauncher() {
       <span class="lc-handle">Tất cả nhóm — gộp toàn bộ creator</span>
       <span class="lc-count">${formatNumber(creators.length)} creator · ${formatNumber(groups.length)} nhóm</span>
     </span>
+    ${hasKc ? `<span class="lc-kc lc-kc-total">💎 ${formatNumber(kcData.total)}</span>` : ''}
     <span class="lc-members">${memberAvatarStack(creators, 8)}</span>
   `;
   grid.appendChild(hero);
 
-  // Thẻ từng nhóm
-  for (const g of groups) {
+  // Thẻ từng nhóm — xếp theo Kim cương cao→thấp
+  for (const g of groupsByKc(groups)) {
     const members = membersOfGroup(g.id);
     const color = g.color || colorFromId(g.tiktokId || g.id);
+    const kc = kcOfGroup(g.id);
+    const delta = kcDeltaOf(g.id);
+    const rank = kcRankOf(g.id);
+    const crown = kcCrown(rank);
     const card = document.createElement('button');
     card.type = 'button';
-    card.className = 'lc-card';
+    card.className = 'lc-card' + (crown ? ' lc-top lc-top-' + rank : '');
     card.dataset.gid = g.id;
     card.innerHTML = `
       <span class="lc-check">✓</span>
+      ${crown ? `<span class="lc-crown" title="Hạng ${rank}">${crown}</span>` : ''}
       <img class="lc-ava" src="${escapeAttr(g.avatar || '../logo/hp-logo.png')}" alt="" style="border-color:${escapeAttr(color)}" onerror="this.onerror=null;this.src='../logo/hp-logo.png'" />
       <span class="lc-name">${escapeHtml(g.name || g.tiktokId || 'Nhóm')}</span>
       <span class="lc-handle">@${escapeHtml(g.tiktokId || '—')}</span>
+      ${kc != null ? `<span class="lc-kc-row"><span class="lc-kc">💎 ${formatNumber(kc)}</span>${kcDeltaBadge(delta)}</span>` : ''}
       ${g.mc ? `<span class="lc-role">🎤 MC: ${escapeHtml(g.mc)}</span>` : ''}
       ${g.manager ? `<span class="lc-role">🛡️ Quản lý: ${escapeHtml(g.manager)}</span>` : ''}
       <span class="lc-count">${formatNumber(members.length)} thành viên</span>
@@ -3358,9 +3822,12 @@ function openGroupLauncher(mandatory = false) {
   const closeBtn = $('#launcherClose');
   if (closeBtn) closeBtn.hidden = launcherMandatory;
   markLauncherSelection();
+  hideBootSplash(); // để lộ màn chọn nhóm (splash nằm trên launcher)
   ov.hidden = false;
   // Lấy lại avatar nhóm nếu URL đã hết hạn (mở app lâu rồi mới mở lại màn chọn nhóm).
   autoRefetchStaleAvatars();
+  // Nạp KIM CƯƠNG TỔNG (sheet DAILY DATA) rồi tự vẽ lại xếp hạng + vương miện.
+  loadKcData();
 }
 
 function closeGroupLauncher() {
@@ -3604,6 +4071,7 @@ function renderGroups() {
     panel?.classList.add('groups-solo');
     if (listTitle) listTitle.style.display = 'none';
     renderGroupDossier(gs[0], list);
+    drawGroupTrend(gs[0].id); // vẽ chart 6 tháng (bất đồng bộ)
     return;
   }
   panel?.classList.remove('groups-solo');
@@ -3613,7 +4081,7 @@ function renderGroups() {
     list.innerHTML = '<div class="hint">Chưa có nhóm nào.</div>';
     return;
   }
-  for (const g of gs) {
+  for (const g of groupsByKc(gs)) {
     const cnt = groupMemberCount(g);
     const color = g.color || colorFromId(g.tiktokId || g.id);
     const groupKey = g.id || g.tiktokId || '';
@@ -3621,16 +4089,23 @@ function renderGroups() {
     const matches = Number(prof.stats?.matches) || 0;
     const dg = prof.defaultGift;
     const hasGift = dg && (dg.giftId || dg.giftName);
+    const kc = kcOfGroup(g.id);
+    const delta = kcDeltaOf(g.id);
+    const rank = kcRankOf(g.id);
+    const crown = kcCrown(rank);
     const div = document.createElement('div');
-    div.className = 'group-card';
+    div.className = 'group-card' + (crown ? ' gc-top gc-top-' + rank : '');
     div.innerHTML = `
       <div class="gc-head">
-        <img class="gc-avatar" src="${escapeAttr(g.avatar || '../logo/hp-logo.png')}" alt="" style="border-color:${escapeAttr(color)}" />
+        <div class="gc-ava-wrap">
+          <img class="gc-avatar" src="${escapeAttr(g.avatar || '../logo/hp-logo.png')}" alt="" style="border-color:${escapeAttr(color)}" />
+          ${crown ? `<span class="gc-crown" title="Hạng ${rank}">${crown}</span>` : ''}
+        </div>
         <div class="gc-info">
           <strong>${escapeHtml(g.name)}</strong>
           <span class="gc-handle">@${escapeHtml(g.tiktokId || '—')}</span>
           ${(g.mc || g.manager) ? `<span class="gc-roles">${g.mc ? `🎤 MC: ${escapeHtml(g.mc)}` : ''}${g.mc && g.manager ? ' · ' : ''}${g.manager ? `🛡️ QL: ${escapeHtml(g.manager)}` : ''}</span>` : ''}
-          <span class="gc-meta">${matches ? `🎮 ${matches} trận` : ''}${hasGift ? `${matches ? ' · ' : ''}🎁 ${escapeHtml(dg.giftName || '')}` : ''}</span>
+          <span class="gc-meta">${kc != null ? `💎 ${formatNumber(kc)} ${kcDeltaBadge(delta)}` : ''}${kc != null && (matches || hasGift) ? ' · ' : ''}${matches ? `🎮 ${matches} trận` : ''}${hasGift ? `${matches ? ' · ' : ''}🎁 ${escapeHtml(dg.giftName || '')}` : ''}</span>
         </div>
         <span class="gc-count">${cnt} thành viên</span>
       </div>
@@ -3660,6 +4135,11 @@ function renderGroupDossier(g, list) {
   const members = creators.filter(c => c.groupId === g.id)
     .slice().sort((a, b) => (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi'));
   const ownGiftCount = members.filter(c => c.defaultGiftId || c.defaultGiftName).length;
+  const kc = kcOfGroup(g.id);
+  const delta = kcDeltaOf(g.id);
+  const rank = kcRankOf(g.id);
+  const crown = kcCrown(rank);
+  const periodLabel = kcPeriodLabel(kcData.period);
 
   const chips = [];
   chips.push(`<span class="gd-chip">🎤 <b>MC</b> ${g.mc ? escapeHtml(g.mc) : '<i>—</i>'}</span>`);
@@ -3667,24 +4147,36 @@ function renderGroupDossier(g, list) {
   chips.push(`<span class="gd-chip gd-chip-gift">${hasGift && dg.giftIcon ? `<img src="${escapeAttr(dg.giftIcon)}" alt=""/>` : '🎁'} <b>Quà nhóm</b> ${hasGift ? escapeHtml(dg.giftName || '') : '<i>chưa đặt</i>'}</span>`);
 
   const dossier = document.createElement('div');
-  dossier.className = 'group-dossier';
+  dossier.className = 'group-dossier' + (crown ? ' gd-top gd-top-' + rank : '');
   dossier.style.setProperty('--gd-color', color);
   dossier.innerHTML = `
     <div class="gd-hero">
-      <img class="gd-avatar" src="${escapeAttr(g.avatar || '../logo/hp-logo.png')}" alt="" />
+      <div class="gd-ava-wrap">
+        <img class="gd-avatar" src="${escapeAttr(g.avatar || '../logo/hp-logo.png')}" alt="" />
+        ${crown ? `<span class="gd-crown" title="Hạng ${rank}">${crown}</span>` : ''}
+      </div>
       <div class="gd-hero-main">
         <div class="gd-title-row">
           <h2 class="gd-name">${escapeHtml(g.name || 'Nhóm')}</h2>
+          ${rank ? `<span class="gd-rank-badge">Hạng ${rank}</span>` : ''}
           <button class="ghost tiny gd-edit-group" type="button">✏️ Sửa nhóm</button>
         </div>
         <div class="gd-handle">@${escapeHtml(g.tiktokId || '—')}${g.channelName ? ` · ${escapeHtml(g.channelName)}` : ''}</div>
         <div class="gd-chips">${chips.join('')}</div>
       </div>
       <div class="gd-stats">
+        <div class="gd-stat gd-stat-kc"><b>💎 ${kc != null ? formatNumber(kc) : '—'}</b><span>Kim cương tổng${periodLabel ? ` · ${periodLabel}` : ''}</span>${delta != null ? `<span class="gd-kc-delta">${kcDeltaBadge(delta)}</span>` : ''}</div>
         <div class="gd-stat"><b>${members.length}</b><span>Thành viên</span></div>
         <div class="gd-stat"><b>${ownGiftCount}</b><span>Có quà riêng</span></div>
         <div class="gd-stat"><b>${matches}</b><span>Trận đấu</span></div>
       </div>
+    </div>
+    <div class="gd-trend" data-gid="${escapeAttr(g.id)}">
+      <div class="gd-trend-head">
+        <h3>📈 Kim cương theo tháng <span class="gd-trend-note">6 tháng gần nhất</span></h3>
+        <span class="gd-trend-sub"></span>
+      </div>
+      <div class="gd-trend-chart"><div class="hint">Đang tải dữ liệu tháng…</div></div>
     </div>
     <div class="gd-members-head">
       <h3>👤 Thành viên <span class="rf-count">${members.length}</span></h3>
@@ -6297,4 +6789,6 @@ function wireHistoryUI() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#historyModal')?.classList.contains('is-open')) closeHistory(); });
 }
 
-init().catch(e => { console.error(e); toast('Lỗi init: ' + e.message, 'error'); });
+init().catch(e => { console.error(e); hideBootSplash(); toast('Lỗi init: ' + e.message, 'error'); });
+// Chốt an toàn: dù init treo/lỗi, không bao giờ kẹt ở màn hình tải quá 10s.
+setTimeout(hideBootSplash, 10000);

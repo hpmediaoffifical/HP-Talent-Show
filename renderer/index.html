@@ -8,6 +8,24 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- ===== Màn hình tải khi mở app (che giao diện chính lúc đang check KEY) ===== -->
+  <div id="bootSplash" class="boot-splash">
+    <div class="boot-inner">
+      <span class="boot-greet" id="bootGreet"></span>
+      <div class="boot-logo-ring">
+        <span class="boot-ring" aria-hidden="true"></span>
+        <img class="boot-logo" src="../logo/hp-logo-boot.svg" alt="HP GROUP LIVE"
+             onerror="this.onerror=null;this.src='../logo/hp-logo.png'" />
+      </div>
+      <strong class="boot-title">HP GROUP LIVE</strong>
+      <span class="boot-ver" id="bootVer"></span>
+      <div class="boot-progress"><span class="boot-progress-fill" id="bootProgress"></span></div>
+      <span class="boot-sub"><span id="bootStatus">Đang khởi động</span><span class="boot-dots"><i></i><i></i><i></i></span></span>
+      <span class="boot-tip" id="bootTip"></span>
+      <span class="boot-dev">Nhà phát triển · HP Media</span>
+    </div>
+  </div>
+
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <div id="licenseOverlay" class="license-overlay" hidden>
@@ -1082,6 +1100,129 @@
               </div>
             </div>
           </div>
+          </details>
+        </div>
+
+        <!-- ===== MENU QUÀ (thông tin quà) — overlay ĐỘC LẬP, chỉ hiển thị ICON | Nội dung ===== -->
+        <div class="card sd-card gm-card">
+          <div class="gm-head">
+            <h2 class="gm-h">📜 Menu Quà</h2>
+          </div>
+          <div class="sd-actions">
+            <button class="primary" id="gmCopyUrl" type="button">📋COPY OBS</button>
+            <button class="ghost" data-review-toggle="giftmenu" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="giftmenu" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="giftmenu" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="giftmenu" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="giftmenu" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="giftmenu" type="button">Trong suốt</button>
+          </div>
+
+          <div class="gm-editor">
+            <div class="gm-editor-head">
+              <span class="sd-cfg-h">🎁 Danh sách quà (icon &amp; nội dung)</span>
+              <button class="primary tiny" id="gmAddItem" type="button">＋ Thêm dòng</button>
+            </div>
+            <div class="gm-list-editor" id="gmList"></div>
+            <div class="hint">Kéo ⠿ để đổi thứ tự · bấm icon để chọn quà · gõ nội dung hiển thị · 🎨 đặt màu riêng cho dòng (bỏ trống = màu chung).</div>
+          </div>
+
+          <details class="sd-cfg-collapse">
+            <summary class="sd-cfg-summary">
+              <span class="sd-cfg-summary__ico">⚙️</span>
+              <span class="sd-cfg-summary__txt">Tùy chỉnh màu chữ, kích thước &amp; hiệu ứng</span>
+              <span class="sd-cfg-summary__hint">bấm để mở / thu gọn</span>
+              <span class="sd-cfg-summary__chev">▾</span>
+            </summary>
+            <div class="sd-cfg">
+              <div class="sd-cfg-group">
+                <span class="sd-cfg-h">🔤 Chữ / nội dung</span>
+                <div class="sd-cfg-grid">
+                  <label>Màu chữ <input type="color" id="gmTextColor" value="#ffe14d" /></label>
+                  <label>Cỡ chữ <input type="range" id="gmTextSize" min="12" max="80" value="34" /></label>
+                  <label>Canh chữ
+                    <select id="gmAlign">
+                      <option value="left">Icon bên trái · chữ bên phải</option>
+                      <option value="center">Giữa (chữ dưới icon)</option>
+                    </select>
+                  </label>
+                  <label>Hiệu ứng chữ
+                    <select id="gmTextFx">
+                      <option value="none">Không</option>
+                      <option value="glow">Phát sáng nhấp nháy</option>
+                      <option value="shine">Tia sáng quét</option>
+                      <option value="rainbow">Cầu vồng chạy</option>
+                      <option value="neon">Neon nhấp nháy</option>
+                      <option value="fire">Lửa cháy</option>
+                      <option value="pulse">Đập nhịp (to–nhỏ)</option>
+                      <option value="wave">Sóng từng chữ</option>
+                      <option value="shadow3d">Bóng nổi 3D</option>
+                      <option value="glitch">Nhiễu glitch</option>
+                    </select>
+                  </label>
+                  <label class="sd-switch"><input type="checkbox" id="gmBold" checked /> In đậm</label>
+                  <label class="sd-switch"><input type="checkbox" id="gmStroke" checked /> Viền chữ (dễ đọc)</label>
+                  <label class="sd-switch" title="Tích = chữ dài CHẠY ngang (marquee) trong khung. Bỏ tích = hiển thị đúng như nội dung đã nhập (gõ Enter để xuống dòng: 1 hàng ra 1 hàng, 2 hàng ra 2 hàng)."><input type="checkbox" id="gmScroll" /> 🏃 Chạy chữ khi dài</label>
+                  <label title="Chỉ áp dụng khi bật 'Chạy chữ khi dài'. Càng cao chạy càng nhanh.">⏩ Tốc độ chạy <input type="range" id="gmSpeed" min="1" max="10" value="5" /></label>
+                  <label title="Chỉ áp dụng khi bật 'Chạy chữ khi dài'. Khung rộng đúng bằng chừng đó KÝ TỰ (tính cả dấu cách) — mọi dòng cùng cỡ, chữ dài hơn sẽ chạy TRONG khung. 0 = dùng 'Bề rộng khung' theo pixel.">🔤 Khung chữ (số ký tự) <input type="number" id="gmMaxChars" min="0" max="120" value="0" /></label>
+                  <label title="Bề rộng khung chữ theo pixel (dùng khi 'Khung chữ (số ký tự)' = 0).">↔ Bề rộng khung (px) <input type="range" id="gmMarqueeWidth" min="120" max="900" value="360" /></label>
+                </div>
+              </div>
+              <div class="sd-cfg-group">
+                <span class="sd-cfg-h">🖼 Icon quà &amp; hiệu ứng</span>
+                <div class="sd-cfg-grid">
+                  <label>Cỡ icon <input type="range" id="gmIconSize" min="40" max="180" value="84" /></label>
+                  <label>Bọc icon
+                    <select id="gmIconFx">
+                      <option value="none">Không</option>
+                      <option value="bubble">Bong bóng nước</option>
+                      <option value="ring">Vòng gradient xoay</option>
+                      <option value="glow">Quầng sáng đập nhịp</option>
+                      <option value="orbit">Hạt sáng xoay quanh</option>
+                      <option value="ripple">Sóng lan toả</option>
+                      <option value="sparkle">Lấp lánh</option>
+                      <option value="neon">Vòng neon nhấp nháy</option>
+                      <option value="rays">Tia sáng xoay</option>
+                    </select>
+                  </label>
+                  <label>Chuyển động icon
+                    <select id="gmIconAnim">
+                      <option value="none">Không</option>
+                      <option value="float">Bồng bềnh (lên xuống)</option>
+                      <option value="shake">Rung</option>
+                      <option value="flip">Lật</option>
+                      <option value="swing">Đung đưa</option>
+                      <option value="bounce">Nảy</option>
+                      <option value="wobble">Lắc lư</option>
+                      <option value="spin">Xoay tròn</option>
+                      <option value="pulse">Đập nhịp (to–nhỏ)</option>
+                      <option value="tada">Tada (rung + phóng)</option>
+                      <option value="heartbeat">Nhịp tim</option>
+                      <option value="jelly">Thạch (biến dạng)</option>
+                    </select>
+                  </label>
+                  <label title="Khoảng cách giữa icon và chữ">↔ Cách icon–chữ <input type="range" id="gmGap" min="0" max="80" value="18" /></label>
+                </div>
+              </div>
+              <div class="sd-cfg-group">
+                <span class="sd-cfg-h">📐 Bố cục &amp; nền</span>
+                <div class="sd-cfg-grid">
+                  <label title="Khoảng cách giữa các dòng">↕ Cách dòng <input type="range" id="gmRowGap" min="0" max="80" value="16" /></label>
+                  <label>Cỡ tổng thể <input type="range" id="gmScale" min="40" max="200" value="100" /></label>
+                  <label>Kiểu nền
+                    <select id="gmPanel">
+                      <option value="none">Không nền</option>
+                      <option value="rows">Thẻ từng dòng</option>
+                      <option value="full">Nền cả bảng</option>
+                    </select>
+                  </label>
+                  <label>Màu nền <input type="color" id="gmBg" value="#3a0d12" /></label>
+                  <label>Độ mờ nền <input type="range" id="gmBgOpacity" min="0" max="100" value="0" /></label>
+                  <label class="sd-switch"><input type="checkbox" id="gmShowTitle" /> Hiện tiêu đề</label>
+                  <label class="gm-title-in">Tiêu đề <input type="text" id="gmTitle" placeholder="VD: QUÀ ĐIỀU KHIỂN LIVE" /></label>
+                </div>
+              </div>
+            </div>
           </details>
         </div>
       </section>

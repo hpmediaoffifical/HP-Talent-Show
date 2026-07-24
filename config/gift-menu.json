@@ -1,0 +1,55 @@
+{
+  "items": [
+    {
+      "id": "gmr6tyvh0",
+      "giftId": "19168",
+      "giftName": "Love Glasses",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/7b3f141efe8a943faba19f855a003943.png~tplv-obj.webp",
+      "text": "Love Glasses",
+      "color": "#ffffff"
+    },
+    {
+      "id": "gmnjzfn9e",
+      "giftId": "54540",
+      "giftName": "Undersea Kingdom",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/13f9ea9d3798f67f6d55cc612c152338.png~tplv-obj.webp",
+      "text": "Undersea Kingdom",
+      "color": ""
+    },
+    {
+      "id": "gmhqkbfdn",
+      "giftId": "16671",
+      "giftName": "Rosie's Concert",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/9e9ccba3ad69fb79462faad2d4bab4a5.png~tplv-obj.webp",
+      "text": "Rosie's Concert",
+      "color": ""
+    },
+    {
+      "id": "gmhkxnxiu",
+      "giftId": "9466",
+      "giftName": "Amusement Park",
+      "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/12ecc01c2984c5d85bb508e80103a3cb.png~tplv-obj.webp",
+      "text": "Amusement Park",
+      "color": ""
+    }
+  ],
+  "textColor": "#ffffff",
+  "textSize": 27,
+  "bold": true,
+  "textStroke": false,
+  "align": "left",
+  "marquee": true,
+  "marqueeWidth": 900,
+  "textFx": "shine",
+  "iconSize": 76,
+  "iconFx": "orbit",
+  "iconAnim": "flip",
+  "gap": 11,
+  "rowGap": 16,
+  "overlayScale": 100,
+  "panel": "rows",
+  "bg": "#363636",
+  "bgOpacity": 33,
+  "showTitle": true,
+  "title": "QUÀ NÈ"
+}

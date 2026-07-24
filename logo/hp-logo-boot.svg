@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="HP">
+  <defs>
+    <linearGradient id="hpBoot" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#F6B79E"/>
+      <stop offset="0.55" stop-color="#F3A6BE"/>
+      <stop offset="1" stop-color="#E98FC4"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="224" height="224" rx="54" fill="url(#hpBoot)"/>
+  <text x="121" y="165" text-anchor="middle" letter-spacing="-4"
+        transform="translate(121 0) scale(0.88 1) translate(-121 0)"
+        font-family="'Segoe UI', Arial, sans-serif" font-weight="900"
+        font-size="180" fill="#ffffff">hp</text>
+</svg>

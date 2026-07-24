@@ -41,8 +41,11 @@ const MUSIC_LIST_PATH = path.join(CONFIG_DIR, 'music-list.json');
 const STICKER_PATH = path.join(CONFIG_DIR, 'sticker-dance.json');
 const MVP_HONOR_PATH = path.join(CONFIG_DIR, 'mvp-honor.json');
 const LUCKY_WHEEL_PATH = path.join(CONFIG_DIR, 'lucky-wheel.json');
+const GIFT_MENU_PATH = path.join(CONFIG_DIR, 'gift-menu.json');
 const GROUP_PROFILES_PATH = path.join(CONFIG_DIR, 'group-profiles.json');
 const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
+const KC_DATA_PATH = path.join(CONFIG_DIR, 'kc-data.json');
+const KC_MONTHS_PATH = path.join(CONFIG_DIR, 'kc-months.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
 const SHIPPED_GIFT_MASTER_PATH = path.join(SHIPPED_CONFIG_DIR, 'gift-master.json');
 const GIFT_MASTER_SHEET = 'https://docs.google.com/spreadsheets/d/1Fv9Jdno_pPMTx_-tnwSfRObm1r1wKds_gaMBnfCDm4M/gviz/tq?tqx=out:csv&sheet=DANH%20SACH%20QUA';
@@ -50,6 +53,10 @@ const GITHUB_RELEASES_API = 'https://api.github.com/repos/hpmediaoffifical/HP-Ta
 const GITHUB_RELEASES_URL = 'https://github.com/hpmediaoffifical/HP-Talent-Show/releases/latest';
 const BANNER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=Banner';
 const TICKER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=CH%E1%BB%AE%20TH%C3%94NG%20B%C3%81O';
+// KIM CƯƠNG TỔNG: sheet DAILY DATA — cột C = username (khớp tiktokId nhóm), cột H = Kim cương, cột A = giai đoạn.
+const DAILY_DATA_SHEET = 'https://docs.google.com/spreadsheets/d/1QhB83R3hHM8giqpiVPkxI27WYigg0yH4n_B9dtQSF9Y/gviz/tq?tqx=out:csv&sheet=DAILY%20DATA';
+// Các sheet "THÁNG 1".."THÁNG 12" — cùng cấu trúc DAILY DATA. Dùng cho chart 6 tháng ở Hồ Sơ Nhóm.
+const MONTHLY_SHEET = (m) => `https://docs.google.com/spreadsheets/d/1QhB83R3hHM8giqpiVPkxI27WYigg0yH4n_B9dtQSF9Y/gviz/tq?tqx=out:csv&sheet=TH%C3%81NG%20${m}`;
 const COMPACT_UI_VERSION = 1;
 const MAIN_WINDOW_DEFAULT_BOUNDS = { width: 1120, height: 780 };
 const MAIN_WINDOW_MIN_BOUNDS = { width: 900, height: 620 };
@@ -82,6 +89,8 @@ let scoreEngine = null;
 let stickerEngine = null;
 let mvpHonorEngine = null;
 let luckyWheelEngine = null;
+// Menu Quà (thông tin quà) — chỉ hiển thị, không có engine/game state: config CHÍNH là state overlay.
+let giftMenuConfig = { items: [] };
 let settings = loadSettings();
 const reviewWindows = new Map();
 
@@ -369,6 +378,7 @@ const REVIEW_META = {
   stickerdance: { title: 'Review Đập Trứng', getUrl: () => overlayServer?.getStickerUrl(), width: 900, height: 380 },
   mvphonor: { title: 'Review MVP Honor', getUrl: () => overlayServer?.getMvpHonorUrl(), width: 540, height: 720 },
   luckywheel: { title: 'Review Vòng Quay', getUrl: () => overlayServer?.getLuckyWheelUrl(), width: 760, height: 760 },
+  giftmenu: { title: 'Review Menu Quà', getUrl: () => overlayServer?.getGiftMenuUrl(), width: 520, height: 760 },
 };
 
 function normalizeReviewBg(value) {
@@ -589,6 +599,8 @@ function loadMvpHonorConfig() { return loadJson(MVP_HONOR_PATH, null); }
 function saveMvpHonorConfig(cfg) { saveJson(MVP_HONOR_PATH, cfg); }
 function loadLuckyWheelConfig() { return loadJson(LUCKY_WHEEL_PATH, null); }
 function saveLuckyWheelConfig(cfg) { saveJson(LUCKY_WHEEL_PATH, cfg); }
+function loadGiftMenuConfig() { return loadJson(GIFT_MENU_PATH, null); }
+function saveGiftMenuConfig(cfg) { saveJson(GIFT_MENU_PATH, cfg); }
 
 // =================================================================
 // Match history — lưu LỊCH SỬ mỗi trận PK (Nhóm/Đôi) để đối chiếu + xuất file
@@ -819,6 +831,93 @@ async function refreshGiftMaster() {
   saveJson(GIFT_MASTER_PATH, data);
   loadGiftMaster();
   return { count: gifts.length, fetchedAt: data.fetchedAt };
+}
+
+// ===== KIM CƯƠNG TỔNG theo nhóm =====
+// Đọc sheet DAILY DATA, khớp tiktokId KÊNH ĐẠI DIỆN của từng nhóm với cột C (username),
+// lấy Kim cương ở cột H. Trả về map theo groupId + tổng toàn bộ để xếp hạng / gắn vương miện.
+function loadKcData() {
+  return loadJson(KC_DATA_PATH, null);
+}
+
+async function fetchGroupDiamonds() {
+  const res = await fetch(DAILY_DATA_SHEET);
+  if (!res.ok) throw new Error('DAILY DATA Sheet HTTP ' + res.status);
+  const rows = parseCsvRows(await res.text());
+  if (rows.length < 2) throw new Error('Sheet DAILY DATA rỗng — kiểm tra quyền chia sẻ public.');
+  // Map username(lowercase) -> { kc, period, deltaPct }. Trùng username thì lấy dòng đầu (kênh đại diện duy nhất).
+  // deltaPct = cột "Kim cương - so với tháng trước" (index 22) — % ĐÃ chuẩn hóa theo kỳ, KHÔNG tự trừ 2 số tuyệt đối.
+  const map = new Map();
+  for (let r = 1; r < rows.length; r++) {
+    const uname = String(rows[r][2] || '').trim().toLowerCase();
+    if (!uname || map.has(uname)) continue;
+    const kc = parseInt(String(rows[r][7] || '').replace(/[^\d-]/g, ''), 10) || 0;
+    const period = String(rows[r][0] || '').trim();
+    const dRaw = String(rows[r][22] || '').replace('%', '').replace(',', '.').trim();
+    const deltaPct = dRaw === '' ? null : (Number.isFinite(parseFloat(dRaw)) ? parseFloat(dRaw) : null);
+    map.set(uname, { kc, period, deltaPct });
+  }
+  const groups = loadGroups();
+  const byGroup = {};
+  let total = 0;
+  let period = '';
+  // Tổng "so với tháng trước": suy ra baseline cùng kỳ tháng trước = kc / (1 + delta/100) rồi gộp lại.
+  let baseSum = 0, curSumForDelta = 0;
+  for (const g of groups) {
+    const key = String(g.tiktokId || '').trim().toLowerCase();
+    const hit = key ? map.get(key) : null;
+    const kc = hit ? hit.kc : null;
+    const deltaPct = hit ? hit.deltaPct : null;
+    byGroup[g.id] = { groupId: g.id, tiktokId: g.tiktokId || '', kc, deltaPct };
+    if (kc != null) {
+      total += kc;
+      if (!period && hit.period) period = hit.period;
+      if (deltaPct != null) {
+        const base = kc / (1 + deltaPct / 100);
+        if (Number.isFinite(base) && base > 0) { baseSum += base; curSumForDelta += kc; }
+      }
+    }
+  }
+  const totalDeltaPct = baseSum > 0 ? (curSumForDelta / baseSum - 1) * 100 : null;
+  const data = { fetchedAt: Date.now(), source: DAILY_DATA_SHEET, sheet: 'DAILY DATA', period, total, totalDeltaPct, byGroup };
+  saveJson(KC_DATA_PATH, data);
+  return data;
+}
+
+// Chuỗi Kim cương theo tháng (THÁNG 1..12) cho từng nhóm — chỉ dùng ở Hồ Sơ Nhóm (chart 6 tháng).
+function loadKcMonths() {
+  return loadJson(KC_MONTHS_PATH, null);
+}
+
+async function fetchGroupMonthly() {
+  const groups = loadGroups();
+  const keys = groups.map(g => ({ id: g.id, key: String(g.tiktokId || '').trim().toLowerCase() }));
+  // Tải song song 12 sheet tháng; tháng chưa có dữ liệu (tương lai) trả rỗng → bỏ qua.
+  const months = await Promise.all(Array.from({ length: 12 }, (_, i) => i + 1).map(async (m) => {
+    try {
+      const res = await fetch(MONTHLY_SHEET(m));
+      if (!res.ok) return { m, map: null };
+      const rows = parseCsvRows(await res.text());
+      const map = new Map();
+      for (let r = 1; r < rows.length; r++) {
+        const u = String(rows[r][2] || '').trim().toLowerCase();
+        if (!u || map.has(u)) continue;
+        map.set(u, parseInt(String(rows[r][7] || '').replace(/[^\d-]/g, ''), 10) || 0);
+      }
+      return { m, map: map.size ? map : null };
+    } catch { return { m, map: null }; }
+  }));
+  const byMonth = {};
+  months.forEach(({ m, map }) => { if (map) byMonth[m] = map; });
+  const byGroup = {};
+  for (const { id, key } of keys) {
+    const arr = [];
+    for (let m = 1; m <= 12; m++) { const mp = byMonth[m]; if (mp && mp.has(key)) arr.push({ m, kc: mp.get(key) }); }
+    byGroup[id] = arr;
+  }
+  const data = { fetchedAt: Date.now(), source: 'THÁNG 1..12', byGroup };
+  saveJson(KC_MONTHS_PATH, data);
+  return data;
 }
 
 // Creator shape:
@@ -2219,7 +2318,7 @@ function createWindow() {
     maximizable: false,
     icon: APP_ICON || undefined,
     title: 'HP GROUP LIVE',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1a1330', // khớp nền màn hình tải (boot splash tối) → không chớp sáng lúc mở app
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -2315,6 +2414,8 @@ function bootstrapEngines() {
   });
   const savedLuckyWheel = loadLuckyWheelConfig();
   if (savedLuckyWheel) luckyWheelEngine.setConfig(savedLuckyWheel);
+  const savedGiftMenu = loadGiftMenuConfig();
+  if (savedGiftMenu && typeof savedGiftMenu === 'object') giftMenuConfig = savedGiftMenu;
 
   // Phát state khởi tạo cho overlay khi mới connect
   pkDuoEngine._emit();
@@ -2324,6 +2425,7 @@ function bootstrapEngines() {
   stickerEngine._emit();
   mvpHonorEngine._emit();
   luckyWheelEngine._emit();
+  overlayServer?.sendGiftMenu(giftMenuConfig);
 }
 
 // Cache avatar theo user — TikTok hay gửi GIFT event THIẾU avatar (user data tối giản);
@@ -2668,6 +2770,24 @@ function registerIpc() {
   ipcMain.handle('luckywheel:reset', () => { luckyWheelEngine?.reset(); return true; });
   ipcMain.handle('luckywheel:getUrl', () => overlayServer?.getLuckyWheelUrl());
 
+  // ===== MENU QUÀ (thông tin quà) — config-only overlay, không có engine =====
+  ipcMain.handle('giftmenu:getConfig', () => loadGiftMenuConfig() || giftMenuConfig);
+  ipcMain.handle('giftmenu:setConfig', (_e, cfg) => {
+    giftMenuConfig = (cfg && typeof cfg === 'object') ? cfg : { items: [] };
+    saveGiftMenuConfig(giftMenuConfig);
+    overlayServer?.sendGiftMenu(giftMenuConfig);
+    broadcast('giftmenu:state', giftMenuConfig);
+    return giftMenuConfig;
+  });
+  // apply: đẩy cấu hình NHÓM ra overlay ngay (KHÔNG ghi file gốc — hồ sơ nhóm tự lưu ở group-profiles).
+  ipcMain.handle('giftmenu:apply', (_e, cfg) => {
+    const live = (cfg && typeof cfg === 'object') ? cfg : { items: [] };
+    overlayServer?.sendGiftMenu(live);
+    broadcast('giftmenu:state', live);
+    return live;
+  });
+  ipcMain.handle('giftmenu:getUrl', () => overlayServer?.getGiftMenuUrl());
+
   // Match history (LỊCH SỬ trận đấu)
   ipcMain.handle('history:list', (_e, filter) => {
     let list = loadMatchHistory();
@@ -2860,6 +2980,29 @@ function registerIpc() {
     }
   });
 
+  // KIM CƯƠNG TỔNG theo nhóm (sheet DAILY DATA). Lỗi mạng → trả cache đã lưu.
+  ipcMain.handle('kc:getGroups', async () => {
+    try {
+      const data = await fetchGroupDiamonds();
+      return { ok: true, ...data };
+    } catch (e) {
+      const cached = loadKcData();
+      return { ok: false, error: e.message || String(e), byGroup: {}, total: 0, period: '', fetchedAt: 0, ...(cached || {}) };
+    }
+  });
+
+  // Chuỗi Kim cương 12 tháng (chart Hồ Sơ Nhóm). Cache 3 giờ vì số tháng đổi chậm.
+  ipcMain.handle('kc:getMonths', async () => {
+    const cached = loadKcMonths();
+    if (cached && cached.fetchedAt && (Date.now() - cached.fetchedAt) < 3 * 3600 * 1000) return { ok: true, ...cached };
+    try {
+      const data = await fetchGroupMonthly();
+      return { ok: true, ...data };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e), byGroup: {}, fetchedAt: 0, ...(cached || {}) };
+    }
+  });
+
   // Shell
   ipcMain.handle('shell:openExternal', (_e, url) => shell.openExternal(url));
   ipcMain.handle('shell:copyText', (_e, text) => { clipboard.writeText(String(text || '')); return true; });
@@ -2941,6 +3084,7 @@ app.whenReady().then(async () => {
   // Overlay server sẵn sàng SAU khi engine đã nạp config đã lưu → phát lại state một lần
   // để OBS/Review nhận ĐÚNG cấu hình ngay khi kết nối, không phải chờ lần chỉnh sửa kế tiếp.
   pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit();
+  overlayServer?.sendGiftMenu(giftMenuConfig);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 

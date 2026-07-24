@@ -31,8 +31,8 @@ class ObsOverlayServer {
     // KHÔNG xin được kết nối → tải trang trắng/không chạy JS. Tách mỗi loại sang 1 cổng loopback
     // riêng = mỗi loại có "ngân sách 6 kết nối" riêng, không tranh nhau. (Đã xác minh bằng netstat:
     // obs-browser-page giữ đúng 6 kết nối tới 18282, Vòng quay bị đói.)
-    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7 };
-    this.portCount = 8;
+    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8 };
+    this.portCount = 9;
     this.servers = [];
     this._boundPorts = new Set();
     this.pkDuoClients = new Set();
@@ -42,6 +42,7 @@ class ObsOverlayServer {
     this.stickerClients = new Set();
     this.mvpHonorClients = new Set();
     this.luckyWheelClients = new Set();
+    this.giftMenuClients = new Set();
     this.pkDuoState = {};
     this.pkGroupState = {};
     this.rankingState = {};
@@ -49,6 +50,7 @@ class ObsOverlayServer {
     this.stickerState = {};
     this.mvpHonorState = {};
     this.luckyWheelState = {};
+    this.giftMenuState = {};
     this.heartbeatTimer = null;
     // Cache avatar theo "danh tính ảnh" = PATH của URL (bỏ query chữ ký/expires): URL avatar TikTok
     // đã chứa hash ảnh trong path nên đổi ảnh = đổi path. Nhờ vậy URL ký lại (đổi x-signature/x-expires)
@@ -97,7 +99,7 @@ class ObsOverlayServer {
   stop() {
     clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
-    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients]) {
+    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients]) {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
     }
@@ -114,6 +116,7 @@ class ObsOverlayServer {
   getStickerUrl() { return `http://127.0.0.1:${this._portFor('sticker')}/sticker?token=${encodeURIComponent(this.token)}`; }
   getMvpHonorUrl() { return `http://127.0.0.1:${this._portFor('mvp-honor')}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
   getLuckyWheelUrl() { return `http://127.0.0.1:${this._portFor('lucky-wheel')}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=15`; }
+  getGiftMenuUrl() { return `http://127.0.0.1:${this._portFor('gift-menu')}/gift-menu?token=${encodeURIComponent(this.token)}&v=2`; }
 
   sendPkDuo(state) { this.pkDuoState = state || {}; this._broadcast(this.pkDuoClients, 'pkduo', this.pkDuoState); }
   sendPkGroup(state) { this.pkGroupState = state || {}; this._broadcast(this.pkGroupClients, 'pkgroup', this.pkGroupState); }
@@ -122,6 +125,7 @@ class ObsOverlayServer {
   sendSticker(state) { this.stickerState = state || {}; this._broadcast(this.stickerClients, 'sticker', this.stickerState); }
   sendMvpHonor(state) { this.mvpHonorState = state || {}; this._broadcast(this.mvpHonorClients, 'mvphonor', this.mvpHonorState); }
   sendLuckyWheel(state) { this.luckyWheelState = state || {}; this._broadcast(this.luckyWheelClients, 'luckywheel', this.luckyWheelState); }
+  sendGiftMenu(state) { this.giftMenuState = state || {}; this._broadcast(this.giftMenuClients, 'giftmenu', this.giftMenuState); }
 
   _broadcast(set, event, data) {
     const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
@@ -140,6 +144,7 @@ class ObsOverlayServer {
       [this.stickerClients, 'sticker', this.stickerState],
       [this.mvpHonorClients, 'mvphonor', this.mvpHonorState],
       [this.luckyWheelClients, 'luckywheel', this.luckyWheelState],
+      [this.giftMenuClients, 'giftmenu', this.giftMenuState],
     ];
     for (const [set, event, data] of beats) {
       const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
@@ -175,6 +180,8 @@ class ObsOverlayServer {
       '/mvp-honor-overlay.css': 'renderer/mvp-honor-overlay.css',
       '/lucky-wheel-overlay.js': 'renderer/lucky-wheel-overlay.js',
       '/lucky-wheel-overlay.css': 'renderer/lucky-wheel-overlay.css',
+      '/gift-menu-overlay.js': 'renderer/gift-menu-overlay.js',
+      '/gift-menu-overlay.css': 'renderer/gift-menu-overlay.css',
       '/overlay-common.css': 'renderer/overlay-common.css',
       '/overlay-sse.js': 'renderer/overlay-sse.js',
       '/review-resize.js': 'renderer/review-resize.js',
@@ -243,6 +250,9 @@ class ObsOverlayServer {
     if (req.method === 'GET' && reqUrl.pathname === '/lucky-wheel') {
       return this._serveFile(path.join(this.root, 'renderer', 'lucky-wheel-overlay.html'), res);
     }
+    if (req.method === 'GET' && reqUrl.pathname === '/gift-menu') {
+      return this._serveFile(path.join(this.root, 'renderer', 'gift-menu-overlay.html'), res);
+    }
 
     // SSE event streams
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo-events') return this._sse(req, res, this.pkDuoClients, 'pkduo', this.pkDuoState);
@@ -258,6 +268,9 @@ class ObsOverlayServer {
     // EventSource ban đầu, khiến canvas chỉ hiện vòng rỗng dù server vẫn có state.
     if (req.method === 'GET' && reqUrl.pathname === '/lucky-wheel-state') return this._json(res, this.luckyWheelState);
     if (req.method === 'GET' && reqUrl.pathname === '/lucky-wheel-events') return this._sse(req, res, this.luckyWheelClients, 'luckywheel', this.luckyWheelState);
+    // Menu Quà (thông tin quà) — overlay chỉ hiển thị, dùng chung cơ chế SSE + fallback state.
+    if (req.method === 'GET' && reqUrl.pathname === '/gift-menu-state') return this._json(res, this.giftMenuState);
+    if (req.method === 'GET' && reqUrl.pathname === '/gift-menu-events') return this._sse(req, res, this.giftMenuClients, 'giftmenu', this.giftMenuState);
 
     return this._reject(res, 404, 'not found');
   }
