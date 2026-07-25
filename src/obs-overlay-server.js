@@ -19,20 +19,21 @@ const MIME = {
 };
 
 class ObsOverlayServer {
-  constructor({ root, port = 18282, token, onLog, cacheDir, normalizeAvatar, onLuckyWheelSpin } = {}) {
+  constructor({ root, port = 18282, token, onLog, cacheDir, normalizeAvatar, onLuckyWheelSpin, onCardFlip } = {}) {
     this.root = root;
     this.port = port;
     this.token = token || crypto.randomBytes(18).toString('hex');
     this.onLog = onLog || (() => {});
     this.onLuckyWheelSpin = typeof onLuckyWheelSpin === 'function' ? onLuckyWheelSpin : null;
+    this.onCardFlip = typeof onCardFlip === 'function' ? onCardFlip : null;
     // MỘT CỔNG RIÊNG cho MỖI loại overlay. Lý do: OBS chạy mọi Browser Source trong CÙNG một
     // tiến trình CEF, mà Chromium giới hạn 6 KẾT NỐI đồng thời / host:port. Mỗi overlay giữ 1 luồng
     // SSE thường trực → khi tổng số nguồn > 6 (user có ~15), các nguồn "đến sau" (vd Vòng quay)
     // KHÔNG xin được kết nối → tải trang trắng/không chạy JS. Tách mỗi loại sang 1 cổng loopback
     // riêng = mỗi loại có "ngân sách 6 kết nối" riêng, không tranh nhau. (Đã xác minh bằng netstat:
     // obs-browser-page giữ đúng 6 kết nối tới 18282, Vòng quay bị đói.)
-    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8 };
-    this.portCount = 9;
+    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8, 'mission-trio': 9, 'card-flip': 10, 'card-flip-fx': 11 };
+    this.portCount = 12;
     this.servers = [];
     this._boundPorts = new Set();
     this.pkDuoClients = new Set();
@@ -43,6 +44,8 @@ class ObsOverlayServer {
     this.mvpHonorClients = new Set();
     this.luckyWheelClients = new Set();
     this.giftMenuClients = new Set();
+    this.missionTrioClients = new Set();
+    this.cardFlipClients = new Set();
     this.pkDuoState = {};
     this.pkGroupState = {};
     this.rankingState = {};
@@ -51,6 +54,8 @@ class ObsOverlayServer {
     this.mvpHonorState = {};
     this.luckyWheelState = {};
     this.giftMenuState = {};
+    this.missionTrioState = {};
+    this.cardFlipState = {};
     this.heartbeatTimer = null;
     // Cache avatar theo "danh tính ảnh" = PATH của URL (bỏ query chữ ký/expires): URL avatar TikTok
     // đã chứa hash ảnh trong path nên đổi ảnh = đổi path. Nhờ vậy URL ký lại (đổi x-signature/x-expires)
@@ -99,7 +104,7 @@ class ObsOverlayServer {
   stop() {
     clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
-    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients]) {
+    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients, this.missionTrioClients, this.cardFlipClients]) {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
     }
@@ -117,6 +122,11 @@ class ObsOverlayServer {
   getMvpHonorUrl() { return `http://127.0.0.1:${this._portFor('mvp-honor')}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
   getLuckyWheelUrl() { return `http://127.0.0.1:${this._portFor('lucky-wheel')}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=15`; }
   getGiftMenuUrl() { return `http://127.0.0.1:${this._portFor('gift-menu')}/gift-menu?token=${encodeURIComponent(this.token)}&v=2`; }
+  getMissionTrioUrl(mode) { const m = mode === 'horizontal' ? 'horizontal' : 'vertical'; return `http://127.0.0.1:${this._portFor('mission-trio')}/mission-trio?token=${encodeURIComponent(this.token)}&mode=${m}&v=2`; }
+  getCardFlipUrl() { return `http://127.0.0.1:${this._portFor('card-flip')}/card-flip?token=${encodeURIComponent(this.token)}&v=5`; }
+  // Overlay "lật 3D" toàn màn hình — DÙNG CHUNG stream /card-flip-events (không cần set/route riêng),
+  // nhưng ở cổng riêng để né trần 6 kết nối/host của CEF.
+  getCardFlipFxUrl() { return `http://127.0.0.1:${this._portFor('card-flip-fx')}/card-flip-fx?token=${encodeURIComponent(this.token)}&v=7`; }
 
   sendPkDuo(state) { this.pkDuoState = state || {}; this._broadcast(this.pkDuoClients, 'pkduo', this.pkDuoState); }
   sendPkGroup(state) { this.pkGroupState = state || {}; this._broadcast(this.pkGroupClients, 'pkgroup', this.pkGroupState); }
@@ -126,6 +136,8 @@ class ObsOverlayServer {
   sendMvpHonor(state) { this.mvpHonorState = state || {}; this._broadcast(this.mvpHonorClients, 'mvphonor', this.mvpHonorState); }
   sendLuckyWheel(state) { this.luckyWheelState = state || {}; this._broadcast(this.luckyWheelClients, 'luckywheel', this.luckyWheelState); }
   sendGiftMenu(state) { this.giftMenuState = state || {}; this._broadcast(this.giftMenuClients, 'giftmenu', this.giftMenuState); }
+  sendMissionTrio(state) { this.missionTrioState = state || {}; this._broadcast(this.missionTrioClients, 'missiontrio', this.missionTrioState); }
+  sendCardFlip(state) { this.cardFlipState = state || {}; this._broadcast(this.cardFlipClients, 'cardflip', this.cardFlipState); }
 
   _broadcast(set, event, data) {
     const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
@@ -145,6 +157,8 @@ class ObsOverlayServer {
       [this.mvpHonorClients, 'mvphonor', this.mvpHonorState],
       [this.luckyWheelClients, 'luckywheel', this.luckyWheelState],
       [this.giftMenuClients, 'giftmenu', this.giftMenuState],
+      [this.missionTrioClients, 'missiontrio', this.missionTrioState],
+      [this.cardFlipClients, 'cardflip', this.cardFlipState],
     ];
     for (const [set, event, data] of beats) {
       const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
@@ -182,6 +196,12 @@ class ObsOverlayServer {
       '/lucky-wheel-overlay.css': 'renderer/lucky-wheel-overlay.css',
       '/gift-menu-overlay.js': 'renderer/gift-menu-overlay.js',
       '/gift-menu-overlay.css': 'renderer/gift-menu-overlay.css',
+      '/mission-trio-overlay.js': 'renderer/mission-trio-overlay.js',
+      '/mission-trio-overlay.css': 'renderer/mission-trio-overlay.css',
+      '/card-flip-overlay.js': 'renderer/card-flip-overlay.js',
+      '/card-flip-overlay.css': 'renderer/card-flip-overlay.css',
+      '/card-flip-fx-overlay.js': 'renderer/card-flip-fx-overlay.js',
+      '/card-flip-fx-overlay.css': 'renderer/card-flip-fx-overlay.css',
       '/overlay-common.css': 'renderer/overlay-common.css',
       '/overlay-sse.js': 'renderer/overlay-sse.js',
       '/review-resize.js': 'renderer/review-resize.js',
@@ -206,6 +226,15 @@ class ObsOverlayServer {
       return this._reject(res, 404, 'not found');
     }
 
+    // Ảnh thẻ bài (mặt úp/mở + viền trên/dưới) theo kiểu vàng/hồng — không cần token
+    // vì OBS Browser Source phải load được ảnh trước khi có state. Chỉ tên file .png an toàn.
+    if (req.method === 'GET' && reqUrl.pathname.startsWith('/card-assets/')) {
+      const rel = reqUrl.pathname.replace(/^\/card-assets\//, '');
+      const m = /^(gold|pink)\/([\w.-]+\.png)$/i.exec(rel);
+      if (m) return this._serveFile(path.join(this.root, 'renderer', 'card-assets', m[1], m[2]), res);
+      return this._reject(res, 404, 'not found');
+    }
+
     // Avatar proxy: cho phép overlay load avatar từ TikTok CDN qua proxy đơn giản
     // (tránh CORS / mixed content trong OBS Browser Source).
     if (req.method === 'GET' && reqUrl.pathname === '/avatar') {
@@ -222,6 +251,13 @@ class ObsOverlayServer {
       if (endsAt > Date.now()) return this._json(res, { ok: false, error: 'wheel-is-spinning' });
       const result = this.onLuckyWheelSpin ? this.onLuckyWheelSpin() : null;
       return this._json(res, result ? { ok: true, result } : { ok: false, error: 'wheel-unavailable' });
+    }
+
+    // Overlay THẺ BÀI tương tác: bấm 1 thẻ (OBS Interact / cửa sổ Review) → đảo mặt úp/mở của thẻ đó.
+    if (req.method === 'POST' && reqUrl.pathname === '/card-flip-toggle') {
+      const id = reqUrl.searchParams.get('id') || '';
+      const result = this.onCardFlip ? this.onCardFlip(id) : null;
+      return this._json(res, result ? { ok: true, state: result } : { ok: false, error: 'card-unavailable' });
     }
 
     // Overlay HTML pages
@@ -253,6 +289,15 @@ class ObsOverlayServer {
     if (req.method === 'GET' && reqUrl.pathname === '/gift-menu') {
       return this._serveFile(path.join(this.root, 'renderer', 'gift-menu-overlay.html'), res);
     }
+    if (req.method === 'GET' && reqUrl.pathname === '/mission-trio') {
+      return this._serveFile(path.join(this.root, 'renderer', 'mission-trio-overlay.html'), res);
+    }
+    if (req.method === 'GET' && reqUrl.pathname === '/card-flip') {
+      return this._serveFile(path.join(this.root, 'renderer', 'card-flip-overlay.html'), res);
+    }
+    if (req.method === 'GET' && reqUrl.pathname === '/card-flip-fx') {
+      return this._serveFile(path.join(this.root, 'renderer', 'card-flip-fx-overlay.html'), res);
+    }
 
     // SSE event streams
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo-events') return this._sse(req, res, this.pkDuoClients, 'pkduo', this.pkDuoState);
@@ -271,6 +316,12 @@ class ObsOverlayServer {
     // Menu Quà (thông tin quà) — overlay chỉ hiển thị, dùng chung cơ chế SSE + fallback state.
     if (req.method === 'GET' && reqUrl.pathname === '/gift-menu-state') return this._json(res, this.giftMenuState);
     if (req.method === 'GET' && reqUrl.pathname === '/gift-menu-events') return this._sse(req, res, this.giftMenuClients, 'giftmenu', this.giftMenuState);
+    // NHIỆM VỤ · BỘ BA — 3 thanh KPI, dùng chung cơ chế SSE + fallback state.
+    if (req.method === 'GET' && reqUrl.pathname === '/mission-trio-state') return this._json(res, this.missionTrioState);
+    if (req.method === 'GET' && reqUrl.pathname === '/mission-trio-events') return this._sse(req, res, this.missionTrioClients, 'missiontrio', this.missionTrioState);
+    // THẺ BÀI — dùng chung cơ chế SSE + fallback state.
+    if (req.method === 'GET' && reqUrl.pathname === '/card-flip-state') return this._json(res, this.cardFlipState);
+    if (req.method === 'GET' && reqUrl.pathname === '/card-flip-events') return this._sse(req, res, this.cardFlipClients, 'cardflip', this.cardFlipState);
 
     return this._reject(res, 404, 'not found');
   }

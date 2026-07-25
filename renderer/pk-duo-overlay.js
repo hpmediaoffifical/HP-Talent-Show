@@ -160,6 +160,14 @@ function render(state = {}) {
   const showResult = status === 'finished';
   const aResult = showResult ? (neutral ? 'DRAW' : (aLead ? 'WIN' : 'LOSE')) : '';
   const bResult = showResult ? (neutral ? 'DRAW' : (aLead ? 'LOSE' : 'WIN')) : '';
+  // Chuỗi WIN: hiện "WIN: N" ở hàng dưới (ngang avatar người tặng quà), sát mép ngoài mỗi bên.
+  // Nền pill vàng đặc → nổi rõ trên video, không bị chìm như đặt trên nền tối phần đầu. Bên không có chuỗi thì ẩn.
+  const aStreak = Math.max(0, parseInt(a.winStreak, 10) || 0);
+  const bStreak = Math.max(0, parseInt(b.winStreak, 10) || 0);
+  // Bậc leo thang: WIN càng cao càng rực (chỉ bằng MÀU + nhịp nhấp nháy, không icon).
+  // t1(1-2) xám gọn → t5(10+) vàng huyền thoại. Badge nằm trong luồng flex, cách avatar TOP MVP bằng gap+margin.
+  const streakTier = (n) => n >= 10 ? 't5' : n >= 7 ? 't4' : n >= 5 ? 't3' : n >= 3 ? 't2' : 't1';
+  const streakBadge = (n, side) => n > 0 ? `<b class="pkduo-win-streak ${side} ${streakTier(n)}">WIN: ${n}</b>` : '';
   const centerIcon = CENTER_ARROW_SVG;
   // Mũi tên luôn XOAY khi đứng yên; hướng chỉ (flip) chỉ lộ ra lúc lao/đẩy (dash) vì lúc đó ngừng xoay.
   const centerClass = neutral ? 'neutral' : (aLead ? '' : 'flip');
@@ -234,9 +242,9 @@ function render(state = {}) {
       <strong class="score-b">${fmt(state.scoreB)}</strong>
     </div>
   </div><div class="pkduo-champs" aria-label="Vinh danh người tặng quà">
-    <div class="pkduo-champ-side left">${championsHtml(topA, 'a', swapA, enterA)}</div>
+    <div class="pkduo-champ-side left">${championsHtml(topA, 'a', swapA, enterA)}${streakBadge(aStreak, 'a')}</div>
     <div class="pkduo-champ-mid" aria-hidden="true"></div>
-    <div class="pkduo-champ-side right">${championsHtml(topB, 'b', swapB, enterB)}</div>
+    <div class="pkduo-champ-side right">${championsHtml(topB, 'b', swapB, enterB)}${streakBadge(bStreak, 'b')}</div>
   </div>`;
 
   // Đẩy ranh giới tới vị trí mới: snap khi trận mới bắt đầu / render đầu (tránh trượt từ 50%),

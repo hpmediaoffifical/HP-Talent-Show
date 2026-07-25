@@ -107,6 +107,31 @@ const api = {
     getUrl: () => ipcRenderer.invoke('giftmenu:getUrl'),
   },
 
+  // ===== NHIỆM VỤ · BỘ BA (3 KPI: người tặng quà / tim / điểm) =====
+  missiontrio: {
+    getState: () => ipcRenderer.invoke('missiontrio:getState'),
+    setConfig: (cfg) => ipcRenderer.invoke('missiontrio:setConfig', cfg),
+    start: () => ipcRenderer.invoke('missiontrio:start'),
+    stop: () => ipcRenderer.invoke('missiontrio:stop'),
+    reset: () => ipcRenderer.invoke('missiontrio:reset'),
+    bump: (kind, amount) => ipcRenderer.invoke('missiontrio:bump', { kind, amount }),
+    getUrl: (mode) => ipcRenderer.invoke('missiontrio:getUrl', mode),
+  },
+
+  // ===== THẺ BÀI (táp tim để lật thẻ) =====
+  cardflip: {
+    getState: () => ipcRenderer.invoke('cardflip:getState'),
+    setConfig: (cfg) => ipcRenderer.invoke('cardflip:setConfig', cfg),
+    startHearts: () => ipcRenderer.invoke('cardflip:startHearts'),
+    stopHearts: () => ipcRenderer.invoke('cardflip:stopHearts'),
+    resetHearts: () => ipcRenderer.invoke('cardflip:resetHearts'),
+    setHearts: (n) => ipcRenderer.invoke('cardflip:setHearts', n),
+    flip: (id, value) => ipcRenderer.invoke('cardflip:flip', { id, value }),
+    select: (id, value) => ipcRenderer.invoke('cardflip:select', { id, value }),
+    getUrl: () => ipcRenderer.invoke('cardflip:getUrl'),
+    getFxUrl: () => ipcRenderer.invoke('cardflip:getFxUrl'),
+  },
+
   // ===== Match history (LỊCH SỬ trận đấu) =====
   history: {
     list: (filter) => ipcRenderer.invoke('history:list', filter),
@@ -202,7 +227,7 @@ const api = {
     const allowed = new Set([
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
-      'pkduo:state', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state',
+      'pkduo:state', 'pkduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'missiontrio:state', 'cardflip:state',
       'history:changed',
       'log',
     ]);

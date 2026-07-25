@@ -90,6 +90,8 @@ let scoreEngine = null;
 let stickerEngine = null;
 let mvpHonorEngine = null;
 let luckyWheelEngine = null;
+let missionTrioEngine = null;
+let cardFlipEngine = null;
 // Menu Quà (thông tin quà) — chỉ hiển thị, không có engine/game state: config CHÍNH là state overlay.
 let giftMenuConfig = { items: [] };
 let settings = loadSettings();
@@ -130,6 +132,8 @@ function loadSettings() {
     score: null,
     scoreLinkRanking: false,
     scoreLinkVoteLock: false,
+    missionTrio: null,
+    cardFlip: null,
     audio: {
       gameSoundEnabled: true,
       startSound: '',
@@ -380,6 +384,9 @@ const REVIEW_META = {
   mvphonor: { title: 'Review MVP Honor', getUrl: () => overlayServer?.getMvpHonorUrl(), width: 540, height: 720 },
   luckywheel: { title: 'Review Vòng Quay', getUrl: () => overlayServer?.getLuckyWheelUrl(), width: 760, height: 760 },
   giftmenu: { title: 'Review Menu Quà', getUrl: () => overlayServer?.getGiftMenuUrl(), width: 520, height: 760 },
+  missiontrio: { title: 'Review NHIỆM VỤ · BỘ BA', getUrl: () => overlayServer?.getMissionTrioUrl(), width: 720, height: 320 },
+  cardflip: { title: 'Review THẺ BÀI', getUrl: () => overlayServer?.getCardFlipUrl(), width: 1040, height: 320 },
+  cardflipfx: { title: 'Review THẺ BÀI · Lật 3D', getUrl: () => overlayServer?.getCardFlipFxUrl(), width: 720, height: 405 },
 };
 
 function normalizeReviewBg(value) {
@@ -930,14 +937,16 @@ async function fetchGroupMonthly() {
 // Engines
 // =================================================================
 class PkDuoEngine {
-  constructor({ onState, onResult, getCreators }) {
+  constructor({ onState, onResult, getCreators, onConfigChange }) {
     this.onState = onState;
     this.onResult = onResult;
+    // Gọi khi engine tự sửa config (VD: cập nhật chuỗi WIN sau trận) → main lưu file + báo renderer.
+    this.onConfigChange = typeof onConfigChange === 'function' ? onConfigChange : null;
     // Lấy danh sách creator hiện tại để resolve avatar realtime (không đông cứng snapshot).
     this.getCreators = typeof getCreators === 'function' ? getCreators : () => [];
     this.config = {
-      teamA: { name: 'TEAM A', color: '#FE2C55', gifts: [] },
-      teamB: { name: 'TEAM B', color: '#25F4EE', gifts: [] },
+      teamA: { name: 'TEAM A', color: '#FE2C55', gifts: [], winStreak: 0 },
+      teamB: { name: 'TEAM B', color: '#25F4EE', gifts: [], winStreak: 0 },
       durationSec: 90,
       prepSec: 3,
       delaySec: 5,
@@ -1101,6 +1110,15 @@ class PkDuoEngine {
     const a = { name: this.config.teamA?.name || 'TEAM A', score: Number(this.state.scoreA) || 0, color: this.config.teamA?.color || '' };
     const b = { name: this.config.teamB?.name || 'TEAM B', score: Number(this.state.scoreB) || 0, color: this.config.teamB?.color || '' };
     const winnerSide = a.score === b.score ? 'draw' : (a.score > b.score ? 'A' : 'B');
+    // Chuỗi WIN: bên thắng +1, bên thua về 0 (mất chữ WIN); HÒA giữ nguyên chuỗi 2 bên.
+    // Lưu vào config để overlay hiện realtime và nhớ qua các trận; onConfigChange lo phần ghi file + báo renderer.
+    if (winnerSide === 'A' || winnerSide === 'B') {
+      const winTeam = winnerSide === 'A' ? this.config.teamA : this.config.teamB;
+      const loseTeam = winnerSide === 'A' ? this.config.teamB : this.config.teamA;
+      if (winTeam) winTeam.winStreak = (Number(winTeam.winStreak) || 0) + 1;
+      if (loseTeam) loseTeam.winStreak = 0;
+      if (this.onConfigChange) { try { this.onConfigChange(); } catch {} }
+    }
     if (typeof this.onResult === 'function') {
       this.onResult({
         type: 'duo',
@@ -2298,6 +2316,208 @@ class ScoreEngine {
   _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
 }
 
+// ----------------- NHIỆM VỤ · BỘ BA (3 KPI: người tặng quà / tim / điểm) -----------------
+// Đếm phiên theo toàn phòng: BẮT ĐẦU = mở đếm + reset về 0, Reset = về 0 + dừng.
+// - donors: SỐ NGƯỜI khác nhau đã tặng quà (Set uniqueId)  → 送礼人数
+// - likes:  TỔNG lượt tim tích luỹ từ lúc bắt đầu           → 点赞数量
+// - points: TỔNG kim cương user tặng (diamond × repeat)     → điểm
+// Hai overlay TÁCH RỜI (Dọc / Ngang) chia sẻ CÙNG bộ đếm + KPI, nhưng LƯU thông số hình học
+// RIÊNG theo từng bố cục để chỉnh cái này không đụng cái kia. Mặc định Dọc = ảnh 1, Ngang = ảnh 2.
+const MISSION_TRIO_GEO_V = { boxWidth: 300, gap: 14, titleFontSize: 30, valueFontSize: 35, overlayScale: 200 };
+const MISSION_TRIO_GEO_H = { boxWidth: 180, gap: 150, titleFontSize: 25, valueFontSize: 20, overlayScale: 200 };
+class MissionTrioEngine {
+  constructor({ onState }) {
+    this.onState = onState;
+    this.config = {
+      barColor1: '#ff2f87',      // màu đậm (mép đang tiến) — dùng chung
+      barColor2: '#ff8ed1',      // màu nhạt (đầu thanh) — dùng chung
+      borderAlpha: 0.55,         // độ mờ viền trắng (0.1–1) — dùng chung
+      order: ['donors', 'likes', 'points'],
+      items: {
+        donors: { enabled: true, label: 'Người tặng', target: 100 },
+        likes: { enabled: true, label: 'Số tim', target: 50000 },
+        points: { enabled: true, label: 'Số điểm', target: 100000 },
+      },
+      vertical: { ...MISSION_TRIO_GEO_V },   // thông số riêng cho overlay Dọc
+      horizontal: { ...MISSION_TRIO_GEO_H }, // thông số riêng cho overlay Ngang
+    };
+    this.state = { running: false, donors: new Set(), likes: 0, points: 0 };
+  }
+  setConfig(patch) {
+    patch = patch || {};
+    // Merge sâu items (giữ field cũ khi patch thiếu) + merge riêng từng bố cục.
+    const items = { ...this.config.items };
+    if (patch.items && typeof patch.items === 'object') {
+      for (const k of Object.keys(patch.items)) items[k] = { ...items[k], ...patch.items[k] };
+    }
+    const vertical = { ...MISSION_TRIO_GEO_V, ...this.config.vertical, ...(patch.vertical || {}) };
+    const horizontal = { ...MISSION_TRIO_GEO_H, ...this.config.horizontal, ...(patch.horizontal || {}) };
+    const order = Array.isArray(patch.order) && patch.order.length
+      ? patch.order.filter(k => items[k])
+      : this.config.order;
+    for (const k of Object.keys(items)) if (!order.includes(k)) order.push(k);
+    this.config = {
+      barColor1: patch.barColor1 || this.config.barColor1,
+      barColor2: patch.barColor2 || this.config.barColor2,
+      borderAlpha: Number.isFinite(+patch.borderAlpha) ? +patch.borderAlpha : this.config.borderAlpha,
+      order, items, vertical, horizontal,
+    };
+    this._emit();
+  }
+  start() { this.state = { running: true, donors: new Set(), likes: 0, points: 0 }; this._emit(); }
+  reset() { this.state = { running: false, donors: new Set(), likes: 0, points: 0 }; this._emit(); }
+  stop() { this.state.running = false; this._emit(); }
+  routeGift(ev) {
+    if (!this.state.running) return;
+    // Người tặng: mỗi user tính ĐÚNG 1 lần dù tặng 1 coin hay 10.000 coin, dù nhiều quà (Set uniqueId).
+    const uid = ev.uniqueId || ev.userId;
+    if (uid) this.state.donors.add(String(uid));
+    // Điểm: 1 KIM CƯƠNG = 1 ĐIỂM, không phân biệt số người. Cộng ĐÚNG tổng kim cương (diamond × số quà
+    // trong combo), KHÔNG ép tối thiểu 1 → quà 0 kim cương cộng 0 điểm.
+    this.state.points += Math.max(0, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1);
+    this._emit();
+  }
+  routeLike(ev) {
+    if (!this.state.running) return;
+    this.state.likes += Math.max(1, Number(ev.likeCount) || 1);
+    this._emit();
+  }
+  // TEST thủ công: cộng nhanh vào một KPI để canh giao diện.
+  bump(kind, amount) {
+    const n = Math.round(Number(amount) || 0);
+    if (kind === 'donors') {
+      for (let i = 0; i < Math.max(0, n); i++) this.state.donors.add(`test-${this.state.donors.size}-${i}`);
+    } else if (kind === 'likes') {
+      this.state.likes = Math.max(0, this.state.likes + n);
+    } else if (kind === 'points') {
+      this.state.points = Math.max(0, this.state.points + n);
+    }
+    this._emit();
+  }
+  getStateForOverlay() {
+    return {
+      ...this.config,
+      running: this.state.running,
+      values: { donors: this.state.donors.size, likes: this.state.likes, points: this.state.points },
+    };
+  }
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
+// =================================================================
+// THẺ BÀI — MC táp tim (KPI) để lật thẻ. Overlay tương tác được:
+// bấm thẻ nào (OBS Interact / cửa sổ Review) là lật thẻ đó.
+//  • Mặt úp (back.png)  = thẻ hp vàng/hồng (mặc định).
+//  • Mặt mở (front.png) = thẻ trắng phát sáng, hiện NỘI DUNG.
+//  • "Chọn thẻ" = thẻ rung để MC/người dùng xác nhận (vẫn úp).
+//  • "Lật thẻ"  = quay 3D sang mặt mở kèm nội dung.
+// Thanh "máu" đếm số TIM (like) tích luỹ so với mục tiêu.
+// =================================================================
+const CARD_FLIP_DEFAULT = {
+  title: 'Thẻ bài',
+  heartTarget: 1000,
+  cardStyle: 'gold',        // 'gold' | 'pink'
+  cardSize: 156,            // bề rộng thẻ (px) — cao tự tính theo tỉ lệ
+  fontSize: 20,             // cỡ chữ THÔNG TIN (tiêu đề/trạng thái/số trong thanh)
+  cardTextSize: 30,         // cỡ chữ NỘI DUNG TRONG THẺ (tách riêng khỏi thông tin)
+  bgColor: '#000000',
+  bgAlpha: 0.80,            // độ trong suốt nền (0–1)
+  titleColor: '#ffd94a',
+  barColor: '#ff2f87',      // màu thanh tiến trình (máu)
+  barTextColor: '#ffffff',  // màu chữ số trong thanh máu
+  runningColor: '#ff5a5a',  // màu chữ "ĐANG THỰC HIỆN"
+  doneColor: '#38e08a',     // màu chữ "THÀNH CÔNG"
+  edges: true,              // viền trên/dưới (mat tren/duoi)
+  scale: 100,               // scale overlay OBS (%)
+  fx: true,                 // bật overlay "lật 3D" giữa màn hình khi lật thẻ
+  spinMs: 3000,             // thời lượng cuộn 3D trước khi lộ thẻ (ms) — thanh ngang lộ đồng thời
+  fxStyle: 'random',        // kiểu lộ 3D: random (mặc định) | ring | fan | stack | fly | ...
+  sound: true,              // âm thanh (whoosh cuộn + chuông lộ) — tổng hợp WebAudio
+  soundVolume: 70,          // âm lượng 0–100
+  particles: true,          // pháo hoa/lấp lánh khi lộ thẻ
+};
+const CARD_FX_STYLES = ['ring', 'fan', 'stack', 'fly', 'wave', 'tunnel', 'helix', 'spiral'];
+class CardFlipEngine {
+  constructor({ onState }) {
+    this.onState = onState;
+    this._seq = 0;
+    this.config = {
+      ...CARD_FLIP_DEFAULT,
+      cards: [
+        this._mkCard('A'), this._mkCard('B'), this._mkCard('C'),
+        this._mkCard('Nội dung'), this._mkCard('Nội dung'),
+      ],
+    };
+    this.state = { running: false, hearts: 0 };
+  }
+  _mkCard(text = '') { return { id: `c${++this._seq}`, text: String(text || ''), flipped: false, selected: false, flipAt: 0 }; }
+  _clampInt(v, dv, min, max) { let n = Math.round(Number(v)); if (!Number.isFinite(n)) n = dv; return Math.max(min, Math.min(max, n)); }
+  _color(v, dv) { return /^#[0-9a-f]{6}$/i.test(String(v || '')) ? v : dv; }
+  _normalizeCards(arr) {
+    if (!Array.isArray(arr)) return this.config.cards;
+    return arr.slice(0, 60).map((c) => ({
+      id: c && c.id ? String(c.id) : `c${++this._seq}`,
+      text: String((c && c.text) || ''),
+      flipped: !!(c && c.flipped),
+      selected: !!(c && c.selected),
+      flipAt: Number(c && c.flipAt) || 0,
+    }));
+  }
+  setConfig(patch) {
+    patch = patch || {};
+    const d = CARD_FLIP_DEFAULT;
+    const c = this.config;
+    this.config = {
+      title: patch.title != null ? String(patch.title).slice(0, 80) : c.title,
+      heartTarget: patch.heartTarget != null ? this._clampInt(patch.heartTarget, c.heartTarget, 0, 100000000) : c.heartTarget,
+      cardStyle: patch.cardStyle === 'pink' ? 'pink' : (patch.cardStyle === 'gold' ? 'gold' : c.cardStyle),
+      cardSize: patch.cardSize != null ? this._clampInt(patch.cardSize, c.cardSize, 60, 400) : c.cardSize,
+      fontSize: patch.fontSize != null ? this._clampInt(patch.fontSize, c.fontSize, 8, 80) : c.fontSize,
+      cardTextSize: patch.cardTextSize != null ? this._clampInt(patch.cardTextSize, c.cardTextSize, 8, 90) : c.cardTextSize,
+      bgColor: this._color(patch.bgColor, c.bgColor),
+      bgAlpha: patch.bgAlpha != null && Number.isFinite(+patch.bgAlpha) ? Math.max(0, Math.min(1, +patch.bgAlpha)) : c.bgAlpha,
+      titleColor: this._color(patch.titleColor, c.titleColor),
+      barColor: this._color(patch.barColor, c.barColor),
+      barTextColor: this._color(patch.barTextColor, c.barTextColor),
+      runningColor: this._color(patch.runningColor, c.runningColor),
+      doneColor: this._color(patch.doneColor, c.doneColor),
+      edges: patch.edges != null ? !!patch.edges : c.edges,
+      scale: patch.scale != null ? this._clampInt(patch.scale, c.scale, 40, 300) : c.scale,
+      fx: patch.fx != null ? !!patch.fx : c.fx,
+      spinMs: patch.spinMs != null ? this._clampInt(patch.spinMs, c.spinMs, 800, 8000) : c.spinMs,
+      fxStyle: (CARD_FX_STYLES.includes(patch.fxStyle) || patch.fxStyle === 'random') ? patch.fxStyle : c.fxStyle,
+      sound: patch.sound != null ? !!patch.sound : c.sound,
+      soundVolume: patch.soundVolume != null ? this._clampInt(patch.soundVolume, c.soundVolume, 0, 100) : c.soundVolume,
+      particles: patch.particles != null ? !!patch.particles : c.particles,
+      cards: patch.cards != null ? this._normalizeCards(patch.cards) : c.cards,
+    };
+    this._emit();
+  }
+  startHearts() { this.state.running = true; this.state.hearts = 0; this._emit(); }
+  stopHearts() { this.state.running = false; this._emit(); }
+  resetHearts() { this.state = { running: false, hearts: 0 }; this._emit(); }
+  setHearts(n) { this.state.hearts = Math.max(0, Math.round(Number(n) || 0)); this._emit(); }
+  routeLike(ev) {
+    if (!this.state.running) return;
+    this.state.hearts += Math.max(1, Number(ev.likeCount) || 1);
+    this._emit();
+  }
+  _find(id) { return this.config.cards.find((c) => c.id === String(id)); }
+  // value === undefined → đảo trạng thái (dùng cho click trên overlay).
+  // Lật LÊN: đóng dấu flipAt (giờ server) → overlay lật 3D & thanh ngang dùng CHUNG mốc này để lộ ĐỒNG THỜI.
+  flipCard(id, value) {
+    const c = this._find(id); if (!c) return;
+    const nv = value == null ? !c.flipped : !!value;
+    c.flipped = nv;
+    c.flipAt = nv ? Date.now() : 0;
+    this._emit();
+  }
+  selectCard(id, value) { const c = this._find(id); if (!c) return; c.selected = value == null ? !c.selected : !!value; this._emit(); }
+  // serverNow → client tự tính lệch đồng hồ, canh đúng mốc lộ thẻ (flipAt + spinMs) dù kết nối trễ.
+  getStateForOverlay() { return { ...this.config, running: this.state.running, hearts: this.state.hearts, serverNow: Date.now() }; }
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
 // Score theme presets — port từ BIGO spec
 const SCORE_THEMES = {
   douyin:  ['#b93678', '#ff8ed1', '#ffffff', '#ff0000'],
@@ -2386,6 +2606,11 @@ function bootstrapEngines() {
       broadcast('pkduo:state', st);
     },
     onResult: appendMatchHistory,
+    // Engine tự cập nhật chuỗi WIN sau trận → lưu file + báo renderer để ô "Chuỗi WIN" đồng bộ.
+    onConfigChange: () => {
+      savePkDuoConfig(pkDuoEngine.config);
+      broadcast('pkduo:config', { teamA: pkDuoEngine.config.teamA, teamB: pkDuoEngine.config.teamB });
+    },
     getCreators: loadCreators,
   });
   const savedPk = loadPkDuoConfig();
@@ -2443,6 +2668,20 @@ function bootstrapEngines() {
   });
   const savedLuckyWheel = loadLuckyWheelConfig();
   if (savedLuckyWheel) luckyWheelEngine.setConfig(savedLuckyWheel);
+  missionTrioEngine = new MissionTrioEngine({
+    onState: (st) => {
+      overlayServer?.sendMissionTrio(st);
+      broadcast('missiontrio:state', st);
+    },
+  });
+  if (settings.missionTrio) missionTrioEngine.setConfig(settings.missionTrio);
+  cardFlipEngine = new CardFlipEngine({
+    onState: (st) => {
+      overlayServer?.sendCardFlip(st);
+      broadcast('cardflip:state', st);
+    },
+  });
+  if (settings.cardFlip) cardFlipEngine.setConfig(settings.cardFlip);
   const savedGiftMenu = loadGiftMenuConfig();
   if (savedGiftMenu && typeof savedGiftMenu === 'object') giftMenuConfig = savedGiftMenu;
 
@@ -2454,6 +2693,8 @@ function bootstrapEngines() {
   stickerEngine._emit();
   mvpHonorEngine._emit();
   luckyWheelEngine._emit();
+  missionTrioEngine._emit();
+  cardFlipEngine._emit();
   overlayServer?.sendGiftMenu(giftMenuConfig);
 }
 
@@ -2493,9 +2734,10 @@ function bootstrapTikTok() {
       rankingEngine?.routeGift(d);
       scoreEngine?.routeGift(d);
       stickerEngine?.routeGift(d);
+      missionTrioEngine?.routeGift(d);
     }
   });
-  ttClient.on('like', (d) => { _cacheAvatar(d); broadcast('tt:like', d); });
+  ttClient.on('like', (d) => { _cacheAvatar(d); missionTrioEngine?.routeLike(d); cardFlipEngine?.routeLike(d); broadcast('tt:like', d); });
   ttClient.on('member', (d) => { _cacheAvatar(d); broadcast('tt:member', d); });
   ttClient.on('follow', (d) => { _cacheAvatar(d); broadcast('tt:follow', d); });
   ttClient.on('share', (d) => { _cacheAvatar(d); broadcast('tt:share', d); });
@@ -2516,6 +2758,13 @@ async function bootstrapOverlay() {
       const result = luckyWheelEngine?.doSpin();
       if (result) saveLuckyWheelConfig(luckyWheelEngine.config);
       return result;
+    },
+    // Overlay tương tác: bấm thẻ → đảo mặt úp/mở của đúng thẻ đó, rồi lưu lại.
+    onCardFlip: (id) => {
+      if (!cardFlipEngine) return null;
+      cardFlipEngine.flipCard(id);
+      settings.cardFlip = cardFlipEngine.config; saveSettings();
+      return cardFlipEngine.getStateForOverlay();
     },
     onLog: (m) => broadcast('log', { source: 'overlay', message: m }),
   });
@@ -2896,6 +3145,27 @@ function registerIpc() {
   ipcMain.handle('score:addPoints', (_e, { points, user } = {}) => { scoreEngine.addPoints(points, user); return true; });
   ipcMain.handle('score:getUrl', () => overlayServer.getScoreUrl());
 
+  // NHIỆM VỤ · BỘ BA
+  ipcMain.handle('missiontrio:getState', () => missionTrioEngine.getStateForOverlay());
+  ipcMain.handle('missiontrio:setConfig', (_e, cfg) => { missionTrioEngine.setConfig(cfg); settings.missionTrio = missionTrioEngine.config; saveSettings(); return missionTrioEngine.config; });
+  ipcMain.handle('missiontrio:start', () => { missionTrioEngine.start(); return true; });
+  ipcMain.handle('missiontrio:stop', () => { missionTrioEngine.stop(); return true; });
+  ipcMain.handle('missiontrio:reset', () => { missionTrioEngine.reset(); return true; });
+  ipcMain.handle('missiontrio:bump', (_e, { kind, amount } = {}) => { missionTrioEngine.bump(kind, amount); return true; });
+  ipcMain.handle('missiontrio:getUrl', (_e, mode) => overlayServer.getMissionTrioUrl(mode));
+
+  // ===== THẺ BÀI =====
+  ipcMain.handle('cardflip:getState', () => cardFlipEngine.getStateForOverlay());
+  ipcMain.handle('cardflip:setConfig', (_e, cfg) => { cardFlipEngine.setConfig(cfg); settings.cardFlip = cardFlipEngine.config; saveSettings(); return cardFlipEngine.config; });
+  ipcMain.handle('cardflip:startHearts', () => { cardFlipEngine.startHearts(); return true; });
+  ipcMain.handle('cardflip:stopHearts', () => { cardFlipEngine.stopHearts(); return true; });
+  ipcMain.handle('cardflip:resetHearts', () => { cardFlipEngine.resetHearts(); return true; });
+  ipcMain.handle('cardflip:setHearts', (_e, n) => { cardFlipEngine.setHearts(n); return true; });
+  ipcMain.handle('cardflip:flip', (_e, { id, value } = {}) => { cardFlipEngine.flipCard(id, value); settings.cardFlip = cardFlipEngine.config; saveSettings(); return true; });
+  ipcMain.handle('cardflip:select', (_e, { id, value } = {}) => { cardFlipEngine.selectCard(id, value); settings.cardFlip = cardFlipEngine.config; saveSettings(); return true; });
+  ipcMain.handle('cardflip:getUrl', () => overlayServer.getCardFlipUrl());
+  ipcMain.handle('cardflip:getFxUrl', () => overlayServer.getCardFlipFxUrl());
+
   // Overlay Review windows
   ipcMain.handle('review:open', (_e, type) => openReviewWindow(type));
   ipcMain.handle('review:close', (_e, type) => closeReviewWindow(type));
@@ -3112,7 +3382,7 @@ app.whenReady().then(async () => {
   await bootstrapOverlay();
   // Overlay server sẵn sàng SAU khi engine đã nạp config đã lưu → phát lại state một lần
   // để OBS/Review nhận ĐÚNG cấu hình ngay khi kết nối, không phải chờ lần chỉnh sửa kế tiếp.
-  pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit();
+  pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); cardFlipEngine?._emit();
   overlayServer?.sendGiftMenu(giftMenuConfig);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

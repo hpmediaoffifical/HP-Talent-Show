@@ -8,7 +8,7 @@
   if (new URLSearchParams(location.search).get('review') !== '1') return;
 
   // Mỗi trang chỉ có 1 trong các root này.
-  const ROOT_IDS = ['pkDuoRoot', 'pkfxRoot', 'pkGroupRoot', 'rankingRoot', 'scoreRoot', 'stickerRoot', 'mvpStage', 'lwStage'];
+  const ROOT_IDS = ['pkDuoRoot', 'pkfxRoot', 'pkGroupRoot', 'rankingRoot', 'scoreRoot', 'stickerRoot', 'mvpStage', 'lwStage', 'cfRoot'];
   const MIN = 0.3, MAX = 2, BASE = 320; // kéo chéo ~320px ≈ ±100% zoom
 
   function init() {

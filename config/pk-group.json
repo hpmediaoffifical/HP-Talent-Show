@@ -38,8 +38,7 @@
       ],
       "streak": 0,
       "score": 0,
-      "nameOverride": false,
-      "avatarKey": "528a77824606caf7f6ab5000e0fa3c565a851ced"
+      "nameOverride": false
     },
     {
       "id": "c_mrtg2crd6d27p",
@@ -59,8 +58,7 @@
       ],
       "streak": 0,
       "score": 0,
-      "nameOverride": false,
-      "avatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b"
+      "nameOverride": false
     },
     {
       "id": "c_mrtg2obyczu0h",
@@ -80,8 +78,7 @@
       ],
       "streak": 0,
       "score": 0,
-      "nameOverride": false,
-      "avatarKey": "257e01bcb983d9242993df341399fb664d63f4ed"
+      "nameOverride": false
     },
     {
       "id": "c_mrtg2s085v57p",
@@ -101,8 +98,7 @@
       ],
       "streak": 0,
       "score": 0,
-      "nameOverride": false,
-      "avatarKey": "3dafaf85608b5ed478ea2c98dc543fb5db28bf2f"
+      "nameOverride": false
     },
     {
       "id": "c_mrtg396ra59ws",
@@ -122,8 +118,7 @@
       ],
       "streak": 0,
       "score": 0,
-      "nameOverride": true,
-      "avatarKey": "7a1835be3759ef22140264da0b92563b31d5f75e"
+      "nameOverride": true
     }
   ],
   "bgColor": "#e10909",

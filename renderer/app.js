@@ -71,10 +71,23 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
   $$('.nav-btn').forEach(x => x.classList.toggle('active', x === b));
   const id = b.dataset.tab;
   $$('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === id));
+  // Giữ ngăn cha (NHIỆM VỤ…) mở khi đang xem một mục con của nó.
+  const grp = b.closest('.nav-group');
+  if (grp) { grp.classList.add('open'); grp.querySelector('.nav-parent')?.setAttribute('aria-expanded', 'true'); }
   if (id === 'settings') refreshOverlayUrls();
   if (id === 'mvphonor') mvpRenderStage?.();
   if (id === 'luckywheel') { lwRefreshSpinners?.(); renderLwPreview?.(); }
+  if (id === 'mtrio') mtOnShow?.();
+  if (id === 'cardflip') cfOnShow?.();
   if (id === 'groups') loadKcData?.(); // nạp KIM CƯƠNG TỔNG cho Hồ Sơ Nhóm
+}));
+
+// ===== Ngăn menu con (parent gập/mở) =====
+$$('.nav-parent').forEach(p => p.addEventListener('click', () => {
+  const grp = p.closest('.nav-group');
+  if (!grp) return;
+  const open = grp.classList.toggle('open');
+  p.setAttribute('aria-expanded', open ? 'true' : 'false');
 }));
 
 // ===== Thu gọn sidebar (bấm logo HP) =====
@@ -2565,6 +2578,484 @@ function wireLuckyWheelTab() {
   renderLwHistory();
 }
 
+// ===================== NHIỆM VỤ · BỘ BA (3 KPI, 2 overlay Dọc/Ngang) =====================
+const MT_KPIS = ['donors', 'likes', 'points'];
+const MT_KPI_LABEL = { donors: 'Người tặng', likes: 'Số tim', points: 'Số điểm' };
+const MT_GEO_V = { boxWidth: 300, gap: 14, titleFontSize: 30, valueFontSize: 35, overlayScale: 200 };
+const MT_GEO_H = { boxWidth: 180, gap: 150, titleFontSize: 25, valueFontSize: 20, overlayScale: 200 };
+let mtCfg = null;
+let mtEditLayout = 'vertical';   // bố cục đang chỉnh/xem trước (không lưu vào config)
+let mtValues = { donors: 0, likes: 0, points: 0 };
+let mtRunning = false;
+let mtSaveTimer = null;
+
+function mtDefaultCfg() {
+  return {
+    barColor1: '#ff2f87', barColor2: '#ff8ed1', borderAlpha: 0.55,
+    order: ['donors', 'likes', 'points'],
+    items: {
+      donors: { enabled: true, label: MT_KPI_LABEL.donors, target: 100 },
+      likes: { enabled: true, label: MT_KPI_LABEL.likes, target: 50000 },
+      points: { enabled: true, label: MT_KPI_LABEL.points, target: 100000 },
+    },
+    vertical: { ...MT_GEO_V },
+    horizontal: { ...MT_GEO_H },
+  };
+}
+function mtNumOr(v, dv) { return Number.isFinite(+v) ? +v : dv; }
+function mtNormalizeGeo(g, d) {
+  g = g || {};
+  return {
+    boxWidth: mtNumOr(g.boxWidth, d.boxWidth), gap: mtNumOr(g.gap, d.gap),
+    titleFontSize: mtNumOr(g.titleFontSize, d.titleFontSize),
+    valueFontSize: mtNumOr(g.valueFontSize, d.valueFontSize),
+    overlayScale: mtNumOr(g.overlayScale, d.overlayScale),
+  };
+}
+function mtNormalize(c) {
+  c = c || {};
+  const d = mtDefaultCfg();
+  const items = {};
+  for (const k of MT_KPIS) items[k] = { ...d.items[k], ...(c.items && c.items[k]) };
+  let order = Array.isArray(c.order) ? c.order.filter(k => items[k]) : d.order.slice();
+  for (const k of d.order) if (!order.includes(k)) order.push(k);
+  return {
+    barColor1: c.barColor1 || d.barColor1, barColor2: c.barColor2 || d.barColor2,
+    borderAlpha: mtNumOr(c.borderAlpha, d.borderAlpha),
+    order, items,
+    vertical: mtNormalizeGeo(c.vertical, MT_GEO_V),
+    horizontal: mtNormalizeGeo(c.horizontal, MT_GEO_H),
+  };
+}
+function mtGeo() { return mtCfg[mtEditLayout]; }
+function mtFmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('vi-VN'); }
+function mtParseInt(s) { return Math.max(0, parseInt(String(s).replace(/[^\d]/g, ''), 10) || 0); }
+function mtFillGradient(c1, c2) {
+  return `linear-gradient(90deg, color-mix(in srgb, ${c2}, transparent 84%) 0%, color-mix(in srgb, ${c2}, transparent 42%) 26%, ${c2} 56%, ${c1} 100%)`;
+}
+
+async function loadMissionTrioConfig() {
+  const st = await window.api.missiontrio.getState().catch(() => null);
+  mtCfg = mtNormalize(st || {});
+  if (st) { mtValues = st.values || mtValues; mtRunning = !!st.running; }
+  mtFillForm(); mtRenderKpiList(); mtRenderPreview(); mtUpdateRunUI();
+}
+function mtPushLive() { if (mtCfg) window.api.missiontrio.setConfig(mtCfg).catch(() => {}); }
+function mtScheduleSave() { clearTimeout(mtSaveTimer); mtSaveTimer = setTimeout(mtPushLive, 250); mtRenderPreview(); }
+
+function mtFillForm() {
+  if (!mtCfg) return;
+  const g = mtGeo();
+  const set = (id, v) => { const el = $('#' + id); if (el) el.value = v; };
+  set('mtLayout', mtEditLayout);
+  set('mtBoxWidth', g.boxWidth); set('mtGap', g.gap);
+  set('mtTitleSize', g.titleFontSize); set('mtValueSize', g.valueFontSize);
+  set('mtColor1', mtCfg.barColor1); set('mtColor2', mtCfg.barColor2); set('mtScale', g.overlayScale);
+  if ($('#mtScaleVal')) $('#mtScaleVal').textContent = `${g.overlayScale}%`;
+  const ba = Math.round((mtCfg.borderAlpha ?? 0.55) * 100);
+  set('mtBorderAlpha', ba);
+  if ($('#mtBorderAlphaVal')) $('#mtBorderAlphaVal').textContent = `${ba}%`;
+}
+
+function mtRenderKpiList() {
+  const box = $('#mtKpiList');
+  if (!box || !mtCfg) return;
+  box.innerHTML = mtCfg.order.map((k, idx) => {
+    const it = mtCfg.items[k] || {};
+    return `<div class="mt-kpi-row" data-k="${k}">
+      <label class="mt-kpi-en"><input type="checkbox" class="mt-en" ${it.enabled !== false ? 'checked' : ''} /></label>
+      <input class="mt-label" type="text" value="${escapeHtml(it.label || '')}" placeholder="Tên hiển thị" />
+      <input class="mt-target" type="text" inputmode="numeric" value="${mtFmt(it.target)}" />
+      <div class="mt-kpi-move">
+        <button type="button" class="ghost tiny mt-up" title="Lên"${idx === 0 ? ' disabled' : ''}>▲</button>
+        <button type="button" class="ghost tiny mt-down" title="Xuống"${idx === mtCfg.order.length - 1 ? ' disabled' : ''}>▼</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Preview trong app LUÔN NẰM NGANG + gọn (OBS mới hiển thị theo bố cục riêng). Kích thước cố định
+// cho gọn, chỉ phản ánh số liệu + màu + độ mờ viền + báo hiệu hoàn thành (không theo geo OBS).
+function mtRenderPreview() {
+  const box = $('#mtPreview');
+  if (!box || !mtCfg) return;
+  const grad = mtFillGradient(mtCfg.barColor1, mtCfg.barColor2);
+  const shown = mtCfg.order.filter(k => mtCfg.items[k] && mtCfg.items[k].enabled !== false);
+  const allDone = shown.length > 0 && shown.every(k => (Number(mtValues[k]) || 0) >= Math.max(1, Number(mtCfg.items[k].target) || 1));
+  const rows = shown.map(k => {
+    const it = mtCfg.items[k];
+    const target = Math.max(1, Number(it.target) || 1);
+    const val = Math.max(0, Number(mtValues[k]) || 0);
+    const pct = Math.max(0, Math.min(100, (val / target) * 100));
+    return `<div class="mtp-item${val >= target ? ' mtp-done' : ''}">
+      <div class="mtp-title">${escapeHtml(it.label || MT_KPI_LABEL[k])}</div>
+      <div class="mtp-bar" style="--mt-run:${mtCfg.barColor1}">
+        <div class="mtp-fill" style="width:${pct}%;background:${grad}"></div>
+        <div class="mtp-val"><b>${mtFmt(val)}</b><span>/${mtFmt(target)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+  box.className = `mt-preview mt-h${allDone ? ' mt-all-done' : ''}`;
+  const clk = (p) => `${(-(Date.now() % p) / 1000).toFixed(3)}s`;
+  box.style.setProperty('--mt-border-alpha', String(mtCfg.borderAlpha ?? 0.55));
+  box.style.setProperty('--mt-clock', clk(900));
+  box.style.setProperty('--mt-run-clock', clk(1400));
+  box.style.setProperty('--mt-flow-clock', clk(1000));
+  box.innerHTML = rows || '<span class="muted">Chưa bật KPI nào</span>';
+}
+
+function mtUpdateRunUI() {
+  const el = $('#mtRunState');
+  if (el) { el.textContent = mtRunning ? '● Đang chạy' : '● Đang dừng'; el.classList.toggle('on', mtRunning); }
+  if ($('#mtStart')) $('#mtStart').textContent = mtRunning ? '▶ CHẠY LẠI' : '▶ BẮT ĐẦU';
+}
+
+function mtOnShow() { mtRenderPreview(); }
+
+function wireMissionTrioTab() {
+  // Thông số hình học ghi vào ĐÚNG bố cục đang chỉnh (mtCfg[mtEditLayout]).
+  const num = (id, key, min, max) => {
+    const el = $('#' + id); if (!el) return;
+    el.addEventListener('input', () => {
+      let v = parseInt(el.value, 10); if (!Number.isFinite(v)) return;
+      if (min != null) v = Math.max(min, v); if (max != null) v = Math.min(max, v);
+      mtGeo()[key] = v; mtScheduleSave();
+    });
+  };
+  num('mtBoxWidth', 'boxWidth', 120, 900);
+  num('mtGap', 'gap', 0, 400);
+  num('mtTitleSize', 'titleFontSize', 10, 60);
+  num('mtValueSize', 'valueFontSize', 10, 60);
+  // Đổi "Bố cục đang chỉnh" → chỉ nạp lại form theo loại đó, KHÔNG lưu (không đổi config).
+  $('#mtLayout')?.addEventListener('change', () => {
+    mtEditLayout = $('#mtLayout').value === 'horizontal' ? 'horizontal' : 'vertical';
+    mtFillForm(); mtRenderPreview();
+  });
+  $('#mtColor1')?.addEventListener('input', () => { mtCfg.barColor1 = $('#mtColor1').value; mtScheduleSave(); });
+  $('#mtColor2')?.addEventListener('input', () => { mtCfg.barColor2 = $('#mtColor2').value; mtScheduleSave(); });
+  $('#mtBorderAlpha')?.addEventListener('input', () => { const p = Math.max(5, Math.min(100, parseInt($('#mtBorderAlpha').value, 10) || 55)); mtCfg.borderAlpha = p / 100; if ($('#mtBorderAlphaVal')) $('#mtBorderAlphaVal').textContent = `${p}%`; mtScheduleSave(); });
+  $('#mtScale')?.addEventListener('input', () => { mtGeo().overlayScale = parseInt($('#mtScale').value, 10) || 100; if ($('#mtScaleVal')) $('#mtScaleVal').textContent = `${mtGeo().overlayScale}%`; mtScheduleSave(); });
+
+  $('#mtKpiList')?.addEventListener('input', (e) => {
+    const row = e.target.closest('.mt-kpi-row'); if (!row) return;
+    const k = row.dataset.k; const it = mtCfg.items[k]; if (!it) return;
+    if (e.target.classList.contains('mt-en')) it.enabled = e.target.checked;
+    else if (e.target.classList.contains('mt-label')) it.label = e.target.value;
+    else if (e.target.classList.contains('mt-target')) it.target = Math.max(1, mtParseInt(e.target.value) || 1);
+    mtScheduleSave();
+  });
+  $('#mtKpiList')?.addEventListener('change', (e) => {
+    if (e.target.classList.contains('mt-target')) { const k = e.target.closest('.mt-kpi-row')?.dataset.k; if (k) e.target.value = mtFmt(mtCfg.items[k].target); }
+  });
+  $('#mtKpiList')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    const row = e.target.closest('.mt-kpi-row'); if (!row) return;
+    const i = mtCfg.order.indexOf(row.dataset.k);
+    if (btn.classList.contains('mt-up') && i > 0) { [mtCfg.order[i - 1], mtCfg.order[i]] = [mtCfg.order[i], mtCfg.order[i - 1]]; }
+    else if (btn.classList.contains('mt-down') && i < mtCfg.order.length - 1) { [mtCfg.order[i + 1], mtCfg.order[i]] = [mtCfg.order[i], mtCfg.order[i + 1]]; }
+    else return;
+    mtRenderKpiList(); mtScheduleSave();
+  });
+
+  $('#mtStart')?.addEventListener('click', async () => {
+    await window.api.missiontrio.start();
+    mtRunning = true; mtValues = { donors: 0, likes: 0, points: 0 };
+    mtRenderPreview(); mtUpdateRunUI();
+    toast('NHIỆM VỤ · BỘ BA: bắt đầu đếm từ 0', 'success');
+  });
+  $('#mtReset')?.addEventListener('click', async () => {
+    await window.api.missiontrio.reset();
+    mtRunning = false; mtValues = { donors: 0, likes: 0, points: 0 };
+    mtRenderPreview(); mtUpdateRunUI();
+    toast('Đã reset NHIỆM VỤ · BỘ BA', '');
+  });
+  const copy = async (mode, name) => {
+    const url = await window.api.missiontrio.getUrl(mode);
+    await window.api.shell.copyText(url);
+    toast(`Đã copy link OBS BỘ BA · ${name}`, 'success');
+  };
+  $('#mtCopyV')?.addEventListener('click', () => copy('vertical', 'Dọc'));
+  $('#mtCopyH')?.addEventListener('click', () => copy('horizontal', 'Ngang'));
+  $$('.mt-test [data-bump]').forEach(btn => btn.addEventListener('click', async () => {
+    const amt = Math.max(1, parseInt($('#mtTestAmt')?.value, 10) || 1);
+    await window.api.missiontrio.bump(btn.dataset.bump, amt);
+  }));
+
+  window.api.on('missiontrio:state', (st) => {
+    if (!st) return;
+    if (st.values) mtValues = st.values;
+    mtRunning = !!st.running;
+    mtRenderPreview(); mtUpdateRunUI();
+  });
+}
+
+// ===================== THẺ BÀI (táp tim để lật thẻ) =====================
+let cfCfg = null;
+let cfHearts = 0;
+let cfRunning = false;
+let cfSaveTimer = null;
+
+function cfDefaultCfg() {
+  return {
+    title: 'Thẻ bài', heartTarget: 1000, cardStyle: 'gold', cardSize: 156, fontSize: 20, cardTextSize: 30,
+    bgColor: '#000000', bgAlpha: 0.80, titleColor: '#ffd94a', barColor: '#ff2f87',
+    barTextColor: '#ffffff', runningColor: '#ff5a5a', doneColor: '#38e08a', edges: true, scale: 100,
+    fx: true, spinMs: 3000, fxStyle: 'random', sound: true, soundVolume: 70, particles: true,
+    cards: [],
+  };
+}
+const CF_FX_STYLES = ['ring', 'fan', 'stack', 'fly', 'wave', 'tunnel', 'helix', 'spiral'];
+// 'random' = CHẾ ĐỘ: mỗi lần bấm Lật thẻ, overlay tự bốc 1 kiểu ngẫu nhiên (không lặp). Xử lý ở overlay.
+function cfValidStyle(v) { return CF_FX_STYLES.includes(v) || v === 'random'; }
+function cfFmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('vi-VN'); }
+function cfParseInt(s) { return Math.max(0, parseInt(String(s).replace(/[^\d]/g, ''), 10) || 0); }
+function cfRgba(hex, a) {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return `rgba(11,11,15,${a})`;
+  const n = parseInt(m[1], 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function cfNormalize(c) {
+  const d = cfDefaultCfg(); c = c || {};
+  const cards = Array.isArray(c.cards) ? c.cards.map(x => ({
+    id: x && x.id ? String(x.id) : `c${Math.random().toString(36).slice(2, 8)}`,
+    text: String((x && x.text) || ''), flipped: !!(x && x.flipped), selected: !!(x && x.selected),
+    flipAt: Number(x && x.flipAt) || 0,
+  })) : d.cards;
+  return {
+    title: c.title != null ? String(c.title) : d.title,
+    heartTarget: Number.isFinite(+c.heartTarget) ? +c.heartTarget : d.heartTarget,
+    cardStyle: c.cardStyle === 'pink' ? 'pink' : 'gold',
+    cardSize: Number.isFinite(+c.cardSize) ? +c.cardSize : d.cardSize,
+    fontSize: Number.isFinite(+c.fontSize) ? +c.fontSize : d.fontSize,
+    cardTextSize: Number.isFinite(+c.cardTextSize) ? Math.max(8, Math.min(90, +c.cardTextSize)) : d.cardTextSize,
+    bgColor: /^#[0-9a-f]{6}$/i.test(c.bgColor) ? c.bgColor : d.bgColor,
+    bgAlpha: Number.isFinite(+c.bgAlpha) ? Math.max(0, Math.min(1, +c.bgAlpha)) : d.bgAlpha,
+    titleColor: /^#[0-9a-f]{6}$/i.test(c.titleColor) ? c.titleColor : d.titleColor,
+    barColor: /^#[0-9a-f]{6}$/i.test(c.barColor) ? c.barColor : d.barColor,
+    barTextColor: /^#[0-9a-f]{6}$/i.test(c.barTextColor) ? c.barTextColor : d.barTextColor,
+    runningColor: /^#[0-9a-f]{6}$/i.test(c.runningColor) ? c.runningColor : d.runningColor,
+    doneColor: /^#[0-9a-f]{6}$/i.test(c.doneColor) ? c.doneColor : d.doneColor,
+    edges: c.edges != null ? !!c.edges : d.edges,
+    scale: Number.isFinite(+c.scale) ? +c.scale : d.scale,
+    fx: c.fx != null ? !!c.fx : d.fx,
+    spinMs: Number.isFinite(+c.spinMs) ? Math.max(800, Math.min(8000, +c.spinMs)) : d.spinMs,
+    fxStyle: cfValidStyle(c.fxStyle) ? c.fxStyle : d.fxStyle,
+    sound: c.sound != null ? !!c.sound : d.sound,
+    soundVolume: Number.isFinite(+c.soundVolume) ? Math.max(0, Math.min(100, +c.soundVolume)) : d.soundVolume,
+    particles: c.particles != null ? !!c.particles : d.particles,
+    cards,
+  };
+}
+
+async function loadCardFlipConfig() {
+  const st = await window.api.cardflip.getState().catch(() => null);
+  cfCfg = cfNormalize(st || {});
+  if (cfCfg.cards.length === 0) cfCfg.cards = [cfNewCard('A'), cfNewCard('B'), cfNewCard('C')];
+  if (st) { cfHearts = Number(st.hearts) || 0; cfRunning = !!st.running; }
+  cfFillForm(); cfRenderCardList(); cfRenderPreview(); cfUpdateRunUI();
+}
+function cfNewCard(text = '') { return { id: `c${Math.random().toString(36).slice(2, 8)}`, text: String(text), flipped: false, selected: false, flipAt: 0 }; }
+function cfPushLive() { if (cfCfg) window.api.cardflip.setConfig(cfCfg).catch(() => {}); }
+function cfScheduleSave() { clearTimeout(cfSaveTimer); cfSaveTimer = setTimeout(cfPushLive, 250); cfRenderPreview(); }
+
+function cfFillForm() {
+  if (!cfCfg) return;
+  const set = (id, v) => { const el = $('#' + id); if (el != null && el) el.value = v; };
+  set('cfTitleInput', cfCfg.title);
+  set('cfTarget', cfFmt(cfCfg.heartTarget));
+  set('cfHearts', cfFmt(cfHearts));
+  set('cfStyle', cfCfg.cardStyle);
+  set('cfBgColor', cfCfg.bgColor);
+  set('cfTitleColor', cfCfg.titleColor);
+  set('cfBarColor', cfCfg.barColor);
+  set('cfBarText', cfCfg.barTextColor);
+  set('cfRunningColor', cfCfg.runningColor);
+  set('cfDoneColor', cfCfg.doneColor);
+  const bgA = Math.round(cfCfg.bgAlpha * 100);
+  set('cfBgAlpha', bgA); if ($('#cfBgAlphaVal')) $('#cfBgAlphaVal').textContent = `${bgA}%`;
+  set('cfCardSize', cfCfg.cardSize); if ($('#cfCardSizeVal')) $('#cfCardSizeVal').textContent = `${cfCfg.cardSize}px`;
+  set('cfFontSize', cfCfg.fontSize); if ($('#cfFontSizeVal')) $('#cfFontSizeVal').textContent = `${cfCfg.fontSize}px`;
+  set('cfCardText', cfCfg.cardTextSize); if ($('#cfCardTextVal')) $('#cfCardTextVal').textContent = `${cfCfg.cardTextSize}px`;
+  set('cfScale', cfCfg.scale); if ($('#cfScaleVal')) $('#cfScaleVal').textContent = `${cfCfg.scale}%`;
+  if ($('#cfEdges')) $('#cfEdges').checked = cfCfg.edges;
+  if ($('#cfFx')) $('#cfFx').checked = cfCfg.fx;
+  set('cfSpinMs', cfCfg.spinMs); if ($('#cfSpinMsVal')) $('#cfSpinMsVal').textContent = `${(cfCfg.spinMs / 1000).toFixed(1)}s`;
+  set('cfFxStyle', cfCfg.fxStyle);
+  if ($('#cfSound')) $('#cfSound').checked = cfCfg.sound;
+  set('cfSoundVol', cfCfg.soundVolume); if ($('#cfSoundVolVal')) $('#cfSoundVolVal').textContent = `${cfCfg.soundVolume}%`;
+  if ($('#cfParticles')) $('#cfParticles').checked = cfCfg.particles;
+}
+
+function cfRenderCardList() {
+  const box = $('#cfCardList'); if (!box || !cfCfg) return;
+  box.innerHTML = cfCfg.cards.map((c, i) => `
+    <div class="cf-card-row" data-id="${c.id}">
+      <span class="cf-drag" draggable="true" title="Kéo để đổi thứ tự">⠿</span>
+      <textarea class="cf-card-text" rows="2" placeholder="Nội dung thẻ ${i + 1}">${escapeHtml(c.text)}</textarea>
+      <div class="cf-row-toggles">
+        <label class="cf-switch"><input type="checkbox" class="cf-flip" ${c.flipped ? 'checked' : ''} /><span class="cf-switch-ui"></span><em>Lật thẻ</em></label>
+        <label class="cf-switch"><input type="checkbox" class="cf-select" ${c.selected ? 'checked' : ''} /><span class="cf-switch-ui"></span><em>Chọn thẻ</em></label>
+      </div>
+      <button type="button" class="cf-del" title="Xoá thẻ">🗑</button>
+    </div>`).join('');
+}
+
+// Preview trong app: thu nhỏ, dùng ẢNH THẬT (đường dẫn tương đối trong renderer/). Bấm thẻ để lật thử.
+function cfRenderPreview() {
+  const box = $('#cfPreview'); if (!box || !cfCfg) return;
+  const style = cfCfg.cardStyle;
+  const target = Math.max(0, cfCfg.heartTarget);
+  const done = cfHearts >= target;
+  const pct = target > 0 ? Math.max(0, Math.min(100, (cfHearts / target) * 100)) : (done ? 100 : 0);
+  box.style.setProperty('--cf-bg', cfRgba(cfCfg.bgColor, cfCfg.bgAlpha));
+  box.style.setProperty('--cf-title', cfCfg.titleColor);
+  box.style.setProperty('--cf-bar', cfCfg.barColor);
+  box.style.setProperty('--cf-bartext', cfCfg.barTextColor);
+  box.style.setProperty('--cf-running', cfCfg.runningColor);
+  box.style.setProperty('--cf-done', cfCfg.doneColor);
+  box.classList.toggle('cf-done', done);
+  const cards = cfCfg.cards.map(c => `
+    <div class="cfp-card ${c.flipped ? 'cfp-flipped' : ''} ${c.selected && !c.flipped ? 'cfp-selected' : ''}" data-id="${c.id}">
+      <div class="cfp-face cfp-back" style="background-image:url('card-assets/${style}/back.png')"></div>
+      <div class="cfp-face cfp-front" style="background-image:url('card-assets/${style}/front.png')"><span>${escapeHtml(c.text)}</span></div>
+    </div>`).join('') || '<span class="muted">Chưa có thẻ nào</span>';
+  box.innerHTML = `
+    <div class="cfp-info">
+      <div class="cfp-title">${escapeHtml(cfCfg.title || 'Thẻ bài')}</div>
+      <div class="cfp-bar"><div class="cfp-fill" style="width:${pct}%"></div><div class="cfp-num">${cfFmt(cfHearts)} / ${cfFmt(target)}</div></div>
+      <div class="cfp-status">${done ? 'THÀNH CÔNG' : 'ĐANG THỰC HIỆN'}</div>
+    </div>
+    <div class="cfp-sep"></div>
+    <div class="cfp-deck">${cards}</div>`;
+}
+
+function cfUpdateRunUI() {
+  const el = $('#cfRunState');
+  if (el) { el.textContent = cfRunning ? '● Đang đếm tim' : '● Đang dừng'; el.classList.toggle('on', cfRunning); }
+  if ($('#cfStart')) $('#cfStart').textContent = cfRunning ? '▶ Đếm lại từ 0' : '▶ Bắt đầu đếm tim';
+}
+
+function cfOnShow() { cfRenderPreview(); }
+
+function wireCardFlipTab() {
+  const onText = (id, apply) => { const el = $('#' + id); if (el) el.addEventListener('input', () => { apply(el.value); cfScheduleSave(); }); };
+  const onColor = (id, key) => { const el = $('#' + id); if (el) el.addEventListener('input', () => { cfCfg[key] = el.value; cfScheduleSave(); }); };
+
+  onText('cfTitleInput', v => cfCfg.title = v.slice(0, 80));
+  $('#cfTarget')?.addEventListener('input', () => { cfCfg.heartTarget = cfParseInt($('#cfTarget').value); cfScheduleSave(); });
+  $('#cfTarget')?.addEventListener('change', () => { $('#cfTarget').value = cfFmt(cfCfg.heartTarget); });
+  // "Tim hiện tại" là số RUNTIME → đặt trực tiếp vào engine (không lưu vào config).
+  $('#cfHearts')?.addEventListener('input', () => { cfHearts = cfParseInt($('#cfHearts').value); window.api.cardflip.setHearts(cfHearts); cfRenderPreview(); });
+  $('#cfHearts')?.addEventListener('change', () => { $('#cfHearts').value = cfFmt(cfHearts); });
+
+  $('#cfStyle')?.addEventListener('change', () => { cfCfg.cardStyle = $('#cfStyle').value === 'pink' ? 'pink' : 'gold'; cfScheduleSave(); });
+  onColor('cfBgColor', 'bgColor'); onColor('cfTitleColor', 'titleColor'); onColor('cfBarColor', 'barColor');
+  onColor('cfBarText', 'barTextColor'); onColor('cfRunningColor', 'runningColor'); onColor('cfDoneColor', 'doneColor');
+  $('#cfBgAlpha')?.addEventListener('input', () => { const p = parseInt($('#cfBgAlpha').value, 10) || 0; cfCfg.bgAlpha = p / 100; if ($('#cfBgAlphaVal')) $('#cfBgAlphaVal').textContent = `${p}%`; cfScheduleSave(); });
+  $('#cfCardSize')?.addEventListener('input', () => { cfCfg.cardSize = parseInt($('#cfCardSize').value, 10) || 128; if ($('#cfCardSizeVal')) $('#cfCardSizeVal').textContent = `${cfCfg.cardSize}px`; cfScheduleSave(); });
+  $('#cfFontSize')?.addEventListener('input', () => { cfCfg.fontSize = parseInt($('#cfFontSize').value, 10) || 16; if ($('#cfFontSizeVal')) $('#cfFontSizeVal').textContent = `${cfCfg.fontSize}px`; cfScheduleSave(); });
+  $('#cfCardText')?.addEventListener('input', () => { cfCfg.cardTextSize = parseInt($('#cfCardText').value, 10) || 18; if ($('#cfCardTextVal')) $('#cfCardTextVal').textContent = `${cfCfg.cardTextSize}px`; cfScheduleSave(); });
+  $('#cfScale')?.addEventListener('input', () => { cfCfg.scale = parseInt($('#cfScale').value, 10) || 100; if ($('#cfScaleVal')) $('#cfScaleVal').textContent = `${cfCfg.scale}%`; cfScheduleSave(); });
+  $('#cfEdges')?.addEventListener('change', () => { cfCfg.edges = $('#cfEdges').checked; cfScheduleSave(); });
+  $('#cfFx')?.addEventListener('change', () => { cfCfg.fx = $('#cfFx').checked; cfScheduleSave(); });
+  $('#cfSpinMs')?.addEventListener('input', () => { cfCfg.spinMs = parseInt($('#cfSpinMs').value, 10) || 3000; if ($('#cfSpinMsVal')) $('#cfSpinMsVal').textContent = `${(cfCfg.spinMs / 1000).toFixed(1)}s`; cfScheduleSave(); });
+  $('#cfFxStyle')?.addEventListener('change', () => { const v = $('#cfFxStyle').value; cfCfg.fxStyle = cfValidStyle(v) ? v : 'ring'; cfScheduleSave(); });
+  $('#cfSound')?.addEventListener('change', () => { cfCfg.sound = $('#cfSound').checked; cfScheduleSave(); });
+  $('#cfSoundVol')?.addEventListener('input', () => { cfCfg.soundVolume = parseInt($('#cfSoundVol').value, 10) || 0; if ($('#cfSoundVolVal')) $('#cfSoundVolVal').textContent = `${cfCfg.soundVolume}%`; cfScheduleSave(); });
+  $('#cfParticles')?.addEventListener('change', () => { cfCfg.particles = $('#cfParticles').checked; cfScheduleSave(); });
+
+  $('#cfStart')?.addEventListener('click', async () => {
+    await window.api.cardflip.startHearts();
+    cfRunning = true; cfHearts = 0; if ($('#cfHearts')) $('#cfHearts').value = '0';
+    cfRenderPreview(); cfUpdateRunUI();
+    toast('THẺ BÀI: bắt đầu đếm tim từ 0', 'success');
+  });
+  $('#cfResetHearts')?.addEventListener('click', async () => {
+    await window.api.cardflip.resetHearts();
+    cfRunning = false; cfHearts = 0; if ($('#cfHearts')) $('#cfHearts').value = '0';
+    cfRenderPreview(); cfUpdateRunUI();
+    toast('Đã đặt lại tim', '');
+  });
+  $('#cfAddCard')?.addEventListener('click', () => {
+    cfCfg.cards.push(cfNewCard('Nội dung'));
+    cfRenderCardList(); cfScheduleSave();
+  });
+  $('#cfShuffle')?.addEventListener('click', () => {
+    for (let i = cfCfg.cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cfCfg.cards[i], cfCfg.cards[j]] = [cfCfg.cards[j], cfCfg.cards[i]]; }
+    cfRenderCardList(); cfScheduleSave();
+    toast('Đã xáo trộn thẻ', '');
+  });
+
+  // Sự kiện trong danh sách thẻ (text / lật / chọn / xoá).
+  const list = $('#cfCardList');
+  list?.addEventListener('input', (e) => {
+    const row = e.target.closest('.cf-card-row'); if (!row) return;
+    const c = cfCfg.cards.find(x => x.id === row.dataset.id); if (!c) return;
+    if (e.target.classList.contains('cf-card-text')) { c.text = e.target.value; cfScheduleSave(); }
+  });
+  list?.addEventListener('change', (e) => {
+    const row = e.target.closest('.cf-card-row'); if (!row) return;
+    const c = cfCfg.cards.find(x => x.id === row.dataset.id); if (!c) return;
+    if (e.target.classList.contains('cf-flip')) { c.flipped = e.target.checked; window.api.cardflip.flip(c.id, c.flipped); cfRenderPreview(); }
+    else if (e.target.classList.contains('cf-select')) { c.selected = e.target.checked; window.api.cardflip.select(c.id, c.selected); cfRenderPreview(); }
+  });
+  list?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.cf-del'); if (!btn) return;
+    const row = e.target.closest('.cf-card-row'); if (!row) return;
+    cfCfg.cards = cfCfg.cards.filter(x => x.id !== row.dataset.id);
+    cfRenderCardList(); cfScheduleSave();
+  });
+  // Kéo-thả đổi thứ tự (dùng tay nắm ⠿).
+  let dragId = null;
+  list?.addEventListener('dragstart', (e) => { const h = e.target.closest('.cf-drag'); if (!h) { e.preventDefault(); return; } dragId = h.closest('.cf-card-row')?.dataset.id; e.dataTransfer.effectAllowed = 'move'; });
+  list?.addEventListener('dragover', (e) => { e.preventDefault(); const row = e.target.closest('.cf-card-row'); $$('.cf-card-row').forEach(r => r.classList.toggle('cf-drop-hint', r === row)); });
+  list?.addEventListener('drop', (e) => {
+    e.preventDefault(); $$('.cf-card-row').forEach(r => r.classList.remove('cf-drop-hint'));
+    const row = e.target.closest('.cf-card-row'); if (!row || !dragId) return;
+    const from = cfCfg.cards.findIndex(x => x.id === dragId); const to = cfCfg.cards.findIndex(x => x.id === row.dataset.id);
+    if (from < 0 || to < 0 || from === to) return;
+    const [m] = cfCfg.cards.splice(from, 1); cfCfg.cards.splice(to, 0, m);
+    dragId = null; cfRenderCardList(); cfScheduleSave();
+  });
+  list?.addEventListener('dragend', () => { dragId = null; $$('.cf-card-row').forEach(r => r.classList.remove('cf-drop-hint')); });
+
+  // Bấm thẻ trong PREVIEW để lật thử.
+  $('#cfPreview')?.addEventListener('click', (e) => {
+    const card = e.target.closest('.cfp-card'); if (!card) return;
+    const c = cfCfg.cards.find(x => x.id === card.dataset.id); if (!c) return;
+    c.flipped = !c.flipped; window.api.cardflip.flip(c.id, c.flipped);
+    cfRenderCardList(); cfRenderPreview();
+  });
+
+  $('#cfCopy')?.addEventListener('click', async () => {
+    const url = await window.api.cardflip.getUrl();
+    await window.api.shell.copyText(url);
+    toast('Đã copy link OBS THẺ BÀI (thanh ngang)', 'success');
+  });
+  $('#cfCopyFx')?.addEventListener('click', async () => {
+    const url = await window.api.cardflip.getFxUrl();
+    await window.api.shell.copyText(url);
+    toast('Đã copy link OBS THẺ BÀI · Lật 3D', 'success');
+  });
+
+  // State từ engine (kể cả khi lật bằng cách BẤM trên overlay/OBS) → đồng bộ runtime, không phá thao tác đang gõ.
+  window.api.on('cardflip:state', (st) => {
+    if (!st || !cfCfg) return;
+    cfHearts = Number(st.hearts) || 0; cfRunning = !!st.running;
+    const inHearts = document.activeElement === $('#cfHearts');
+    if (!inHearts && $('#cfHearts')) $('#cfHearts').value = cfFmt(cfHearts);
+    const ids = (st.cards || []).map(c => c.id).join(',');
+    const curIds = cfCfg.cards.map(c => c.id).join(',');
+    if (ids === curIds) {
+      // Cùng bộ thẻ → chỉ cập nhật lật/chọn (không đụng text đang gõ).
+      const editing = document.activeElement && document.activeElement.classList?.contains('cf-card-text');
+      (st.cards || []).forEach(sc => { const c = cfCfg.cards.find(x => x.id === sc.id); if (c) { c.flipped = !!sc.flipped; c.selected = !!sc.selected; } });
+      if (!editing) cfRenderCardList();
+      else { (st.cards || []).forEach(sc => { const row = $(`.cf-card-row[data-id="${sc.id}"]`); if (row) { const f = row.querySelector('.cf-flip'); const s = row.querySelector('.cf-select'); if (f) f.checked = !!sc.flipped; if (s) s.checked = !!sc.selected; } }); }
+    }
+    cfRenderPreview(); cfUpdateRunUI();
+  });
+}
+
 async function init() {
   startBootExtras();
   await initLicenseGate();
@@ -2585,6 +3076,8 @@ async function init() {
   await loadMvpHonorConfig();
   await loadLuckyWheelConfig();
   await loadGiftMenuConfig();
+  await loadMissionTrioConfig();
+  await loadCardFlipConfig();
   setBootStatus('Đang chuẩn bị overlay OBS'); setBootProgress(88);
   await refreshOverlayUrls();
   await loadSettings();
@@ -2604,6 +3097,8 @@ async function init() {
   wireMvpHonorTab();
   wireLuckyWheelTab();
   wireGiftMenuTab();
+  wireMissionTrioTab();
+  wireCardFlipTab();
   wireOverlaysTab();
   wireSettingsTab();
   initAvatarSelects();
@@ -3032,6 +3527,18 @@ function wireTtEvents() {
   window.api.on('tt:roomUser', (d) => { stats.viewers = d.viewerCount || 0; refreshStats(); });
 
   window.api.on('pkduo:state', (st) => renderPkPreview(st));
+  // Engine tự cập nhật chuỗi WIN sau mỗi trận → đồng bộ ô nhập + bộ nhớ pkCfg (không đè khi đang gõ tay).
+  window.api.on('pkduo:config', (cfg) => {
+    if (!cfg) return;
+    if (pkCfg) {
+      if (cfg.teamA) pkCfg.teamA.winStreak = Math.max(0, Number(cfg.teamA.winStreak) || 0);
+      if (cfg.teamB) pkCfg.teamB.winStreak = Math.max(0, Number(cfg.teamB.winStreak) || 0);
+    }
+    const aEl = $('#pkAstreak'), bEl = $('#pkBstreak');
+    if (aEl && document.activeElement !== aEl) aEl.value = Math.max(0, Number(cfg.teamA?.winStreak) || 0);
+    if (bEl && document.activeElement !== bEl) bEl.value = Math.max(0, Number(cfg.teamB?.winStreak) || 0);
+    updatePkTotalMatches();
+  });
   window.api.on('pkgroup:state', (st) => renderPkGroupPreview(st));
   window.api.on('ranking:state', (st) => renderRkPreview(st));
   window.api.on('score:state', (st) => renderScPreview(st));
@@ -4526,6 +5033,9 @@ async function loadPkConfig() {
   $('#pkAcolor').value = pkCfg.teamA?.color || '#FE2C55';
   $('#pkBname').value = pkCfg.teamB?.name || 'TEAM B';
   $('#pkBcolor').value = pkCfg.teamB?.color || '#25F4EE';
+  if ($('#pkAstreak')) $('#pkAstreak').value = Math.max(0, Number(pkCfg.teamA?.winStreak) || 0);
+  if ($('#pkBstreak')) $('#pkBstreak').value = Math.max(0, Number(pkCfg.teamB?.winStreak) || 0);
+  updatePkTotalMatches();
   const selectedGroupId = activeGroupId || pkCfg.teamA?.groupId || pkCfg.teamB?.groupId || '';
   if (selectedGroupId) {
     populatePkDuoTeamsFromGroup(selectedGroupId);
@@ -4571,6 +5081,7 @@ function normalizePkTeam(team, fallback) {
   t.fixedGifts = Array.isArray(t.fixedGifts) ? t.fixedGifts : (Array.isArray(t.gifts) ? t.gifts : []);
   t.joinGifts = Array.isArray(t.joinGifts) ? t.joinGifts : [];
   t.gifts = Array.isArray(t.gifts) ? t.gifts : t.fixedGifts;
+  t.winStreak = Math.max(0, Number(t.winStreak) || 0);
   return t;
 }
 
@@ -4897,7 +5408,7 @@ function wirePkDuoTab() {
     $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`;
     schedulePkAutoSave();
   });
-  ['pkContent','pkAname','pkBname','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
+  ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', schedulePkAutoSave);
@@ -4941,6 +5452,16 @@ async function updatePkConfig() {
   toast('🔄 Đã cập nhật PK Đôi', 'success');
 }
 
+// Đếm tổng số trận PK Đôi đã lưu (xóa trận sai qua modal Lịch sử).
+async function updatePkTotalMatches() {
+  const el = $('#pkTotalMatches');
+  if (!el) return;
+  try {
+    const list = await window.api.history.list({ type: 'duo' });
+    el.textContent = `🏆 Tổng trận: ${Array.isArray(list) ? list.length : 0}`;
+  } catch { el.textContent = ''; }
+}
+
 function collectPkCfg() {
   savePkActiveGifts();
   // Đồng bộ tên đang gõ vào team trước, tránh applyPkCreator ghi đè lại tên cũ
@@ -4954,8 +5475,8 @@ function collectPkCfg() {
   const s = Number($('#pkDurS').value) || 0;
   const durationSec = Math.max(5, h * 3600 + m * 60 + s);
   return {
-    teamA: { ...pkCfg.teamA, name: $('#pkAname').value.trim() || 'TEAM A', color: $('#pkAcolor').value, gifts: pkCfg.teamA.gifts || [] },
-    teamB: { ...pkCfg.teamB, name: $('#pkBname').value.trim() || 'TEAM B', color: $('#pkBcolor').value, gifts: pkCfg.teamB.gifts || [] },
+    teamA: { ...pkCfg.teamA, name: $('#pkAname').value.trim() || 'TEAM A', color: $('#pkAcolor').value, gifts: pkCfg.teamA.gifts || [], winStreak: Math.max(0, parseInt($('#pkAstreak')?.value, 10) || 0) },
+    teamB: { ...pkCfg.teamB, name: $('#pkBname').value.trim() || 'TEAM B', color: $('#pkBcolor').value, gifts: pkCfg.teamB.gifts || [], winStreak: Math.max(0, parseInt($('#pkBstreak')?.value, 10) || 0) },
     durationSec,
     prepSec: Number($('#pkPrep').value) || 0,
     delaySec: Number($('#pkDelay').value) || 0,
@@ -6818,7 +7339,7 @@ async function renderHistory() {
     </div>`;
   }).join('');
   body.querySelectorAll('.hist-del').forEach(btn => {
-    btn.addEventListener('click', async () => { await window.api.history.remove(btn.dataset.id); renderHistory(); });
+    btn.addEventListener('click', async () => { await window.api.history.remove(btn.dataset.id); renderHistory(); updatePkTotalMatches(); });
   });
 }
 
@@ -6839,7 +7360,7 @@ function wireHistoryUI() {
     await window.api.history.clear(historyCurrentFilter ? { type: historyCurrentFilter } : undefined);
     renderHistory();
   });
-  window.api.on('history:changed', () => { if ($('#historyModal')?.classList.contains('is-open')) renderHistory(); });
+  window.api.on('history:changed', () => { if ($('#historyModal')?.classList.contains('is-open')) renderHistory(); updatePkTotalMatches(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#historyModal')?.classList.contains('is-open')) closeHistory(); });
 }
 

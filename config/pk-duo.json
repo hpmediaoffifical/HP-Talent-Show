@@ -8,78 +8,6 @@
         "giftId": "5655",
         "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
         "diamond": 1
-      },
-      {
-        "giftName": "Birthday Cake",
-        "giftId": "9340",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3ac5ec732f6f4ba7b1492248bfea83d6~tplv-obj.webp",
-        "diamond": 1
-      },
-      {
-        "giftName": "Football",
-        "giftId": "6093",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/c043cd9e418f13017793ddf6e0c6ee99~tplv-obj.webp",
-        "diamond": 1
-      },
-      {
-        "giftName": "GG",
-        "giftId": "6064",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp",
-        "diamond": 1
-      },
-      {
-        "giftName": "Ice Cream Cone",
-        "giftId": "5827",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/968820bc85e274713c795a6aef3f7c67~tplv-obj.webp",
-        "diamond": 1
-      },
-      {
-        "giftName": "Spinning Soccer",
-        "giftId": "105781",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/74a30ed3492d3e7d317efe7e10c3ba51.png~tplv-obj.webp",
-        "diamond": 5
-      },
-      {
-        "giftName": "Name shoutout",
-        "giftId": "19445",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/9b1d432109c95e77e8de11dd442c0a1f.png~tplv-obj.webp",
-        "diamond": 5
-      },
-      {
-        "giftName": "Overreact",
-        "giftId": "19447",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/dfd48ef1952b6d315856adda7705d02d.png~tplv-obj.webp",
-        "diamond": 5
-      },
-      {
-        "giftName": "Peach",
-        "giftId": "10961",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/ff861a220649506452e3dc35c58266ea.png~tplv-obj.webp",
-        "diamond": 5
-      },
-      {
-        "giftName": "little kisses",
-        "giftId": "17465",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/0a5db92508ee667339289b2f87bc3123.png~tplv-obj.webp",
-        "diamond": 20
-      },
-      {
-        "giftName": "Perfume",
-        "giftId": "5658",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/20b8f61246c7b6032777bb81bf4ee055~tplv-obj.webp",
-        "diamond": 20
-      },
-      {
-        "giftName": "Ice cream",
-        "giftId": "7412",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/a40b91f7a11d4cbce780989e2d20a1f4~tplv-obj.webp",
-        "diamond": 5
-      },
-      {
-        "giftName": "Doughnut",
-        "giftId": "5879",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/4e7ad6bdf0a1d860c538f38026d4e812~tplv-obj.webp",
-        "diamond": 30
       }
     ],
     "fixedGifts": [
@@ -175,83 +103,20 @@
     "creatorId": "c_mrtg28mrb1ni1",
     "creatorName": "Raiden",
     "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/4212cc580704c9f032c4fa5d7412b570~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=1978c3ee&x-expires=1785160800&x-signature=NeKor4nsjhShdDGtRlqzqeWNNE8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-    "creatorAvatarKey": "528a77824606caf7f6ab5000e0fa3c565a851ced"
+    "creatorAvatarKey": "528a77824606caf7f6ab5000e0fa3c565a851ced",
+    "nameOverride": false,
+    "winStreak": 9,
+    "giftOverride": false
   },
   "teamB": {
     "name": "Im Xuhào☘️",
     "color": "#25f4ee",
     "gifts": [
       {
-        "giftName": "TikTok",
-        "giftId": "5269",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
+        "giftName": "Cake Slice",
+        "giftId": "6784",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.webp",
         "diamond": 1
-      },
-      {
-        "giftName": "Love you",
-        "giftId": "6890",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/ab0a7b44bfc140923bb74164f6f880ab~tplv-obj.webp",
-        "diamond": 1
-      },
-      {
-        "giftName": "Love you so much",
-        "giftId": "15231",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/fc549cf1bc61f9c8a1c97ebab68dced7.png~tplv-obj.webp",
-        "diamond": 1
-      },
-      {
-        "giftName": "You're awesome",
-        "giftId": "15232",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.webp",
-        "diamond": 1
-      },
-      {
-        "giftName": "Finger Heart",
-        "giftId": "5487",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/a4c4dc437fd3a6632aba149769491f49.png~tplv-obj.webp",
-        "diamond": 5
-      },
-      {
-        "giftName": "Okay",
-        "giftId": "8635",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/0573114db41d2cf9c7dd70c8b0fab38e.png~tplv-obj.webp",
-        "diamond": 5
-      },
-      {
-        "giftName": "Drip Brewing",
-        "giftId": "10138",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/3c5e5fc699ed9bee71e79cc90bc5ab37.png~tplv-obj.webp",
-        "diamond": 10
-      },
-      {
-        "giftName": "Friendship Necklace",
-        "giftId": "9947",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/e033c3f28632e233bebac1668ff66a2f.png~tplv-obj.webp",
-        "diamond": 10
-      },
-      {
-        "giftName": "Journey Pass",
-        "giftId": "15063",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/551ecaf639c5e02354f9e7c1a763ec72.png~tplv-obj.webp",
-        "diamond": 10
-      },
-      {
-        "giftName": "Lucky Pig",
-        "giftId": "8825",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/d53125bd5416e6f2f6ab61da02ddd302.png~tplv-obj.webp",
-        "diamond": 10
-      },
-      {
-        "giftName": "Rosa",
-        "giftId": "8913",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eb77ead5c3abb6da6034d3cf6cfeb438~tplv-obj.webp",
-        "diamond": 10
-      },
-      {
-        "giftName": "Slow motion",
-        "giftId": "19448",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/12374117770f779919bf002461fdfac0.png~tplv-obj.webp",
-        "diamond": 10
       }
     ],
     "fixedGifts": [
@@ -330,9 +195,9 @@
     ],
     "joinGifts": [
       {
-        "giftName": "Rose",
-        "giftId": "5655",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
+        "giftName": "Cake Slice",
+        "giftId": "6784",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.webp",
         "diamond": 1
       }
     ],
@@ -341,12 +206,15 @@
     "creatorId": "c_mrtg2crd6d27p",
     "creatorName": "Im Xuhào☘️",
     "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=f7d705c2&x-expires=1785160800&x-signature=S2Qv8gVQqFi7jcer6vuxStjNo50%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-    "creatorAvatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b"
+    "creatorAvatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b",
+    "nameOverride": false,
+    "giftOverride": false,
+    "winStreak": 0
   },
-  "durationSec": 180,
-  "prepSec": 1,
+  "durationSec": 610,
+  "prepSec": 0,
   "delaySec": 5,
-  "joinMode": false,
+  "joinMode": true,
   "pointsBy": "diamond",
   "content": "CHIẾN THẦN PK",
   "bgColor": "#000000",

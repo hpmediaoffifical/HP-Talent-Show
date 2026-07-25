@@ -1,0 +1,75 @@
+/* THẺ BÀI · Lật 3D — overlay toàn màn hình. Khi lật thẻ: cuộn 3D vòng tròn ~5 vòng rồi
+   lộ 1 lá ra GIỮA màn hình kèm nội dung. Đồng bộ với thanh ngang qua mốc flipAt (đóng ở engine).
+   OBS-safe: chỉ animate transform/opacity; KHÔNG filter:blur trên node động (OBS tô đen). */
+html, body { margin:0; width:100%; height:100%; background:transparent; overflow:hidden; font-family:'Inter','Segoe UI',Arial,sans-serif; }
+
+.cfx-stage {
+  --cfx-style-back: url("/card-assets/gold/back.png");
+  --cfx-style-front: url("/card-assets/gold/front.png");
+  --cfx-accent: #ffd94a;
+  --cfx-font: 3.4vmin;
+  position:fixed; inset:0; display:none; opacity:0;
+  color:#20160a;
+}
+
+/* KHÔNG hộp tối / KHÔNG viền vuông — chỉ 1 quầng sáng TRÒN mềm sau lá bài (bo tròn, mép trong suốt). */
+.cfx-veil { display:none; }
+.cfx-glow {
+  position:absolute; left:50%; top:50%; width:78vmin; height:78vmin; margin:-39vmin 0 0 -39vmin;
+  opacity:0; pointer-events:none; border-radius:50%; will-change:opacity, transform;
+  background:radial-gradient(circle at center,
+    color-mix(in srgb, var(--cfx-accent), transparent 42%) 0%,
+    color-mix(in srgb, var(--cfx-accent), transparent 74%) 30%,
+    transparent 62%);
+  animation:cfxPulse 3.2s ease-in-out infinite;
+}
+
+.cfx-scene { position:absolute; inset:0; perspective:1200px; transform-style:preserve-3d; }
+
+/* Vòng thẻ 3D — mỗi thẻ đặt quanh trục Y. Ring xoay bằng JS (rAF) để canh đúng flipAt.
+   Kiểu khác (fan/stack/fly) đặt transform TRỰC TIẾP lên từng thẻ (2D quanh tâm). */
+.cfx-ring { position:absolute; left:50%; top:50%; width:0; height:0; transform-style:preserve-3d; will-change:transform; }
+.cfx-ring .cfx-card {
+  position:absolute; left:0; top:0; width:24vmin; height:33.9vmin; margin:-17vmin 0 0 -12vmin;
+  border-radius:6%; background-size:contain; background-position:center; background-repeat:no-repeat;
+  background-image:var(--cfx-style-back);
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  transform:rotateY(var(--a)) translateZ(var(--r));   /* mặc định = Vòng tròn (JS xoay container) */
+}
+/* Các kiểu khác: JS đặt transform 2D trực tiếp lên thẻ nên bỏ transform 3D mặc định. */
+.cfx-ring.cfx-fan .cfx-card, .cfx-ring.cfx-stack .cfx-card, .cfx-ring.cfx-fly .cfx-card { transform:none; }
+.cfx-ring.cfx-fan .cfx-card { transform-origin:50% 135%; }   /* xoè quạt quanh điểm dưới thẻ */
+
+/* PHÁO HOA / LẤP LÁNH khi lộ thẻ. */
+.cfx-particles { position:absolute; left:50%; top:46%; width:0; height:0; pointer-events:none; z-index:6; }
+.cfx-spark {
+  position:absolute; left:0; top:0; width:var(--sz,1vmin); height:var(--sz,1vmin); border-radius:2px;
+  opacity:0; will-change:transform, opacity; box-shadow:0 0 1.4vmin currentColor;
+  animation:cfxSpark 1.25s cubic-bezier(.15,.7,.2,1) forwards;
+}
+@keyframes cfxSpark {
+  0% { opacity:0; transform:translate(-50%,-50%) scale(.3) rotate(0deg); }
+  14% { opacity:1; }
+  100% { opacity:0; transform:translate(calc(-50% + var(--dx,0)), calc(-50% + var(--dy,0))) scale(1) rotate(var(--rot,180deg)); }
+}
+
+/* Lá bài LỚN lộ ra giữa màn hình. */
+.cfx-hero { position:absolute; left:50%; top:50%; width:44vmin; height:62vmin; margin:-31vmin 0 0 -22vmin; opacity:0; will-change:transform, opacity; transform-style:preserve-3d; }
+.cfx-hero-inner { position:absolute; inset:0; transform-style:preserve-3d; will-change:transform; }
+.cfx-face {
+  position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  background-size:contain; background-position:center; background-repeat:no-repeat;
+  display:flex; align-items:center; justify-content:center;
+}
+.cfx-back { background-image:var(--cfx-style-back); }
+.cfx-front { background-image:var(--cfx-style-front); transform:rotateY(180deg); }
+.cfx-content {
+  max-width:74%; max-height:78%; overflow:hidden;
+  font-size:var(--cfx-font); font-weight:900; line-height:1.22; color:#1a1a1a; text-align:center;
+  word-break:break-word; white-space:pre-wrap; letter-spacing:.005em;
+}
+
+@keyframes cfxPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.06); } }
+
+/* Cửa sổ Review: cho kéo di chuyển toàn màn. */
+body.overlay-review .cfx-stage, body.overlay-review .cfx-stage * { -webkit-app-region:drag; }

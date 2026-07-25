@@ -1,0 +1,83 @@
+/* NHIỆM VỤ · BỘ BA — 3 thanh KPI. zoom (không transform:scale) → chữ nét trên OBS. */
+html, body { margin:0; width:100%; height:100%; background:transparent; overflow:hidden; font-family:'Inter','Segoe UI', Arial, sans-serif; }
+/* Căn GIỮA đều 4 phía trong khung Browser Source + chừa lề để sau này thêm hiệu ứng khác. */
+body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:26px; box-sizing:border-box; }
+
+.mt-wrap { display:inline-flex; box-sizing:border-box; gap:var(--mt-gap,14px); color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.75); zoom:var(--mt-scale,1); }
+.mt-vertical { flex-direction:column; align-items:stretch; }
+.mt-horizontal { flex-direction:row; align-items:flex-start; }
+
+.mt-item { width:var(--mt-box-w,300px); display:flex; flex-direction:column; gap:6px; }
+.mt-horizontal .mt-item { text-align:center; }
+.mt-title { font-size:var(--mt-title-size,22px); font-weight:900; letter-spacing:.01em; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Viền ngoài TRẮNG, ruột TRONG SUỐT */
+.mt-bar {
+  --mt-pct:0%;
+  position:relative;
+  height:calc(var(--mt-value-size,20px) + 16px);
+  border-radius:999px;
+  border:2px solid rgba(255,255,255,var(--mt-border-alpha,.55));
+  background:rgba(255,255,255,.04);
+  overflow:visible;
+  box-shadow:0 6px 18px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+/* Fill = "vệt sao băng": đuôi mờ trong suốt (bên trái), đầu (mép đang tiến) đậm & sáng nhất.
+   overflow:hidden để gợn sáng chảy (::before) bị cắt trong lòng fill, còn viền chạy (::before của .mt-bar) vẫn hiện ngoài. */
+.mt-fill {
+  position:absolute; z-index:1; inset:0 auto 0 0; width:0; overflow:hidden;
+  border-radius:999px;
+  background:var(--mt-fill, linear-gradient(90deg, color-mix(in srgb, #ff8ed1, transparent 84%) 0%, color-mix(in srgb, #ff8ed1, transparent 42%) 26%, #ff8ed1 56%, #ff2f87 100%));
+  box-shadow:inset -14px 0 22px -8px rgba(255,255,255,.30), inset 0 1px 0 rgba(255,255,255,.26), 0 0 16px rgba(255,91,174,.5);
+  transition:width .3s ease-out, background .38s ease;
+}
+/* Gợn sáng chảy mềm (rgba trắng + transform → GPU, không giật trên OBS) */
+.mt-fill::before {
+  content:''; position:absolute; top:0; bottom:0; left:-40px; right:-40px;
+  background-image:linear-gradient(115deg, transparent 0 44%, rgba(255,255,255,.16) 50%, transparent 56% 100%);
+  background-size:40px 100%; background-repeat:repeat; opacity:.8; will-change:transform; pointer-events:none;
+  animation:mtFlow 1s linear infinite; animation-delay:var(--mt-flow-clock,0s);
+}
+.mt-done .mt-fill::before { animation:none; opacity:.35; }
+
+/* Số trong thanh — Dọc: căn TRÁI; Ngang: căn GIỮA cho cân đối. Số hiện tại đậm, mục tiêu mờ hơn. */
+.mt-val {
+  position:absolute; z-index:2; left:14px; top:50%; transform:translateY(-50%);
+  display:flex; align-items:baseline; gap:1px;
+  font-size:var(--mt-value-size,20px); font-weight:800; white-space:nowrap;
+  text-shadow:0 2px 4px rgba(0,0,0,.9);
+}
+.mt-horizontal .mt-val { left:50%; right:auto; transform:translate(-50%,-50%); justify-content:center; }
+.mt-val b { font-weight:950; }
+.mt-val span { opacity:.82; font-weight:800; }
+
+/* ==== Báo hiệu HOÀN THÀNH ==== */
+/* 1 thanh đủ: dải màu CHẠY QUANH VIỀN (conic xoay bằng @property → GPU, OBS-safe). */
+@property --mt-a { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+.mt-done .mt-bar { border-color:rgba(255,255,255,calc(var(--mt-border-alpha,.55) + .25)); box-shadow:0 0 16px rgba(255,82,174,.5), inset 0 1px 0 rgba(255,255,255,.26); }
+.mt-done .mt-bar::before {
+  content:''; position:absolute; inset:-3px; z-index:3; border-radius:999px; padding:3px; pointer-events:none;
+  background:conic-gradient(from var(--mt-a), transparent 0 52%, #ffffff 68%, var(--mt-run,#ff2f87) 80%, transparent 92% 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor; mask-composite:exclude;
+  animation:mtBorderRun 1.4s linear infinite; animation-delay:var(--mt-run-clock,0s);
+}
+.mt-done .mt-fill { box-shadow:inset 0 1px 0 rgba(255,255,255,.34), 0 0 22px rgba(255,255,255,.4); }
+
+/* Cả 3 đủ: NHẤP NHÁY ĐỒNG BỘ (chung --mt-clock nên các thanh chớp cùng nhịp), không tự reset. */
+.mt-all-done .mt-bar { animation:mtAllFlash .9s ease-in-out infinite; animation-delay:var(--mt-clock,0s); }
+.mt-all-done .mt-title { animation:mtTitlePulse .9s ease-in-out infinite; animation-delay:var(--mt-clock,0s); }
+
+.mt-empty { width:1px; height:1px; }
+
+@keyframes mtFlow { from { transform:translate3d(-40px,0,0); } to { transform:translate3d(0,0,0); } }
+@keyframes mtBorderRun { to { --mt-a:360deg; } }
+@keyframes mtAllFlash {
+  0%,100% { box-shadow:0 6px 18px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.16), 0 0 0 0 rgba(255,255,255,0); }
+  50% { box-shadow:0 6px 18px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.34), 0 0 30px 5px rgba(255,120,190,.9), 0 0 0 3px rgba(255,255,255,.6); }
+}
+@keyframes mtTitlePulse {
+  0%,100% { text-shadow:0 2px 4px rgba(0,0,0,.75); }
+  50% { text-shadow:0 0 15px rgba(255,155,208,.95), 0 2px 4px rgba(0,0,0,.75); }
+}
