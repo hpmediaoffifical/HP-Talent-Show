@@ -180,7 +180,7 @@ function render(state = {}) {
   // Nhớ scale gần nhất (localStorage) → khi OBS kết nối lại lúc app đang idle mà state rỗng, vẫn vẽ đúng cỡ ngay, không tụt về 100% (nhỏ)
   const rawScale = parseInt(state.overlayScale, 10);
   if (Number.isFinite(rawScale)) { try { localStorage.setItem('pkDuoScale', rawScale); } catch {} }
-  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('pkDuoScale'), 10) || 100);
+  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('pkDuoScale'), 10) || 200);
   const overlayScale = Math.max(.8, Math.min(3, useScale / 100));
   root.style.setProperty('--pk-scale', overlayScale);
 

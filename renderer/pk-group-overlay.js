@@ -256,7 +256,7 @@ function render(state = {}) {
     : '';
   const rawScale = parseInt(state.overlayScale, 10);
   if (Number.isFinite(rawScale)) { try { localStorage.setItem('pkGroupScale', rawScale); } catch {} }
-  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('pkGroupScale'), 10) || 100);
+  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('pkGroupScale'), 10) || 200);
   const overlayScale = Math.max(.8, Math.min(3, useScale / 100));
   const sparkDelay = -((Date.now() % 1800) / 1000).toFixed(3);
   const flowDelay = -((Date.now() % 1000) / 1000).toFixed(3);

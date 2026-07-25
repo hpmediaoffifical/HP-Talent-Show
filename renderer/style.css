@@ -734,16 +734,28 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .score-link-toggle input { accent-color:var(--tt-pink); }
 .score-link-toggle span { color:var(--tt-ink-3); font-size:12px; }
 /* minmax(0,1fr) ở cột trái + min-width:0 để lưới KHÔNG bao giờ rộng hơn thẻ (chống tràn phải/ "lòi ra viền nền") */
-.score-command-panel { position:sticky; top:63px; z-index:21; display:grid; grid-template-columns:minmax(0, 1fr) 220px; gap:12px; align-items:start; min-width:0; max-width:100%; background:var(--tt-bg); padding:10px 0 12px; margin-bottom:6px; box-shadow:0 12px 16px -12px rgba(22,24,35,.22); }
+/* TÍNH ĐIỂM: khối trên cùng gọn (thông tin + hàng nút ngang), dính khi cuộn để vừa xem vừa chỉnh. */
+.score-command-panel { position:sticky; top:63px; z-index:21; display:flex; flex-direction:column; gap:9px; min-width:0; max-width:100%; background:var(--tt-bg); padding:10px 0 10px; margin-bottom:6px; box-shadow:0 12px 16px -12px rgba(22,24,35,.22); }
 .score-command-panel > * { min-width:0; }
-.score-command-panel .sc-preview { margin-top:0; min-height:390px; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-start; background:linear-gradient(135deg,#111827,#2d1630); color:#fff; border-color:rgba(255,255,255,.08); box-shadow:0 14px 34px rgba(17,24,39,.16); }
+/* Preview thu gọn (đã tách 2 cột danh sách quà xuống dưới) → chỉ cao vừa đủ thông tin. */
+.score-command-panel .sc-preview { margin-top:0; min-height:0; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-start; background:linear-gradient(135deg,#111827,#2d1630); color:#fff; border-color:rgba(255,255,255,.08); box-shadow:0 14px 34px rgba(17,24,39,.16); }
 .score-command-panel .sc-preview .sc-num { color:#fff; text-shadow:0 2px 16px rgba(254,44,85,.32); }
 .score-command-panel .sc-preview .sc-meta, .score-command-panel .sc-preview [style*="var(--tt-ink-3)"] { color:rgba(255,255,255,.68) !important; }
-.score-command-actions { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; min-width:0; padding:10px; border:1px solid var(--tt-border); border-radius:16px; background:linear-gradient(180deg,#fff,#f8f9fc); }
-.score-command-actions button { min-height:44px; justify-content:center; font-weight:900; }
-.score-command-creator { display:grid; gap:6px; min-width:0; padding:9px; border:1px solid rgba(254,44,85,.18); border-radius:14px; background:linear-gradient(180deg,#fff7fa,#fff); color:var(--tt-pink); font-size:11px; font-weight:950; letter-spacing:.04em; }
-.score-command-creator select { width:100%; min-width:0; max-width:100%; padding:8px 10px; border:1px solid var(--tt-border); border-radius:10px; background:#fff; color:var(--tt-ink); font-size:13px; font-weight:700; letter-spacing:0; }
-.score-command-test { display:grid; gap:6px; padding:9px; border:1px solid var(--tt-border); border-radius:14px; background:#fff; color:var(--tt-ink-2); font-size:11px; font-weight:950; letter-spacing:.04em; }
+/* Hàng điều khiển NGANG (Creator + nút + test thanh máu) — gọn 1 hàng, tự xuống dòng khi hẹp. */
+.score-command-actions { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; min-width:0; margin-bottom:6px; padding:9px; border:1px solid var(--tt-border); border-radius:14px; background:linear-gradient(180deg,#fff,#f8f9fc); }
+.score-command-actions button { min-height:34px; justify-content:center; font-weight:900; font-size:12.5px; }
+.score-actions-row { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
+.score-actions-row .score-command-creator { flex:2 1 240px; }
+.score-actions-row > button { flex:0 0 auto; white-space:nowrap; padding-left:16px; padding-right:16px; }
+.score-actions-row > #scStart { flex:1 1 120px; padding-left:20px; padding-right:20px; }
+.score-actions-row .score-command-test { flex:1 1 200px; }
+/* CUỐI TRANG: danh sách quà/user tách khỏi preview, đặt trên nền sáng cho dễ đọc. */
+.sc-review-lists { margin-top:2px; padding:12px; border:1px solid var(--tt-border); border-radius:16px; background:linear-gradient(180deg,#fff,#fafbff); box-shadow:0 6px 18px rgba(22,24,35,.045); }
+.score-command-creator { display:flex; align-items:center; gap:8px; min-width:0; padding:6px 9px; border:1px solid rgba(254,44,85,.18); border-radius:12px; background:linear-gradient(180deg,#fff7fa,#fff); color:var(--tt-pink); font-size:11px; font-weight:950; letter-spacing:.04em; white-space:nowrap; }
+.score-command-creator select { flex:1 1 auto; width:auto; min-width:0; max-width:100%; padding:7px 10px; border:1px solid var(--tt-border); border-radius:10px; background:#fff; color:var(--tt-ink); font-size:13px; font-weight:700; letter-spacing:0; }
+.score-command-test { display:flex; align-items:center; gap:8px; padding:6px 9px; border:1px solid var(--tt-border); border-radius:12px; background:#fff; color:var(--tt-ink-2); font-size:11px; font-weight:950; letter-spacing:.04em; white-space:nowrap; }
+.score-command-test > span { flex:0 0 auto; }
+.score-command-test .score-test-row { flex:1 1 auto; min-width:0; }
 /* Chip preset nhanh — đổi cả cụm màu 1 chạm, preview cập nhật realtime */
 .score-theme-chips { grid-column:1 / -1; display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 11px; border:1px solid var(--tt-border); border-radius:14px; background:linear-gradient(180deg,#fff,#f7f9fc); }
 .score-theme-chips .stc-label { font-size:11px; font-weight:950; letter-spacing:.04em; color:var(--tt-ink-2); text-transform:uppercase; white-space:nowrap; }
@@ -798,6 +810,10 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .rk-fields { display:grid; gap:10px; }
 .rk-fields.two { grid-template-columns:repeat(2, minmax(0, 1fr)); }
 .rk-fields.three, .rk-fields.compact-three { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+/* Hàng màu OBS: 3 ô màu ngắn lại + Độ đậm, xếp gọn 4 cột để chừa chỗ cho Màu nền */
+.rk-fields.four { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+.rk-fields.four .rk-color-cell input[type="color"] { min-width:0; }
+.rk-fields.four + .rk-fields.three { margin-top:10px; }
 .rk-fields label { display:flex; flex-direction:column; gap:5px; color:var(--tt-ink-2); font-size:12px; font-weight:700; }
 .rk-fields input[type="text"], .rk-fields input[type="number"], .rk-fields input:not([type]), .rk-fields select { width:100%; padding:8px 10px; border:1px solid var(--tt-border); border-radius:10px; background:#fff; color:var(--tt-ink); font-size:13px; }
 .rk-fields input[type="color"] { width:100%; height:38px; padding:4px; border:1px solid var(--tt-border); border-radius:10px; background:#fff; }
@@ -1367,7 +1383,7 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
   .topbar { flex-direction:column; }
   .stats { justify-content:flex-start; }
   .audio-device-row, .audio-device-output { grid-template-columns:1fr; }
-  .rk-fields.two, .rk-fields.three, .rk-fields.compact-three { grid-template-columns:1fr; }
+  .rk-fields.two, .rk-fields.three, .rk-fields.four, .rk-fields.compact-three { grid-template-columns:1fr; }
   .pk-live-preview, .pk-action-row { position:relative; top:auto; }
   .pk-action-row, .pk-team-configs, .pk-teams { grid-template-columns:1fr; }
   .score-command-panel { grid-template-columns:1fr; }
@@ -1378,9 +1394,19 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 }
 
 /* ===== Score preview ===== */
-.score-review-card { display:grid; grid-template-rows:auto auto auto auto; align-content:start; gap:8px; width:100%; color:var(--tt-ink); }
-.score-review-time { text-align:center; color:#ff66aa; font-size:32px; font-weight:950; letter-spacing:.02em; text-shadow:0 2px 8px rgba(254,44,85,.18); }
-.score-review-progress { position:relative; height:30px; border-radius:999px; overflow:hidden; background:linear-gradient(180deg,#f8fafc,#e5e7eb); border:1px solid #d6d9e1; box-shadow:inset 0 2px 7px rgba(0,0,0,.08); }
+.score-review-card { display:grid; align-content:start; gap:10px; width:100%; color:var(--tt-ink); }
+/* Hàng trên: chip trạng thái · đồng hồ · chip % — gọn, cân đối */
+.score-review-topline { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; }
+.score-review-time { text-align:center; color:#ff66aa; font-size:30px; font-weight:950; letter-spacing:.02em; line-height:1; text-shadow:0 2px 10px rgba(254,44,85,.28); font-variant-numeric:tabular-nums; }
+.score-review-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:999px; font-size:11.5px; font-weight:900; letter-spacing:.015em; white-space:nowrap; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16); color:rgba(255,255,255,.86); }
+.score-review-topline > .score-review-chip:first-child { justify-self:start; }
+.score-review-chip--pct { justify-self:end; font-variant-numeric:tabular-nums; background:rgba(255,255,255,.13); color:#fff; }
+.score-review-chip.is-run { background:rgba(53,255,207,.14); border-color:rgba(53,255,207,.42); color:#6bffcf; }
+.score-review-chip.is-grace { background:rgba(255,214,102,.16); border-color:rgba(255,214,102,.48); color:#ffd66a; }
+.score-review-chip.is-win { background:rgba(53,255,207,.2); border-color:rgba(53,255,207,.58); color:#7dffd6; }
+.score-review-chip.is-lose { background:rgba(255,80,90,.16); border-color:rgba(255,80,90,.52); color:#ff8a92; }
+.score-review-chip.is-prep { background:rgba(139,182,255,.16); border-color:rgba(139,182,255,.52); color:#a9c6ff; }
+.score-review-progress { position:relative; height:28px; border-radius:999px; overflow:hidden; background:linear-gradient(180deg,#f8fafc,#e5e7eb); border:1px solid #d6d9e1; box-shadow:inset 0 2px 7px rgba(0,0,0,.08); }
 .score-review-progress i { position:relative; display:block; height:100%; width:0; border-radius:999px; overflow:hidden; background:var(--score-review-fill, linear-gradient(90deg,#ff6aa9,#8eb6ff)); transition:width .25s; }
 .score-review-progress i::after { display:none; }
 .score-review-sheen { position:absolute; z-index:2; inset:0 auto 0 0; border-radius:999px; overflow:hidden; pointer-events:none; }
@@ -1388,13 +1414,21 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .score-review-card.kpi-met .score-review-progress { border-color:rgba(255,255,255,.9); box-shadow:0 0 0 2px rgba(255,255,255,.3), 0 0 24px rgba(255,107,177,.55), 0 0 38px rgba(139,182,255,.36), inset 0 2px 7px rgba(0,0,0,.08); }
 .score-review-card.kpi-met .score-review-progress i { background:linear-gradient(90deg,#ff4f9a,#ffe66d,#35ffcf,#7aa7ff); box-shadow:0 0 22px rgba(255,255,255,.42); }
 .score-review-progress b { position:absolute; right:6px; top:50%; transform:translateY(-50%); display:grid; place-items:center; width:24px; height:24px; border-radius:50%; background:#d94f9c; color:#fff; font-size:13px; }
-.score-review-head { display:grid; grid-template-columns:minmax(120px, 1fr) minmax(110px, 1fr); align-items:center; gap:10px; text-align:center; }
-.score-review-creator { display:flex; align-items:center; justify-content:center; gap:8px; min-width:0; }
-.score-review-creator img, .score-review-creator span { width:34px; height:34px; border-radius:50%; object-fit:cover; display:grid; place-items:center; background:#f3f4f6; color:var(--tt-pink); font-size:11px; font-weight:950; }
+.score-review-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.score-review-creator { flex:1 1 auto; display:flex; align-items:center; justify-content:flex-start; gap:9px; min-width:0; }
+.score-review-creator img, .score-review-creator span { flex:0 0 auto; width:34px; height:34px; border-radius:50%; object-fit:cover; display:grid; place-items:center; background:#f3f4f6; color:var(--tt-pink); font-size:11px; font-weight:950; }
 .score-review-creator strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#fff; font-size:15px; text-shadow:0 2px 8px rgba(0,0,0,.9), 0 0 12px rgba(255,255,255,.24); }
 .score-review-title { text-align:center; color:#2f66d8; font-size:18px; font-weight:950; text-shadow:0 2px 8px rgba(47,102,216,.16); }
-.score-review-score { text-align:center; font-size:15px; font-weight:950; }
-.score-review-status { padding-top:6px; border-top:1px solid rgba(255,255,255,.22); color:rgba(255,255,255,.72); font-size:12px; }
+/* Badge điểm — luôn trắng, đọc rõ trên nền tối */
+.score-review-score { flex:0 0 auto; display:inline-flex; align-items:baseline; gap:6px; padding:5px 13px; border-radius:12px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14); color:#fff; font-weight:950; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.score-review-score small { font-size:.6em; font-weight:800; letter-spacing:.09em; text-transform:uppercase; color:rgba(255,255,255,.58); }
+.score-review-score b { font-size:1.18em; color:#fff; }
+.score-review-score span { font-size:.82em; font-weight:800; color:rgba(255,255,255,.64); }
+.score-review-card.kpi-met .score-review-score { background:rgba(53,255,207,.16); border-color:rgba(53,255,207,.5); box-shadow:0 0 18px rgba(53,255,207,.28); }
+/* Chip số dư (Over) — chỉ hiện khi vượt mục tiêu, dùng đúng màu Over của OBS */
+.score-review-over { flex:0 0 auto; display:inline-flex; align-items:baseline; gap:5px; padding:5px 12px; border-radius:12px; font-weight:950; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--sc-over,#ff3b6b); background:color-mix(in srgb, var(--sc-over,#ff3b6b) 16%, transparent); border:1px solid color-mix(in srgb, var(--sc-over,#ff3b6b) 46%, transparent); box-shadow:0 0 16px color-mix(in srgb, var(--sc-over,#ff3b6b) 32%, transparent); }
+.score-review-over small { font-size:.62em; font-weight:850; letter-spacing:.08em; text-transform:uppercase; opacity:.92; }
+.score-review-over b { font-size:1.12em; color:#fff; }
 .score-review-log-title { display:none; }
 .score-review-columns { display:grid; grid-template-columns:1fr 1fr; gap:12px; height:208px; min-height:208px; overflow:hidden; }
 .score-review-section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; font-size:12px; }
@@ -1680,13 +1714,13 @@ button.tiny { padding:4px 7px; font-size:12px; }
 .pkg-member .pkg-color { width:48px; }
 .pkg-pick-gift img { width:22px; height:22px; }
 .pkg-note-card { margin:10px 0; padding:10px; border-radius:13px; }
-.score-command-panel { grid-template-columns:minmax(0, 1fr) 190px; gap:9px; margin-bottom:10px; }
-.score-command-panel .sc-preview { min-height:310px; }
+.score-command-panel { gap:9px; margin-bottom:10px; }
+.score-command-panel .sc-preview { min-height:0; }
 .score-command-actions { gap:6px; padding:8px; border-radius:13px; }
 .score-command-actions button { min-height:38px; }
 .score-ops-grid { grid-template-columns:1fr; gap:10px; }
 .score-config-card, .rk-config-section { padding:10px; border-radius:13px; }
-.score-config-card .form-grid.compact, .rk-fields.three, .rk-fields.compact-three { gap:8px; }
+.score-config-card .form-grid.compact, .rk-fields.three, .rk-fields.four, .rk-fields.compact-three { gap:8px; }
 .rk-config-layout { grid-template-columns:1.25fr .95fr; gap:9px; }
 .rk-fields { gap:8px; }
 .rk-fields input[type="text"], .rk-fields input[type="number"], .rk-fields input:not([type]), .rk-fields select { padding:7px 9px; font-size:14px; }

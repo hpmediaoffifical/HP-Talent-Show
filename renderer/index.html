@@ -452,8 +452,8 @@
                 </label>
                 <label class="full">Scale PK Đôi OBS
                   <div class="range-inline">
-                    <input id="pkOverlayScale" type="range" min="80" max="300" step="5" value="100" />
-                    <span id="pkOverlayScaleValue" class="prefix">100%</span>
+                    <input id="pkOverlayScale" type="range" min="80" max="300" step="5" value="200" />
+                    <span id="pkOverlayScaleValue" class="prefix">200%</span>
                   </div>
                 </label>
               </div>
@@ -582,8 +582,8 @@
                 <label>Cỡ icon quà (px) <input id="pkgGiftSize" type="number" min="28" max="120" value="60" /></label>
                 <label class="full">Scale PK Nhóm OBS
                   <div class="range-inline">
-                    <input id="pkgOverlayScale" type="range" min="80" max="300" step="5" value="100" />
-                    <span id="pkgOverlayScaleValue" class="prefix">100%</span>
+                    <input id="pkgOverlayScale" type="range" min="80" max="300" step="5" value="200" />
+                    <span id="pkgOverlayScaleValue" class="prefix">200%</span>
                   </div>
                 </label>
               </div>
@@ -707,14 +707,17 @@
                   <span class="cfg-adv__chev">▾</span>
                 </summary>
                 <div class="cfg-adv__body">
-                  <div class="rk-fields three">
-                    <label>Màu active <input id="rkStreak" type="color" value="#67e8f9" /></label>
-                    <label>Màu card <input id="rkBg" type="color" value="#2a2d37" /></label>
+                  <div class="rk-fields four">
+                    <label class="rk-color-cell">Màu active <input id="rkStreak" type="color" value="#67e8f9" /></label>
+                    <label class="rk-color-cell">Màu card <input id="rkBg" type="color" value="#2a2d37" /></label>
+                    <label class="rk-color-cell">Màu nền <input id="rkBoardColor" type="color" value="#232633" /></label>
                     <label>Độ đậm <input id="rkBgOpacity" type="number" min="0" max="100" value="74" /></label>
+                  </div>
+                  <div class="rk-fields three">
                     <label class="full">Scale Thi đấu nhóm OBS
                       <div class="range-inline">
-                        <input id="rkOverlayScale" type="range" min="80" max="300" step="5" value="100" />
-                        <span id="rkOverlayScaleValue" class="prefix">100%</span>
+                        <input id="rkOverlayScale" type="range" min="80" max="300" step="5" value="200" />
+                        <span id="rkOverlayScaleValue" class="prefix">200%</span>
                       </div>
                     </label>
                     <label class="full">Cỡ avatar (dọc + ngang)
@@ -768,39 +771,42 @@
             <span>Khi bật, chọn VOTE ở Thi đấu nhóm sẽ điều khiển đúng Creator trong Tính điểm.</span>
           </div>
 
+          <!-- GHIM: chỉ thanh điểm realtime dính khi cuộn (giống OBS, MC luôn thấy) -->
           <div class="score-command-panel">
             <div class="sc-preview" id="scPreview"></div>
-            <div class="score-command-actions">
-              <label class="score-command-creator">CHỌN CREATOR
-                <select id="scCreatorSelect">
-                  <option value="">— Chọn —</option>
-                </select>
-                <input id="scCreatorName" type="hidden" />
-                <input id="scCreatorAvatar" type="hidden" />
-              </label>
-              <button id="scStart" class="primary" type="button">▶ BẮT ĐẦU</button>
-              <button id="scReset" class="ghost" type="button">↺ Reset</button>
-              <button id="scSaveCfg" class="ghost" type="button">💾 Lưu cấu hình</button>
-              <button id="scCopyUrl" class="ghost" type="button">📋COPY OBS</button>
-              <div class="score-command-test">
-                <span>TEST THANH MÁU</span>
-                <div class="score-test-row">
-                  <input id="scTestPoints" type="number" min="1" max="999999" value="100" />
-                  <button id="scTestMinus" class="ghost" type="button">-</button>
-                  <button id="scTestPlus" class="primary" type="button">+</button>
-                </div>
+          </div>
+          <!-- Hàng điều khiển NGANG gọn — cuộn theo trang như PK Đôi -->
+          <div class="score-command-actions score-actions-row">
+            <label class="score-command-creator">CREATOR
+              <select id="scCreatorSelect">
+                <option value="">— Chọn —</option>
+              </select>
+              <input id="scCreatorName" type="hidden" />
+              <input id="scCreatorAvatar" type="hidden" />
+            </label>
+            <button id="scStart" class="primary" type="button">▶ BẮT ĐẦU</button>
+            <button id="scReset" class="ghost" type="button">↺ Reset</button>
+            <button id="scSaveCfg" class="ghost" type="button">💾 LƯU</button>
+            <button id="scCopyUrl" class="ghost" type="button">📋 COPY OBS</button>
+            <div class="score-command-test">
+              <span>TEST</span>
+              <div class="score-test-row">
+                <input id="scTestPoints" type="number" min="1" max="999999" value="100" />
+                <button id="scTestMinus" class="ghost" type="button">-</button>
+                <button id="scTestPlus" class="primary" type="button">+</button>
               </div>
             </div>
-            <div class="score-theme-chips" id="scThemeChips">
-              <span class="stc-label">🎨 Preset nhanh</span>
-              <div class="stc-row">
-                <button type="button" class="stc-chip" data-theme="douyin" style="--c1:#b93678;--c2:#ff8ed1">Douyin</button>
-                <button type="button" class="stc-chip" data-theme="vip" style="--c1:#b76b00;--c2:#ffd36a">VIP</button>
-                <button type="button" class="stc-chip" data-theme="neon" style="--c1:#00a6ff;--c2:#35ffcf">Neon</button>
-                <button type="button" class="stc-chip" data-theme="battle" style="--c1:#8f101f;--c2:#ff4b4b">Battle</button>
-                <button type="button" class="stc-chip" data-theme="luxury" style="--c1:#4c2a85;--c2:#c79cff">Luxury</button>
-                <button type="button" class="stc-chip" data-theme="minimal" style="--c1:#6b7280;--c2:#d1d5db">Minimal</button>
-              </div>
+          </div>
+
+          <div class="score-theme-chips" id="scThemeChips">
+            <span class="stc-label">🎨 Preset nhanh</span>
+            <div class="stc-row">
+              <button type="button" class="stc-chip" data-theme="douyin" style="--c1:#b93678;--c2:#ff8ed1">Douyin</button>
+              <button type="button" class="stc-chip" data-theme="vip" style="--c1:#b76b00;--c2:#ffd36a">VIP</button>
+              <button type="button" class="stc-chip" data-theme="neon" style="--c1:#00a6ff;--c2:#35ffcf">Neon</button>
+              <button type="button" class="stc-chip" data-theme="battle" style="--c1:#8f101f;--c2:#ff4b4b">Battle</button>
+              <button type="button" class="stc-chip" data-theme="luxury" style="--c1:#4c2a85;--c2:#c79cff">Luxury</button>
+              <button type="button" class="stc-chip" data-theme="minimal" style="--c1:#6b7280;--c2:#d1d5db">Minimal</button>
             </div>
           </div>
 
@@ -884,8 +890,8 @@
                 </div>
                 <label class="full">Scale Tính điểm OBS
                   <div class="range-inline">
-                    <input id="scOverlayScale" type="range" min="80" max="300" step="5" value="100" />
-                    <span id="scOverlayScaleValue" class="prefix">100%</span>
+                    <input id="scOverlayScale" type="range" min="80" max="300" step="5" value="200" />
+                    <span id="scOverlayScaleValue" class="prefix">200%</span>
                   </div>
                 </label>
               </div>
@@ -897,6 +903,9 @@
             <input id="scMilestones" type="hidden" value="" />
             <input id="scMilestoneGradient" type="checkbox" hidden />
           </div>
+
+          <!-- CUỐI TRANG: danh sách quà/user (ít dùng) — đưa xuống dưới cho gọn phần chỉnh sửa -->
+          <div class="sc-review-lists" id="scReviewLists"></div>
 
         </div>
       </section>

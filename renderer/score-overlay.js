@@ -95,7 +95,7 @@ function render(state = {}) {
   root.style.setProperty('--score-time-color', state.timeColor || '#ffffff');
   const rawScale = parseInt(state.overlayScale, 10);
   if (Number.isFinite(rawScale)) { try { localStorage.setItem('scoreScale', rawScale); } catch {} }
-  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('scoreScale'), 10) || 100);
+  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('scoreScale'), 10) || 200);
   root.style.setProperty('--score-scale', Math.max(.8, Math.min(3, useScale / 100)));
   root.style.setProperty('--score-points-font-size', `${Math.max(12, Math.min(48, parseInt(state.scoreFontSize, 10) || 18))}px`);
   root.style.setProperty('--score-content-color', state.contentColor || '#f0eef6');

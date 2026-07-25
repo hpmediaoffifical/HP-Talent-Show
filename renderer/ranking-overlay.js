@@ -94,7 +94,7 @@ function render(state = {}) {
   const activeLong = state.active && `${state.active.name || 'Idol'} ${activePoints}`.length > 18;
   const rawScale = parseInt(state.overlayScale, 10);
   if (Number.isFinite(rawScale)) { try { localStorage.setItem('rankingScale', rawScale); } catch {} }
-  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('rankingScale'), 10) || 100);
+  const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('rankingScale'), 10) || 200);
   const overlayScale = Math.max(.8, Math.min(3, useScale / 100));
   const avatarScale = Math.max(.8, Math.min(1.7, (Number(state.avatarScale) || 130) / 100));
   const giftScale = Math.max(.8, Math.min(1.8, (Number(state.giftScale) || 145) / 100));
@@ -103,6 +103,7 @@ function render(state = {}) {
   root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}" style="
     --ranking-card-bg-rgb:${hexToRgb(state.overlayBgColor || '#2a2d37')};
     --ranking-card-bg-opacity:${((Number(state.overlayBgOpacity ?? 74)) / 100).toFixed(2)};
+    --ranking-board-bg-rgb:${hexToRgb(state.overlayBoardColor || '#232633')};
     --ranking-streak-color:${esc(state.streakColor || '#67e8f9')};
     --rk-rows:${effRows};
     --rk-cols:${effCols};

@@ -734,14 +734,22 @@ function preEffectCfg() {
 }
 function signalStickerStart(giftId) { window.api.stickerdance.signal({ type: 'perform-start', giftId }).catch(() => {}); }
 function signalStickerEnd(giftId) { window.api.stickerdance.signal({ type: 'perform-end', giftId }).catch(() => {}); }
-// Đẩy số lượt còn trong hàng đợi (theo giftId) cho STICKER DANCE để chế độ "Đếm lùi" khớp với "Đang chờ".
+// Đẩy số lượt còn trong hàng đợi cho STICKER DANCE để chế độ "Đếm lùi" khớp với "Đang chờ".
+// Gửi CẢ theo giftId lẫn giftName để ô Đập Trứng khớp giống hệt cách phát nhạc (giftId HOẶC tên):
+// quà gán nhạc mà giftId của mục nhạc lệch giftId ô lưới vẫn đếm/nở trứng nhờ khớp theo tên.
 function pushStickerQueueCounts(st) {
   st = st || MusicQueue.state();
-  const pending = {};
-  const add = (it) => { if (it && it.giftId) pending[it.giftId] = (pending[it.giftId] || 0) + 1; };
+  const pending = {};        // giftId -> số lượt
+  const pendingByName = {};   // tên (thường hoá) -> số lượt
+  const add = (it) => {
+    if (!it || !it.giftId) return;
+    pending[it.giftId] = (pending[it.giftId] || 0) + 1;
+    const nm = String(it.giftName || '').toLowerCase();
+    if (nm) pendingByName[nm] = (pendingByName[nm] || 0) + 1;
+  };
   add(st.current);
   for (const it of st.waiting) add(it);
-  window.api.stickerdance.signal({ type: 'queue', pending }).catch(() => {});
+  window.api.stickerdance.signal({ type: 'queue', pending, pendingByName }).catch(() => {});
 }
 
 // Hàng đợi hiệu ứng: phát lần lượt. Mỗi ĐƠN VỊ quà = 1 lượt phát (combo x5 → 5 lượt) để STICKER DANCE
@@ -1206,7 +1214,8 @@ function wireMusicListTab() {
     $('#mlqLimit').value = clampInt(musicCfg.displayLimit, 50, 1, 500);
     $('#mlqLimit').addEventListener('input', (e) => { musicCfg.displayLimit = clampInt(e.target.value, 50, 1, 500); scheduleMusicSave(); renderMusicQueue(); });
   }
-  $('#mlqClearAll')?.addEventListener('click', () => { MusicQueue.clearAll(); toast('Đã xóa toàn bộ hàng chờ', 'success'); });
+  // Xóa tất cả = NGƯNG luôn clip đang phát + xóa sạch hàng chờ (không giữ lại cái đang chạy).
+  $('#mlqClearAll')?.addEventListener('click', () => { MusicQueue.stopAll(); toast('Đã ngưng nhạc & xóa toàn bộ hàng chờ', 'success'); });
   $('#mlqClearN')?.addEventListener('click', () => { const n = clampInt($('#mlqClearNum')?.value, 10, 1, 100000); MusicQueue.clearCount(n); toast(`Đã xóa ${n} quà đầu hàng chờ`, 'success'); });
   $('#mlqSkip')?.addEventListener('click', () => MusicQueue.skipCurrent());
   $('#mlqShuffle')?.addEventListener('click', () => { MusicQueue.shuffle(); toast('🎲 Đã xáo trộn thứ tự hàng chờ', 'success'); });
@@ -3247,11 +3256,15 @@ function propagateCreatorNamesToBattles() {
       const nm = c.nickname || c.tiktokId || '';
       if (!nm) continue;
       if (team.creatorName !== nm) { team.creatorName = nm; changed = true; }
-      if (team.name !== nm) { team.name = nm; changed = true; }
+      // Tên hiển thị chỉ tự bám nickname khi user CHƯA gõ tay (nameOverride) và ô đang không nhập.
+      const input = $('#pk' + side + 'name');
+      const editing = input && document.activeElement === input;
+      if (!team.nameOverride && !editing && team.name !== nm) { team.name = nm; changed = true; }
     }
     if (changed) {
-      if ($('#pkAname')) $('#pkAname').value = pkCfg.teamA?.name || 'TEAM A';
-      if ($('#pkBname')) $('#pkBname').value = pkCfg.teamB?.name || 'TEAM B';
+      const aEl = $('#pkAname'), bEl = $('#pkBname');
+      if (aEl && document.activeElement !== aEl && !pkCfg.teamA?.nameOverride) aEl.value = pkCfg.teamA?.name || 'TEAM A';
+      if (bEl && document.activeElement !== bEl && !pkCfg.teamB?.nameOverride) bEl.value = pkCfg.teamB?.name || 'TEAM B';
       window.api.pkduo?.setConfig({ teamA: pkCfg.teamA, teamB: pkCfg.teamB }).catch(() => {});
     }
   }
@@ -3262,7 +3275,8 @@ function propagateCreatorNamesToBattles() {
       const c = creatorById(p.creatorId || p.id);
       if (!c) continue;
       const nm = c.nickname || c.tiktokId || '';
-      if (nm && p.name !== nm) { p.name = nm; changed = true; }
+      // Bỏ qua nếu user đã tự đặt tên hiển thị riêng cho creator này.
+      if (nm && !p.nameOverride && p.name !== nm) { p.name = nm; changed = true; }
     }
     if (changed) {
       window.api.pkgroup?.setConfig({ participants: pkGroupCfg.participants }).catch(() => {});
@@ -3487,8 +3501,12 @@ function renderModeSelect() {
   if (!sel) return;
   // Nếu nhóm đang chọn đã bị xóa thì tự về TALENT SHOW
   if (activeGroupId && !groups.some(g => g.id === activeGroupId)) activeGroupId = '';
+  // Xếp theo KIM CƯƠNG giảm dần + vương miện top 1/2/3 (giống màn Chọn nhóm & Hồ Sơ Nhóm).
   sel.innerHTML = '<option value="">🎤 TALENT SHOW (Tất cả)</option>' +
-    groups.map(g => `<option value="${escapeAttr(g.id)}">👥 ${escapeHtml(g.name || g.tiktokId || 'Nhóm')}</option>`).join('');
+    groupsByKc(groups).map(g => {
+      const crown = kcCrown(kcRankOf(g.id));
+      return `<option value="${escapeAttr(g.id)}">${crown ? crown + ' ' : '👥 '}${escapeHtml(g.name || g.tiktokId || 'Nhóm')}</option>`;
+    }).join('');
   sel.value = activeGroupId;
   const bar = $('#bottomLive');
   if (bar) bar.classList.toggle('mode-group', !!activeGroupId);
@@ -3634,6 +3652,7 @@ async function loadKcData(force = false) {
 
 // Vẽ lại các màn có hiển thị KC (nếu đang mở).
 function applyKcToUi() {
+  renderModeSelect(); // dropdown "CHẾ ĐỘ / NHÓM" xếp lại theo KC khi có dữ liệu mới
   if (!$('#groupLauncher')?.hidden) { renderGroupLauncher(); markLauncherSelection(); }
   if (document.querySelector('.panel[data-panel="groups"]')?.classList.contains('active')) {
     try { renderGroups(); } catch {}
@@ -4493,7 +4512,7 @@ async function loadPkConfig() {
     joinMode: !!st.joinMode, pointsBy: st.pointsBy || 'diamond',
     bgColor: st.bgColor || '#000000', bgOpacity: st.bgOpacity ?? 88,
     giftSize: st.giftSize || 46, textSize: st.textSize || 21,
-    overlayScale: st.overlayScale || 100,
+    overlayScale: st.overlayScale || 200,
     giftDisplayMode: st.giftDisplayMode || 'scroll',
     content: st.content || 'PK ĐÔI',
     startSound: st.startSound || '', warningSound: st.warningSound || '', teamASound: st.teamASound || '', teamBSound: st.teamBSound || '', drawSound: st.drawSound || '',
@@ -4606,9 +4625,10 @@ function applyPkCreator(side, opts = {}) {
   team.creatorName = creator?.nickname || creator?.tiktokId || '';
   team.creatorAvatar = creator?.avatar || '../logo/hp-logo.png';
   if (group?.color) team.color = group.color;
-  // Khi chọn creator: ưu tiên lấy tên hiển thị theo creator đã cài đặt
+  // Khi chọn creator: ưu tiên lấy tên hiển thị theo creator đã cài đặt (và bỏ ghi đè tên cũ)
   if (opts.syncName && creator) {
     team.name = creator.nickname || creator.tiktokId || team.name;
+    team.nameOverride = false;
   }
   if (creator && pkCfg?.joinMode && (opts.applyDefaultGift || !(team.joinGifts || []).length)) {
     const gift = creatorDefaultGift(creator);
@@ -4882,6 +4902,13 @@ function wirePkDuoTab() {
     if (!el) return;
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', schedulePkAutoSave);
   });
+  // Gõ tay Tên hiển thị → đánh dấu ghi đè, để nickname creator không tự đè lại (vẫn sửa được tự do).
+  for (const side of ['A', 'B']) {
+    $('#pk' + side + 'name')?.addEventListener('input', () => {
+      const t = getTeam(side);
+      if (t) t.nameOverride = true;
+    });
+  }
 
   // Cấu hình PK Đôi tự lưu real-time (schedulePkAutoSave). Ctrl+S để lưu thủ công tức thì.
   document.addEventListener('keydown', async (e) => {
@@ -4939,7 +4966,7 @@ function collectPkCfg() {
     giftSize: Number($('#pkGiftSize').value),
     giftDisplayMode: $('#pkGiftDisplayMode').value,
     textSize: Number($('#pkTextSize').value),
-    overlayScale: Math.max(80, Math.min(300, Number($('#pkOverlayScale').value) || 100)),
+    overlayScale: Math.max(80, Math.min(300, Number($('#pkOverlayScale').value) || 200)),
     content: $('#pkContent').value.trim() || 'PK ĐÔI',
     startSound: gameplaySoundValue('scSndStart'),
     warningSound: gameplaySoundValue('scSndWarn'),
@@ -5034,7 +5061,7 @@ async function loadPkGroupConfig() {
     textSize: st.textSize || 30,
     nameSize: st.nameSize || 100,
     giftSize: st.giftSize || 60,
-    overlayScale: st.overlayScale || 100,
+    overlayScale: st.overlayScale || 200,
     creatorColors: st.creatorColors || {},
     smartColor: st.smartColor !== false,
     participants: Array.isArray(st.participants) ? st.participants : [],
@@ -5181,6 +5208,9 @@ function selectAllPkGroupMembers(groupId) {
 function renderPkGroupMembers() {
   const wrap = $('#pkgMembers');
   if (!wrap || !pkGroupCfg) return;
+  // Đang gõ trong danh sách (tên/streak) thì KHÔNG dựng lại — tránh nền tự làm mới avatar
+  // xoá mất thao tác đang nhập (dữ liệu đã đồng bộ realtime qua listener input).
+  if (wrap.contains(document.activeElement) && document.activeElement.matches('input, textarea, select')) return;
   const groupId = $('#pkgGroup')?.value || pkGroupCfg.groupId || '';
   const members = visibleCreators().filter(c => c.groupId === groupId);
   const selected = new Map((pkGroupCfg.participants || []).map(p => [p.creatorId || p.id, p]));
@@ -5349,13 +5379,17 @@ function syncPkGroupMembersFromDom() {
       const def = creatorDefaultGift(c) || groupDefaultGift(pkGroupCfg?.groupId);
       gifts = def ? [def] : [];
     }
+    const typedName = row.querySelector('.pkg-name')?.value.trim() || '';
+    const nick = c.nickname || c.tiktokId || '';
     participants.push({
       ...old,
       id: old.id || c.id,
       creatorId: c.id,
       tiktokId: c.tiktokId || '',
       avatar: c.avatar || old.avatar || '../logo/hp-logo.png',
-      name: row.querySelector('.pkg-name')?.value.trim() || c.nickname || c.tiktokId || 'Creator',
+      name: typedName || nick || 'Creator',
+      // Gõ tên khác nickname → ghi đè (không bị nickname tự đè lại); trùng nickname → theo realtime.
+      nameOverride: !!typedName && typedName !== nick,
       color,
       giftOverride: isOverride,
       gifts,
@@ -5406,7 +5440,7 @@ function wirePkGroupTab() {
     $('#pkgOverlayScaleValue').textContent = `${$('#pkgOverlayScale').value}%`;
     syncPkGroupMembersFromDom();
     if (pkGroupCfg) {
-      pkGroupCfg.overlayScale = Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 100));
+      pkGroupCfg.overlayScale = Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 200));
       try { await window.api.pkgroup.setConfig(collectPkGroupCfg()); } catch {}
     }
   });
@@ -5467,7 +5501,7 @@ function collectPkGroupCfg() {
     textSize: Number($('#pkgTextSize').value),
     nameSize: Math.max(60, Math.min(200, Number($('#pkgNameSize').value) || 100)),
     giftSize: Number($('#pkgGiftSize').value),
-    overlayScale: Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 100)),
+    overlayScale: Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 200)),
     creatorColors: pkGroupCfg.creatorColors || {},
   };
 }
@@ -5531,6 +5565,7 @@ async function loadRankingConfig() {
   $('#rkPointsBy').value = st.pointsBy || 'diamond';
   $('#rkStreak').value = st.streakColor || '#67e8f9';
   $('#rkBg').value = st.overlayBgColor || '#2a2d37';
+  $('#rkBoardColor').value = st.overlayBoardColor || '#232633';
   $('#rkBgOpacity').value = st.overlayBgOpacity ?? 74;
   $('#rkShowRank').checked = st.showRank !== false;
   $('#rkShowAvatar').checked = st.showAvatar !== false;
@@ -5544,7 +5579,7 @@ async function loadRankingConfig() {
   $('#rkAvatarScaleValue').textContent = `${$('#rkAvatarScale').value}%`;
   $('#rkGiftScale').value = Math.max(80, Math.min(180, Number(st.giftScale) || 145));
   $('#rkGiftScaleValue').textContent = `${$('#rkGiftScale').value}%`;
-  $('#rkOverlayScale').value = st.overlayScale || 100;
+  $('#rkOverlayScale').value = st.overlayScale || 200;
   $('#rkOverlayScaleValue').textContent = `${$('#rkOverlayScale').value}%`;
   renderRkPreview(st);
 }
@@ -5561,6 +5596,7 @@ function wireRankingTab() {
     pointsBy: $('#rkPointsBy').value,
     streakColor: $('#rkStreak').value,
     overlayBgColor: $('#rkBg').value,
+    overlayBoardColor: $('#rkBoardColor').value,
     overlayBgOpacity: Number($('#rkBgOpacity').value),
     showRank: $('#rkShowRank').checked,
     showAvatar: $('#rkShowAvatar').checked,
@@ -5572,7 +5608,7 @@ function wireRankingTab() {
     gridFlow: $('#rkGridFlow').value,
     avatarScale: Math.max(80, Math.min(170, Number($('#rkAvatarScale').value) || 130)),
     giftScale: Math.max(80, Math.min(180, Number($('#rkGiftScale').value) || 145)),
-    overlayScale: Math.max(80, Math.min(300, Number($('#rkOverlayScale').value) || 100)),
+    overlayScale: Math.max(80, Math.min(300, Number($('#rkOverlayScale').value) || 200)),
     activeGroupId,
   });
   $('#rkOverlayScale').addEventListener('input', () => { $('#rkOverlayScaleValue').textContent = `${$('#rkOverlayScale').value}%`; updateRkRealtime(); });
@@ -5584,7 +5620,7 @@ function wireRankingTab() {
       await window.api.ranking.setConfig(collectRkCfg());
     }, 180);
   };
-  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkBg','rkBgOpacity','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale'].forEach(id => {
+  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkBg','rkBoardColor','rkBgOpacity','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener('input', updateRkRealtime);
     el.addEventListener('change', updateRkRealtime);
@@ -6063,7 +6099,7 @@ async function loadScoreConfig() {
   syncScoreThemeChips();
   $('#scBigThreshold').value = st.bigGiftThreshold || 500;
   $('#scPointsBy').value = st.pointsBy || 'diamond';
-  $('#scOverlayScale').value = st.overlayScale || 100;
+  $('#scOverlayScale').value = st.overlayScale || 200;
   $('#scOverlayScaleValue').textContent = `${$('#scOverlayScale').value}%`;
   $('#scMilestones').value = '';
   setSoundInput('scSndStart', st.startSound || '');
@@ -6112,7 +6148,7 @@ function collectScoreCfg() {
     waveColor: $('#scWaveColor').value,
     bigGiftThreshold: Math.max(1, Number($('#scBigThreshold').value) || 500),
     pointsBy: $('#scPointsBy').value,
-    overlayScale: Math.max(80, Math.min(300, Number($('#scOverlayScale').value) || 100)),
+    overlayScale: Math.max(80, Math.min(300, Number($('#scOverlayScale').value) || 200)),
     customMilestoneValues: milestones,
     startSound: gameplaySoundValue('scSndStart'),
     warningSound: gameplaySoundValue('scSndWarn'),
@@ -6356,44 +6392,62 @@ function renderScPreview(st) {
     status === 'success' ? '🏆 THÀNH CÔNG' :
     status === 'failed' ? '❌ Không hoàn thành' :
     '⏸ Chờ bắt đầu';
+  const statusClass =
+    status === 'prestart' ? 'is-prep' :
+    status === 'running' ? 'is-run' :
+    status === 'grace' ? 'is-grace' :
+    status === 'success' ? 'is-win' :
+    status === 'failed' ? 'is-lose' :
+    'is-idle';
   const recent = Array.isArray(st.recentGifts) ? st.recentGifts : [];
   const topUsers = Array.isArray(st.topUsers) ? st.topUsers : [];
   const visibleRecent = recent.slice(0, 5);
   const visibleTopUsers = topUsers.slice(0, 5);
+  // TRÊN CÙNG: khối thông tin gọn (thời gian + thanh máu + creator + điểm + trạng thái).
+  const scoreFont = Math.max(12, Math.min(48, Number(st.scoreFontSize) || 18));
+  const over = Math.max(0, score - target);
   $('#scPreview').innerHTML = `
     <div class="score-review-card${score >= target ? ' kpi-met' : ''}">
-      <div class="score-review-time">${escapeHtml(status === 'grace' ? 'ĐANG TÍNH ĐIỂM' : (st.timeText || '00:00'))}</div>
+      <div class="score-review-topline">
+        <span class="score-review-chip ${statusClass}">${escapeHtml(statusLabel)}</span>
+        <div class="score-review-time">${escapeHtml(st.timeText || '00:00')}</div>
+        <span class="score-review-chip score-review-chip--pct">${pct}%</span>
+      </div>
       <div class="score-review-progress" style="--score-review-fill:${escapeAttr(reviewFill)}"><i style="width:${pct}%"></i><span class="score-review-sheen" style="width:${pct}%"></span><b>⚑</b></div>
       <div class="score-review-head">
         <div class="score-review-creator">
           ${st.creatorAvatar ? `<img class="js-avatar" src="${escapeAttr(st.creatorAvatar)}" />` : '<span>HP</span>'}
           <strong>${escapeHtml(st.creatorName || 'Creator')}</strong>
         </div>
-        <div class="score-review-score" style="font-size:${Math.max(12, Math.min(48, Number(st.scoreFontSize) || 18))}px">Điểm: ${formatNumber(score)}/${formatNumber(target)}</div>
+        ${over > 0 ? `<div class="score-review-over" style="--sc-over:${escapeAttr(st.overColor || '#ff3b6b')}"><small>+ DƯ</small><b>${formatNumber(over)}</b></div>` : ''}
+        <div class="score-review-score" style="font-size:${scoreFont}px"><small>ĐIỂM</small><b>${formatNumber(score)}</b><span>/ ${formatNumber(target)}</span></div>
       </div>
-      <div class="score-review-status">${escapeHtml(statusLabel)}</div>
-      <div class="score-review-columns">
-        <section>
-          <div class="score-review-section-head"><b>Quà vừa tính điểm</b><span>mới nhất ở trên</span></div>
-          <div class="score-review-list">
-            ${visibleRecent.length ? visibleRecent.map(g => `<div class="score-review-gift">${g.giftIcon ? `<img src="${escapeAttr(g.giftIcon)}" />` : '<em>🎁</em>'}<div><b>${escapeHtml(g.user)}</b><span>${escapeHtml(g.giftName)} x${formatCompact(g.repeat)} · +${formatNumber(g.points)}</span></div></div>`).join('') : '<div class="score-review-empty">Chưa có quà nào được tính điểm trong phiên này.</div>'}
-          </div>
-        </section>
-        <section>
-          <div class="score-review-section-head"><b>Tổng điểm theo user</b><span>cao nhất ở trên</span></div>
-          <div class="score-review-total">Tổng số người tặng: ${formatNumber(topUsers.length)}</div>
-          <div class="score-review-list">
-            ${visibleTopUsers.length ? visibleTopUsers.map((u, i) => `<div class="score-review-user"><b>${i + 1}</b>${u.avatar ? `<img src="${escapeAttr(u.avatar)}" />` : '<em>👤</em>'}<span><strong>${escapeHtml(u.nickname || u.user || '?')}</strong><small>@${escapeHtml(u.user || '?')}</small></span><mark>${formatNumber(u.points)}</mark></div>`).join('') : '<div class="score-review-empty">Chưa có user nào tặng điểm trong vòng đấu.</div>'}
-          </div>
-        </section>
-      </div>
+    </div>
+  `;
+  // CUỐI TRANG: danh sách quà/user (ít dùng) — render riêng ra khối dưới cùng.
+  const listsEl = $('#scReviewLists');
+  if (listsEl) listsEl.innerHTML = `
+    <div class="score-review-columns">
+      <section>
+        <div class="score-review-section-head"><b>Quà vừa tính điểm</b><span>mới nhất ở trên</span></div>
+        <div class="score-review-list">
+          ${visibleRecent.length ? visibleRecent.map(g => `<div class="score-review-gift">${g.giftIcon ? `<img src="${escapeAttr(g.giftIcon)}" />` : '<em>🎁</em>'}<div><b>${escapeHtml(g.user)}</b><span>${escapeHtml(g.giftName)} x${formatCompact(g.repeat)} · +${formatNumber(g.points)}</span></div></div>`).join('') : '<div class="score-review-empty">Chưa có quà nào được tính điểm trong phiên này.</div>'}
+        </div>
+      </section>
+      <section>
+        <div class="score-review-section-head"><b>Tổng điểm theo user</b><span>cao nhất ở trên</span></div>
+        <div class="score-review-total">Tổng số người tặng: ${formatNumber(topUsers.length)}</div>
+        <div class="score-review-list">
+          ${visibleTopUsers.length ? visibleTopUsers.map((u, i) => `<div class="score-review-user"><b>${i + 1}</b>${u.avatar ? `<img src="${escapeAttr(u.avatar)}" />` : '<em>👤</em>'}<span><strong>${escapeHtml(u.nickname || u.user || '?')}</strong><small>@${escapeHtml(u.user || '?')}</small></span><mark>${formatNumber(u.points)}</mark></div>`).join('') : '<div class="score-review-empty">Chưa có user nào tặng điểm trong vòng đấu.</div>'}
+        </div>
+      </section>
     </div>
   `;
   wireScoreReviewListDrag();
 }
 
 function wireScoreReviewListDrag() {
-  $$('#scPreview .score-review-list').forEach(list => {
+  $$('#scReviewLists .score-review-list, #scPreview .score-review-list').forEach(list => {
     let dragging = false;
     let startY = 0;
     let startTop = 0;

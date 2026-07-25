@@ -80,6 +80,7 @@ const ICON_PNG = path.join(ROOT, 'logo', 'hp-logo.png');
 const APP_ICON = fs.existsSync(ICON_ICO) ? ICON_ICO : (fs.existsSync(ICON_PNG) ? ICON_PNG : null);
 
 let win = null;
+let isQuitting = false; // true khi app đang thoát theo chương trình → bỏ qua hộp thoại xác nhận đóng
 let ttClient = null;
 let overlayServer = null;
 let pkDuoEngine = null;
@@ -1558,6 +1559,7 @@ class StickerEngine {
     // Lưu thẳng giftId đang diễn thay vì đếm +/- (bộ đếm dễ lệch → icon kẹt to khi thiếu/thừa 1 tín hiệu).
     this.performingId = '';
     this.queuedByGift = {}; // giftId -> số lượt đang chờ/đang phát trong HÀNG ĐỢI HIỆU ỨNG (nguồn cho đếm lùi)
+    this.queuedByGiftName = {}; // tên quà (thường hoá) -> số lượt; dự phòng khi giftId mục nhạc lệch giftId ô lưới
     this.streaks = {}; // giftId -> mốc hết chuỗi (ms, Date.now); renderer đẩy sang để overlay vẽ thanh máu
   }
   setConfig(patch) {
@@ -1565,15 +1567,20 @@ class StickerEngine {
     this.config.cells = Array.isArray(this.config.cells) ? this.config.cells : [];
     this._emit();
   }
-  reset() { this.rt = {}; this.performingId = ''; this._emit(); }
+  reset() { this.rt = {}; this.performingId = ''; this.queuedByGift = {}; this.queuedByGiftName = {}; this._emit(); }
   // Renderer đẩy toàn bộ số lượt còn trong hàng đợi (theo giftId) mỗi khi hàng đợi đổi.
   // Đây là NGUỒN SỰ THẬT cho chế độ "Đếm lùi" → khớp tuyệt đối với "Đang chờ" và tự trừ dần khi phát.
-  setQueued(pending) {
+  setQueued(pending, pendingByName) {
     const next = {};
     if (pending && typeof pending === 'object') {
       for (const k of Object.keys(pending)) next[String(k)] = Math.max(0, Number(pending[k]) || 0);
     }
     this.queuedByGift = next;
+    const nextN = {};
+    if (pendingByName && typeof pendingByName === 'object') {
+      for (const k of Object.keys(pendingByName)) nextN[String(k).toLowerCase()] = Math.max(0, Number(pendingByName[k]) || 0);
+    }
+    this.queuedByGiftName = nextN;
     this._emit();
   }
   // Renderer đẩy mốc hết chuỗi (ms) theo giftId mỗi khi có quà làm đầy máu → overlay vẽ thanh máu cạn dần.
@@ -1606,8 +1613,8 @@ class StickerEngine {
   }
   // Renderer báo trạng thái phát clip (chỉ với quà có clip trong DANH SÁCH NHẠC):
   //  perform-start → đang biểu diễn; perform-end → phát xong (đếm lùi thì performed++).
-  signal({ type, giftId, pending, streaks } = {}) {
-    if (type === 'queue') { this.setQueued(pending); return; }
+  signal({ type, giftId, pending, pendingByName, streaks } = {}) {
+    if (type === 'queue') { this.setQueued(pending, pendingByName); return; }
     if (type === 'streak') { this.setStreaks(streaks); return; }
     if (!giftId) return;
     const rt = this._rtFor(giftId);
@@ -1629,7 +1636,10 @@ class StickerEngine {
     const cells = (this.config.cells || []).map(c => {
       const rt = this._rtFor(c.giftId);
       // Đếm lùi = số lượt của quà này còn trong HÀNG ĐỢI HIỆU ỨNG (đang chờ + đang phát); Đếm tăng = tổng đã nhận.
-      const count = mode === 'countdown' ? (this.queuedByGift[String(c.giftId || '')] || 0) : rt.received;
+      // Khớp theo giftId trước, lệch thì khớp theo TÊN (giống cách phát nhạc) → quà gán nhạc vẫn nở trứng.
+      const count = mode === 'countdown'
+        ? (this.queuedByGift[String(c.giftId || '')] || this.queuedByGiftName[String(c.giftName || '').toLowerCase()] || 0)
+        : rt.received;
       return {
         row: Number(c.row) || 0,
         col: Number(c.col) || 0,
@@ -1931,6 +1941,7 @@ class RankingEngine {
       nameMode: 'two-line', // 'two-line' | 'marquee'
       streakColor: '#67e8f9',
       overlayBgColor: '#2a2d37',
+      overlayBoardColor: '#232633',
       overlayBgOpacity: 74,
       hideAllScores: false,
       showRank: true,
@@ -2064,6 +2075,7 @@ class RankingEngine {
       nameMode: this.config.nameMode,
       streakColor: this.config.streakColor,
       overlayBgColor: this.config.overlayBgColor,
+      overlayBoardColor: this.config.overlayBoardColor,
       overlayBgOpacity: this.config.overlayBgOpacity,
       hideAllScores: this.config.hideAllScores,
       showRank: this.config.showRank,
@@ -2342,6 +2354,23 @@ function createWindow() {
   win.on('move', scheduleBoundsSave);
   win.on('resize', scheduleBoundsSave);
   win.on('close', rememberWindowBounds);
+  // Hỏi xác nhận trước khi thoát: đóng cửa sổ chính sẽ TẮT overlay OBS + popup Review, nên chặn
+  // đóng nhầm. Bỏ qua khi app đang thoát theo chương trình (hpkey thu hồi, before-quit…).
+  win.on('close', (e) => {
+    if (isQuitting) return;
+    e.preventDefault();
+    const choice = dialog.showMessageBoxSync(win, {
+      type: 'warning',
+      buttons: ['Thoát hẳn', 'Hủy'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+      title: 'Thoát HP GROUP LIVE?',
+      message: 'Bạn có chắc muốn thoát ứng dụng?',
+      detail: 'Khi thoát, overlay OBS và các cửa sổ popup (Review) sẽ NGƯNG hoạt động.',
+    });
+    if (choice === 0) { isQuitting = true; app.quit(); }
+  });
 
   if (process.argv.includes('--dev')) win.webContents.openDevTools({ mode: 'detach' });
 }
@@ -3104,6 +3133,9 @@ app.whenReady().then(async () => {
     });
   } catch (e) { console.warn('[hpkey] watch init failed:', e && e.message); }
 });
+
+// Thoát theo chương trình (app.quit ở bất kỳ đâu) → đánh dấu để cửa sổ chính không hỏi lại.
+app.on('before-quit', () => { isQuitting = true; });
 
 app.on('window-all-closed', () => {
   try { ttClient?.disconnect(); } catch {}
