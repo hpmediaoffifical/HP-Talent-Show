@@ -207,7 +207,16 @@
             <button class="nav-btn nav-child" data-tab="groups" title="NHÓM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="nav-txt">NHÓM</span></button>
           </div>
         </div>
-        <button class="nav-btn" data-tab="settings" title="CÀI ĐẶT"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="nav-txt">CÀI ĐẶT</span></button>
+        <div class="nav-group" id="navCaiDat">
+          <button class="nav-parent" type="button" title="CÀI ĐẶT" aria-expanded="false"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="nav-txt">CÀI ĐẶT</span><span class="nav-caret">▾</span></button>
+          <div class="nav-sub">
+            <button class="nav-btn nav-child" data-tab="set-update" title="CẬP NHẬT"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg></span><span class="nav-txt">CẬP NHẬT</span></button>
+            <button class="nav-btn nav-child" data-tab="set-overlay" title="LINK OVERLAY"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span class="nav-txt">LINK OVERLAY</span></button>
+            <button class="nav-btn nav-child" data-tab="set-backup" title="SAO LƯU"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></span><span class="nav-txt">SAO LƯU</span></button>
+            <button class="nav-btn nav-child" data-tab="set-license" title="BẢN QUYỀN"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="nav-txt">BẢN QUYỀN</span></button>
+            <button class="nav-btn nav-child" data-tab="set-audio" title="ÂM THANH"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span><span class="nav-txt">ÂM THANH</span></button>
+          </div>
+        </div>
       </nav>
     </aside>
 
@@ -633,6 +642,9 @@
           <div class="pkg-members-toolbar">
             <label class="switch-row" title="Tự động gán màu khác nhau cho mỗi Creator; màu chữ trên thanh luôn tương phản với màu nền">
               <input id="pkgSmartColor" type="checkbox" checked /><span></span><b>🎨 Phối màu thông minh (không trùng)</b>
+            </label>
+            <label class="switch-row" title="Tự đổi màu chữ (đen/trắng) theo độ sáng của nền để luôn dễ đọc">
+              <input id="ovlAutoTextContrast" type="checkbox" /><span></span><b>🌗 Tự đổi màu chữ theo nền</b>
             </label>
             <button id="pkgAutoColor" class="ghost tiny" type="button">🎲 Phối lại màu</button>
           </div>
@@ -1727,17 +1739,16 @@
         </div>
       </section>
 
-      <section class="panel" data-panel="settings">
-        <h1>⚙️ Cài đặt</h1>
-        <p class="sub">Khu vực chuẩn bị cho cài đặt âm thanh và tuỳ chọn vận hành LIVE.</p>
+      <!-- ============ CÀI ĐẶT · CẬP NHẬT ============ -->
+      <section class="panel" data-panel="set-update">
+        <h1>🚀 Cập nhật phần mềm</h1>
+        <p class="sub">Kiểm tra và cài đặt phiên bản mới của HP GROUP LIVE.</p>
 
-        <!-- CẬP NHẬT PHẦN MỀM — thẻ nổi bật, luôn hiển thị -->
         <div class="card update-card" id="updateCard">
           <div class="update-head">
             <div class="update-title">
               <span class="update-emoji">🚀</span>
               <div>
-                <h3>Cập nhật phần mềm</h3>
                 <div class="update-sub">Phiên bản đang dùng: <b id="updateCurrentVer">—</b></div>
               </div>
             </div>
@@ -1756,89 +1767,14 @@
           </div>
           <div id="updateStatus" class="hint">Ứng dụng tự động kiểm tra bản mới mỗi khi mở.</div>
         </div>
+      </section>
 
-        <details class="card settings-card" open>
-          <summary><h3>🪟 Overlay OBS</h3></summary>
-          <p class="sub">Add các link sau vào <b>Browser Source</b> của OBS.</p>
-          <div class="form-grid">
-            <label>Chế độ nền
-              <select id="ovlBg">
-                <option value="transparent">Trong suốt (Browser Source mặc định)</option>
-                <option value="chroma">Chroma key (màu nền tuỳ chọn)</option>
-              </select>
-            </label>
-            <label>Màu chroma (khi chọn ở trên)
-              <input id="ovlChroma" type="color" value="#00FF00" />
-            </label>
-            <label>Width <input id="ovlW" type="number" min="100" max="7680" value="2160" /></label>
-            <label>Height <input id="ovlH" type="number" min="100" max="7680" value="3840" /></label>
-            <label class="full check">
-              <input id="ovlShowHost" type="checkbox" /> Hiện tên user + tên quà ở góc trái dưới khi phát
-            </label>
-            <label class="full check">
-              <input id="ovlAutoTextContrast" type="checkbox" /> Tự đổi màu chữ theo nền sáng/tối
-            </label>
-          </div>
-          <div class="form-actions">
-            <button id="btnSaveOverlay" class="primary" type="button">💾 Lưu cấu hình Overlay</button>
-          </div>
-          <div class="hint">💡 Khuyến nghị OBS Browser Source: <b>2160×3840</b> cho overlay dọc rõ nét hơn. Nếu stream ngang, có thể crop/scale trong OBS.</div>
-        </details>
+      <!-- ============ CÀI ĐẶT · LINK OVERLAY ============ -->
+      <section class="panel" data-panel="set-overlay">
+        <h1>🔗 Link Overlay & Review</h1>
+        <p class="sub">Copy link vào <b>Browser Source</b> của OBS, hoặc mở cửa sổ Review để xem trước.</p>
 
-        <details class="card settings-card">
-          <summary><h3>🔄 Reset overlay OBS (WebSocket)</h3></summary>
-          <p class="sub">Tự làm mới (refresh cache) các <b>Browser Source</b> đang trỏ tới link overlay localhost của app — <b>không</b> đụng dữ liệu app hay thông số OBS khác. Cần bật <b>Tools → WebSocket Server Settings</b> trong OBS.</p>
-          <div class="form-grid">
-            <label>Cổng OBS WebSocket
-              <input id="obsWsPort" type="number" min="1" max="65535" value="4455" />
-            </label>
-            <label>Mật khẩu (để trống nếu không bật xác thực)
-              <input id="obsWsPass" type="password" placeholder="•••••" autocomplete="off" />
-            </label>
-            <label class="full check">
-              <input id="obsAutoReset" type="checkbox" /> Tự động reset overlay OBS mỗi khi khởi động app
-            </label>
-          </div>
-          <div class="form-actions">
-            <button id="btnObsResetNow" class="primary" type="button">🔄 Reset overlay OBS ngay</button>
-            <button id="btnSaveObs" class="ghost" type="button">💾 Lưu cấu hình</button>
-          </div>
-          <div class="hint">💡 Cổng mặc định của OBS là <b>4455</b>. Có thể bấm <b>Ctrl + R</b> bất cứ lúc nào để reset nhanh overlay OBS.</div>
-        </details>
-
-        <details class="card settings-card">
-          <summary><h3>💾 Sao lưu / Khôi phục dữ liệu</h3></summary>
-          <p class="sub">Xuất toàn bộ <b>Creator + Nhóm</b> ra 1 file để chuyển sang máy khác hoặc sao lưu. Bản cài đặt mới <b>không</b> kèm sẵn danh sách creator/nhóm — hãy Xuất ở máy cũ và Nhập ở máy mới.</p>
-          <div class="form-actions">
-            <button id="btnExportData" class="primary" type="button">⬆ Xuất dữ liệu (Creator + Nhóm)</button>
-            <button id="btnImportData" class="ghost" type="button">⬇ Nhập dữ liệu từ file</button>
-          </div>
-          <div class="hint" id="dataBackupHint">📦 Hiện có: đang tải…</div>
-        </details>
-
-        <details class="card settings-card license-settings-card" open>
-          <summary><h3>🔐 Bản quyền & Cập nhật</h3></summary>
-          <div class="license-info-grid">
-            <label>KEY bản quyền
-              <input id="licenseKeySettings" readonly aria-label="KEY bản quyền đã che" />
-            </label>
-            <label>Thiết bị
-            <input id="licenseDeviceSettings" readonly />
-            </label>
-            <div class="license-box"><span>VIP</span><b id="licenseVipText">—</b></div>
-            <div class="license-box"><span>Hạn sử dụng</span><b id="licenseExpireText">—</b></div>
-            <div class="license-box"><span>Trạng thái</span><b id="licenseStatusText">Chưa kiểm tra</b></div>
-            <div class="license-box"><span>Phiên bản</span><b id="licenseVersionText">—</b></div>
-          </div>
-          <div class="form-actions">
-            <button id="licenseActivateSettings" class="primary" type="button">Kiểm tra KEY đã lưu</button>
-            <button id="licenseClearSettings" class="ghost" type="button">Xóa KEY máy này</button>
-          </div>
-          <div class="hint">💡 Muốn cập nhật phần mềm? Xem thẻ <b>🚀 Cập nhật phần mềm</b> ở đầu trang Cài đặt.</div>
-        </details>
-
-        <details class="card settings-card overlay-links">
-          <summary><h3>🔗 Link Overlay & Review</h3></summary>
+        <div class="card overlay-links">
           <div class="ovl-row">
             <label>⚔️ PK Đôi</label>
             <button class="primary" data-copy="urlPk" type="button">📋COPY OBS (1600×720)</button>
@@ -1929,9 +1865,115 @@
             <input class="review-bg-alpha" data-review-alpha="mvphonor" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="mvphonor" type="button">Trong suốt</button>
           </div>
-        </details>
-        <details class="card settings-card audio-settings-card">
-          <summary><h3>🔊 Âm thanh Gameplay</h3></summary>
+          <div class="ovl-row">
+            <label>🎯 BỘ BA</label>
+            <button class="primary" data-copy="urlMtrio" type="button">📋COPY OBS (720×320)</button>
+            <button class="ghost" data-review-toggle="missiontrio" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="missiontrio" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="missiontrio" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="missiontrio" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="missiontrio" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="missiontrio" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🃏 THẺ BÀI</label>
+            <button class="primary" data-copy="urlCard" type="button">📋COPY OBS (1040×320)</button>
+            <button class="ghost" data-review-toggle="cardflip" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="cardflip" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="cardflip" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="cardflip" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="cardflip" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="cardflip" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🃏 THẺ BÀI · Lật 3D</label>
+            <button class="primary" data-copy="urlCardFx" type="button">📋COPY OBS (1080×1920)</button>
+            <button class="ghost" data-review-toggle="cardflipfx" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="cardflipfx" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="cardflipfx" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="cardflipfx" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="cardflipfx" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="cardflipfx" type="button">Trong suốt</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CÀI ĐẶT · SAO LƯU ============ -->
+      <section class="panel" data-panel="set-backup">
+        <h1>💾 Sao lưu &amp; WebSocket</h1>
+        <p class="sub">Sao lưu / khôi phục dữ liệu và làm mới overlay OBS qua WebSocket.</p>
+
+        <div class="card">
+          <h3>💾 Sao lưu / Khôi phục dữ liệu</h3>
+          <p class="sub">Xuất toàn bộ <b>Creator + Nhóm</b> ra 1 file để chuyển sang máy khác hoặc sao lưu. Bản cài đặt mới <b>không</b> kèm sẵn danh sách creator/nhóm — hãy Xuất ở máy cũ và Nhập ở máy mới.</p>
+          <div class="form-actions">
+            <button id="btnExportData" class="primary" type="button">⬆ Xuất dữ liệu (Creator + Nhóm)</button>
+            <button id="btnImportData" class="ghost" type="button">⬇ Nhập dữ liệu từ file</button>
+          </div>
+          <div class="hint" id="dataBackupHint">📦 Hiện có: đang tải…</div>
+        </div>
+
+        <div class="card">
+          <h3>🔄 Reset overlay OBS (WebSocket)</h3>
+          <p class="sub">Tự làm mới (refresh cache) các <b>Browser Source</b> đang trỏ tới link overlay localhost của app — <b>không</b> đụng dữ liệu app hay thông số OBS khác. Cần bật <b>Tools → WebSocket Server Settings</b> trong OBS.</p>
+          <div class="form-grid">
+            <label>Cổng OBS WebSocket
+              <input id="obsWsPort" type="number" min="1" max="65535" value="4455" />
+            </label>
+            <label>Mật khẩu (để trống nếu không bật xác thực)
+              <input id="obsWsPass" type="password" placeholder="•••••" autocomplete="off" />
+            </label>
+            <label class="full check">
+              <input id="obsAutoReset" type="checkbox" /> Tự động reset overlay OBS mỗi khi khởi động app
+            </label>
+          </div>
+          <div class="form-actions">
+            <button id="btnObsResetNow" class="primary" type="button">🔄 Reset overlay OBS ngay</button>
+            <button id="btnSaveObs" class="ghost" type="button">💾 Lưu cấu hình</button>
+          </div>
+          <div class="hint">💡 Cổng mặc định của OBS là <b>4455</b>. Có thể bấm <b>Ctrl + R</b> bất cứ lúc nào để reset nhanh overlay OBS.</div>
+        </div>
+      </section>
+
+      <!-- ============ CÀI ĐẶT · BẢN QUYỀN ============ -->
+      <section class="panel" data-panel="set-license">
+        <h1>🔐 Bản quyền</h1>
+        <p class="sub">Thông tin KEY bản quyền và tác giả phần mềm.</p>
+
+        <div class="card license-settings-card">
+          <div class="license-info-grid">
+            <label>KEY bản quyền
+              <input id="licenseKeySettings" readonly aria-label="KEY bản quyền đã che" />
+            </label>
+            <label>Thiết bị
+            <input id="licenseDeviceSettings" readonly />
+            </label>
+            <div class="license-box"><span>VIP</span><b id="licenseVipText">—</b></div>
+            <div class="license-box"><span>Hạn sử dụng</span><b id="licenseExpireText">—</b></div>
+            <div class="license-box"><span>Trạng thái</span><b id="licenseStatusText">Chưa kiểm tra</b></div>
+            <div class="license-box"><span>Phiên bản</span><b id="licenseVersionText">—</b></div>
+          </div>
+          <div class="form-actions">
+            <button id="licenseActivateSettings" class="primary" type="button">Kiểm tra KEY đã lưu</button>
+            <button id="licenseClearSettings" class="ghost" type="button">Xóa KEY máy này</button>
+          </div>
+          <div class="hint">💡 Muốn cập nhật phần mềm? Xem mục <b>🚀 CẬP NHẬT</b> trong CÀI ĐẶT.</div>
+        </div>
+
+        <div class="card author-card">
+          <div class="author-title">© Bản quyền &amp; Thông tin tác giả</div>
+          <div class="author-line">Phần mềm: <b>HP GROUP LIVE</b></div>
+          <div class="author-line">Tác giả: <b>Nguyễn Hoàng Phụng</b></div>
+          <div class="author-line author-note">Mọi hành vi sao chép, phân phối lại khi chưa được phép đều không được chấp thuận.</div>
+        </div>
+      </section>
+
+      <!-- ============ CÀI ĐẶT · ÂM THANH ============ -->
+      <section class="panel" data-panel="set-audio">
+        <h1>🔊 Âm thanh Gameplay</h1>
+        <p class="sub">Cấu hình âm thanh gameplay chung.</p>
+
+        <div class="card audio-settings-card">
           <div class="form-grid">
             <label class="score-switch full"><input id="gameSoundEnabled" type="checkbox" checked /> Bật âm thanh gameplay chung</label>
             <label>Start <span class="inline"><input id="scSndStart" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndStart" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndStart" type="button">Nghe</button></span></label>
@@ -1940,7 +1982,7 @@
             <label>Success/Thắng <span class="inline"><input id="scSndSuccess" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndSuccess" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndSuccess" type="button">Nghe</button></span></label>
             <label>Thua / bị loại tự động <span class="inline"><input id="scSndFail" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndFail" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndFail" type="button">Nghe</button></span></label>
           </div>
-        </details>
+        </div>
 
       </section>
 

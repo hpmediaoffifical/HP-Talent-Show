@@ -551,6 +551,12 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .settings-card > summary + .audio-device-layout,
 .settings-card > summary + .ovl-row { margin-top:12px; }
 
+.author-card { padding:16px 18px; border:1px solid var(--tt-border); border-radius:16px; background:linear-gradient(135deg,#ffffff 0%,#f3f0ff 100%); }
+.author-title { font-weight:900; color:var(--tt-ink); margin-bottom:10px; }
+.author-line { color:var(--tt-ink-2); font-size:14px; margin-top:4px; }
+.author-line b { color:var(--tt-ink); }
+.author-line.author-note { margin-top:10px; font-size:12px; color:var(--tt-ink-3); }
+
 .pkg-members-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-top:14px; padding:8px 12px; border:1px solid var(--tt-border); border-radius:12px; background:linear-gradient(180deg,#fff,#f6f8ff); }
 .pkg-members-toolbar .switch-row { margin:0; }
 .pkg-members-toolbar .switch-row b { font-size:13.5px; }

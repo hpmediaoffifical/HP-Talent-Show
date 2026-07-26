@@ -74,7 +74,7 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
   // Giữ ngăn cha (NHIỆM VỤ…) mở khi đang xem một mục con của nó.
   const grp = b.closest('.nav-group');
   if (grp) { grp.classList.add('open'); grp.querySelector('.nav-parent')?.setAttribute('aria-expanded', 'true'); }
-  if (id === 'settings') refreshOverlayUrls();
+  if (id === 'set-overlay') refreshOverlayUrls();
   if (id === 'mvphonor') mvpRenderStage?.();
   if (id === 'luckywheel') { lwRefreshSpinners?.(); renderLwPreview?.(); }
   if (id === 'mtrio') mtOnShow?.();
@@ -5625,6 +5625,7 @@ function applyPkGroupCfgToInputs() {
   $('#pkgOverlayScale').value = Math.max(80, Math.min(300, pkGroupCfg.overlayScale));
   $('#pkgOverlayScaleValue').textContent = `${$('#pkgOverlayScale').value}%`;
   if ($('#pkgSmartColor')) $('#pkgSmartColor').checked = pkGroupCfg.smartColor !== false;
+  if ($('#ovlAutoTextContrast')) $('#ovlAutoTextContrast').checked = !!pkGroupCfg.autoTextContrast;
 }
 
 function renderPkGroupGroupSelect() {
@@ -5973,6 +5974,10 @@ function wirePkGroupTab() {
     pkGroupCfg.smartColor = $('#pkgSmartColor').checked;
     if (pkGroupCfg.smartColor) autoAssignPkgColors();
     else schedulePkGroupAutoSave();
+  });
+  $('#ovlAutoTextContrast')?.addEventListener('change', () => {
+    pkGroupCfg.autoTextContrast = $('#ovlAutoTextContrast').checked;
+    schedulePkGroupAutoSave();
   });
   $('#pkgAutoColor').addEventListener('click', autoAssignPkgColors);
   // Cấu hình PK Nhóm tự lưu real-time (schedulePkGroupAutoSave) — không cần nút Cập nhật.
@@ -6999,10 +7004,10 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp] = await Promise.all([
-    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(),
+  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx] = await Promise.all([
+    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(),
   ]);
-  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp };
+  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx };
   $$('[data-copy]').forEach(button => { button.dataset.url = urls[button.dataset.copy]; });
   await refreshReviewButtons();
 }
@@ -7102,26 +7107,6 @@ function wireOverlaysTab() {
     toast('Review trở về nền trong suốt', 'success');
   }));
 
-  $('#btnSaveOverlay').addEventListener('click', async () => {
-    const w = Math.max(100, Math.min(7680, Number($('#ovlW').value) || 2160));
-    const h = Math.max(100, Math.min(7680, Number($('#ovlH').value) || 3840));
-    await window.api.settings.set({
-      overlay: {
-        width: w,
-        height: h,
-        bg: $('#ovlBg').value,
-        chroma: $('#ovlChroma').value,
-        showHost: $('#ovlShowHost').checked,
-        autoTextContrast: $('#ovlAutoTextContrast').checked,
-      },
-    });
-    if (pkGroupCfg) {
-      pkGroupCfg.autoTextContrast = $('#ovlAutoTextContrast').checked;
-      await window.api.pkgroup.setConfig(collectPkGroupCfg());
-    }
-    $('#ovlW').value = w; $('#ovlH').value = h;
-    toast('💾 Đã lưu cấu hình overlay (' + w + '×' + h + ')', 'success');
-  });
 }
 
 // ============================================================
@@ -7146,14 +7131,10 @@ async function loadSettings() {
   if ($('#obsWsPort')) $('#obsWsPort').value = obsResetCfg.wsPort;
   if ($('#obsAutoReset')) $('#obsAutoReset').checked = obsResetCfg.autoReset;
   if ($('#obsWsPass')) $('#obsWsPass').placeholder = obs.hasPassword ? '(đã lưu — để trống nếu giữ nguyên)' : '•••••';
-  // Overlay settings
+  // Auto-contrast màu chữ overlay (điều khiển PK Nhóm) — nguồn dữ liệu ưu tiên là pkGroupCfg,
+  // fallback về settings.overlay cũ để không mất cấu hình đã lưu trước đây.
   const ov = s.overlay || {};
-  $('#ovlW').value = (ov.width === 1080 && ov.height === 1920) ? 2160 : (ov.width || 2160);
-  $('#ovlH').value = (ov.width === 1080 && ov.height === 1920) ? 3840 : (ov.height || 3840);
-  $('#ovlBg').value = ov.bg || 'transparent';
-  $('#ovlChroma').value = ov.chroma || '#00FF00';
-  $('#ovlShowHost').checked = !!ov.showHost;
-  $('#ovlAutoTextContrast').checked = !!ov.autoTextContrast;
+  if ($('#ovlAutoTextContrast')) $('#ovlAutoTextContrast').checked = !!(pkGroupCfg?.autoTextContrast ?? ov.autoTextContrast);
   const audio = s.audio || {};
   if ($('#gameSoundEnabled')) $('#gameSoundEnabled').checked = audio.gameSoundEnabled !== false;
   await loadAudioOutputs(audio.outputDeviceId || 'default');
