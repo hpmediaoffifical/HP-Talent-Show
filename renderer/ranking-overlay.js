@@ -45,14 +45,22 @@ function nameHtml(name, className) {
   return `<div class="${className}${longClass}" title="${safe}"><span>${safe}${longClass ? ` <b>${safe}</b>` : ''}</span></div>`;
 }
 
-function rowHtml(row, state) {
+// Marker "đang thi đấu" (kiểu chọn nhân vật game) — 4 kiểu FX trong 1 phần tử; CSS chỉ hiện đúng
+// kiểu theo class .sel-<style> trên .ranking-board. Đặt trong .ranking-avatar để ôm/chỉ vào avatar.
+function selectMarkHtml() {
+  return `<span class="ranking-select-mark" aria-hidden="true"><span class="sm-arrow"></span><span class="sm-lock"><i></i><i></i><i></i><i></i></span><span class="sm-spot"></span><span class="sm-vs"><b>ĐẤU</b></span></span>`;
+}
+
+function rowHtml(row, state, selFxOn) {
   const rankEmoji = row.rank === 1 ? '🥇' : (row.rank === 2 ? '🥈' : (row.rank === 3 ? '🥉' : (row.rank < 10 ? '0' + row.rank : String(row.rank))));
   const loser = !!row.lost;
   const gift = row.giftIcon ? `<img src="${esc(row.giftIcon)}" />` : (row.giftName ? '🎁' : '');
   const groupColor = row.groupColor || 'transparent';
-  return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}" style="--row-group-color:${esc(groupColor)}">
+  // Đánh dấu hàng của người đang thi đấu PK đã Liên kết (chỉ khi có kiểu FX bật + hàng inMatch).
+  const selMark = (selFxOn && row.inMatch) ? selectMarkHtml() : '';
+  return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}${row.inMatch ? ' in-match' : ''}" style="--row-group-color:${esc(groupColor)}">
     ${state.showRank === false ? '' : `<div class="ranking-rank">${rankEmoji}</div>`}
-    ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${avatarHtml(row.avatar, row.initials, row.avatarVersion, row.avatarKey)}</div>`}
+    ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${selMark}${avatarHtml(row.avatar, row.initials, row.avatarVersion, row.avatarKey)}</div>`}
     <div class="ranking-main">
       ${nameHtml(row.name || 'Idol', 'ranking-name')}
       ${row.groupName ? `<div class="ranking-group">${esc(row.groupName)}</div>` : ''}
@@ -100,7 +108,22 @@ function render(state = {}) {
   const giftScale = Math.max(.8, Math.min(1.8, (Number(state.giftScale) || 145) / 100));
   root.style.setProperty('--rk-scale', overlayScale);
 
-  root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}" style="
+  // --- FX đánh dấu người đang thi đấu PK (đã Liên kết THI ĐẤU NHÓM) ---
+  const selFx = ['arrow', 'lock', 'spotlight', 'versus'].includes(state.selectFx) ? state.selectFx : 'off';
+  const anyInMatch = visibleRows.some(r => r.inMatch);
+  const showSelect = selFx !== 'off' && anyInMatch;
+  const selFxOn = showSelect ? selFx : '';
+  if (showSelect) {
+    const now = Date.now();
+    root.style.setProperty('--rk-sel-a', `${-((now % 720) / 1000).toFixed(3)}s`);
+    root.style.setProperty('--rk-sel-l', `${-((now % 1100) / 1000).toFixed(3)}s`);
+    root.style.setProperty('--rk-sel-r', `${-((now % 1700) / 1000).toFixed(3)}s`);
+    root.style.setProperty('--rk-sel-s', `${-((now % 2600) / 1000).toFixed(3)}s`);
+    root.style.setProperty('--rk-sel-v', `${-((now % 900) / 1000).toFixed(3)}s`);
+    root.style.setProperty('--rk-sel-ring', `${-((now % 3000) / 1000).toFixed(3)}s`);
+  }
+
+  root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}${showSelect ? ` sel-on sel-${selFx}` : ''}" style="
     --ranking-card-bg-rgb:${hexToRgb(state.overlayBgColor || '#2a2d37')};
     --ranking-card-bg-opacity:${((Number(state.overlayBgOpacity ?? 74)) / 100).toFixed(2)};
     --ranking-board-bg-rgb:${hexToRgb(state.overlayBoardColor || '#232633')};
@@ -114,7 +137,7 @@ function render(state = {}) {
     --rk-scale:${overlayScale}
   ">
     <div class="ranking-title">${esc(state.title || 'TOP IDOL')}</div>
-    <div class="ranking-list">${visibleRows.length === 0 ? '<div class="ranking-empty">Chưa có dữ liệu thi đấu nhóm</div>' : visibleRows.map(r => rowHtml(r, state)).join('')}</div>
+    <div class="ranking-list">${visibleRows.length === 0 ? '<div class="ranking-empty">Chưa có dữ liệu thi đấu nhóm</div>' : visibleRows.map(r => rowHtml(r, state, selFxOn)).join('')}</div>
     ${state.active ? `<div class="ranking-active-name ${activeLong ? 'long' : ''}">
       <div class="ranking-active-avatar">${avatarHtml(state.active.avatar, state.active.initials, state.active.avatarVersion, state.active.avatarKey)}</div>
       <div class="ranking-active-main"><div>${activeName}</div><b>${activePoints}</b></div>

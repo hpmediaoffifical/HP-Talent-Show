@@ -1213,7 +1213,10 @@ class PkDuoEngine {
       fxIntensityCap: 100,
       championsEnabled: true, // Vinh danh TOP 3 người tặng quà trên overlay banner
       championNames: false, // Hiện tên người tặng TOP1 (MVP) dưới avatar
-      arrowStyle: 'classic', // Skin mũi tên: classic | core | rope | cannon | random (random = tự đổi mỗi vòng)
+      arrowStyle: 'random', // Skin mũi tên: classic | core | rope | cannon | random (random = tự đổi mỗi vòng). Mặc định Ngẫu nhiên.
+      // Đánh dấu "người vào trận" kiểu chọn nhân vật game (2 phe đối đầu → luôn đánh dấu cả 2).
+      // random | arrow | lock | spotlight | versus | off. Mặc định Ngẫu nhiên.
+      selectFx: 'random',
     };
     this.state = {
       status: 'idle', // 'idle' | 'prestart' | 'running' | 'grace' | 'finished'
@@ -1225,6 +1228,7 @@ class PkDuoEngine {
       graceElapsedMs: 0,
       roundNo: 0,
       arrowStyleActive: '', // skin đã chốt cho vòng hiện tại khi arrowStyle='random'
+      selectFxActive: '',   // kiểu FX đánh dấu đã chốt cho vòng hiện tại khi selectFx='random'
       historySaved: false,
       gifters: { A: new Map(), B: new Map() }, // side -> Map(userKey -> {uniqueId,nickname,avatar,total}) để vinh danh TOP tặng quà
     };
@@ -1284,6 +1288,8 @@ class PkDuoEngine {
       topB: this.config.championsEnabled !== false ? this._topGifters('B') : [],
       championNames: this.config.championNames === true,
       arrowStyle: this._resolveArrowStyle(),
+      // PK Đôi luôn có đúng 2 phe → luôn đánh dấu cả 2 (overlay tự ẩn khi status idle/finished).
+      selectFx: this._resolveSelectFx(),
     };
   }
   // Skin mũi tên hiển thị: 'random' → chốt 1 skin động cho mỗi vòng (start() gọi lại để đổi vòng sau).
@@ -1295,6 +1301,16 @@ class PkDuoEngine {
       return this.state.arrowStyleActive;
     }
     return pool.includes(this.config.arrowStyle) ? this.config.arrowStyle : 'classic';
+  }
+  // Kiểu FX đánh dấu người vào trận: 'random' → chốt 1 kiểu cho mỗi vòng; 'off' → tắt hẳn.
+  _resolveSelectFx() {
+    const pool = ['arrow', 'lock', 'spotlight', 'versus'];
+    if (this.config.selectFx === 'off') return 'off';
+    if (this.config.selectFx === 'random') {
+      if (!pool.includes(this.state.selectFxActive)) this.state.selectFxActive = pool[Math.floor(Math.random() * pool.length)];
+      return this.state.selectFxActive;
+    }
+    return pool.includes(this.config.selectFx) ? this.config.selectFx : 'arrow';
   }
   _resetGifters() { this.state.gifters = { A: new Map(), B: new Map() }; }
   // Cộng dồn điểm đóng góp của 1 người tặng vào đúng bên (key theo uniqueId, fallback nickname).
@@ -1341,6 +1357,7 @@ class PkDuoEngine {
     this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
     // 'random' → đổi skin mũi tên ngẫu nhiên mỗi vòng (đỡ mất công chọn tay).
     if (this.config.arrowStyle === 'random') { const rnd = ['core', 'rope', 'cannon']; this.state.arrowStyleActive = rnd[Math.floor(Math.random() * rnd.length)]; }
+    if (this.config.selectFx === 'random') { const rnd = ['arrow', 'lock', 'spotlight', 'versus']; this.state.selectFxActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     this.state.historySaved = false;
     this._resetGifters();
     this._runTicker();
@@ -1355,7 +1372,15 @@ class PkDuoEngine {
   }
   reset() {
     this._clearTicker();
-    this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, arrowStyleActive: '', historySaved: false, gifters: { A: new Map(), B: new Map() } };
+    this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, arrowStyleActive: '', selectFxActive: '', historySaved: false, gifters: { A: new Map(), B: new Map() } };
+    this._emit();
+  }
+  // RESET TẤT CẢ: reset trận + XOÁ luôn chuỗi WIN (winStreak) của cả 2 phe. Lưu file + báo renderer.
+  resetAll() {
+    this.reset();
+    if (this.config.teamA) this.config.teamA.winStreak = 0;
+    if (this.config.teamB) this.config.teamB.winStreak = 0;
+    if (this.onConfigChange) { try { this.onConfigChange(); } catch {} }
     this._emit();
   }
   // Ghi LỊCH SỬ trận PK Đôi (1 lần/trận, chỉ khi đã bắt đầu thật).
@@ -1500,6 +1525,9 @@ class PkGroupEngine {
       nameSize: 100,
       giftSize: 60,
       overlayScale: 100,
+      // Đánh dấu "người vào trận" kiểu chọn nhân vật game — CHỈ hiện khi chọn subset (ít hơn full nhóm),
+      // đủ full thì tự ẩn. random | arrow | lock | spotlight | versus | off. Mặc định Ngẫu nhiên.
+      selectFx: 'random',
       participants: [],
     };
     this.state = {
@@ -1511,6 +1539,7 @@ class PkGroupEngine {
       userTeams: {},
       graceElapsedMs: 0,
       roundNo: 0,
+      selectFxActive: '', // kiểu FX đánh dấu đã chốt cho vòng hiện tại khi selectFx='random'
       lastWinnerId: '',
       streaks: {},
       resultHandled: false,
@@ -1518,6 +1547,8 @@ class PkGroupEngine {
       boostId: '',
       boostAt: 0,
       boostDir: 'right',
+      // id participant -> Map(userKey -> {uniqueId,nickname,avatar,total}) để vinh danh TOP người tặng quà.
+      gifters: {},
     };
     this._tick = null;
   }
@@ -1541,13 +1572,23 @@ class PkGroupEngine {
         avatarKey: (creator && creator.avatarCacheKey) || avatarCacheKey((creator && creator.avatar) || p.avatar || ''),
         score: Number(this.state.scores[p.id]) || 0,
         streak: Number(this.state.streaks[p.id]) || 0,
+        // TOP 3 người tặng nhiều nhất cho Creator này — overlay xếp avatar chồng nửa lên nhau.
+        topDonors: this.config.donorsEnabled !== false ? this._topDonors(p.id) : [],
       };
     });
+    // "Subset" = số người vào trận ÍT HƠN tổng thành viên nhóm → đánh dấu người vào trận cho "thật".
+    // Đủ full (tất cả thành viên nhóm cùng đấu) → không đánh dấu. Không chọn nhóm (Talent Show) thì
+    // roster=0 → coi như subset khi có ≥2 người (danh sách tự tay chọn).
+    const gid = String(this.config.groupId || '');
+    const rosterTotal = gid ? (this.getCreators() || []).filter(c => String(c.groupId || '') === gid).length : 0;
+    const selectSubset = participants.length >= 2 && (!rosterTotal || participants.length < rosterTotal);
     return {
       status: this.state.status,
       remainingMs: this.state.remainingMs,
       startedAt: this.state.startedAt,
       participants,
+      selectFx: this._resolveSelectFx(),
+      selectSubset,
       boostId: this.state.boostId,
       boostAt: this.state.boostAt,
       boostDir: this.state.boostDir,
@@ -1573,6 +1614,16 @@ class PkGroupEngine {
       overlayScale: this.config.overlayScale,
     };
   }
+  // Kiểu FX đánh dấu người vào trận: 'random' → chốt 1 kiểu cho mỗi vòng; 'off' → tắt hẳn.
+  _resolveSelectFx() {
+    const pool = ['arrow', 'lock', 'spotlight', 'versus'];
+    if (this.config.selectFx === 'off') return 'off';
+    if (this.config.selectFx === 'random') {
+      if (!pool.includes(this.state.selectFxActive)) this.state.selectFxActive = pool[Math.floor(Math.random() * pool.length)];
+      return this.state.selectFxActive;
+    }
+    return pool.includes(this.config.selectFx) ? this.config.selectFx : 'arrow';
+  }
   start() {
     if (this.state.status === 'running' || this.state.status === 'prestart') return;
     const scores = {};
@@ -1588,8 +1639,10 @@ class PkGroupEngine {
     this.state.userTeams = {};
     this.state.graceElapsedMs = 0;
     this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
+    if (this.config.selectFx === 'random') { const rnd = ['arrow', 'lock', 'spotlight', 'versus']; this.state.selectFxActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     this.state.resultHandled = false;
     this.state.historySaved = false;
+    this._resetGifters();
     this._runTicker();
   }
   stop() {
@@ -1603,6 +1656,10 @@ class PkGroupEngine {
   }
   reset() {
     this._clearTicker();
+    // GIỮ chuỗi WIN qua Reset: Reset chỉ xoá điểm/trạng thái trận, KHÔNG xoá thành tích chuỗi thắng.
+    // (Overlay đọc streak từ state.streaks — nếu wipe thì huy hiệu MVP về 0 dù config vẫn còn.)
+    // Chuỗi chỉ về 0 khi THUA ở _finalizeRound, giống winStreak của PK Đôi.
+    const keepStreaks = { ...(this.state.streaks || {}) };
     this.state = {
       status: 'idle',
       remainingMs: 0,
@@ -1612,14 +1669,24 @@ class PkGroupEngine {
       userTeams: {},
       graceElapsedMs: 0,
       roundNo: 0,
+      selectFxActive: '',
       lastWinnerId: '',
-      streaks: {},
+      streaks: keepStreaks,
       resultHandled: false,
       historySaved: false,
       boostId: '',
       boostAt: 0,
       boostDir: 'right',
+      gifters: {},
     };
+    this._emit();
+  }
+  // RESET TẤT CẢ: reset trận + XOÁ luôn chuỗi WIN (state.streaks + config.participants[].streak).
+  // IPC handler lo lưu file config sau khi gọi.
+  resetAll() {
+    this.reset();
+    this.state.streaks = {};
+    this.config.participants = (this.config.participants || []).map(p => ({ ...p, streak: 0 }));
     this._emit();
   }
   addPoints(id, points) {
@@ -1647,6 +1714,33 @@ class PkGroupEngine {
     const ranked = (this.config.participants || []).map((p, order) => ({ id: p.id, score: Number(scores?.[p.id]) || 0, order }))
       .sort((a, b) => b.score - a.score || a.order - b.order);
     return ranked.findIndex(x => x.id === id);
+  }
+  _resetGifters() { this.state.gifters = {}; }
+  // Cộng dồn điểm đóng góp của 1 người tặng vào đúng Creator (key theo uniqueId, fallback nickname).
+  _addGifter(id, ev, pts) {
+    if (!id) return;
+    const key = ev.uniqueId || ev.nickname;
+    if (!key) return;
+    if (!this.state.gifters) this.state.gifters = {};
+    let m = this.state.gifters[id];
+    if (!m) { m = new Map(); this.state.gifters[id] = m; }
+    let g = m.get(key);
+    if (!g) { g = { uniqueId: ev.uniqueId || '', nickname: ev.nickname || ev.uniqueId || '', avatar: ev.avatar || '', total: 0 }; m.set(key, g); }
+    if (ev.avatar) g.avatar = ev.avatar;       // avatar mới nhất
+    if (ev.nickname) g.nickname = ev.nickname;
+    g.total += Number(pts) || 0;
+  }
+  // TOP 3 người tặng nhiều nhất cho 1 Creator. Gift event hay thiếu avatar → bù từ _avatarCache.
+  _topDonors(id) {
+    const m = this.state.gifters?.[id];
+    if (!m || !m.size) return [];
+    return [...m.values()]
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 3)
+      .map(g => {
+        const avatar = g.avatar || _avatarCache.get(String(g.uniqueId)) || '';
+        return { uniqueId: g.uniqueId, nickname: g.nickname, avatar, avatarKey: avatarCacheKey(avatar), total: Math.round(g.total) };
+      });
   }
   testGift(id) {
     const participant = (this.config.participants || []).find(p => p.id === id || p.creatorId === id);
@@ -1680,6 +1774,7 @@ class PkGroupEngine {
     }
     if (!target) return;
     this.addPoints(target.id, pts);
+    this._addGifter(target.id, ev, pts);
     // Liên kết BXH: cộng realtime cho Creator của participant này (nếu có).
     if (this.config.linkRanking && this.onRankingPoints && (target.creatorId || target.id)) {
       this.onRankingPoints(target.creatorId || target.id, pts, ev);
@@ -2233,10 +2328,12 @@ class LuckyWheelEngine {
 // Schema theo spec BIGO port: rows[] với {id, rank, name, avatar, initials, points,
 // round, giftIconId, giftIcon, giftName, hideScore, lost, active, activePoints}
 class RankingEngine {
-  constructor({ onState, getCreators, getGroups }) {
+  constructor({ onState, getCreators, getGroups, getActiveFighters }) {
     this.onState = onState;
     this.getCreators = getCreators;
     this.getGroups = getGroups;
+    // Ai đang thi đấu PK (Đôi/Nhóm) đã Liên kết → đánh dấu hàng Creator đó bằng FX chọn nhân vật.
+    this.getActiveFighters = typeof getActiveFighters === 'function' ? getActiveFighters : () => null;
     this.config = {
       mode: 'creator', // 'creator' | 'group'
       title: 'TOP IDOL',
@@ -2330,6 +2427,8 @@ class RankingEngine {
     const creators = this.getCreators();
     const groups = this.getGroups();
     const activeGroupId = this.config.activeGroupId || '';
+    // Người đang thi đấu PK (Đôi/Nhóm) đã Liên kết → đánh dấu hàng của họ (chỉ chế độ Creator).
+    const fighters = this.config.mode === 'creator' ? this.getActiveFighters() : null;
     let rows = [];
     if (this.config.mode === 'creator') {
       rows = creators.filter(c => !c.hideObs && (!activeGroupId || c.groupId === activeGroupId)).map(c => {
@@ -2337,6 +2436,7 @@ class RankingEngine {
         const g = groups.find(x => x.id === c.groupId);
         return {
           id: c.id,
+          inMatch: !!(fighters && fighters.ids.has(String(c.id))),
           name: c.nickname || c.tiktokId,
           avatar: c.avatar || '',
           avatarKey: c.avatarCacheKey || avatarCacheKey(c.avatar),
@@ -2419,6 +2519,8 @@ class RankingEngine {
       giftScale: this.config.giftScale,
       overlayScale: this.config.overlayScale,
       rows,
+      // Kiểu FX đánh dấu người đang thi đấu PK (Đôi/Nhóm) đã Liên kết — 'off' nếu không có ai đang đấu.
+      selectFx: fighters ? fighters.fx : 'off',
       active: activeRow ? { name: activeRow.name, avatar: activeRow.avatar, avatarKey: activeRow.avatarKey, avatarVersion: activeRow.avatarVersion, initials: activeRow.initials, points: activeRow.points } : null,
     };
   }
@@ -3016,12 +3118,45 @@ function anyLinkedGiftSourceActive() {
   const pkGroupRun = l.pkgroup && ['prestart', 'running', 'grace'].includes(pkGroupEngine?.state?.status);
   return !!(pkDuoRun || pkGroupRun || l.sticker);
 }
+// Ai đang thi đấu PK (Đôi/Nhóm) ĐÃ LIÊN KẾT + trận đang chạy → BXH THI ĐẤU NHÓM đánh dấu đúng
+// hàng Creator đó bằng FX chọn nhân vật. Trả { ids:Set<creatorId>, fx } hoặc null.
+// PK Đôi: luôn đánh dấu 2 phe. PK Nhóm: chỉ khi chọn subset (ít hơn full nhóm) — đủ full thì thôi.
+function activePkFighters() {
+  const l = getRankingLinks();
+  const live = s => ['prestart', 'running', 'grace'].includes(s);
+  const ids = new Set();
+  let fx = '';
+  if (l.pkduo && pkDuoEngine && live(pkDuoEngine.state.status)) {
+    const f = pkDuoEngine._resolveSelectFx();
+    if (f !== 'off') {
+      const a = pkDuoEngine.config.teamA, b = pkDuoEngine.config.teamB;
+      if (a && a.creatorId) ids.add(String(a.creatorId));
+      if (b && b.creatorId) ids.add(String(b.creatorId));
+      if (ids.size && !fx) fx = f;
+    }
+  }
+  if (l.pkgroup && pkGroupEngine && live(pkGroupEngine.state.status)) {
+    const cfg = pkGroupEngine.config;
+    const parts = Array.isArray(cfg.participants) ? cfg.participants : [];
+    const gid = String(cfg.groupId || '');
+    const roster = gid ? (loadCreators() || []).filter(c => String(c.groupId || '') === gid).length : 0;
+    const subset = parts.length >= 2 && (!roster || parts.length < roster);
+    const f = pkGroupEngine._resolveSelectFx();
+    if (subset && f !== 'off') {
+      for (const p of parts) { const id = p.creatorId || p.id; if (id) ids.add(String(id)); }
+      if (!fx) fx = f;
+    }
+  }
+  return ids.size ? { ids, fx: fx || 'arrow' } : null;
+}
 
 function bootstrapEngines() {
   pkDuoEngine = new PkDuoEngine({
     onState: (st) => {
       overlayServer?.sendPkDuo(st);
       broadcast('pkduo:state', st);
+      // Liên kết → BXH THI ĐẤU NHÓM vẽ lại để đánh dấu/bỏ đánh dấu người đang thi đấu theo trận.
+      if (getRankingLinks().pkduo) rankingEngine?._emit();
     },
     onResult: appendMatchHistory,
     // Engine tự cập nhật chuỗi WIN sau trận → lưu file + báo renderer để ô "Chuỗi WIN" đồng bộ.
@@ -3038,6 +3173,8 @@ function bootstrapEngines() {
     onState: (st) => {
       overlayServer?.sendPkGroup(st);
       broadcast('pkgroup:state', st);
+      // Liên kết → BXH THI ĐẤU NHÓM vẽ lại để đánh dấu/bỏ đánh dấu người đang thi đấu theo trận.
+      if (getRankingLinks().pkgroup) rankingEngine?._emit();
     },
     onResult: appendMatchHistory,
     getCreators: loadCreators,
@@ -3052,6 +3189,7 @@ function bootstrapEngines() {
     },
     getCreators: loadCreators,
     getGroups: loadGroups,
+    getActiveFighters: activePkFighters,
   });
   if (settings.ranking) rankingEngine.setConfig(settings.ranking);
   rankingEngine.config.activeGroupId = ''; // Luôn khởi động ở chế độ TALENT SHOW (mở tất cả)
@@ -3417,6 +3555,7 @@ function registerIpc() {
   ipcMain.handle('pkduo:start', () => { pkDuoEngine.start(); return true; });
   ipcMain.handle('pkduo:stop', () => { pkDuoEngine.stop(); return true; });
   ipcMain.handle('pkduo:reset', () => { pkDuoEngine.reset(); return true; });
+  ipcMain.handle('pkduo:resetAll', () => { pkDuoEngine.resetAll(); return true; });
   ipcMain.handle('pkduo:addPoints', (_e, { side, points }) => { pkDuoEngine.addPoints(side, points); return true; });
   ipcMain.handle('pkduo:getUrl', () => overlayServer.getPkDuoUrl());
   ipcMain.handle('pkduo:getFxUrl', () => overlayServer.getPkDuoFxUrl());
@@ -3427,6 +3566,7 @@ function registerIpc() {
   ipcMain.handle('pkgroup:start', () => { pkGroupEngine.start(); return true; });
   ipcMain.handle('pkgroup:stop', () => { pkGroupEngine.stop(); return true; });
   ipcMain.handle('pkgroup:reset', () => { pkGroupEngine.reset(); return true; });
+  ipcMain.handle('pkgroup:resetAll', () => { pkGroupEngine.resetAll(); savePkGroupConfig(pkGroupEngine.config); return true; });
   ipcMain.handle('pkgroup:addPoints', (_e, { id, points }) => { pkGroupEngine.addPoints(id, points); return true; });
   ipcMain.handle('pkgroup:testGift', (_e, { id }) => pkGroupEngine.testGift(id));
   ipcMain.handle('pkgroup:getUrl', () => overlayServer.getPkGroupUrl());

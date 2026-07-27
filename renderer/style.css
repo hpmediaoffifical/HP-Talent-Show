@@ -50,6 +50,12 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
   position: sticky;
   top: 0;
   height: 100vh;
+  /* z-index cao hơn các card nội dung bên phải (z 8–60) nhưng thấp hơn modal (≥1000)
+     để flyout menu con nổi lên trên, không bị chìm dưới nội dung */
+  z-index: 100;
+  /* Thu gọn/mở rộng mượt: trượt width thay vì nhảy đột ngột (chống giật nháy) */
+  transition: width .22s cubic-bezier(.4, 0, .2, 1), padding .22s cubic-bezier(.4, 0, .2, 1);
+  will-change: width;
 }
 .brand {
   display: flex; align-items: center; gap: 10px;
@@ -61,6 +67,7 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .brand-logo-btn:hover { transform: translateY(-1px); }
 .brand-logo-btn:active { transform: scale(.94); }
 .brand img { width: 36px; height: 36px; border-radius: 8px; display:block; }
+.brand-text { max-width: 160px; overflow: hidden; white-space: nowrap; transition: max-width .2s cubic-bezier(.4,0,.2,1), opacity .14s ease; }
 .brand-text strong { display: block; color: var(--tt-ink); font-size: 14px; text-transform:uppercase; letter-spacing:.01em; white-space:nowrap; }
 .brand-text span { font-size: 11.5px; color: var(--tt-ink-3); text-transform:uppercase; letter-spacing:.04em; }
 
@@ -90,7 +97,7 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 }
 .nav-ico svg { width: 21px; height: 21px; display: block; }
 .nav-btn.active .nav-ico svg { stroke-width: 2.1; }
-.nav-txt { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.nav-txt { min-width:0; max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: max-width .2s cubic-bezier(.4,0,.2,1), opacity .14s ease; }
 .nav-btn:hover { background: var(--tt-bg-2); color: var(--tt-ink); }
 .nav-btn.active {
   background: linear-gradient(135deg, var(--tt-pink) 0%, #ff5072 100%);
@@ -877,29 +884,31 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 /* ===== Vùng "Thời gian chạy" — khu riêng biệt, chống nhìn nhầm ===== */
 .time-zone {
   grid-column: 1 / -1;
-  border: 1.5px solid rgba(254, 44, 85, .35);
+  justify-self: start;            /* pill gọn bên trái thay vì kéo dài cả hàng */
+  display: inline-flex; align-items: center; gap: 12px;
+  border: 1.5px solid rgba(254, 44, 85, .30);
   background: linear-gradient(180deg, rgba(254, 44, 85, .06), rgba(37, 244, 238, .05));
-  border-radius: var(--r-md);
-  padding: 9px 12px 11px;
+  border-radius: 999px;
+  padding: 6px 8px 6px 15px;
   margin-top: 2px;
-  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .6);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .6);
 }
 .time-zone__head {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--tt-pink); margin-bottom: 8px;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--tt-pink);
 }
 .time-zone__head .tz-ico { font-size: 14px; }
-.time-zone__fields { display: flex; align-items: stretch; gap: 8px; }
+.time-zone__fields { display: inline-flex; align-items: center; gap: 5px; }
 .time-seg {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  background: #fff; border: 1px solid var(--tt-border); border-radius: var(--r-sm);
-  padding: 5px 6px; transition: border-color .15s, box-shadow .15s;
+  flex: 0 0 auto; display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
+  background: #fff; border: 1px solid var(--tt-border); border-radius: 10px;
+  padding: 3px 9px; transition: border-color .15s, box-shadow .15s;
 }
 .time-seg:focus-within { border-color: var(--tt-pink); box-shadow: 0 0 0 3px rgba(254, 44, 85, .15); }
 .time-zone .time-seg input {
-  width: 100%; border: 0 !important; padding: 1px 0 !important; text-align: center;
-  font-size: 23px !important; font-weight: 800; line-height: 1.1; color: var(--tt-ink);
+  width: 34px; border: 0 !important; padding: 0 !important; text-align: center;
+  font-size: 17px !important; font-weight: 800; line-height: 1.15; color: var(--tt-ink);
   background: transparent; box-shadow: none;
   -moz-appearance: textfield;
 }
@@ -907,10 +916,10 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .time-zone .time-seg input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .time-zone .time-seg input:focus { outline: none; box-shadow: none; }
 .time-seg > span {
-  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: var(--tt-ink-3);
 }
-.time-seg__sep { align-self: center; font-size: 18px; font-weight: 800; color: var(--tt-ink-3); }
+.time-seg__sep { align-self: center; font-size: 15px; font-weight: 800; color: var(--tt-ink-3); }
 .option-pills { display:flex; flex-wrap:wrap; gap:8px; }
 .option-pills span, .option-pills label { display:inline-flex; flex-direction:row; align-items:center; gap:6px; padding:8px 10px; border:1px solid var(--tt-border); border-radius:999px; background:#fff; color:var(--tt-ink-2); font-size:12px; font-weight:800; cursor:pointer; }
 .option-pills input { width:auto; accent-color:var(--tt-pink); }
@@ -1266,9 +1275,53 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .pk-live-preview { position:sticky; top:12px; z-index:8; margin:0; padding:12px; border:1px solid rgba(254,44,85,.14); border-radius:22px; background:linear-gradient(135deg, rgba(255,255,255,.98), rgba(250,252,255,.94)); box-shadow:0 16px 38px rgba(22,24,35,.12); backdrop-filter:blur(10px); }
 .pk-live-preview h3 { display:flex; align-items:center; justify-content:space-between; margin:0 0 10px; font-size:13px; font-weight:950; letter-spacing:.03em; color:var(--tt-ink); }
 .pk-live-preview h3::after { content:'LIVE'; padding:3px 8px; border-radius:999px; background:rgba(254,44,85,.1); color:var(--tt-pink); font-size:10px; font-weight:950; }
-.pk-action-row { display:grid; grid-template-columns:1.25fr repeat(4, minmax(74px, .7fr)) 1.25fr; gap:8px; margin:0; padding:10px; border:1px solid rgba(229,231,235,.88); border-radius:18px; background:rgba(255,255,255,.94); box-shadow:0 10px 30px rgba(22,24,35,.08); }
-.pk-action-row button { width:100%; min-height:38px; justify-content:center; }
-.pk-team-configs { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; align-items:stretch; min-width:0; }
+.pk-action-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0; padding:10px; border:1px solid rgba(229,231,235,.88); border-radius:18px; background:rgba(255,255,255,.94); box-shadow:0 10px 30px rgba(22,24,35,.08); }
+.pk-action-row button { min-height:38px; justify-content:center; white-space:nowrap; }
+/* ▶ BẮT ĐẦU ngắn gọn (không kéo dài cả cột) để nhường chỗ cho các menu khác trên hàng */
+.pk-action-row .primary { flex:0 0 auto; padding-left:18px; padding-right:18px; }
+/* Chế độ chơi / Tính điểm theo gọn ngay trên hàng nút: caption + select nằm ngang */
+.pk-action-row .pk-row-field { display:flex; align-items:center; gap:6px; margin:0; font-size:12px; font-weight:800; color:#4b5563; white-space:nowrap; }
+.pk-action-row .pk-row-field select { min-height:38px; max-width:172px; border:1px solid rgba(0,0,0,.14); border-radius:12px; background:#fff; padding:6px 10px; }
+/* Đẩy tổng số trận (phần tử cuối) về sát mép phải */
+.pk-action-row .pk-total-matches { margin-left:auto; }
+/* Popup "Nhanh": gom Test +100 & link OBS sau 1 icon gọn (dùng <details> — không cần lib) */
+.pk-quick { position:relative; flex:0 0 auto; }
+.pk-quick > summary { list-style:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:38px; padding:7px 12px; border:1px solid rgba(0,0,0,.14); border-radius:12px; background:#fff; font-size:14px; font-weight:800; color:#111827; user-select:none; }
+.pk-quick > summary::-webkit-details-marker { display:none; }
+.pk-quick > summary:hover { background:#f3f4f6; }
+.pk-quick[open] > summary { background:#eef2ff; border-color:rgba(99,102,241,.4); }
+.pk-quick-menu { position:absolute; z-index:60; top:calc(100% + 6px); right:0; display:flex; flex-direction:column; gap:6px; min-width:150px; padding:8px; background:#fff; border:1px solid rgba(0,0,0,.12); border-radius:14px; box-shadow:0 14px 34px rgba(22,24,35,.18); }
+.pk-quick-menu button { width:100%; min-height:36px; justify-content:center; }
+
+/* Đẩy 📜 Lịch sử + 🧪 Nhanh về sát mép phải trên hàng nút */
+.pk-action-row .pk-act-right { margin-left:auto; }
+
+/* Thông tin phiên được đặt thành một dải riêng để không lẫn với cấu hình đội. */
+.pk-content-row, .pkg-config-row { padding:12px; border:1px solid rgba(229,231,235,.9); border-radius:18px; background:linear-gradient(135deg,#fff,#fafbff); box-shadow:0 8px 22px rgba(22,24,35,.045); }
+/* PK Đôi: nội dung, thời gian và số trận trên cùng một dải vận hành. */
+.pk-content-row { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.pk-content-field { flex:0 1 340px; min-width:220px; }
+.pk-content-row .pk-total-matches { margin:0 2px 6px 0; flex:0 0 auto; }
+/* Cụm thời gian nằm trong dải phiên, độc lập với các thiết lập còn lại. */
+.pk-content-row .time-zone { margin:0; flex:0 0 auto; }
+
+/* PK Nhóm: nội dung, nhóm, kiểu thanh máu và thời gian cùng một vùng thiết lập phiên. */
+.pkg-config-row { display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+.pkg-config-field { flex:1 1 200px; min-width:180px; max-width:320px; }
+.pkg-config-field--wide { flex:1.4 1 240px; max-width:420px; }
+.pkg-config-field select, .pkg-config-field input { min-height:38px; }
+.pkg-time-row { display:flex; flex:1 0 100%; justify-content:center; }
+.pkg-time-row .time-zone { grid-column:auto; margin:0; max-width:100%; }
+
+/* Cụm thời gian của Tính điểm nằm ở hàng riêng, căn giữa dưới ba thông số phiên. */
+.score-main-config .time-zone { justify-self:center; }
+.score-main-config .time-zone__head, .pkg-time-row .time-zone__head { gap:2px; }
+
+/* Một cột đội bao gồm danh tính và quà, để mọi thao tác của Team A/B luôn liền mạch. */
+.pk-match-setup { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; align-items:stretch; min-width:0; }
+.pk-team-workspace { display:grid; align-content:start; gap:10px; min-width:0; padding:8px; border:1px solid rgba(229,231,235,.92); border-radius:22px; background:#fff; box-shadow:0 10px 26px rgba(22,24,35,.055); }
+.pk-team-workspace-a { border-color:rgba(254,44,85,.24); background:linear-gradient(135deg,#fff,#fff7f9); }
+.pk-team-workspace-b { border-color:rgba(37,244,238,.28); background:linear-gradient(135deg,#fff,#f3ffff); }
 .pk-team-config { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; align-items:end; padding:14px; border:1px solid rgba(229,231,235,.92); border-radius:18px; background:linear-gradient(135deg,#fff,#fafbff); box-shadow:0 10px 24px rgba(22,24,35,.06); position:relative; overflow:hidden; }
 /* Khi dropdown avatar mở: bỏ cắt + nâng lên trên để không bị các ô bên dưới che */
 .pk-team-config:has(.av-select.is-open) { overflow:visible; z-index:30; }
@@ -1282,7 +1335,6 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .pk-team-config-b .pk-team-config-head b { color:#009d99; }
 .pk-team-config label { margin:0; min-width:0; }
 
-.pk-teams { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 0; }
 .pk-team { position:relative; padding: 16px; min-height:174px; border-radius: 20px; border: 1px solid rgba(229,231,235,.9); overflow:hidden; box-shadow:0 12px 30px rgba(22,24,35,.08); }
 .pk-team::before { content:''; position:absolute; inset:0; pointer-events:none; opacity:.9; }
 .pk-team[data-team="A"] { background:linear-gradient(135deg,#fff,#fff5f7 52%,#fff); }
@@ -1326,6 +1378,13 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .pk-gifts .chip button::before { content:''; position:absolute; inset:-6px; border-radius:50%; }
 .pk-gifts .chip button:hover { background:#fff0ef; transform:scale(1.12); }
 .pk-team .pk-pick-master { position:relative; z-index:1; border-radius:12px; font-weight:900; box-shadow:0 8px 18px rgba(254,44,85,.2); }
+
+/* Danh sách PK Nhóm là khu vực thao tác chính, tách rõ khỏi tùy chọn hiển thị và ghi chú. */
+.pkg-members-section { margin-top:4px; padding:14px; border:1px solid rgba(229,231,235,.92); border-radius:18px; background:linear-gradient(180deg,#fff,#fafbff); box-shadow:0 8px 22px rgba(22,24,35,.045); }
+.pkg-members-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.pkg-members-head h2 { margin:0; color:var(--tt-ink); font-size:15px; font-weight:950; }
+.pkg-members-head p { margin:3px 0 0; color:var(--tt-ink-3); font-size:12px; font-weight:650; }
+.pkg-members-section .pkg-members-toolbar { margin-top:12px; }
 
 .pk-preview {
   background: #161823; border-radius: var(--r-md); padding: 14px; min-height: 110px;
@@ -1399,7 +1458,6 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 
 @media (max-width: 1100px) {
   .rk-config-layout { grid-template-columns:1fr; }
-  .pk-action-row { grid-template-columns:repeat(3, minmax(0,1fr)); }
 }
 @media (max-width: 760px) {
   .topbar { flex-direction:column; }
@@ -1407,7 +1465,11 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
   .audio-device-row, .audio-device-output { grid-template-columns:1fr; }
   .rk-fields.two, .rk-fields.three, .rk-fields.four, .rk-fields.compact-three { grid-template-columns:1fr; }
   .pk-live-preview, .pk-action-row { position:relative; top:auto; }
-  .pk-action-row, .pk-team-configs, .pk-teams { grid-template-columns:1fr; }
+  .pk-match-setup { grid-template-columns:1fr; }
+  .pk-content-row, .pkg-config-row { padding:10px; border-radius:15px; }
+  .pk-content-row .time-zone { width:100%; justify-content:space-between; }
+  .pkg-time-row .time-zone { width:auto; }
+  .pkg-members-section { padding:11px; border-radius:15px; }
   .score-command-panel { grid-template-columns:1fr; }
   .score-command-actions { grid-template-columns:repeat(2, minmax(0,1fr)); }
   .score-ops-grid, .score-main-config, .score-audio-card, .score-creator-card, .score-test-card { display:grid; grid-column:1 / -1; grid-template-columns:1fr; }
@@ -1646,7 +1708,7 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .hist-undo:hover { background: var(--tt-pink); color: #fff; border-color: var(--tt-pink); }
 /* Trận đã cộng điểm LIVE qua Liên kết — không có nút áp tay (chống cộng đôi) */
 .hist-live { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; color: #1d4ed8; background: rgba(37,99,235,.1); border: 1px solid rgba(37,99,235,.4); border-radius: 8px; padding: 5px 11px; }
-.hist-duo-menu { position: fixed; z-index: 9999; background: #fff; border: 1px solid var(--tt-border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.22); padding: 12px; width: 300px; }
+.hist-duo-menu { position: fixed; z-index: 10050; background: #fff; border: 1px solid var(--tt-border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.22); padding: 12px; width: 300px; }
 .hist-duo-title { font-weight: 800; font-size: 13px; margin-bottom: 8px; color: var(--tt-ink); }
 .hist-duo-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .hist-duo-side { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--tt-ink); }
@@ -1754,12 +1816,15 @@ button, input, select { font-size:14.5px; }
 .brand-ver { font-size:10px; padding:2px 7px; }
 
 /* ===== Sidebar thu gọn — chỉ hiện icon (bấm logo để bật/tắt) ===== */
+/* Tắt mọi transition khi mới nạp để không tự trượt 1 lần lúc khởi động */
+.sidebar.no-anim, .sidebar.no-anim * { transition: none !important; }
 .sidebar.collapsed { width:66px; padding-left:8px; padding-right:8px; }
 .sidebar.collapsed .brand { justify-content:center; gap:0; padding-left:0; padding-right:0; }
-.sidebar.collapsed .brand-text { display:none; }
+/* Chữ thu về 0 + mờ dần (không display:none) để trượt cùng nhịp với width → hết giật nháy */
+.sidebar.collapsed .brand-text { max-width:0; opacity:0; overflow:hidden; pointer-events:none; }
 .sidebar.collapsed .brand img { width:38px; height:38px; }
 .sidebar.collapsed .nav-btn { justify-content:center; gap:0; padding:10px 0; }
-.sidebar.collapsed .nav-txt { display:none; }
+.sidebar.collapsed .nav-txt { max-width:0; opacity:0; margin:0; }
 .sidebar.collapsed .nav-ico { width:auto; height:26px; }
 .sidebar.collapsed .nav-ico svg { width:25px; height:25px; }
 .topbar { padding:8px 14px; min-height:52px; }
@@ -1828,9 +1893,9 @@ button.tiny { padding:4px 7px; font-size:12px; }
 .log-list { padding:9px; gap:3px; }
 .log-list .item { padding:6px 5px; }
 .pk-live-preview { top:8px; padding:10px; border-radius:18px; }
-.pk-action-row { gap:6px; padding:8px; border-radius:14px; grid-template-columns:1.1fr repeat(4, minmax(62px, .65fr)) 1.1fr; }
+.pk-action-row { gap:6px; padding:8px; border-radius:14px; }
 .pk-action-row button { min-height:34px; }
-.pk-team-configs, .pk-teams { gap:10px; }
+.pk-match-setup { gap:10px; }
 .pk-team-config { gap:9px; padding:11px; border-radius:15px; }
 .pk-team { padding:12px; min-height:150px; border-radius:16px; }
 .pk-gifts { gap:7px; min-height:56px; max-height:104px; margin-bottom:9px; padding:6px; }
@@ -1866,7 +1931,7 @@ button.tiny { padding:4px 7px; font-size:12px; }
   .topbar { flex-wrap:wrap; gap:8px; }
   .topbar-ticker { order:3; flex-basis:100%; max-width:none; width:100%; margin:0; }
   .stats { margin-left:auto; }
-  .score-ops-grid, .rk-config-layout, .pk-team-configs, .pk-teams { grid-template-columns:1fr; }
+  .score-ops-grid, .rk-config-layout, .pk-match-setup { grid-template-columns:1fr; }
   .score-command-panel { grid-template-columns:1fr; }
 }
 
@@ -2545,17 +2610,64 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
   transition: background .15s, color .15s;
 }
 .nav-parent:hover { background: var(--tt-bg-2); color: var(--tt-ink); }
-.nav-parent .nav-caret { margin-left: auto; font-size: 10px; color: var(--tt-ink-3); transition: transform .18s; }
+.nav-parent .nav-caret { margin-left: auto; font-size: 10px; color: var(--tt-ink-3); transition: transform .18s, max-width .2s ease, opacity .14s ease; }
 .nav-group.open > .nav-parent { color: var(--tt-ink); }
 .nav-group.open > .nav-parent .nav-caret { transform: rotate(180deg); }
 .nav-sub { display: none; flex-direction: column; gap: 2px; margin: 1px 0 2px 12px; padding-left: 9px; border-left: 2px solid var(--tt-border); }
 .nav-group.open > .nav-sub { display: flex; }
 .nav-sub .nav-btn { padding: 8px 10px; font-size: 13px; }
-/* Menu thu gọn: bỏ thụt lề, luôn hiện mục con, ẩn caret */
+/* Menu thu gọn: icon cha căn giữa, ẩn chữ + caret mượt; menu con thành FLYOUT nổi khi rê chuột */
 .sidebar.collapsed .nav-parent { justify-content: center; gap: 0; padding: 10px 0; }
-.sidebar.collapsed .nav-parent .nav-txt, .sidebar.collapsed .nav-parent .nav-caret { display: none; }
-.sidebar.collapsed .nav-sub { display: flex; margin: 0; padding: 0; border: 0; }
-.sidebar.collapsed .nav-sub .nav-btn { justify-content: center; gap: 0; padding: 10px 0; }
+.sidebar.collapsed .nav-parent .nav-txt { max-width: 0; opacity: 0; margin: 0; }
+.sidebar.collapsed .nav-parent .nav-caret { max-width: 0; opacity: 0; overflow: hidden; margin: 0; }
+.sidebar.collapsed .nav-group { position: relative; }
+/* Bảng con nổi bên phải icon cha (kiểu VS Code) — không còn xổ dọc gây nháy */
+.sidebar.collapsed .nav-sub {
+  display: flex;
+  position: absolute;
+  left: 100%;
+  top: -6px;
+  margin: 0;
+  padding: 7px;
+  min-width: 186px;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid var(--tt-border);
+  border-radius: 14px;
+  background: var(--tt-bg);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .18);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-6px);
+  transition: opacity .16s ease, transform .16s ease, visibility .16s;
+  z-index: 80;
+}
+/* Cầu nối trong suốt lấp khe giữa icon và bảng để rê chuột không rớt hover */
+.sidebar.collapsed .nav-sub::before { content: ''; position: absolute; left: -14px; top: 0; bottom: 0; width: 16px; }
+/* Hiện flyout theo class do JS bật/tắt (chắc hơn :hover với panel cao/đè nhau) */
+.sidebar.collapsed .nav-group.flyout-open > .nav-sub {
+  opacity: 1; visibility: visible; transform: translateX(7px);
+}
+/* Nhóm cuối (CÀI ĐẶT) nằm thấp → mở hướng lên để không tràn đáy màn hình */
+.sidebar.collapsed #navCaiDat > .nav-sub { top: auto; bottom: -6px; }
+/* Trong flyout hiện lại icon + chữ như menu thường */
+.sidebar.collapsed .nav-sub .nav-btn { justify-content: flex-start; gap: 10px; padding: 8px 10px; }
+.sidebar.collapsed .nav-sub .nav-txt { max-width: 180px; opacity: 1; margin: 0; }
+/* Tooltip tên cho icon lá (mục không có menu con) khi thu gọn */
+.sidebar.collapsed .nav > .nav-btn { position: relative; }
+.sidebar.collapsed .nav > .nav-btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; left: 100%; top: 50%; margin-left: 8px;
+  transform: translate(-4px, -50%);
+  background: var(--tt-ink); color: #fff;
+  padding: 5px 9px; border-radius: 8px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .22);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease, visibility .14s;
+  z-index: 85;
+}
+.sidebar.collapsed .nav > .nav-btn[data-tip]:hover::after { opacity: 1; visibility: visible; transform: translate(4px, -50%); }
 
 /* ===================== NHIỆM VỤ · BỘ BA — panel cấu hình ===================== */
 .mt-desc { margin: 0 0 12px; color: var(--tt-ink-2); font-size: 12.5px; line-height: 1.5; }

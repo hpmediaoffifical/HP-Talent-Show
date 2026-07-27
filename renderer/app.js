@@ -132,13 +132,49 @@ $$('.nav-parent').forEach(p => p.addEventListener('click', () => {
   const btn = $('#brandToggle');
   if (!sidebar || !btn) return;
   const KEY = 'hp.sidebarCollapsed';
+  // Icon lá (mục không có menu con): dời title -> data-tip để dùng tooltip CSS mượt,
+  // tránh tooltip mặc định của hệ điều hành nhảy trùng khi thu gọn.
+  sidebar.querySelectorAll('.nav > .nav-btn[title]').forEach((b) => {
+    b.setAttribute('data-tip', b.getAttribute('title'));
+    b.removeAttribute('title');
+  });
   const apply = (on) => sidebar.classList.toggle('collapsed', !!on);
+  // Đặt trạng thái ban đầu KHÔNG animate, rồi bật transition lại sau khi đã vẽ xong.
+  sidebar.classList.add('no-anim');
   try { apply(localStorage.getItem(KEY) === '1'); } catch {}
+  requestAnimationFrame(() => requestAnimationFrame(() => sidebar.classList.remove('no-anim')));
   btn.addEventListener('click', () => {
     const on = !sidebar.classList.contains('collapsed');
     apply(on);
+    if (!on) closeAllFlyouts();
     try { localStorage.setItem(KEY, on ? '1' : '0'); } catch {}
   });
+
+  // ===== Flyout menu con khi thu gọn — điều khiển bằng JS =====
+  // Vì :hover thuần với panel cao dễ bị: (1) không thu lại, (2) nhiều panel đè nhau.
+  // JS đảm bảo mỗi lúc chỉ 1 panel mở, và có độ trễ đóng để rê qua khe icon→panel không rớt.
+  const groups = Array.from(sidebar.querySelectorAll('.nav-group'));
+  let flyoutTimer = null;
+  const closeAllFlyouts = () => {
+    clearTimeout(flyoutTimer);
+    groups.forEach((g) => g.classList.remove('flyout-open'));
+  };
+  const openFlyout = (g) => {
+    clearTimeout(flyoutTimer);
+    groups.forEach((x) => x.classList.toggle('flyout-open', x === g));
+  };
+  const scheduleClose = () => {
+    clearTimeout(flyoutTimer);
+    flyoutTimer = setTimeout(closeAllFlyouts, 160);
+  };
+  groups.forEach((g) => {
+    g.addEventListener('mouseenter', () => { if (sidebar.classList.contains('collapsed')) openFlyout(g); });
+    g.addEventListener('mouseleave', () => { if (sidebar.classList.contains('collapsed')) scheduleClose(); });
+    // Bấm 1 mục con -> đóng flyout ngay
+    g.querySelectorAll('.nav-sub .nav-btn').forEach((b) => b.addEventListener('click', closeAllFlyouts));
+  });
+  // Rời hẳn sidebar -> đóng
+  sidebar.addEventListener('mouseleave', closeAllFlyouts);
 })();
 
 // Open external
@@ -5850,7 +5886,8 @@ async function loadPkConfig() {
   if ($('#pkFxThreshold')) { $('#pkFxThreshold').value = pkCfg.fxThreshold ?? 8; $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`; }
   if ($('#pkChampsEnabled')) $('#pkChampsEnabled').value = String(pkCfg.championsEnabled !== false);
   if ($('#pkChampNames')) $('#pkChampNames').value = String(pkCfg.championNames === true);
-  if ($('#pkArrowStyle')) $('#pkArrowStyle').value = pkCfg.arrowStyle || 'classic';
+  if ($('#pkArrowStyle')) $('#pkArrowStyle').value = pkCfg.arrowStyle || 'random';
+  if ($('#pkSelectFx')) $('#pkSelectFx').value = pkCfg.selectFx || 'random';
   setSoundInput('pkSndStart', pkCfg.startSound || '');
   setSoundInput('pkSndWarn', pkCfg.warningSound || '');
   setSoundInput('pkSndAwin', pkCfg.teamASound || '');
@@ -6188,7 +6225,7 @@ function wirePkDuoTab() {
     $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`;
     schedulePkAutoSave();
   });
-  ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkChampNames','pkArrowStyle','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
+  ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkChampNames','pkArrowStyle','pkSelectFx','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', schedulePkAutoSave);
@@ -6225,12 +6262,23 @@ function wirePkDuoTab() {
     await window.api.pkduo.start();
   });
   $('#pkReset').addEventListener('click', async () => { await window.api.pkduo.reset(); });
+  $('#pkResetAll')?.addEventListener('click', async () => {
+    if (!confirm('RESET TẤT CẢ PK Đôi?\nXoá điểm, trạng thái VÀ chuỗi WIN của cả 2 phe (không hoàn tác).')) return;
+    await window.api.pkduo.resetAll();
+    toast('🗑️ Đã reset tất cả PK Đôi (kể cả chuỗi WIN)', 'success');
+  });
   $('#pkAddA').addEventListener('click', async () => { await window.api.pkduo.addPoints('A', 100); });
   $('#pkAddB').addEventListener('click', async () => { await window.api.pkduo.addPoints('B', 100); });
   $('#pkCopyUrl').addEventListener('click', async () => {
     const url = await window.api.pkduo.getUrl();
     await window.api.shell.copyText(url);
     toast('📋 Đã copy link PK Đôi', 'success');
+  });
+  // Popup "🧪 Nhanh" (Test +100 / link OBS): bấm 1 mục hoặc click ra ngoài thì tự đóng.
+  document.querySelectorAll('.pk-quick-menu button').forEach(b =>
+    b.addEventListener('click', () => b.closest('details.pk-quick')?.removeAttribute('open')));
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('details.pk-quick[open]').forEach(d => { if (!d.contains(e.target)) d.removeAttribute('open'); });
   });
 }
 
@@ -6290,7 +6338,8 @@ function collectPkCfg() {
     // Vinh danh TOP 3 người tặng quà (hiện trên overlay banner)
     championsEnabled: $('#pkChampsEnabled') ? $('#pkChampsEnabled').value === 'true' : true,
     championNames: $('#pkChampNames') ? $('#pkChampNames').value === 'true' : false,
-    arrowStyle: $('#pkArrowStyle') ? $('#pkArrowStyle').value : 'classic',
+    arrowStyle: $('#pkArrowStyle') ? $('#pkArrowStyle').value : 'random',
+    selectFx: $('#pkSelectFx') ? $('#pkSelectFx').value : 'random',
   };
 }
 
@@ -6373,6 +6422,7 @@ async function loadPkGroupConfig() {
     nameSize: st.nameSize || 100,
     giftSize: st.giftSize || 60,
     overlayScale: st.overlayScale || 200,
+    selectFx: st.selectFx || 'random',
     creatorColors: st.creatorColors || {},
     smartColor: st.smartColor !== false,
     participants: Array.isArray(st.participants) ? st.participants : [],
@@ -6416,6 +6466,7 @@ function applyPkGroupCfgToInputs() {
   $('#pkgOverlayScaleValue').textContent = `${$('#pkgOverlayScale').value}%`;
   if ($('#pkgSmartColor')) $('#pkgSmartColor').checked = pkGroupCfg.smartColor !== false;
   if ($('#ovlAutoTextContrast')) $('#ovlAutoTextContrast').checked = !!pkGroupCfg.autoTextContrast;
+  if ($('#pkgSelectFx')) $('#pkgSelectFx').value = pkGroupCfg.selectFx || 'random';
 }
 
 function renderPkGroupGroupSelect() {
@@ -6754,7 +6805,7 @@ function wirePkGroupTab() {
       try { await window.api.pkgroup.setConfig(collectPkGroupCfg()); } catch {}
     }
   });
-  ['pkgContent','pkgLayoutMode','pkgPlayMode','pkgPointsBy','pkgNoteEnabled','pkgNoteText','pkgNoteBg','pkgNoteColor','pkgNoteSpeed','pkgNoteEffect','pkgDurH','pkgDurM','pkgDurS','pkgPrep','pkgDelay','pkgTextSize','pkgNameSize','pkgGiftSize'].forEach(id => {
+  ['pkgContent','pkgLayoutMode','pkgPlayMode','pkgPointsBy','pkgNoteEnabled','pkgNoteText','pkgNoteBg','pkgNoteColor','pkgNoteSpeed','pkgNoteEffect','pkgDurH','pkgDurM','pkgDurS','pkgPrep','pkgDelay','pkgTextSize','pkgNameSize','pkgGiftSize','pkgSelectFx'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers(); });
   });
@@ -6777,6 +6828,11 @@ function wirePkGroupTab() {
     await window.api.pkgroup.start();
   });
   $('#pkgReset').addEventListener('click', async () => { await window.api.pkgroup.reset(); });
+  $('#pkgResetAll')?.addEventListener('click', async () => {
+    if (!confirm('RESET TẤT CẢ PK Nhóm?\nXoá điểm, trạng thái VÀ chuỗi WIN của tất cả Creator (không hoàn tác).')) return;
+    await window.api.pkgroup.resetAll();
+    toast('🗑️ Đã reset tất cả PK Nhóm (kể cả chuỗi WIN)', 'success');
+  });
   $('#pkgCopyUrl').addEventListener('click', async () => {
     const url = await window.api.pkgroup.getUrl();
     await window.api.shell.copyText(url);
@@ -6800,7 +6856,7 @@ function collectPkGroupCfg() {
     groupId: $('#pkgGroup').value,
     layoutMode: $('#pkgLayoutMode').value,
     playMode: $('#pkgPlayMode').value,
-    pointsBy: $('#pkgPointsBy').value,
+    pointsBy: $('#pkgPointsBy').value || 'diamond',
     noteEnabled: $('#pkgNoteEnabled').checked,
     noteText: $('#pkgNoteText').value.trim(),
     noteBgColor: $('#pkgNoteBg').value,
@@ -6816,6 +6872,7 @@ function collectPkGroupCfg() {
     nameSize: Math.max(60, Math.min(200, Number($('#pkgNameSize').value) || 100)),
     giftSize: Number($('#pkgGiftSize').value),
     overlayScale: Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 200)),
+    selectFx: $('#pkgSelectFx')?.value || 'random',
     creatorColors: pkGroupCfg.creatorColors || {},
   };
 }

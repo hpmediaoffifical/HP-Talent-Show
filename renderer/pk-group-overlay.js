@@ -14,6 +14,7 @@ const prevRealScore = new Map(); // điểm THẬT lần trước theo id → ph
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('vi-VN'); }
+function mmss(s) { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 // Avatar TikTok CDN load trực tiếp bị chặn trong OBS Browser Source (403/CORS) → phải qua proxy /avatar.
 // Đường dẫn logo mặc định của app (../logo/hp-logo.png) không tồn tại trên server overlay → map về /logo.png.
 function mediaUrl(value, key = '') {
@@ -45,6 +46,16 @@ function hexToRgb(hex, fb = '0,0,0') {
 }
 function giftHtml(gift) {
   return `<span class="pkg-gift" title="${esc(gift.giftName || gift.name || '')}">${gift.icon ? `<img src="${esc(gift.icon)}" />` : '🎁'}</span>`;
+}
+// TOP 3 người tặng quà nhiều nhất cho Creator: xếp avatar chồng NỬA lên nhau cho gọn.
+// DOM đảo top3→top1 để TOP1 là phần tử CUỐI → nằm sát icon quà, luôn nổi lên trên (z-index cao)
+// đè lên nửa avatar TOP2, TOP2 đè lên TOP3 nằm dưới cùng. Bo góc trực tiếp trên <img> (OBS-safe).
+function donorsHtml(list) {
+  const top = (Array.isArray(list) ? list : []).slice(0, 3);
+  if (!top.length) return '';
+  return `<span class="pkg-donors" aria-hidden="true">${top.map((g, i) => ({ rank: i + 1, g })).reverse().map(({ rank, g }) =>
+    `<span class="pkg-donor d${rank}" title="${esc(g.nickname || '')}${g.total ? ' • ' + fmt(g.total) : ''}"><span class="pkg-donor-ava"><img src="${esc(mediaUrl(g.avatar, g.avatarKey))}" onerror="avRetry(this)" /></span></span>`
+  ).join('')}</span>`;
 }
 function shortName(value) {
   const s = String(value || '').trim();
@@ -178,7 +189,7 @@ function render(state = {}) {
   const status = state.status || 'idle';
   const urgent = status === 'running' && sec <= 10 && sec > 0;
   const statusText = status === 'prestart' ? `Chuẩn bị ${sec}s`
-    : status === 'running' ? `${sec}s`
+    : status === 'running' ? mmss(sec)
     : status === 'grace' ? 'ĐANG TÍNH ĐIỂM'
     : status === 'finished' ? 'KẾT THÚC'
     : '';
@@ -239,7 +250,7 @@ function render(state = {}) {
           const crowned = isLeader && leaderChanged;
           return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `Hạng 1 (${num})` : num}</em>${narrow ? '' : `<small>${pct}%</small>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
         }).join('')}<div class="pkg-joined-ticks" aria-hidden="true"></div></div>
-        <div class="pkg-joined-gifts">${participants.map(p => `<div style="--c:${esc(p.color || '#FE2C55')}">${(p.gifts || []).map(giftHtml).join('')}</div>`).join('')}</div>
+        <div class="pkg-joined-gifts">${participants.map(p => `<div style="--c:${esc(p.color || '#FE2C55')}">${donorsHtml(p.topDonors)}${(p.gifts || []).map(giftHtml).join('')}</div>`).join('')}</div>
       </div>`
     : `<div class="pkg-separated-list">${participants.map(p => {
         const score = Number(p.score) || 0;
@@ -249,7 +260,7 @@ function render(state = {}) {
         return `<div class="pkg-card${isLeader ? ' leader' : ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">
           <div class="pkg-card-person">${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
           <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `Hạng 1 (<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>)` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${Number(p.streak) > 0 ? `<span class="pkg-streak" title="MVP ${fmt(p.streak)}"><small>MVP</small><em>${fmt(p.streak)}</em></span>` : ''}</div></div>
-          <div class="pkg-card-gifts">${(p.gifts || []).map(giftHtml).join('')}</div>
+          <div class="pkg-card-gifts">${donorsHtml(p.topDonors)}${(p.gifts || []).map(giftHtml).join('')}</div>
         </div>`;
       }).join('')}</div>`;
   const noteText = String(state.noteText || '').trim();

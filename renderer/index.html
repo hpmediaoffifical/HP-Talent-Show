@@ -389,83 +389,86 @@
 
         <div class="card pkduo-cfg">
           <div class="pk-live-preview">
-            <h3>Preview real-time</h3>
+            <h3>Theo dõi trận đấu</h3>
             <div class="pk-preview" id="pkPreview"></div>
-          </div>
-
-          <div class="pk-teams">
-            <div class="pk-team" data-team="A">
-              <h3>CHỌN QUÀ TEAM A</h3>
-              <div class="pk-gifts" id="pkAgifts"></div>
-              <div class="pk-team-foot">
-                <button class="primary tiny pk-pick-master" data-team="A" type="button">+ Thêm quà</button>
-                <div class="pk-top-givers" id="pkTopA" title="TOP người tặng quà cho đội"></div>
-              </div>
-            </div>
-            <div class="pk-team" data-team="B">
-              <h3>CHỌN QUÀ TEAM B</h3>
-              <div class="pk-gifts" id="pkBgifts"></div>
-              <div class="pk-team-foot">
-                <button class="primary tiny pk-pick-master" data-team="B" type="button">+ Thêm quà</button>
-                <div class="pk-top-givers" id="pkTopB" title="TOP người tặng quà cho đội"></div>
-              </div>
-            </div>
           </div>
 
           <div class="form-actions pk-action-row">
             <button id="pkStart" class="primary" type="button">▶ BẮT ĐẦU</button>
-            <button id="pkReset" class="ghost" type="button">↺ Reset</button>
-            <button id="pkAddA" class="ghost tiny" type="button">+100 A</button>
-            <button id="pkAddB" class="ghost tiny" type="button">+100 B</button>
-            <button id="pkCopyUrl" class="ghost" type="button">📋COPY OBS</button>
+            <button id="pkReset" class="ghost" type="button" title="Reset điểm/trạng thái trận, GIỮ chuỗi WIN">↺ Reset</button>
+            <button id="pkResetAll" class="ghost danger" type="button" title="Xoá tất cả: điểm, trạng thái VÀ chuỗi WIN (không hoàn tác)">🗑️ RESET TẤT CẢ</button>
+            <label class="pk-row-field" title="Chế độ chơi">🎮 Chế độ
+              <select id="pkJoinMode">
+                <option value="false" title="Quà rơi vào đội đã gán sẵn">Cố Định</option>
+                <option value="true" title="Quà kích hoạt để người xem chọn phe">Chọn Phe</option>
+              </select>
+            </label>
+            <select id="pkPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
             <button id="pkHistory" class="ghost" type="button">📜 Lịch sử</button>
-            <span id="pkTotalMatches" class="pk-total-matches" title="Tổng số trận PK Đôi đã lưu (xóa trận sai trong Lịch sử)"></span>
+            <details class="pk-quick">
+              <summary title="Test nhanh & link OBS">🧪 Nhanh</summary>
+              <div class="pk-quick-menu">
+                <button id="pkAddA" class="ghost tiny" type="button">+100 A</button>
+                <button id="pkAddB" class="ghost tiny" type="button">+100 B</button>
+                <button id="pkCopyUrl" class="ghost" type="button">📋OBS</button>
+              </div>
+            </details>
           </div>
 
           <div class="form-grid">
-            <label class="full">Nội dung hiển thị <input id="pkContent" placeholder="PK ĐÔI" maxlength="30" /></label>
-
-            <div class="pk-team-configs full">
-              <div class="pk-team-config pk-team-config-a">
-                <div class="pk-team-config-head"><b>TEAM A</b></div>
-                <label>Nhóm A <select id="pkAgroup"><option value="">— Chọn nhóm —</option></select></label>
-                <label>Creator A <select id="pkAcreator"><option value="">— Chọn creator —</option></select></label>
-                <label>Tên hiển thị A <input id="pkAname" maxlength="20" /></label>
-                <label>Chuỗi WIN A <input id="pkAstreak" type="number" min="0" max="999" value="0" title="Số lần thắng liên tiếp (sửa tay nếu sai)" /></label>
-                <label>Màu đội A <input id="pkAcolor" type="color" value="#FE2C55" /></label>
+            <div class="full pk-content-row">
+              <label class="pk-content-field">Nội dung hiển thị <input id="pkContent" placeholder="PK ĐÔI" maxlength="30" /></label>
+              <div class="time-zone">
+                <div class="time-zone__head"><span class="tz-ico">⏱️</span> Thời gian chạy</div>
+                <div class="time-zone__fields">
+                  <label class="time-seg"><input id="pkDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
+                  <span class="time-seg__sep">:</span>
+                  <label class="time-seg"><input id="pkDurM" type="number" min="0" max="59" value="5" /><span>phút</span></label>
+                  <span class="time-seg__sep">:</span>
+                  <label class="time-seg"><input id="pkDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
+                </div>
               </div>
-              <div class="pk-team-config pk-team-config-b">
-                <div class="pk-team-config-head"><b>TEAM B</b></div>
-                <label>Nhóm B <select id="pkBgroup"><option value="">— Chọn nhóm —</option></select></label>
-                <label>Creator B <select id="pkBcreator"><option value="">— Chọn creator —</option></select></label>
-                <label>Tên hiển thị B <input id="pkBname" maxlength="20" /></label>
-                <label>Chuỗi WIN B <input id="pkBstreak" type="number" min="0" max="999" value="0" title="Số lần thắng liên tiếp (sửa tay nếu sai)" /></label>
-                <label>Màu đội B <input id="pkBcolor" type="color" value="#25F4EE" /></label>
-              </div>
+              <span id="pkTotalMatches" class="pk-total-matches" title="Tổng số trận PK Đôi đã lưu (xóa trận sai trong Lịch sử)"></span>
             </div>
 
-            <div class="time-zone">
-              <div class="time-zone__head"><span class="tz-ico">⏱️</span> Thời gian chạy</div>
-              <div class="time-zone__fields">
-                <label class="time-seg"><input id="pkDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
-                <span class="time-seg__sep">:</span>
-                <label class="time-seg"><input id="pkDurM" type="number" min="0" max="59" value="5" /><span>phút</span></label>
-                <span class="time-seg__sep">:</span>
-                <label class="time-seg"><input id="pkDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
-              </div>
+            <div class="pk-match-setup full">
+              <section class="pk-team-workspace pk-team-workspace-a" aria-labelledby="pkTeamAHeading">
+                <div class="pk-team-config pk-team-config-a">
+                  <div class="pk-team-config-head"><b id="pkTeamAHeading">TEAM A</b><span>Thành viên và nhận diện đội</span></div>
+                  <label>Nhóm A <select id="pkAgroup"><option value="">— Chọn nhóm —</option></select></label>
+                  <label>Creator A <select id="pkAcreator"><option value="">— Chọn creator —</option></select></label>
+                  <label>Tên hiển thị A <input id="pkAname" maxlength="20" /></label>
+                  <label>Chuỗi WIN A <input id="pkAstreak" type="number" min="0" max="999" value="0" title="Số lần thắng liên tiếp (sửa tay nếu sai)" /></label>
+                  <label>Màu đội A <input id="pkAcolor" type="color" value="#FE2C55" /></label>
+                </div>
+                <div class="pk-team" data-team="A">
+                  <h3>QUÀ TÍNH ĐIỂM</h3>
+                  <div class="pk-gifts" id="pkAgifts"></div>
+                  <div class="pk-team-foot">
+                    <button class="primary tiny pk-pick-master" data-team="A" type="button">+ Thêm quà</button>
+                    <div class="pk-top-givers" id="pkTopA" title="TOP người tặng quà cho đội"></div>
+                  </div>
+                </div>
+              </section>
+              <section class="pk-team-workspace pk-team-workspace-b" aria-labelledby="pkTeamBHeading">
+                <div class="pk-team-config pk-team-config-b">
+                  <div class="pk-team-config-head"><b id="pkTeamBHeading">TEAM B</b><span>Thành viên và nhận diện đội</span></div>
+                  <label>Nhóm B <select id="pkBgroup"><option value="">— Chọn nhóm —</option></select></label>
+                  <label>Creator B <select id="pkBcreator"><option value="">— Chọn creator —</option></select></label>
+                  <label>Tên hiển thị B <input id="pkBname" maxlength="20" /></label>
+                  <label>Chuỗi WIN B <input id="pkBstreak" type="number" min="0" max="999" value="0" title="Số lần thắng liên tiếp (sửa tay nếu sai)" /></label>
+                  <label>Màu đội B <input id="pkBcolor" type="color" value="#25F4EE" /></label>
+                </div>
+                <div class="pk-team" data-team="B">
+                  <h3>QUÀ TÍNH ĐIỂM</h3>
+                  <div class="pk-gifts" id="pkBgifts"></div>
+                  <div class="pk-team-foot">
+                    <button class="primary tiny pk-pick-master" data-team="B" type="button">+ Thêm quà</button>
+                    <div class="pk-top-givers" id="pkTopB" title="TOP người tặng quà cho đội"></div>
+                  </div>
+                </div>
+              </section>
             </div>
-            <label>Chế độ chơi
-              <select id="pkJoinMode">
-                <option value="false">Cố định (quà → đội)</option>
-                <option value="true">Chọn Phe (quà kích hoạt)</option>
-              </select>
-            </label>
-            <label>Tính điểm theo
-              <select id="pkPointsBy">
-                <option value="diamond">🪙 Coin</option>
-                <option value="count">Số lượng quà</option>
-              </select>
-            </label>
           </div>
 
           <details class="cfg-adv">
@@ -517,6 +520,16 @@
                     </select>
                     <button type="button" id="pkArrowRandom" title="Đổi skin ngẫu nhiên ngay" style="flex:0 0 auto; padding:6px 10px; cursor:pointer;">🎲</button>
                   </span>
+                </label>
+                <label>🎮 Đánh dấu người vào trận
+                  <select id="pkSelectFx">
+                    <option value="random">🎲 Ngẫu nhiên mỗi vòng</option>
+                    <option value="arrow">▶ Mũi tên nhấp nháy</option>
+                    <option value="lock">🎯 Khung ngắm (khoá mục tiêu)</option>
+                    <option value="spotlight">🔦 Đèn spotlight</option>
+                    <option value="versus">⚔️ Hào quang + chữ VS</option>
+                    <option value="off">Tắt</option>
+                  </select>
                 </label>
                 <label class="full">Scale PK Đôi OBS
                   <div class="range-inline">
@@ -587,49 +600,73 @@
 
         <div class="card pkgroup-cfg">
           <div class="pk-live-preview">
-            <h3>Preview real-time</h3>
+            <h3>Theo dõi trận đấu</h3>
             <div class="pk-preview" id="pkgPreview"></div>
           </div>
 
           <div class="form-actions pk-action-row">
             <button id="pkgStart" class="primary" type="button">▶ BẮT ĐẦU</button>
-            <button id="pkgReset" class="ghost" type="button">↺ Reset</button>
-            <button id="pkgCopyUrl" class="ghost" type="button">📋COPY OBS</button>
-            <button id="pkgHistory" class="ghost" type="button">📜 Lịch sử</button>
-          </div>
-
-          <div class="form-grid">
-            <label class="full">Nội dung hiển thị <input id="pkgContent" placeholder="PK NHÓM" maxlength="30" /></label>
-            <label>Chọn nhóm <select id="pkgGroup"><option value="">— Chọn nhóm —</option></select></label>
-            <label>Kiểu thanh máu
-              <select id="pkgLayoutMode">
-                <option value="joined">Sát nhau một hàng</option>
-                <option value="separated">Rời nhau theo TOP 1</option>
-              </select>
-            </label>
-            <label>Chế độ chơi
+            <button id="pkgReset" class="ghost" type="button" title="Reset điểm/trạng thái trận, GIỮ chuỗi WIN">↺ Reset</button>
+            <button id="pkgResetAll" class="ghost danger" type="button" title="Xoá tất cả: điểm, trạng thái VÀ chuỗi WIN (không hoàn tác)">🗑️ RESET TẤT CẢ</button>
+            <label class="pk-row-field" title="Chế độ chơi">🎮 Chế độ
               <select id="pkgPlayMode">
-                <option value="fixed">Lên quà theo chỉ định</option>
+                <option value="fixed">Cố định</option>
                 <option value="join">Chọn phe</option>
               </select>
             </label>
-            <label>Tính điểm theo
-              <select id="pkgPointsBy">
-                <option value="diamond">🪙 Coin</option>
-                <option value="count">Số lượng quà</option>
-              </select>
-            </label>
-            <div class="time-zone">
-              <div class="time-zone__head"><span class="tz-ico">⏱️</span> Thời gian chạy</div>
-              <div class="time-zone__fields">
-                <label class="time-seg"><input id="pkgDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
-                <span class="time-seg__sep">:</span>
-                <label class="time-seg"><input id="pkgDurM" type="number" min="0" max="59" value="5" /><span>phút</span></label>
-                <span class="time-seg__sep">:</span>
-                <label class="time-seg"><input id="pkgDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
+            <select id="pkgPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
+            <button id="pkgHistory" class="ghost pk-act-right" type="button">📜 Lịch sử</button>
+            <details class="pk-quick">
+              <summary title="Link OBS">🧪 Nhanh</summary>
+              <div class="pk-quick-menu">
+                <button id="pkgCopyUrl" class="ghost" type="button">📋OBS</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="form-grid">
+            <div class="full pkg-config-row">
+              <label class="pkg-config-field pkg-config-field--wide">Nội dung hiển thị <input id="pkgContent" placeholder="PK NHÓM" maxlength="30" /></label>
+              <label class="pkg-config-field">Chọn nhóm <select id="pkgGroup"><option value="">— Chọn nhóm —</option></select></label>
+              <label class="pkg-config-field">Kiểu thanh máu
+                <select id="pkgLayoutMode">
+                  <option value="joined">Sát nhau một hàng</option>
+                  <option value="separated">Rời nhau theo TOP 1</option>
+                </select>
+              </label>
+              <div class="pkg-time-row">
+                <div class="time-zone">
+                  <div class="time-zone__head"><span class="tz-ico">⏱️</span>Thời gian</div>
+                  <div class="time-zone__fields">
+                    <label class="time-seg"><input id="pkgDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
+                    <span class="time-seg__sep">:</span>
+                    <label class="time-seg"><input id="pkgDurM" type="number" min="0" max="59" value="5" /><span>phút</span></label>
+                    <span class="time-seg__sep">:</span>
+                    <label class="time-seg"><input id="pkgDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+
+          <section class="pkg-members-section" aria-labelledby="pkgMembersHeading">
+            <div class="pkg-members-head">
+              <div>
+                <h2 id="pkgMembersHeading">Thành viên tham gia</h2>
+                <p>Chọn Creator, thứ tự hiển thị, quà tính điểm và chuỗi MVP cho trận này.</p>
+              </div>
+            </div>
+            <div class="pkg-members-toolbar">
+              <label class="switch-row" title="Tự động gán màu khác nhau cho mỗi Creator; màu chữ trên thanh luôn tương phản với màu nền">
+                <input id="pkgSmartColor" type="checkbox" checked /><span></span><b>🎨 Phối màu thông minh (không trùng)</b>
+              </label>
+              <label class="switch-row" title="Tự đổi màu chữ (đen/trắng) theo độ sáng của nền để luôn dễ đọc">
+                <input id="ovlAutoTextContrast" type="checkbox" /><span></span><b>🌗 Tự đổi màu chữ theo nền</b>
+              </label>
+              <button id="pkgAutoColor" class="ghost tiny" type="button">🎲 Phối lại màu</button>
+            </div>
+            <div class="pkg-member-list" id="pkgMembers"></div>
+          </section>
 
           <details class="cfg-adv">
             <summary>
@@ -651,6 +688,16 @@
                 <label>Cỡ chữ Creator (px) <input id="pkgTextSize" type="number" min="14" max="60" value="30" /></label>
                 <label>Cỡ avatar + tên (%) <input id="pkgNameSize" type="number" min="60" max="200" step="5" value="100" /></label>
                 <label>Cỡ icon quà (px) <input id="pkgGiftSize" type="number" min="28" max="120" value="60" /></label>
+                <label>🎮 Đánh dấu người vào trận <span class="cfg-adv__hint" style="font-weight:400">chỉ hiện khi chọn ít hơn full nhóm</span>
+                  <select id="pkgSelectFx">
+                    <option value="random">🎲 Ngẫu nhiên mỗi vòng</option>
+                    <option value="arrow">▶ Mũi tên nhấp nháy</option>
+                    <option value="lock">🎯 Khung ngắm (khoá mục tiêu)</option>
+                    <option value="spotlight">🔦 Đèn spotlight</option>
+                    <option value="versus">⚔️ Hào quang + chữ ĐẤU</option>
+                    <option value="off">Tắt</option>
+                  </select>
+                </label>
                 <label class="full">Scale PK Nhóm OBS
                   <div class="range-inline">
                     <input id="pkgOverlayScale" type="range" min="80" max="300" step="5" value="200" />
@@ -686,16 +733,6 @@
             </div>
           </details>
 
-          <div class="pkg-members-toolbar">
-            <label class="switch-row" title="Tự động gán màu khác nhau cho mỗi Creator; màu chữ trên thanh luôn tương phản với màu nền">
-              <input id="pkgSmartColor" type="checkbox" checked /><span></span><b>🎨 Phối màu thông minh (không trùng)</b>
-            </label>
-            <label class="switch-row" title="Tự đổi màu chữ (đen/trắng) theo độ sáng của nền để luôn dễ đọc">
-              <input id="ovlAutoTextContrast" type="checkbox" /><span></span><b>🌗 Tự đổi màu chữ theo nền</b>
-            </label>
-            <button id="pkgAutoColor" class="ghost tiny" type="button">🎲 Phối lại màu</button>
-          </div>
-          <div class="pkg-member-list" id="pkgMembers"></div>
         </div>
       </section>
 
@@ -901,7 +938,7 @@
                 <label>Chuẩn bị (giây) <input id="scPrep" type="number" min="0" max="120" value="3" /></label>
                 <label>Delay sau kết thúc (giây) <input id="scDelay" type="number" min="0" max="60" value="5" /></label>
                 <div class="time-zone">
-                  <div class="time-zone__head"><span class="tz-ico">⏱️</span> Thời gian chạy</div>
+                  <div class="time-zone__head"><span class="tz-ico">⏱️</span>Thời gian</div>
                   <div class="time-zone__fields">
                     <label class="time-seg"><input id="scDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
                     <span class="time-seg__sep">:</span>

@@ -86,8 +86,26 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkg-segment.leader:not(.narrow) b em { font-size:calc(var(--pkg-text,20px) * 1.16 * var(--pkg-scale,1)); }
 .pkg-segment.leader:not(.narrow) b small { font-size:calc(var(--pkg-text,20px) * .58 * var(--pkg-scale,1)); }
 .pkg-joined-gifts { align-items:start; padding:calc(4px * var(--pkg-scale,1)) 0 0; }
-.pkg-joined-gifts > div { min-width:0; display:flex; justify-content:center; align-items:center; gap:calc(3px * var(--pkg-scale,1)); min-height:calc(var(--pkg-gift,42px) * var(--pkg-scale,1)); overflow:hidden; padding-top:0; }
+/* Icon quà + cụm avatar TOP tặng canh TRÁI mép mỗi segment (giống ảnh 2) để tách xa nhau, thoáng hơn.
+   overflow:visible để cụm avatar/ánh vàng TOP1 không bị cắt. */
+.pkg-joined-gifts > div { min-width:0; display:flex; justify-content:flex-start; align-items:center; gap:calc(4px * var(--pkg-scale,1)); min-height:calc(var(--pkg-gift,42px) * var(--pkg-scale,1)); overflow:visible; padding:0 0 0 calc(4px * var(--pkg-scale,1)); }
 .pkg-joined-gifts .pkg-gift { flex:0 0 auto; }
+
+/* ---- TOP người tặng quà: avatar chồng nửa lên nhau ---- */
+/* Kích thước avatar suy ra từ cỡ icon quà để luôn cân xứng khi phóng to/thu nhỏ. */
+.pkg-donors { --pkg-donor:calc(var(--pkg-gift,42px) * .74 * var(--pkg-scale,1)); flex:0 0 auto; display:flex; align-items:center; }
+.pkg-donor { position:relative; flex:0 0 auto; line-height:0; }
+/* TOP2/TOP3 lùi vào NỬA avatar để chồng lên nhau. Phần tử sau (TOP về phía icon quà) đè lên trước. */
+.pkg-donor + .pkg-donor { margin-left:calc(var(--pkg-donor) * -0.5); }
+.pkg-donor.d1 { z-index:3; }
+.pkg-donor.d2 { z-index:2; }
+.pkg-donor.d3 { z-index:1; opacity:.98; }
+/* Bo góc trực tiếp trên <img> + nền logo trắng (KHÔNG overflow:hidden bao ngoài) — tránh avatar
+   đen/rỗng trên OBS (CEF cắt góc lỗi). Nền /logo.png hiện khi thiếu avatar. */
+.pkg-donor-ava { display:block; width:var(--pkg-donor,28px); height:var(--pkg-donor,28px); border-radius:50%; border:calc(2px * var(--pkg-scale,1)) solid #fff; background:#fff url('/logo.png') center/72% no-repeat; box-shadow:0 2px 6px rgba(0,0,0,.4); }
+.pkg-donor-ava img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; background:transparent; }
+/* TOP1 nổi bật: to hơn chút + viền vàng + quầng sáng, luôn nằm trên cùng sát icon quà. */
+.pkg-donor.d1 .pkg-donor-ava { width:calc(var(--pkg-donor) * 1.14); height:calc(var(--pkg-donor) * 1.14); border-color:#ffd75a; box-shadow:0 2px 8px rgba(0,0,0,.45), 0 0 9px rgba(255,215,90,.65); }
 
 .pkg-separated-list { display:flex; flex-wrap:wrap; justify-content:center; column-gap:calc(var(--pkg-separated-gap, 180px) * var(--pkg-scale,1)); row-gap:calc(22px * var(--pkg-scale,1)); align-items:flex-start; }
 .pkg-card { width:calc(250px * var(--pkg-scale,1)); min-width:0; display:grid; gap:calc(9px * var(--pkg-scale,1)); }
