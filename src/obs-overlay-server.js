@@ -9,6 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { fileURLToPath } = require('url');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -18,22 +19,33 @@ const MIME = {
   '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
 };
 
+// Video NHẠC DANCE: OBS Browser Source (http origin) KHÔNG load được src file:// → phải stream
+// file cục bộ qua chính overlay server (có hỗ trợ Range để tua/stream mượt). Chỉ nhận đuôi video an toàn.
+const VIDEO_MIME = {
+  '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
+  '.m4v': 'video/x-m4v', '.ogv': 'video/ogg', '.mkv': 'video/x-matroska',
+};
+
 class ObsOverlayServer {
-  constructor({ root, port = 18282, token, onLog, cacheDir, normalizeAvatar, onLuckyWheelSpin, onCardFlip } = {}) {
+  constructor({ root, port = 18282, token, onLog, cacheDir, normalizeAvatar, onLuckyWheelSpin, onCardFlip, onDanceVideoEnded, assetVersion } = {}) {
     this.root = root;
     this.port = port;
     this.token = token || crypto.randomBytes(18).toString('hex');
+    // Phiên bản asset (= version app). Phát kèm SSE để overlay tự reload khi ĐỔI phiên bản (sau cập nhật).
+    this.assetVersion = String(assetVersion || '');
     this.onLog = onLog || (() => {});
     this.onLuckyWheelSpin = typeof onLuckyWheelSpin === 'function' ? onLuckyWheelSpin : null;
     this.onCardFlip = typeof onCardFlip === 'function' ? onCardFlip : null;
+    // Video NHẠC DANCE phát xong (hoặc lỗi) trên overlay → báo về để hàng đợi hiệu ứng bước tiếp.
+    this.onDanceVideoEnded = typeof onDanceVideoEnded === 'function' ? onDanceVideoEnded : null;
     // MỘT CỔNG RIÊNG cho MỖI loại overlay. Lý do: OBS chạy mọi Browser Source trong CÙNG một
     // tiến trình CEF, mà Chromium giới hạn 6 KẾT NỐI đồng thời / host:port. Mỗi overlay giữ 1 luồng
     // SSE thường trực → khi tổng số nguồn > 6 (user có ~15), các nguồn "đến sau" (vd Vòng quay)
     // KHÔNG xin được kết nối → tải trang trắng/không chạy JS. Tách mỗi loại sang 1 cổng loopback
     // riêng = mỗi loại có "ngân sách 6 kết nối" riêng, không tranh nhau. (Đã xác minh bằng netstat:
     // obs-browser-page giữ đúng 6 kết nối tới 18282, Vòng quay bị đói.)
-    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8, 'mission-trio': 9, 'card-flip': 10, 'card-flip-fx': 11 };
-    this.portCount = 12;
+    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8, 'mission-trio': 9, 'card-flip': 10, 'card-flip-fx': 11, 'dance-video': 12 };
+    this.portCount = 13;
     this.servers = [];
     this._boundPorts = new Set();
     this.pkDuoClients = new Set();
@@ -46,6 +58,7 @@ class ObsOverlayServer {
     this.giftMenuClients = new Set();
     this.missionTrioClients = new Set();
     this.cardFlipClients = new Set();
+    this.danceVideoClients = new Set();
     this.pkDuoState = {};
     this.pkGroupState = {};
     this.rankingState = {};
@@ -56,6 +69,7 @@ class ObsOverlayServer {
     this.giftMenuState = {};
     this.missionTrioState = {};
     this.cardFlipState = {};
+    this.danceVideoState = {};
     this.heartbeatTimer = null;
     // Cache avatar theo "danh tính ảnh" = PATH của URL (bỏ query chữ ký/expires): URL avatar TikTok
     // đã chứa hash ảnh trong path nên đổi ảnh = đổi path. Nhờ vậy URL ký lại (đổi x-signature/x-expires)
@@ -104,7 +118,7 @@ class ObsOverlayServer {
   stop() {
     clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
-    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients, this.missionTrioClients, this.cardFlipClients]) {
+    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients, this.missionTrioClients, this.cardFlipClients, this.danceVideoClients]) {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
     }
@@ -127,6 +141,7 @@ class ObsOverlayServer {
   // Overlay "lật 3D" toàn màn hình — DÙNG CHUNG stream /card-flip-events (không cần set/route riêng),
   // nhưng ở cổng riêng để né trần 6 kết nối/host của CEF.
   getCardFlipFxUrl() { return `http://127.0.0.1:${this._portFor('card-flip-fx')}/card-flip-fx?token=${encodeURIComponent(this.token)}&v=7`; }
+  getDanceVideoUrl() { return `http://127.0.0.1:${this._portFor('dance-video')}/dance-video?token=${encodeURIComponent(this.token)}&v=1`; }
 
   sendPkDuo(state) { this.pkDuoState = state || {}; this._broadcast(this.pkDuoClients, 'pkduo', this.pkDuoState); }
   sendPkGroup(state) { this.pkGroupState = state || {}; this._broadcast(this.pkGroupClients, 'pkgroup', this.pkGroupState); }
@@ -138,6 +153,7 @@ class ObsOverlayServer {
   sendGiftMenu(state) { this.giftMenuState = state || {}; this._broadcast(this.giftMenuClients, 'giftmenu', this.giftMenuState); }
   sendMissionTrio(state) { this.missionTrioState = state || {}; this._broadcast(this.missionTrioClients, 'missiontrio', this.missionTrioState); }
   sendCardFlip(state) { this.cardFlipState = state || {}; this._broadcast(this.cardFlipClients, 'cardflip', this.cardFlipState); }
+  sendDanceVideo(state) { this.danceVideoState = state || {}; this._broadcast(this.danceVideoClients, 'dancevideo', this.danceVideoState); }
 
   _broadcast(set, event, data) {
     const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
@@ -159,9 +175,11 @@ class ObsOverlayServer {
       [this.giftMenuClients, 'giftmenu', this.giftMenuState],
       [this.missionTrioClients, 'missiontrio', this.missionTrioState],
       [this.cardFlipClients, 'cardflip', this.cardFlipState],
+      [this.danceVideoClients, 'dancevideo', this.danceVideoState],
     ];
+    const ver = `event: __ver\ndata: ${this.assetVersion}\n\n`;
     for (const [set, event, data] of beats) {
-      const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
+      const body = ver + `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
       for (const res of set) {
         if (res.destroyed || res.writableEnded) { set.delete(res); continue; }
         try { res.write(body); } catch { set.delete(res); }
@@ -202,6 +220,8 @@ class ObsOverlayServer {
       '/card-flip-overlay.css': 'renderer/card-flip-overlay.css',
       '/card-flip-fx-overlay.js': 'renderer/card-flip-fx-overlay.js',
       '/card-flip-fx-overlay.css': 'renderer/card-flip-fx-overlay.css',
+      '/dance-video-overlay.js': 'renderer/dance-video-overlay.js',
+      '/dance-video-overlay.css': 'renderer/dance-video-overlay.css',
       '/overlay-common.css': 'renderer/overlay-common.css',
       '/overlay-sse.js': 'renderer/overlay-sse.js',
       '/review-resize.js': 'renderer/review-resize.js',
@@ -260,6 +280,19 @@ class ObsOverlayServer {
       return this._json(res, result ? { ok: true, state: result } : { ok: false, error: 'card-unavailable' });
     }
 
+    // Video NHẠC DANCE phát xong/lỗi trên overlay → báo về renderer để hàng đợi hiệu ứng bước tiếp.
+    if (req.method === 'POST' && reqUrl.pathname === '/dance-video-ended') {
+      const playId = reqUrl.searchParams.get('playId') || '';
+      const layer = reqUrl.searchParams.get('layer') || 'main';
+      try { this.onDanceVideoEnded?.(playId, layer); } catch {}
+      return this._json(res, { ok: true });
+    }
+
+    // Stream file video cục bộ cho overlay (http origin không load được file://). Có Range để tua/stream.
+    if (req.method === 'GET' && reqUrl.pathname === '/dance-media') {
+      return this._serveMedia(reqUrl, req, res);
+    }
+
     // Overlay HTML pages
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo') {
       return this._serveFile(path.join(this.root, 'renderer', 'pk-duo-overlay.html'), res);
@@ -298,6 +331,9 @@ class ObsOverlayServer {
     if (req.method === 'GET' && reqUrl.pathname === '/card-flip-fx') {
       return this._serveFile(path.join(this.root, 'renderer', 'card-flip-fx-overlay.html'), res);
     }
+    if (req.method === 'GET' && reqUrl.pathname === '/dance-video') {
+      return this._serveFile(path.join(this.root, 'renderer', 'dance-video-overlay.html'), res);
+    }
 
     // SSE event streams
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo-events') return this._sse(req, res, this.pkDuoClients, 'pkduo', this.pkDuoState);
@@ -322,6 +358,9 @@ class ObsOverlayServer {
     // THẺ BÀI — dùng chung cơ chế SSE + fallback state.
     if (req.method === 'GET' && reqUrl.pathname === '/card-flip-state') return this._json(res, this.cardFlipState);
     if (req.method === 'GET' && reqUrl.pathname === '/card-flip-events') return this._sse(req, res, this.cardFlipClients, 'cardflip', this.cardFlipState);
+    // NHẠC DANCE (video) — dùng chung cơ chế SSE + fallback state.
+    if (req.method === 'GET' && reqUrl.pathname === '/dance-video-state') return this._json(res, this.danceVideoState);
+    if (req.method === 'GET' && reqUrl.pathname === '/dance-video-events') return this._sse(req, res, this.danceVideoClients, 'dancevideo', this.danceVideoState);
 
     return this._reject(res, 404, 'not found');
   }
@@ -336,7 +375,8 @@ class ObsOverlayServer {
     res.socket?.setNoDelay(true);
     res.flushHeaders?.();
     // Tell EventSource to recover quickly if OBS/CEF does close the connection.
-    res.write(`retry: 1500\n:event stream connected\n\nevent: ${evName}\ndata: ${JSON.stringify(initialState || {})}\n\n`);
+    // Kèm event __ver (phiên bản app): overlay ghi nhớ lúc mở, tự reload khi thấy version ĐỔI (sau cập nhật).
+    res.write(`retry: 1500\n:event stream connected\n\nevent: __ver\ndata: ${this.assetVersion}\n\nevent: ${evName}\ndata: ${JSON.stringify(initialState || {})}\n\n`);
     set.add(res);
     req.on('close', () => set.delete(res));
   }
@@ -492,6 +532,55 @@ class ObsOverlayServer {
       'Cache-Control': 'no-store',
     });
     fs.createReadStream(filePath).pipe(res);
+  }
+
+  // Đổi "src" (file:// URL hoặc đường dẫn cục bộ) thành đường dẫn hệ thống an toàn.
+  _mediaPathFromSrc(src) {
+    const s = String(src || '').trim();
+    if (!s) return '';
+    try { if (/^file:\/\//i.test(s)) return fileURLToPath(s); } catch { return ''; }
+    return s; // đường dẫn thô (VD G:\...)
+  }
+
+  // Stream video cục bộ cho OBS Browser Source (http origin). Hỗ trợ HTTP Range để video tua/stream
+  // mượt thay vì tải hết mới phát. Chỉ phục vụ file TỒN TẠI + đuôi video hợp lệ (chống lộ file bất kỳ).
+  _serveMedia(reqUrl, req, res) {
+    const filePath = this._mediaPathFromSrc(reqUrl.searchParams.get('src') || '');
+    const ext = path.extname(filePath).toLowerCase();
+    if (!filePath || !VIDEO_MIME[ext]) return this._reject(res, 400, 'bad media');
+    let stat;
+    try { stat = fs.statSync(filePath); } catch { return this._reject(res, 404, 'media not found'); }
+    if (!stat.isFile()) return this._reject(res, 404, 'media not found');
+    const total = stat.size;
+    const ctype = VIDEO_MIME[ext];
+    const range = req.headers.range;
+    const m = range && /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (m) {
+      let start = m[1] === '' ? 0 : parseInt(m[1], 10);
+      let end = m[2] === '' ? total - 1 : parseInt(m[2], 10);
+      if (!Number.isFinite(start) || start < 0) start = 0;
+      if (!Number.isFinite(end) || end >= total) end = total - 1;
+      if (start > end) { res.writeHead(416, { 'Content-Range': `bytes */${total}` }); return res.end(); }
+      res.writeHead(206, {
+        'Content-Type': ctype,
+        'Content-Range': `bytes ${start}-${end}/${total}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': end - start + 1,
+        'Cache-Control': 'no-store',
+      });
+      const stream = fs.createReadStream(filePath, { start, end });
+      stream.on('error', () => { try { res.end(); } catch {} });
+      return stream.pipe(res);
+    }
+    res.writeHead(200, {
+      'Content-Type': ctype,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': total,
+      'Cache-Control': 'no-store',
+    });
+    const stream = fs.createReadStream(filePath);
+    stream.on('error', () => { try { res.end(); } catch {} });
+    return stream.pipe(res);
   }
 
   _json(res, data) {

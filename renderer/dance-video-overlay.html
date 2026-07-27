@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>NHẠC DANCE · Video</title>
+  <link rel="stylesheet" href="/overlay-common.css" />
+  <link rel="stylesheet" href="/dance-video-overlay.css?v=1" />
+</head>
+<body>
+  <div id="dvStage">
+    <!-- Lớp hàng đợi: video quà phát lần lượt theo 🎬 Hàng đợi hiệu ứng -->
+    <video id="dvMain" class="dv-layer" playsinline preload="auto"></video>
+    <!-- Lớp NỀN: video cờ "Chạy nền" — đè LÊN TRÊN tất cả (z-index cao hơn) -->
+    <video id="dvBg" class="dv-layer" playsinline preload="auto"></video>
+  </div>
+  <script src="/overlay-sse.js"></script>
+  <script src="/dance-video-overlay.js?v=1"></script>
+  <script src="/review-resize.js"></script>
+</body>
+</html>

@@ -42,6 +42,7 @@ const STICKER_PATH = path.join(CONFIG_DIR, 'sticker-dance.json');
 const MVP_HONOR_PATH = path.join(CONFIG_DIR, 'mvp-honor.json');
 const LUCKY_WHEEL_PATH = path.join(CONFIG_DIR, 'lucky-wheel.json');
 const GIFT_MENU_PATH = path.join(CONFIG_DIR, 'gift-menu.json');
+const DANCE_VIDEO_PATH = path.join(CONFIG_DIR, 'dance-video.json');
 const GROUP_PROFILES_PATH = path.join(CONFIG_DIR, 'group-profiles.json');
 const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
 const KC_DATA_PATH = path.join(CONFIG_DIR, 'kc-data.json');
@@ -92,6 +93,7 @@ let mvpHonorEngine = null;
 let luckyWheelEngine = null;
 let missionTrioEngine = null;
 let cardFlipEngine = null;
+let danceVideoEngine = null;
 // Menu Quà (thông tin quà) — chỉ hiển thị, không có engine/game state: config CHÍNH là state overlay.
 let giftMenuConfig = { items: [] };
 let settings = loadSettings();
@@ -387,6 +389,7 @@ const REVIEW_META = {
   missiontrio: { title: 'Review NHIỆM VỤ · BỘ BA', getUrl: () => overlayServer?.getMissionTrioUrl(), width: 720, height: 320 },
   cardflip: { title: 'Review THẺ BÀI', getUrl: () => overlayServer?.getCardFlipUrl(), width: 1040, height: 320 },
   cardflipfx: { title: 'Review THẺ BÀI · Lật 3D', getUrl: () => overlayServer?.getCardFlipFxUrl(), width: 720, height: 405 },
+  dancevideo: { title: 'Review NHẠC DANCE · Video', getUrl: () => overlayServer?.getDanceVideoUrl(), width: 960, height: 540 },
 };
 
 function normalizeReviewBg(value) {
@@ -609,6 +612,8 @@ function loadLuckyWheelConfig() { return loadJson(LUCKY_WHEEL_PATH, null); }
 function saveLuckyWheelConfig(cfg) { saveJson(LUCKY_WHEEL_PATH, cfg); }
 function loadGiftMenuConfig() { return loadJson(GIFT_MENU_PATH, null); }
 function saveGiftMenuConfig(cfg) { saveJson(GIFT_MENU_PATH, cfg); }
+function loadDanceVideoConfig() { return loadJson(DANCE_VIDEO_PATH, null); }
+function saveDanceVideoConfig(cfg) { saveJson(DANCE_VIDEO_PATH, cfg); }
 
 // =================================================================
 // Match history — lưu LỊCH SỬ mỗi trận PK (Nhóm/Đôi) để đối chiếu + xuất file
@@ -974,6 +979,8 @@ class PkDuoEngine {
       fxMaxGap: 30,
       fxIntensityCap: 100,
       championsEnabled: true, // Vinh danh TOP 3 người tặng quà trên overlay banner
+      championNames: false, // Hiện tên người tặng TOP1 (MVP) dưới avatar
+      arrowStyle: 'classic', // Skin mũi tên: classic | core | rope | cannon | random (random = tự đổi mỗi vòng)
     };
     this.state = {
       status: 'idle', // 'idle' | 'prestart' | 'running' | 'grace' | 'finished'
@@ -984,6 +991,7 @@ class PkDuoEngine {
       userTeams: {}, // userId -> 'A' | 'B' (cho joinMode)
       graceElapsedMs: 0,
       roundNo: 0,
+      arrowStyleActive: '', // skin đã chốt cho vòng hiện tại khi arrowStyle='random'
       historySaved: false,
       gifters: { A: new Map(), B: new Map() }, // side -> Map(userKey -> {uniqueId,nickname,avatar,total}) để vinh danh TOP tặng quà
     };
@@ -1041,7 +1049,19 @@ class PkDuoEngine {
       // Có thể Bật/tắt qua config.championsEnabled (mặc định bật).
       topA: this.config.championsEnabled !== false ? this._topGifters('A') : [],
       topB: this.config.championsEnabled !== false ? this._topGifters('B') : [],
+      championNames: this.config.championNames === true,
+      arrowStyle: this._resolveArrowStyle(),
     };
+  }
+  // Skin mũi tên hiển thị: 'random' → chốt 1 skin động cho mỗi vòng (start() gọi lại để đổi vòng sau).
+  _resolveArrowStyle() {
+    const pool = ['classic', 'core', 'rope', 'cannon'];
+    if (this.config.arrowStyle === 'random') {
+      const rnd = ['core', 'rope', 'cannon'];
+      if (!rnd.includes(this.state.arrowStyleActive)) this.state.arrowStyleActive = rnd[Math.floor(Math.random() * rnd.length)];
+      return this.state.arrowStyleActive;
+    }
+    return pool.includes(this.config.arrowStyle) ? this.config.arrowStyle : 'classic';
   }
   _resetGifters() { this.state.gifters = { A: new Map(), B: new Map() }; }
   // Cộng dồn điểm đóng góp của 1 người tặng vào đúng bên (key theo uniqueId, fallback nickname).
@@ -1086,6 +1106,8 @@ class PkDuoEngine {
     this.state.graceElapsedMs = 0;
     this.state.startedAt = Date.now();
     this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
+    // 'random' → đổi skin mũi tên ngẫu nhiên mỗi vòng (đỡ mất công chọn tay).
+    if (this.config.arrowStyle === 'random') { const rnd = ['core', 'rope', 'cannon']; this.state.arrowStyleActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     this.state.historySaved = false;
     this._resetGifters();
     this._runTicker();
@@ -1100,7 +1122,7 @@ class PkDuoEngine {
   }
   reset() {
     this._clearTicker();
-    this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, historySaved: false, gifters: { A: new Map(), B: new Map() } };
+    this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, arrowStyleActive: '', historySaved: false, gifters: { A: new Map(), B: new Map() } };
     this._emit();
   }
   // Ghi LỊCH SỬ trận PK Đôi (1 lần/trận, chỉ khi đã bắt đầu thật).
@@ -2518,6 +2540,81 @@ class CardFlipEngine {
   _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
 }
 
+// =================================================================
+// NHẠC DANCE · Video overlay — engine "relay": chỉ giữ lệnh phát cho overlay, không có điểm/số.
+//  - main: clip quà đang phát theo 🎬 Hàng đợi (renderer điều khiển; overlay báo phát xong qua playId).
+//  - bg:   danh sách clip "Chạy nền" (đè lên trên), overlay tự phát tuần tự nên không cần round-trip.
+// =================================================================
+const DANCE_VIDEO_DEFAULT = {
+  title: 'NHẠC DANCE',
+  defaultPos: 'full',   // full | center | tl | tr | bl | br
+  defaultSize: 60,      // % chiều rộng khung (khi KHÔNG toàn màn hình)
+  fit: 'contain',       // contain | cover
+  bgLoop: false,        // lớp nền: lặp lại danh sách hay phát 1 lần rồi tắt
+  maxClipSec: 90,       // trần thời lượng 1 clip (renderer dùng làm dự phòng nếu overlay rớt kết nối)
+};
+const DANCE_VIDEO_POS = ['full', 'center', 'tl', 'tr', 'bl', 'br'];
+class DanceVideoEngine {
+  constructor({ onState }) {
+    this.onState = onState;
+    this.config = { ...DANCE_VIDEO_DEFAULT };
+    this._bgSeq = 0;
+    this.state = { main: null, bg: { seq: 0, clips: [] } };
+  }
+  _int(v, dv, min, max) { let n = Math.round(Number(v)); if (!Number.isFinite(n)) n = dv; return Math.max(min, Math.min(max, n)); }
+  _pos(v, dv) { return DANCE_VIDEO_POS.includes(v) ? v : dv; }
+  _fit(v, dv) { return v === 'cover' || v === 'contain' ? v : dv; }
+  setConfig(patch) {
+    patch = patch || {};
+    const c = this.config;
+    this.config = {
+      title: patch.title != null ? String(patch.title).slice(0, 80) : c.title,
+      defaultPos: this._pos(patch.defaultPos, c.defaultPos),
+      defaultSize: patch.defaultSize != null ? this._int(patch.defaultSize, c.defaultSize, 5, 100) : c.defaultSize,
+      fit: this._fit(patch.fit, c.fit),
+      bgLoop: patch.bgLoop != null ? !!patch.bgLoop : c.bgLoop,
+      maxClipSec: patch.maxClipSec != null ? this._int(patch.maxClipSec, c.maxClipSec, 5, 600) : c.maxClipSec,
+    };
+    this._emit();
+  }
+  // Chuẩn hoá vị trí/kích thước 1 lệnh: 'default'/thiếu → lấy theo config overlay.
+  _place(cmd) {
+    const pos = (!cmd.pos || cmd.pos === 'default') ? this.config.defaultPos : this._pos(cmd.pos, this.config.defaultPos);
+    const size = cmd.size == null ? this.config.defaultSize : this._int(cmd.size, this.config.defaultSize, 5, 100);
+    const fit = (!cmd.fit || cmd.fit === 'default') ? this.config.fit : this._fit(cmd.fit, this.config.fit);
+    const volume = cmd.volume == null ? 100 : this._int(cmd.volume, 100, 0, 100);
+    return { pos, size, fit, volume };
+  }
+  // Lớp MAIN: đặt clip hiện tại (playId mới) cho overlay phát.
+  playMain(cmd) {
+    cmd = cmd || {};
+    if (!cmd.src || !cmd.playId) return;
+    const p = this._place(cmd);
+    this.state.main = { playId: String(cmd.playId), src: String(cmd.src), ...p };
+    this._emit();
+  }
+  // Overlay báo clip main phát xong/lỗi → xoá main (khớp playId) để heartbeat không phát lại.
+  finishMain(playId) {
+    if (this.state.main && String(this.state.main.playId) === String(playId)) { this.state.main = null; this._emit(); return true; }
+    return false;
+  }
+  stopMain() { if (this.state.main) { this.state.main = null; this._emit(); } }
+  // Lớp NỀN: danh sách clip phát tuần tự, đè lên trên. seq tăng để overlay biết là lượt nền mới.
+  playBackground(cmd) {
+    cmd = cmd || {};
+    const clips = Array.isArray(cmd.clips) ? cmd.clips.map(x => String(x || '')).filter(Boolean) : [];
+    if (!clips.length) return;
+    const p = this._place(cmd);
+    const loop = cmd.loop != null ? !!cmd.loop : this.config.bgLoop;
+    this.state.bg = { seq: ++this._bgSeq, clips, loop, ...p };
+    this._emit();
+  }
+  stopBackground() { this.state.bg = { seq: 0, clips: [] }; this._emit(); }
+  stopAll() { this.state.main = null; this.state.bg = { seq: 0, clips: [] }; this._emit(); }
+  getStateForOverlay() { return { title: this.config.title, main: this.state.main, bg: this.state.bg, serverNow: Date.now() }; }
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
 // Score theme presets — port từ BIGO spec
 const SCORE_THEMES = {
   douyin:  ['#b93678', '#ff8ed1', '#ffffff', '#ff0000'],
@@ -2682,6 +2779,11 @@ function bootstrapEngines() {
     },
   });
   if (settings.cardFlip) cardFlipEngine.setConfig(settings.cardFlip);
+  danceVideoEngine = new DanceVideoEngine({
+    onState: (st) => { overlayServer?.sendDanceVideo(st); },
+  });
+  const savedDanceVideo = loadDanceVideoConfig();
+  if (savedDanceVideo) danceVideoEngine.setConfig(savedDanceVideo);
   const savedGiftMenu = loadGiftMenuConfig();
   if (savedGiftMenu && typeof savedGiftMenu === 'object') giftMenuConfig = savedGiftMenu;
 
@@ -2695,6 +2797,7 @@ function bootstrapEngines() {
   luckyWheelEngine._emit();
   missionTrioEngine._emit();
   cardFlipEngine._emit();
+  danceVideoEngine._emit();
   overlayServer?.sendGiftMenu(giftMenuConfig);
 }
 
@@ -2749,6 +2852,9 @@ async function bootstrapOverlay() {
     root: ROOT,
     port: settings.overlayPort,
     token: settings.overlayToken,
+    // Phiên bản app phát qua SSE → overlay tự location.reload() KHI phiên bản ĐỔI (sau khi cập nhật),
+    // để OBS lấy CSS/JS mới mà KHÔNG cần bấm "Refresh/Reset" thủ công. Không reload khi chỉ reconnect.
+    assetVersion: app.getVersion(),
     cacheDir: path.join(CONFIG_DIR, 'avatar-cache'),
     normalizeAvatar: (buf) => {
       const image = nativeImage.createFromBuffer(buf);
@@ -2765,6 +2871,11 @@ async function bootstrapOverlay() {
       cardFlipEngine.flipCard(id);
       settings.cardFlip = cardFlipEngine.config; saveSettings();
       return cardFlipEngine.getStateForOverlay();
+    },
+    // Video NHẠC DANCE phát xong/lỗi trên overlay → xoá main + báo renderer để 🎬 Hàng đợi bước tiếp.
+    onDanceVideoEnded: (playId, layer) => {
+      if (layer === 'main') danceVideoEngine?.finishMain(playId);
+      broadcast('dancevideo:ended', { playId, layer });
     },
     onLog: (m) => broadcast('log', { source: 'overlay', message: m }),
   });
@@ -3166,6 +3277,19 @@ function registerIpc() {
   ipcMain.handle('cardflip:getUrl', () => overlayServer.getCardFlipUrl());
   ipcMain.handle('cardflip:getFxUrl', () => overlayServer.getCardFlipFxUrl());
 
+  // ===== NHẠC DANCE · Video overlay =====
+  ipcMain.handle('dancevideo:getState', () => danceVideoEngine.getStateForOverlay());
+  ipcMain.handle('dancevideo:getConfig', () => danceVideoEngine.config);
+  ipcMain.handle('dancevideo:setConfig', (_e, cfg) => { danceVideoEngine.setConfig(cfg); saveDanceVideoConfig(danceVideoEngine.config); return danceVideoEngine.config; });
+  // Trả về số overlay đang kết nối để renderer biết: có overlay → chờ overlay báo "phát xong";
+  // KHÔNG có overlay (OBS chưa mở) → bỏ qua nhanh, tránh kẹt 🎬 Hàng đợi cả phút.
+  ipcMain.handle('dancevideo:play', (_e, cmd) => { danceVideoEngine.playMain(cmd); return { clients: overlayServer?.danceVideoClients?.size || 0 }; });
+  ipcMain.handle('dancevideo:stopMain', () => { danceVideoEngine.stopMain(); return true; });
+  ipcMain.handle('dancevideo:playBackground', (_e, cmd) => { danceVideoEngine.playBackground(cmd); return true; });
+  ipcMain.handle('dancevideo:stopBackground', () => { danceVideoEngine.stopBackground(); return true; });
+  ipcMain.handle('dancevideo:stopAll', () => { danceVideoEngine.stopAll(); return true; });
+  ipcMain.handle('dancevideo:getUrl', () => overlayServer.getDanceVideoUrl());
+
   // Overlay Review windows
   ipcMain.handle('review:open', (_e, type) => openReviewWindow(type));
   ipcMain.handle('review:close', (_e, type) => closeReviewWindow(type));
@@ -3337,6 +3461,15 @@ function registerIpc() {
     if (r.canceled || !Array.isArray(r.filePaths)) return [];
     return r.filePaths;
   });
+  ipcMain.handle('shell:pickVideos', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Chọn một hoặc nhiều file video',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Video', extensions: ['mp4', 'webm', 'mov', 'm4v', 'ogv', 'mkv'] }],
+    });
+    if (r.canceled || !Array.isArray(r.filePaths)) return [];
+    return r.filePaths;
+  });
   ipcMain.handle('shell:prepareGiftDrag', async (_e, { url, giftId, giftName }) => {
     if (!url) return null;
     const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
@@ -3382,7 +3515,7 @@ app.whenReady().then(async () => {
   await bootstrapOverlay();
   // Overlay server sẵn sàng SAU khi engine đã nạp config đã lưu → phát lại state một lần
   // để OBS/Review nhận ĐÚNG cấu hình ngay khi kết nối, không phải chờ lần chỉnh sửa kế tiếp.
-  pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); cardFlipEngine?._emit();
+  pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); cardFlipEngine?._emit(); danceVideoEngine?._emit();
   overlayServer?.sendGiftMenu(giftMenuConfig);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

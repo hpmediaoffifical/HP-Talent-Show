@@ -173,8 +173,12 @@ function render(state = {}) {
 
   // ---- Cập nhật CSS var + class (KHÔNG dựng lại DOM) ----
   const stg = el.stage.style;
+  // Triplet "r,g,b" cho rgba(var(--pk-*-rgb), a) thay color-mix() (CEF cũ của OBS không hiểu → glow rớt).
+  const _trip = (h, fb) => { const m = /^#([0-9a-f]{6})$/i.exec(String(h || '')); if (!m) return fb; const n = parseInt(m[1], 16); return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`; };
   stg.setProperty('--pk-a', a.color || '#FE2C55');
+  stg.setProperty('--pk-a-rgb', _trip(a.color, '254,44,85'));
   stg.setProperty('--pk-b', b.color || '#25F4EE');
+  stg.setProperty('--pk-b-rgb', _trip(b.color, '37,244,238'));
   stg.setProperty('--seam', seam + '%');
 
   const applyHalf = (half, side, isLoser, isWinner) => {

@@ -21,11 +21,15 @@ function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;
 function fmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('vi-VN'); }
 function num(v, dv) { return Number.isFinite(+v) ? +v : dv; }
 
+// OBS-safe: CEF cũ trong OBS KHÔNG hỗ trợ color-mix() → thanh fill (chứa var()) sẽ mất nền (trong suốt).
+// Tự trộn màu bằng JS ra rgba() để chạy mọi phiên bản CEF của OBS.
+function _hx(h) { h = String(h || '').trim(); const m3 = h.match(/^#([0-9a-f]{3})$/i); if (m3) h = '#' + m3[1].split('').map(c => c + c).join(''); const m = h.match(/^#([0-9a-f]{6})$/i); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function alphaHex(hex, a) { const c = _hx(hex); return c ? `rgba(${c[0]},${c[1]},${c[2]},${a})` : hex; }
 // Fill gradient: đuôi (điểm gốc bên trái) mờ trong suốt → đầu (mép đang tiến) đậm nhất.
 function fillGradient(c1, c2) {
   return `linear-gradient(90deg,`
-    + ` color-mix(in srgb, ${c2}, transparent 84%) 0%,`
-    + ` color-mix(in srgb, ${c2}, transparent 42%) 26%,`
+    + ` ${alphaHex(c2, .16)} 0%,`
+    + ` ${alphaHex(c2, .58)} 26%,`
     + ` ${c2} 56%,`
     + ` ${c1} 100%)`;
 }

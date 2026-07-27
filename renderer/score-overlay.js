@@ -15,6 +15,11 @@ let playedGoal = false;
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('vi-VN'); }
+// OBS-safe: CEF cũ trong OBS KHÔNG hỗ trợ color-mix() → thanh fill (chứa var()) sẽ mất nền (trong suốt).
+// Tự trộn màu bằng JS ra rgba()/rgb() để chạy mọi phiên bản CEF của OBS.
+function _hx(h) { h = String(h || '').trim(); const m3 = h.match(/^#([0-9a-f]{3})$/i); if (m3) h = '#' + m3[1].split('').map(c => c + c).join(''); const m = h.match(/^#([0-9a-f]{6})$/i); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function alphaHex(hex, a) { const c = _hx(hex); return c ? `rgba(${c[0]},${c[1]},${c[2]},${a})` : hex; }
+function mixHex(hex, other, pct) { const A = _hx(hex), B = _hx(other); if (!A || !B) return hex; const t = Math.max(0, Math.min(1, pct / 100)); const c = A.map((v, i) => Math.round(v + (B[i] - v) * t)); return `rgb(${c[0]},${c[1]},${c[2]})`; }
 function shortText(s, max = 28) {
   const text = String(s || '').trim();
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -41,10 +46,10 @@ function progressFillGradient(pct) {
   const hue = 280 - 250 * t;            // 0% tím → 100% vàng-cam
   const head = `hsl(${(hue - 14).toFixed(0)}, 92%, 55%)`;  // mép đang tiến: đậm nhất
   const mid  = `hsl(${hue.toFixed(0)}, 90%, 61%)`;
-  const tail = `hsl(${(hue + 16).toFixed(0)}, 88%, 67%)`;   // đuôi: nhạt, hơi lệch tông
+  const tailH = (hue + 16).toFixed(0);                     // đuôi: nhạt, hơi lệch tông (hsla trực tiếp, không color-mix)
   return `linear-gradient(90deg,`
-    + ` color-mix(in srgb, ${tail}, transparent 74%) 0%,`
-    + ` color-mix(in srgb, ${tail}, transparent 30%) 22%,`
+    + ` hsla(${tailH}, 88%, 67%, .26) 0%,`
+    + ` hsla(${tailH}, 88%, 67%, .70) 22%,`
     + ` ${mid} 52%,`
     + ` ${head} 100%)`;
 }
@@ -114,8 +119,8 @@ function render(state = {}) {
     state.colorByProgress
       ? progressFillGradient(pct)
       : (state.milestoneGradientEnabled && reachedMilestones > 0
-        ? `linear-gradient(90deg, color-mix(in srgb, ${usedColors[0]}, transparent 62%) 0%, ${usedColors.join(', ')})`
-        : `linear-gradient(90deg, color-mix(in srgb, ${c2}, transparent 74%) 0%, color-mix(in srgb, ${c2}, transparent 34%) 22%, ${c2} 46%, ${c1} 88%, color-mix(in srgb, ${c1}, #000 8%) 100%)`));
+        ? `linear-gradient(90deg, ${alphaHex(usedColors[0], .38)} 0%, ${usedColors.join(', ')})`
+        : `linear-gradient(90deg, ${alphaHex(c2, .26)} 0%, ${alphaHex(c2, .66)} 22%, ${c2} 46%, ${c1} 88%, ${mixHex(c1, '#000', 8)} 100%)`));
   root.innerHTML = `
     <div class="score-time"><i class="score-time-icon ${['success','failed'].includes(status) ? 'off' : 'clock'}" aria-hidden="true"></i><span>${esc(statusText)}</span></div>
     <div class="score-bar" style="--score-pct:${pct}%">

@@ -103,9 +103,9 @@
     "creatorId": "c_mrtg28mrb1ni1",
     "creatorName": "Raiden",
     "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/4212cc580704c9f032c4fa5d7412b570~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=1978c3ee&x-expires=1785160800&x-signature=NeKor4nsjhShdDGtRlqzqeWNNE8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-    "creatorAvatarKey": "528a77824606caf7f6ab5000e0fa3c565a851ced",
+    "creatorAvatarKey": "",
     "nameOverride": false,
-    "winStreak": 9,
+    "winStreak": 0,
     "giftOverride": false
   },
   "teamB": {
@@ -113,9 +113,9 @@
     "color": "#25f4ee",
     "gifts": [
       {
-        "giftName": "Cake Slice",
-        "giftId": "6784",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.webp",
+        "giftName": "TikTok",
+        "giftId": "5269",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
         "diamond": 1
       }
     ],
@@ -195,9 +195,9 @@
     ],
     "joinGifts": [
       {
-        "giftName": "Cake Slice",
-        "giftId": "6784",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.webp",
+        "giftName": "TikTok",
+        "giftId": "5269",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
         "diamond": 1
       }
     ],
@@ -206,12 +206,12 @@
     "creatorId": "c_mrtg2crd6d27p",
     "creatorName": "Im Xuhào☘️",
     "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=f7d705c2&x-expires=1785160800&x-signature=S2Qv8gVQqFi7jcer6vuxStjNo50%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-    "creatorAvatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b",
+    "creatorAvatarKey": "",
     "nameOverride": false,
-    "giftOverride": false,
-    "winStreak": 0
+    "giftOverride": true,
+    "winStreak": 2
   },
-  "durationSec": 610,
+  "durationSec": 190,
   "prepSec": 0,
   "delaySec": 5,
   "joinMode": true,
@@ -234,5 +234,7 @@
   "fxThreshold": 60,
   "fxMaxGap": 60,
   "fxIntensityCap": 100,
-  "championsEnabled": true
+  "championsEnabled": true,
+  "championNames": false,
+  "arrowStyle": "random"
 }

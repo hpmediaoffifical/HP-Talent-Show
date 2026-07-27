@@ -35,7 +35,10 @@ function avatarImg(value, key = '') {
   return `<img src="${esc(mediaUrl(value, key))}" onerror="avRetry(this)" />`;
 }
 function hexToRgb(hex, fb = '0,0,0') {
-  const m = String(hex || '').trim().match(/^#([0-9a-f]{6})$/i);
+  let s = String(hex || '').trim();
+  const m3 = s.match(/^#([0-9a-f]{3})$/i);
+  if (m3) s = '#' + m3[1].split('').map(c => c + c).join(''); // #fff → #ffffff
+  const m = s.match(/^#([0-9a-f]{6})$/i);
   if (!m) return fb;
   const n = parseInt(m[1], 16);
   return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
@@ -222,7 +225,7 @@ function render(state = {}) {
           const isLeader = p.id === leaderId;
           const narrow = widthOf(p) < NARROW_W;
           const tc = textColorFor(p.color);
-          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? `<span class="pkg-crown${leaderChanged ? ' shake' : ''}" aria-hidden="true">👑</span>` : ''}${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>`;
+          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? `<span class="pkg-crown${leaderChanged ? ' shake' : ''}" aria-hidden="true">👑</span>` : ''}${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>`;
         }).join('')}</div>
         <div class="pkg-joined-bar">${participants.map((p, i) => {
           const isLeader = p.id === leaderId;
@@ -234,7 +237,7 @@ function render(state = {}) {
           const edge = `${i === 0 ? ' is-first' : ''}${i === participants.length - 1 ? ' is-last' : ''}`;
           const num = `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`;
           const crowned = isLeader && leaderChanged;
-          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `Hạng 1 (${num})` : num}</em>${narrow ? '' : `<small>${pct}%</small>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
+          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `Hạng 1 (${num})` : num}</em>${narrow ? '' : `<small>${pct}%</small>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
         }).join('')}<div class="pkg-joined-ticks" aria-hidden="true"></div></div>
         <div class="pkg-joined-gifts">${participants.map(p => `<div style="--c:${esc(p.color || '#FE2C55')}">${(p.gifts || []).map(giftHtml).join('')}</div>`).join('')}</div>
       </div>`
@@ -243,7 +246,7 @@ function render(state = {}) {
         const width = widthOf(p);
         const isLeader = p.id === leaderId;
         const tc = textColorFor(p.color);
-        return `<div class="pkg-card${isLeader ? ' leader' : ''}" style="--c:${esc(p.color || '#FE2C55')};--tc:${tc};--tsh:${textShadowFor(tc)}">
+        return `<div class="pkg-card${isLeader ? ' leader' : ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">
           <div class="pkg-card-person">${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
           <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `Hạng 1 (<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>)` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${Number(p.streak) > 0 ? `<span class="pkg-streak" title="MVP ${fmt(p.streak)}"><small>MVP</small><em>${fmt(p.streak)}</em></span>` : ''}</div></div>
           <div class="pkg-card-gifts">${(p.gifts || []).map(giftHtml).join('')}</div>
@@ -305,7 +308,7 @@ function render(state = {}) {
     if (!noteEl || noteKey !== nextNoteKey) {
       noteMount.replaceChildren();
       const div = document.createElement('div');
-      div.innerHTML = `<div class="pkg-note pkg-note-${esc(state.noteEffect || 'soft')}${noteLong ? ' is-long' : ''}" style="--note-bg:${esc(state.noteBgColor || '#1f2430')};--note-color:${esc(state.noteTextColor || '#fff')};--note-speed:${Math.max(6, Number(state.noteSpeedSec) || 16)}s">${noteLong ? `<span><i>${esc(noteText)}</i><i aria-hidden="true">${esc(noteText)}</i></span>` : `<b>${esc(noteText)}</b>`}</div>`;
+      div.innerHTML = `<div class="pkg-note pkg-note-${esc(state.noteEffect || 'soft')}${noteLong ? ' is-long' : ''}" style="--note-bg:${esc(state.noteBgColor || '#1f2430')};--note-bg-rgb:${hexToRgb(state.noteBgColor, '31,36,48')};--note-color:${esc(state.noteTextColor || '#fff')};--note-color-rgb:${hexToRgb(state.noteTextColor, '255,255,255')};--note-speed:${Math.max(6, Number(state.noteSpeedSec) || 16)}s">${noteLong ? `<span><i>${esc(noteText)}</i><i aria-hidden="true">${esc(noteText)}</i></span>` : `<b>${esc(noteText)}</b>`}</div>`;
       noteEl = div.firstElementChild;
       noteKey = nextNoteKey;
     }

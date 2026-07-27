@@ -1,0 +1,45 @@
+/* NHẠC DANCE · Video overlay — 2 lớp video trong suốt cho OBS Browser Source.
+   Quy tắc OBS: nền trong suốt, animate/định vị bằng transform, KHÔNG dùng filter trên phần tử động. */
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+#dvStage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+/* Mỗi lớp là 1 <video>. Ẩn khi không phát (display:none) để OBS không giữ khung đen. */
+video.dv-layer {
+  position: absolute;
+  display: none;
+  max-width: 100vw;
+  max-height: 100vh;
+  background: transparent;
+  /* Bo nhẹ + đổ bóng cho video góc; toàn màn hình sẽ tự phủ hết nên không thấy bo. */
+  border-radius: 8px;
+  will-change: transform;
+}
+#dvMain { z-index: 10; }
+/* Lớp NỀN đè lên tất cả (kể cả lớp hàng đợi). */
+#dvBg { z-index: 20; }
+
+/* Chế độ toàn màn hình: phủ kín, bỏ bo góc. */
+video.dv-full {
+  left: 0 !important;
+  top: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  transform: none !important;
+}
+
+/* Cửa sổ Review: nền theo màu người dùng chọn để dễ canh bố cục. */
+body.overlay-review { background: var(--review-bg, transparent); }

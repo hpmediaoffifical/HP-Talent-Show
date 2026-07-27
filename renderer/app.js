@@ -125,6 +125,11 @@ let musicCfg = { duckWaiting: true, bgEnabled: false, paused: false };
 // musicGroupId: nhóm mà musicItems đang hiển thị. musicBaseItems: danh sách gốc (TALENT SHOW).
 let musicGroupId = '';
 let musicBaseItems = [];
+let danceVideoCfg = null;            // cấu hình overlay Video NHẠC DANCE (title, vị trí/size mặc định, maxClipSec…)
+// Vị trí video hợp lệ cho mỗi mục quà ('default' = theo cấu hình overlay).
+const DANCE_POS = ['default', 'full', 'center', 'tl', 'tr', 'bl', 'br'];
+// Nhận diện file VIDEO theo đuôi (bỏ query) → phát trên overlay OBS; còn lại (mp3…) phát trong app.
+function isVideoFile(p) { return /\.(mp4|webm|mov|m4v|ogv|mkv)$/i.test(String(p || '').split('?')[0].split('#')[0]); }
 let stickerCfg = null;               // STICKER DANCE config (editor model)
 let groupProfiles = {}; // { [groupId]: { pkGroup, defaultGift, stats } } — thông số riêng mỗi nhóm
 let currentEditingCreator = null;
@@ -745,6 +750,13 @@ function preEffectCfg() {
     volume: Number($('#preEffectVolume')?.value) || 0,
   };
 }
+// Ducking nhạc nền cho 1 mục: cờ per-item (on/off) ghi đè cờ chung; 'inherit' → theo cờ chung.
+function effectiveDuck(item) {
+  const o = item && item.videoDuck;
+  if (o === 'on') return true;
+  if (o === 'off') return false;
+  return musicCfg.duckWaiting !== false;
+}
 function signalStickerStart(giftId) { window.api.stickerdance.signal({ type: 'perform-start', giftId }).catch(() => {}); }
 function signalStickerEnd(giftId) { window.api.stickerdance.signal({ type: 'perform-end', giftId }).catch(() => {}); }
 // Đẩy số lượt còn trong hàng đợi cho STICKER DANCE để chế độ "Đếm lùi" khớp với "Đang chờ".
@@ -770,6 +782,9 @@ function pushStickerQueueCounts(st) {
 const MusicQueue = (() => {
   const q = [];              // hàng chờ: {uid, giftId, giftName, icon, name, audioPath, volume}
   let audio = null, pre = null, current = null, playing = false, seq = 0;
+  // Video (mp4/webm) phát trên overlay OBS, không dùng <audio> cục bộ. videoPlayId = lượt đang chờ overlay
+  // báo phát xong (qua IPC dancevideo:ended); videoTimer = dự phòng nếu overlay rớt kết nối.
+  let videoPlayId = null, videoTimer = null;
   let onChange = () => {};
   // GIỮ CHUỖI: mỗi giftId có "mốc hết máu" (ms). Tặng quà → làm đầy lại; cạn dần theo thời lượng.
   const streaks = new Map(); // giftId -> mốc hết chuỗi (Date.now ms)
@@ -839,7 +854,7 @@ const MusicQueue = (() => {
     const pool = Array.isArray(item.audios) && item.audios.length ? item.audios : (item.audioPath ? [item.audioPath] : []);
     for (let i = 0; i < plays; i++) {
       const ap = pool.length ? pool[Math.floor(Math.random() * pool.length)] : '';
-      q.push({ uid: 'q' + (++seq), giftId: String(item.giftId || ''), giftName: item.giftName || '', icon: item.icon || '', name: item.name || item.giftName || '', audioPath: ap, audioName: soundBaseName(ap), volume: item.volume });
+      q.push({ uid: 'q' + (++seq), giftId: String(item.giftId || ''), giftName: item.giftName || '', icon: item.icon || '', name: item.name || item.giftName || '', audioPath: ap, audioName: soundBaseName(ap), volume: item.volume, videoPos: item.videoPos || 'default', videoSize: Number(item.videoSize) || 0, videoDuck: item.videoDuck || 'inherit' });
     }
     if (streakGameOn()) refreshStreak(String(item.giftId || '')); // tặng quà → làm đầy máu chuỗi
     notify();
@@ -848,11 +863,13 @@ const MusicQueue = (() => {
   }
   async function step() {
     stopPre(); // dừng âm thanh mở màn cũ (nếu đang phát)
-    if (current) { signalStickerEnd(current.giftId); current = null; }
+    // Rời khỏi clip video đang phát → dừng luôn video trên overlay (không để nó phát tiếp khi bỏ qua/cướp).
+    if (current) { signalStickerEnd(current.giftId); if (isVideoFile(current.audioPath)) cancelVideo(); current = null; }
     const item = pickNext();
     if (!item) { playing = false; WaitingMusic.unduck(); notify(); return; }
     playing = true; current = item;
-    if (musicCfg.duckWaiting !== false) WaitingMusic.duck();
+    // Duck nhạc nền theo cờ per-item (ghi đè) hoặc cờ chung — cho phép "chạy chung nhạc nền".
+    if (effectiveDuck(item)) WaitingMusic.duck(); else WaitingMusic.unduck();
     signalStickerStart(item.giftId);
     notify();
     // Âm thanh MỞ MÀN (áp dụng toàn bộ): phát trước, xong mới tới clip biểu diễn.
@@ -860,7 +877,39 @@ const MusicQueue = (() => {
     if (pe.enabled && pe.sound) playIntro(pe, () => playClip(item));
     else playClip(item);
   }
+  // Trần thời lượng 1 clip video (dự phòng nếu overlay không báo "phát xong" — vd OBS chưa mở/rớt kết nối).
+  function maxClipMs() { const s = Number(danceVideoCfg && danceVideoCfg.maxClipSec) || 90; return Math.max(5, s) * 1000 + 2000; }
+  function cancelVideo() {
+    videoPlayId = null;
+    if (videoTimer) { clearTimeout(videoTimer); videoTimer = null; }
+    try { window.api.dancevideo.stopMain(); } catch {}
+  }
+  // Overlay báo clip video (khớp playId) phát xong/lỗi → bước sang lượt kế như <audio>.ended.
+  function onVideoEnded(pid) {
+    if (!pid || pid !== videoPlayId) return;
+    videoPlayId = null;
+    if (videoTimer) { clearTimeout(videoTimer); videoTimer = null; }
+    step();
+  }
+  // Video: KHÔNG dùng <audio> cục bộ; gửi lệnh cho overlay OBS phát (cả hình + tiếng qua OBS).
+  function playVideoClip(item) {
+    if (audio) { try { audio.pause(); } catch {} } // đảm bảo không có clip mp3 chạy song song
+    const pid = 'dv' + (++seq);
+    videoPlayId = pid;
+    const pos = item.videoPos && item.videoPos !== 'default' ? item.videoPos : undefined;
+    const size = Number(item.videoSize) > 0 ? Number(item.videoSize) : undefined;
+    window.api.dancevideo.play({ playId: pid, src: item.audioPath, volume: item.volume, pos, size })
+      .then((r) => {
+        if (pid !== videoPlayId) return; // đã chuyển lượt trong lúc chờ
+        if (videoTimer) clearTimeout(videoTimer);
+        // Có overlay OBS: chờ overlay báo "phát xong" (timer chỉ là trần dự phòng).
+        // Không có overlay: bỏ qua nhanh (~1.8s) để hàng đợi không kẹt cả phút.
+        videoTimer = setTimeout(() => onVideoEnded(pid), (r && r.clients > 0) ? maxClipMs() : 1800);
+      })
+      .catch(() => onVideoEnded(pid));
+  }
   async function playClip(item) {
+    if (isVideoFile(item.audioPath)) return playVideoClip(item);
     const a = ensure();
     try { if (a.setSinkId) await a.setSinkId(currentOutputDeviceId()); } catch {}
     if (current !== item) return; // đã bị chuyển lượt (skip/cướp) trong lúc chờ → bỏ
@@ -892,6 +941,7 @@ const MusicQueue = (() => {
     q.length = 0;
     stopPre();
     if (audio) { try { audio.pause(); } catch {} }
+    cancelVideo(); // dừng luôn clip video đang phát trên overlay
     if (current) { signalStickerEnd(current.giftId); }
     current = null; playing = false;
     WaitingMusic.unduck();
@@ -902,7 +952,7 @@ const MusicQueue = (() => {
   function state() { return { current, waiting: q.slice(), total: q.length }; }
   function setOnChange(fn) { onChange = fn || (() => {}); }
   function notify() { try { onChange(state()); } catch {} }
-  return { enqueue, skipCurrent, shuffle, clearAll, stopAll, clearCount, removeUid, state, setOnChange, pushStreak: pushStreakState };
+  return { enqueue, skipCurrent, shuffle, clearAll, stopAll, clearCount, removeUid, state, setOnChange, pushStreak: pushStreakState, onVideoEnded };
 })();
 
 const MusicList = {
@@ -912,9 +962,25 @@ const MusicList = {
     const gid = String(d.giftId || ''), gname = String(d.giftName || '').toLowerCase();
     const item = musicItems.find(m => String(m.giftId) === gid || (m.giftName && String(m.giftName).toLowerCase() === gname));
     if (!item || !item.audioPath) return;
-    MusicQueue.enqueue({ giftId: item.giftId, giftName: item.giftName, icon: item.icon, name: item.name, audios: item.audios, audioPath: item.audioPath, volume: item.volume, plays: Math.max(1, Number(d.repeatCount) || 1) });
+    const plays = Math.max(1, Number(d.repeatCount) || 1);
+    if (item.bgMode) { playBackgroundItem(item, plays); return; } // "Chạy nền": đè lên trên, KHÔNG vào hàng đợi
+    MusicQueue.enqueue({ giftId: item.giftId, giftName: item.giftName, icon: item.icon, name: item.name, audios: item.audios, audioPath: item.audioPath, volume: item.volume, videoPos: item.videoPos, videoSize: item.videoSize, videoDuck: item.videoDuck, plays });
   },
 };
+// "Chạy nền": phát các clip VIDEO của quà tuần tự trên lớp nền overlay (đè lên tất cả), combo → N lượt.
+// Không có file video → coi như thường (đưa vào 🎬 Hàng đợi) để không mất tác dụng khi user bật nhầm.
+function playBackgroundItem(item, plays) {
+  const vids = (item.audios || []).filter(isVideoFile);
+  if (!vids.length) {
+    MusicQueue.enqueue({ giftId: item.giftId, giftName: item.giftName, icon: item.icon, name: item.name, audios: item.audios, audioPath: item.audioPath, volume: item.volume, videoPos: item.videoPos, videoSize: item.videoSize, videoDuck: item.videoDuck, plays });
+    return;
+  }
+  const clips = [];
+  for (let i = 0; i < plays; i++) clips.push(vids[Math.floor(Math.random() * vids.length)]);
+  const pos = item.videoPos && item.videoPos !== 'default' ? item.videoPos : undefined;
+  const size = Number(item.videoSize) > 0 ? Number(item.videoSize) : undefined;
+  window.api.dancevideo.playBackground({ clips, volume: item.volume, pos, size }).catch(() => {});
+}
 
 function normalizeMusicItem(m) {
   // Hỗ trợ NHIỀU file nhạc cho 1 quà (audios[]). Giữ audioPath = file đầu để tương thích code cũ + hiển thị.
@@ -926,6 +992,11 @@ function normalizeMusicItem(m) {
     name: m.name || m.giftName || '',
     volume: Number.isFinite(Number(m.volume)) ? Number(m.volume) : 100,
     qty: clampInt(m.qty, 1, 1, 1000),
+    // ==== Video (mp4/webm) trên overlay OBS ====
+    bgMode: !!m.bgMode, // "Chạy nền": đè lên tất cả, không theo hàng đợi
+    videoPos: DANCE_POS.includes(m.videoPos) ? m.videoPos : 'default', // vị trí trên overlay
+    videoSize: clampInt(m.videoSize, 0, 0, 100), // % chiều rộng (0 = theo overlay)
+    videoDuck: (m.videoDuck === 'on' || m.videoDuck === 'off') ? m.videoDuck : 'inherit', // ghi đè duck nhạc nền
   };
 }
 function musicNameFor(giftId) { const m = musicItems.find(x => String(x.giftId) === String(giftId)); return m ? (m.name || m.giftName || '') : ''; }
@@ -961,6 +1032,7 @@ async function loadMusicListConfig() {
   musicCfg = { duckWaiting: st?.duckWaiting !== false, bgEnabled: !!st?.bgEnabled, paused: true, displayLimit: clampInt(st?.displayLimit, 50, 1, 500) };
   musicBaseItems = musicItems.map(normalizeMusicItem); // chốt danh sách gốc TALENT SHOW
   musicGroupId = '';
+  danceVideoCfg = await window.api.dancevideo.getConfig().catch(() => null); // cấu hình overlay Video
 }
 // File gốc (music-list.json) LUÔN giữ danh sách TALENT SHOW + các cờ chung; danh sách riêng của
 // nhóm lưu trong hồ sơ nhóm (groupProfiles[gid].music).
@@ -1043,18 +1115,21 @@ function renderMusicList() {
   if ($('#mlEmpty')) $('#mlEmpty').hidden = musicItems.length > 0;
   list.innerHTML = musicItems.map((m, i) => {
     const audios = Array.isArray(m.audios) ? m.audios : [];
-    const audioTitle = audios.length ? audios.map(a => soundBaseName(a)).join('\n') : 'Chưa có nhạc — bấm để chọn';
+    const nVideo = audios.filter(isVideoFile).length;
+    const audioTitle = audios.length ? audios.map(a => (isVideoFile(a) ? '🎬 ' : '🎵 ') + soundBaseName(a)).join('\n') : 'Chưa có nhạc/video — bấm để chọn';
     const firstName = audios.length ? soundBaseName(audios[0]) : '';
+    const firstIco = audios.length && isVideoFile(audios[0]) ? '🎬' : '🎵';
     const audioLabel = audios.length
-      ? (audios.length === 1 ? `🎵 ${escapeHtml(firstName)}` : `🎵 ${escapeHtml(firstName)} +${audios.length - 1}`)
-      : '🎵 Chọn nhạc';
+      ? (audios.length === 1 ? `${firstIco} ${escapeHtml(firstName)}` : `${firstIco} ${escapeHtml(firstName)} +${audios.length - 1}`)
+      : '🎵 Chọn nhạc/video';
+    const mediaMeta = (audios.length > 1 ? ` · 🎲 ${audios.length} file` : '') + (nVideo ? ` · 🎬 ${nVideo}` : '') + (m.bgMode ? ' · 🅱 Nền' : '');
     return `
     <div class="ml-row${audios.length ? '' : ' no-audio'}" data-i="${i}">
       <img class="ml-icon" src="${escapeAttr(m.icon || '../logo/hp-logo.png')}" onerror="this.style.visibility='hidden'" />
       <div class="ml-main">
         <div class="ml-head">
           <b class="ml-gift" title="${escapeAttr(m.giftName || ('ID ' + m.giftId))}">${escapeHtml(m.giftName || ('ID ' + m.giftId))}</b>
-          <small class="ml-meta">ID ${escapeHtml(m.giftId)} · 🪙${escapeHtml(String(m.diamond || 0))}${audios.length > 1 ? ` · 🎲 ${audios.length} nhạc` : ''}</small>
+          <small class="ml-meta">ID ${escapeHtml(m.giftId)} · 🪙${escapeHtml(String(m.diamond || 0))}${mediaMeta}</small>
         </div>
         <div class="ml-fields">
           <input class="ml-name" type="text" placeholder="Tên hiển thị…" value="${escapeAttr(m.name || '')}" title="Tên này dùng làm nhãn ở Sticker Dance (đồng bộ 2 chiều)" />
@@ -1095,16 +1170,38 @@ function openAudioModal(m) {
   const overlay = document.createElement('div');
   overlay.className = 'ml-modal-overlay';
   const giftLabel = m.giftName || ('ID ' + m.giftId);
+  const posOpt = (val, label) => `<option value="${val}"${(m.videoPos || 'default') === val ? ' selected' : ''}>${label}</option>`;
+  const duckOpt = (val, label) => `<option value="${val}"${(m.videoDuck || 'inherit') === val ? ' selected' : ''}>${label}</option>`;
   overlay.innerHTML = `
     <div class="ml-modal" role="dialog" aria-modal="true">
       <div class="ml-modal-head">
         <img src="${escapeAttr(m.icon || '../logo/hp-logo.png')}" onerror="this.style.visibility='hidden'" />
-        <div class="ml-modal-title"><b>${escapeHtml(m.name || giftLabel)}</b><small>Danh sách nhạc — mỗi lượt phát ngẫu nhiên 1 file</small></div>
+        <div class="ml-modal-title"><b>${escapeHtml(m.name || giftLabel)}</b><small>Nhạc &amp; video — mỗi lượt phát ngẫu nhiên 1 file (video hiện trên overlay OBS)</small></div>
         <button class="ml-modal-close" type="button" title="Đóng">✕</button>
       </div>
       <div class="ml-modal-list"></div>
+      <div class="ml-modal-video">
+        <div class="ml-mv-h">🎬 Cài đặt video (áp dụng cho file mp4/webm)</div>
+        <label class="ml-switch ml-mv-bg" title="Phát ĐÈ lên tất cả hiệu ứng khác, KHÔNG theo hàng đợi (combo → phát tuần tự trên lớp nền)"><input type="checkbox" class="ml-mv-bgmode"${m.bgMode ? ' checked' : ''} /> Chạy nền (đè lên tất cả)</label>
+        <div class="ml-mv-row">
+          <label>Vị trí
+            <select class="ml-mv-pos">
+              ${posOpt('default', 'Mặc định (theo overlay)')}${posOpt('full', 'Toàn màn hình')}${posOpt('center', 'Giữa')}${posOpt('tl', 'Trên trái')}${posOpt('tr', 'Trên phải')}${posOpt('bl', 'Dưới trái')}${posOpt('br', 'Dưới phải')}
+            </select>
+          </label>
+          <label>Kích thước %
+            <input type="number" class="ml-mv-size" min="0" max="100" value="${clampInt(m.videoSize, 0, 0, 100)}" title="% chiều rộng khung (0 = theo overlay). Bỏ qua khi Toàn màn hình." />
+          </label>
+          <label>Nhạc nền
+            <select class="ml-mv-duck">
+              ${duckOpt('inherit', 'Theo cài đặt chung')}${duckOpt('off', 'Chạy chung nhạc nền')}${duckOpt('on', 'Tạm dừng nhạc nền')}
+            </select>
+          </label>
+        </div>
+      </div>
       <div class="ml-modal-foot">
         <button class="ml-modal-add primary" type="button">＋ Thêm nhạc</button>
+        <button class="ml-modal-add-video ghost" type="button">🎬 Thêm video</button>
         <span class="ml-modal-hint hint"></span>
       </div>
     </div>`;
@@ -1113,19 +1210,21 @@ function openAudioModal(m) {
   const hintEl = overlay.querySelector('.ml-modal-hint');
   function refresh() {
     const audios = m.audios || [];
-    hintEl.textContent = audios.length ? `${audios.length} file` : 'Chưa có nhạc';
+    const nAudio = audios.filter(a => !isVideoFile(a)).length, nVideo = audios.filter(isVideoFile).length;
+    hintEl.textContent = audios.length ? `${nAudio} nhạc · ${nVideo} video` : 'Chưa có file';
     listEl.innerHTML = audios.length
-      ? audios.map((a, ai) => `<div class="ml-modal-item" data-ai="${ai}">
-          <span class="ml-modal-ic">🎵</span>
+      ? audios.map((a, ai) => `<div class="ml-modal-item${isVideoFile(a) ? ' is-video' : ''}" data-ai="${ai}">
+          <span class="ml-modal-ic">${isVideoFile(a) ? '🎬' : '🎵'}</span>
           <span class="ml-modal-name" title="${escapeAttr(soundNameFromValue(a))}">${escapeHtml(soundBaseName(a))}</span>
-          <button class="ml-modal-play ghost tiny" type="button" title="Nghe thử">▶</button>
+          <button class="ml-modal-play ghost tiny" type="button" title="Nghe/xem thử">▶</button>
           <button class="ml-modal-del ghost tiny danger" type="button" title="Bỏ file">✕</button>
         </div>`).join('')
-      : '<div class="ml-modal-empty">Chưa có file nhạc nào. Bấm “＋ Thêm nhạc”.</div>';
+      : '<div class="ml-modal-empty">Chưa có file nào. Bấm “＋ Thêm nhạc” hoặc “🎬 Thêm video”.</div>';
     listEl.querySelectorAll('.ml-modal-play').forEach(btn => btn.addEventListener('click', () => {
       const ai = Number(btn.closest('.ml-modal-item').dataset.ai);
       stopAudioModalPreview();
-      audioModalPreview = new Audio(filePathToUrl(m.audios[ai]));
+      audioModalPreview = document.createElement(isVideoFile(m.audios[ai]) ? 'video' : 'audio');
+      audioModalPreview.src = filePathToUrl(m.audios[ai]);
       audioModalPreview.volume = clampVol01(m.volume);
       audioModalPreview.play().catch(() => toast('Không phát được file này', 'error'));
     }));
@@ -1143,6 +1242,19 @@ function openAudioModal(m) {
     scheduleMusicSave(); renderMusicList(); refresh();
     toast(`Đã thêm ${files.length} nhạc`, 'success');
   });
+  overlay.querySelector('.ml-modal-add-video').addEventListener('click', async () => {
+    const files = await window.api.shell.pickVideos();
+    if (!Array.isArray(files) || !files.length) return;
+    m.audios = [...(m.audios || []), ...files.map(filePathToUrl)];
+    m.audioPath = m.audios[0] || '';
+    scheduleMusicSave(); renderMusicList(); refresh();
+    toast(`Đã thêm ${files.length} video`, 'success');
+  });
+  // Cài đặt video per-item (lưu ngay, không cần đóng modal).
+  overlay.querySelector('.ml-mv-bgmode').addEventListener('change', (e) => { m.bgMode = e.target.checked; scheduleMusicSave(); });
+  overlay.querySelector('.ml-mv-pos').addEventListener('change', (e) => { m.videoPos = DANCE_POS.includes(e.target.value) ? e.target.value : 'default'; scheduleMusicSave(); });
+  overlay.querySelector('.ml-mv-size').addEventListener('change', (e) => { m.videoSize = clampInt(e.target.value, 0, 0, 100); e.target.value = m.videoSize; scheduleMusicSave(); });
+  overlay.querySelector('.ml-mv-duck').addEventListener('change', (e) => { m.videoDuck = (e.target.value === 'on' || e.target.value === 'off') ? e.target.value : 'inherit'; scheduleMusicSave(); });
   const closeModal = () => { stopAudioModalPreview(); overlay.remove(); document.removeEventListener('keydown', onKey); };
   const onKey = (e) => { if (e.key === 'Escape') closeModal(); };
   overlay.querySelector('.ml-modal-close').addEventListener('click', closeModal);
@@ -1153,9 +1265,9 @@ function openAudioModal(m) {
 
 // Đưa N lượt phát của 1 quà vào hàng đợi hiệu ứng (phát qua MusicQueue: duck nhạc nền + phóng to icon Sticker).
 function enqueueFromRow(m, qty) {
-  if (!m.audioPath) { toast('Quà này chưa chọn file nhạc', 'error'); return; }
+  if (!m.audioPath) { toast('Quà này chưa chọn nhạc/video', 'error'); return; }
   const n = clampInt(qty, 1, 1, 1000);
-  MusicQueue.enqueue({ giftId: m.giftId, giftName: m.giftName, icon: m.icon, name: m.name, audios: m.audios, audioPath: m.audioPath, volume: m.volume, plays: n });
+  MusicQueue.enqueue({ giftId: m.giftId, giftName: m.giftName, icon: m.icon, name: m.name, audios: m.audios, audioPath: m.audioPath, volume: m.volume, videoPos: m.videoPos, videoSize: m.videoSize, videoDuck: m.videoDuck, plays: n });
   toast(`Đã đưa ${n}× "${m.name || m.giftName || m.giftId}" vào danh sách phát`, 'success');
 }
 
@@ -1233,10 +1345,31 @@ function wireMusicListTab() {
   $('#mlqSkip')?.addEventListener('click', () => MusicQueue.skipCurrent());
   $('#mlqShuffle')?.addEventListener('click', () => { MusicQueue.shuffle(); toast('🎲 Đã xáo trộn thứ tự hàng chờ', 'success'); });
   updateMusicBgHint();
+  wireDanceVideoPanel();
+  // Overlay báo clip video phát xong/lỗi → hàng đợi bước sang lượt kế.
+  window.api.on('dancevideo:ended', (d) => { try { MusicQueue.onVideoEnded(d && d.playId); } catch {} });
   renderMusicList();
   renderMusicQueue();
   if (!musicCfg.paused && musicCfg.bgEnabled) WaitingMusic.start();
   updateBgControls();
+}
+
+// Overlay Video NHẠC DANCE: COPY OBS + Review + cấu hình chung (title, vị trí/size mặc định, maxClipSec…).
+function wireDanceVideoPanel() {
+  const patch = (p) => { danceVideoCfg = { ...(danceVideoCfg || {}), ...p }; window.api.dancevideo.setConfig(p).then(cfg => { if (cfg) danceVideoCfg = cfg; }).catch(() => {}); };
+  const c = danceVideoCfg || {};
+  const setVal = (id, v) => { const el = $('#' + id); if (el != null && v != null) el.value = v; };
+  const setChk = (id, v) => { const el = $('#' + id); if (el) el.checked = !!v; };
+  setVal('dvTitle', c.title); setVal('dvPos', c.defaultPos || 'full'); setVal('dvSize', c.defaultSize ?? 60);
+  setVal('dvFit', c.fit || 'contain'); setVal('dvMaxClip', c.maxClipSec ?? 90); setChk('dvBgLoop', c.bgLoop);
+  $('#dvCopyUrl')?.addEventListener('click', async () => { const url = await window.api.dancevideo.getUrl(); await window.api.shell.copyText(url); toast('Đã copy link OBS Video NHẠC DANCE', 'success'); });
+  $('#dvTitle')?.addEventListener('input', (e) => patch({ title: e.target.value }));
+  $('#dvPos')?.addEventListener('change', (e) => patch({ defaultPos: e.target.value }));
+  $('#dvSize')?.addEventListener('change', (e) => { const n = clampInt(e.target.value, 60, 5, 100); e.target.value = n; patch({ defaultSize: n }); });
+  $('#dvFit')?.addEventListener('change', (e) => patch({ fit: e.target.value }));
+  $('#dvBgLoop')?.addEventListener('change', (e) => patch({ bgLoop: e.target.checked }));
+  $('#dvMaxClip')?.addEventListener('change', (e) => { const n = clampInt(e.target.value, 90, 5, 600); e.target.value = n; patch({ maxClipSec: n }); });
+  $('#dvStopBg')?.addEventListener('click', () => { window.api.dancevideo.stopBackground().catch(() => {}); toast('Đã dừng video nền', 'success'); });
 }
 
 // ============================================================
@@ -5067,6 +5200,8 @@ async function loadPkConfig() {
   if ($('#pkFxStyle')) $('#pkFxStyle').value = pkCfg.fxStyle || 'auto';
   if ($('#pkFxThreshold')) { $('#pkFxThreshold').value = pkCfg.fxThreshold ?? 8; $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`; }
   if ($('#pkChampsEnabled')) $('#pkChampsEnabled').value = String(pkCfg.championsEnabled !== false);
+  if ($('#pkChampNames')) $('#pkChampNames').value = String(pkCfg.championNames === true);
+  if ($('#pkArrowStyle')) $('#pkArrowStyle').value = pkCfg.arrowStyle || 'classic';
   setSoundInput('pkSndStart', pkCfg.startSound || '');
   setSoundInput('pkSndWarn', pkCfg.warningSound || '');
   setSoundInput('pkSndAwin', pkCfg.teamASound || '');
@@ -5408,10 +5543,18 @@ function wirePkDuoTab() {
     $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`;
     schedulePkAutoSave();
   });
-  ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
+  ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkChampNames','pkArrowStyle','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', schedulePkAutoSave);
+  });
+  // 🎲 Đổi skin mũi tên ngẫu nhiên NGAY (chọn 1 skin cụ thể khác skin đang chọn) → áp dụng realtime.
+  $('#pkArrowRandom')?.addEventListener('click', () => {
+    const sel = $('#pkArrowStyle'); if (!sel) return;
+    const pool = ['classic', 'core', 'rope', 'cannon'].filter(v => v !== sel.value);
+    sel.value = pool[Math.floor(Math.random() * pool.length)];
+    schedulePkAutoSave();
+    toast('Mũi tên: ' + (sel.options[sel.selectedIndex]?.text || sel.value), 'success');
   });
   // Gõ tay Tên hiển thị → đánh dấu ghi đè, để nickname creator không tự đè lại (vẫn sửa được tự do).
   for (const side of ['A', 'B']) {
@@ -5501,6 +5644,8 @@ function collectPkCfg() {
     fxThreshold: $('#pkFxThreshold') ? Math.max(0, Math.min(60, Number($('#pkFxThreshold').value) || 8)) : 8,
     // Vinh danh TOP 3 người tặng quà (hiện trên overlay banner)
     championsEnabled: $('#pkChampsEnabled') ? $('#pkChampsEnabled').value === 'true' : true,
+    championNames: $('#pkChampNames') ? $('#pkChampNames').value === 'true' : false,
+    arrowStyle: $('#pkArrowStyle') ? $('#pkArrowStyle').value : 'classic',
   };
 }
 

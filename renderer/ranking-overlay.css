@@ -10,10 +10,10 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board {
   display:inline-grid; grid-template-columns:minmax(0,var(--rk-width, 116px)); width:var(--rk-width, 116px); min-width:0;
   padding:6px; border-radius:15px; overflow:visible; color:#fff;
-  /* Màu nền board tuỳ chỉnh (thay nền xám mặc định) — giữ chút chiều sâu: sáng ở đỉnh, tối ở đáy */
-  background:linear-gradient(180deg,
-    color-mix(in srgb, rgb(var(--ranking-board-bg-rgb, 35,38,51)), #fff 7%),
-    color-mix(in srgb, rgb(var(--ranking-board-bg-rgb, 35,38,51)), #000 20%));
+  /* Màu nền board tuỳ chỉnh — OBS-safe: phủ lớp trắng(đỉnh)→đen(đáy) lên màu đặc thay color-mix
+     (CEF cũ của OBS không hiểu color-mix → nền board biến mất/đen). */
+  background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(0,0,0,.20)),
+    rgb(var(--ranking-board-bg-rgb, 35,38,51));
   box-shadow:0 14px 38px rgba(0,0,0,.46), inset 0 0 0 1px rgba(255,255,255,.06);
   text-shadow:0 1px 3px rgba(0,0,0,.6);
 }
@@ -77,12 +77,13 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   z-index:6; transform:scale(1.05); transform-origin:center;
   border-radius:10px;
   background:linear-gradient(90deg,
-    color-mix(in srgb, var(--ranking-streak-color, #67e8f9) 26%, rgba(22,17,15,.99)),
-    color-mix(in srgb, var(--ranking-streak-color, #67e8f9) 7%, rgba(15,14,18,.99)));
+    rgba(var(--ranking-streak-rgb, 103,232,249),.26),
+    rgba(var(--ranking-streak-rgb, 103,232,249),.07)),
+    linear-gradient(90deg, rgba(22,17,15,.99), rgba(15,14,18,.99));
   box-shadow:
     inset 0 0 0 2px var(--ranking-streak-color, #67e8f9),
-    0 0 0 1px color-mix(in srgb, var(--ranking-streak-color, #67e8f9), transparent 45%),
-    0 0 16px color-mix(in srgb, var(--ranking-streak-color, #67e8f9), transparent 55%),
+    0 0 0 1px rgba(var(--ranking-streak-rgb, 103,232,249),.55),
+    0 0 16px rgba(var(--ranking-streak-rgb, 103,232,249),.45),
     0 8px 22px rgba(0,0,0,.4);
   opacity:1; filter:none;
   /* Pop 1 lần khi vào active, rồi hào quang thở liên tục (animate box-shadow — an toàn trên OBS, không dùng filter) */
@@ -178,15 +179,15 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   0%, 100% {
     box-shadow:
       inset 0 0 0 2px var(--ranking-streak-color, #67e8f9),
-      0 0 0 1px color-mix(in srgb, var(--ranking-streak-color, #67e8f9), transparent 45%),
-      0 0 16px color-mix(in srgb, var(--ranking-streak-color, #67e8f9), transparent 55%),
+      0 0 0 1px rgba(var(--ranking-streak-rgb, 103,232,249),.55),
+      0 0 16px rgba(var(--ranking-streak-rgb, 103,232,249),.45),
       0 8px 22px rgba(0,0,0,.4);
   }
   50% {
     box-shadow:
       inset 0 0 0 2px var(--ranking-streak-color, #67e8f9),
-      0 0 0 2.5px color-mix(in srgb, var(--ranking-streak-color, #67e8f9), transparent 20%),
-      0 0 32px color-mix(in srgb, var(--ranking-streak-color, #67e8f9), transparent 30%),
+      0 0 0 2.5px rgba(var(--ranking-streak-rgb, 103,232,249),.8),
+      0 0 32px rgba(var(--ranking-streak-rgb, 103,232,249),.7),
       0 8px 22px rgba(0,0,0,.4);
   }
 }

@@ -27,6 +27,13 @@ function rgba(hex, a) {
   const n = parseInt(m[1], 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
+// Triplet "r,g,b" cho CSS dùng rgba(var(--x-rgb), a) — thay color-mix() mà CEF cũ của OBS không hiểu.
+function trip(hex, fb = '255,255,255') {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return fb;
+  const n = parseInt(m[1], 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
 
 let lastSig = null;
 let skew = 0;           // Date.now() - serverNow → canh mốc lộ thẻ chung với overlay Lật 3D
@@ -48,10 +55,13 @@ function render(state = {}) {
   // Biến giao diện (đổi tức thì, KHÔNG dựng lại DOM thẻ).
   root.style.setProperty('--cf-bg', rgba(state.bgColor, num(state.bgAlpha, 0.85)));
   root.style.setProperty('--cf-title', state.titleColor || '#ffd94a');
+  root.style.setProperty('--cf-title-rgb', trip(state.titleColor, '255,217,74'));
   root.style.setProperty('--cf-bar', state.barColor || '#ff2f87');
+  root.style.setProperty('--cf-bar-rgb', trip(state.barColor, '255,47,135'));
   root.style.setProperty('--cf-bartext', state.barTextColor || '#ffffff');
   root.style.setProperty('--cf-running', state.runningColor || '#ff5a5a');
   root.style.setProperty('--cf-done', state.doneColor || '#38e08a');
+  root.style.setProperty('--cf-done-rgb', trip(state.doneColor, '56,224,138'));
   root.style.setProperty('--cf-card-w', `${Math.max(60, num(state.cardSize, 128))}px`);
   root.style.setProperty('--cf-font', `${Math.max(8, num(state.fontSize, 16))}px`);
   root.style.setProperty('--cf-content-size', `${Math.max(8, num(state.cardTextSize, 18))}px`);

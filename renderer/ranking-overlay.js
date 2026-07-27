@@ -105,6 +105,7 @@ function render(state = {}) {
     --ranking-card-bg-opacity:${((Number(state.overlayBgOpacity ?? 74)) / 100).toFixed(2)};
     --ranking-board-bg-rgb:${hexToRgb(state.overlayBoardColor || '#232633')};
     --ranking-streak-color:${esc(state.streakColor || '#67e8f9')};
+    --ranking-streak-rgb:${hexToRgb(state.streakColor || '#67e8f9')};
     --rk-rows:${effRows};
     --rk-cols:${effCols};
     --rk-flow:${gridFlow};

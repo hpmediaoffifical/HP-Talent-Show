@@ -474,6 +474,24 @@
                     <option value="false">Tắt</option>
                   </select>
                 </label>
+                <label>🏷️ Tên MVP dưới avatar
+                  <select id="pkChampNames">
+                    <option value="false">Tắt</option>
+                    <option value="true">Bật</option>
+                  </select>
+                </label>
+                <label>🎯 Kiểu mũi tên PK
+                  <span style="display:flex; gap:6px; align-items:center;">
+                    <select id="pkArrowStyle" style="flex:1; min-width:0;">
+                      <option value="classic">Cổ điển (chỉ hướng)</option>
+                      <option value="core">Lõi động lượng</option>
+                      <option value="rope">Dây kéo co</option>
+                      <option value="cannon">Pháo combo</option>
+                      <option value="random">🎲 Ngẫu nhiên mỗi vòng</option>
+                    </select>
+                    <button type="button" id="pkArrowRandom" title="Đổi skin ngẫu nhiên ngay" style="flex:0 0 auto; padding:6px 10px; cursor:pointer;">🎲</button>
+                  </span>
+                </label>
                 <label class="full">Scale PK Đôi OBS
                   <div class="range-inline">
                     <input id="pkOverlayScale" type="range" min="80" max="300" step="5" value="200" />
@@ -1138,6 +1156,44 @@
           <div class="ml-list" id="mlList"></div>
           <div class="ml-empty hint" id="mlEmpty">Chưa có quà nào. Bấm “＋ Thêm quà” để bắt đầu.</div>
         </div>
+
+        <details class="card dv-card">
+          <summary class="dv-summary"><span class="dv-summary__ico">🎬</span> Overlay Video (OBS) <span class="dv-summary__hint">— thêm mp4/webm cho quà, phát trên OBS</span></summary>
+          <div class="dv-actions">
+            <button id="dvCopyUrl" class="primary" type="button">📋 COPY OBS</button>
+            <button class="ghost" data-review-toggle="dancevideo" type="button">🖥 Review</button>
+            <button class="ghost" data-review-top="dancevideo" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="dancevideo" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="dancevideo" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="dancevideo" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="dancevideo" type="button">Trong suốt</button>
+            <span class="mlq-spacer"></span>
+            <button id="dvStopBg" class="ghost danger" type="button" title="Dừng video đang chạy nền">⏹ Dừng nền</button>
+          </div>
+          <div class="dv-cfg">
+            <label>Tên <input id="dvTitle" type="text" placeholder="NHẠC DANCE" /></label>
+            <label>Vị trí mặc định
+              <select id="dvPos">
+                <option value="full">Toàn màn hình</option>
+                <option value="center">Giữa</option>
+                <option value="tl">Trên trái</option>
+                <option value="tr">Trên phải</option>
+                <option value="bl">Dưới trái</option>
+                <option value="br">Dưới phải</option>
+              </select>
+            </label>
+            <label>Kích thước % <input id="dvSize" type="number" min="5" max="100" value="60" /></label>
+            <label>Khung hình
+              <select id="dvFit">
+                <option value="contain">Vừa khung (contain)</option>
+                <option value="cover">Phủ kín (cover)</option>
+              </select>
+            </label>
+            <label class="ml-switch" title="Lớp nền: phát hết danh sách rồi lặp lại (thay vì phát 1 lần rồi tắt)"><input type="checkbox" id="dvBgLoop" /> Lặp video nền</label>
+            <label>Trần clip (giây) <input id="dvMaxClip" type="number" min="5" max="600" value="90" title="Dự phòng: nếu overlay không báo phát xong (OBS chưa mở/rớt kết nối), hàng đợi tự bước tiếp sau ngần này giây" /></label>
+          </div>
+          <div class="hint">Thêm nguồn Browser trong OBS bằng “📋 COPY OBS”. Video quà phát trên overlay này (cả hình + tiếng qua OBS); mp3 vẫn phát trong app. Chọn video cho từng quà ở nút ⚙ của quà.</div>
+        </details>
 
         <div class="card ml-queue-card">
           <div class="mlq-head">

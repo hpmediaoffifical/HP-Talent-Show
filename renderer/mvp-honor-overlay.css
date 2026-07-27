@@ -68,11 +68,9 @@
   z-index: 3;
   padding: .18em .7em;
   border-radius: 999px;
-  /* Nền mờ bo tròn: bán trong suốt + blur (blur chỉ ăn nội dung cùng lớp trên OBS, nên giữ nền
-     đủ tối để chữ luôn đọc rõ trên mọi nền video). */
-  background: rgba(18, 14, 26, .56);
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
+  /* Nền mờ bo tròn: bán trong suốt. KHÔNG backdrop-filter (OBS Browser Source nền trong suốt →
+     CEF tô backdrop thành ĐEN → chip tên bị hộp đen). Tăng nhẹ độ đục để chữ vẫn đọc rõ. */
+  background: rgba(18, 14, 26, .66);
   border: 1px solid rgba(255, 255, 255, .18);
   box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
   color: #fff;

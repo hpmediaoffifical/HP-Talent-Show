@@ -18,8 +18,8 @@ html, body { margin:0; width:100%; height:100%; background:transparent; overflow
   position:absolute; left:50%; top:50%; width:78vmin; height:78vmin; margin:-39vmin 0 0 -39vmin;
   opacity:0; pointer-events:none; border-radius:50%; will-change:opacity, transform;
   background:radial-gradient(circle at center,
-    color-mix(in srgb, var(--cfx-accent), transparent 42%) 0%,
-    color-mix(in srgb, var(--cfx-accent), transparent 74%) 30%,
+    rgba(var(--cfx-accent-rgb, 255,217,74),.58) 0%,
+    rgba(var(--cfx-accent-rgb, 255,217,74),.26) 30%,
     transparent 62%);
   animation:cfxPulse 3.2s ease-in-out infinite;
 }

@@ -132,6 +132,8 @@ function buildScene(cards, target, st) {
   root.style.setProperty('--cfx-style-back', `url("/card-assets/${cs}/back.png")`);
   root.style.setProperty('--cfx-style-front', `url("/card-assets/${cs}/front.png")`);
   root.style.setProperty('--cfx-accent', cur.accent);
+  // Triplet cho rgba(var(--cfx-accent-rgb), a) thay color-mix() (CEF cũ của OBS không hỗ trợ → quầng sáng biến mất).
+  root.style.setProperty('--cfx-accent-rgb', (function (h) { const m = /^#([0-9a-f]{6})$/i.exec(String(h || '')); if (!m) return '255,217,74'; const n = parseInt(m[1], 16); return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`; })(cur.accent));
   // Cỡ chữ NỘI DUNG lá lớn theo cùng thông số "Cỡ chữ trong thẻ" (18px ↔ 3.4vmin, co giãn theo).
   root.style.setProperty('--cfx-font', `${(clamp(+st.cardTextSize || 18, 8, 90) / 18 * 3.4).toFixed(2)}vmin`);
 

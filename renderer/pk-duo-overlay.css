@@ -12,8 +12,8 @@ body { display:flex; justify-content:center; align-items:center; }
   transition:box-shadow .4s ease;
 }
 /* Viền + glow của board sáng theo màu bên đang dẫn điểm */
-.pkduo-board.lead-a { box-shadow:0 12px 30px rgba(0,0,0,.4), inset 0 0 0 2px color-mix(in srgb, var(--pk-a, #FE2C55), transparent 12%), inset 0 0 22px color-mix(in srgb, var(--pk-a, #FE2C55), transparent 62%), 0 0 34px color-mix(in srgb, var(--pk-a, #FE2C55), transparent 52%); }
-.pkduo-board.lead-b { box-shadow:0 12px 30px rgba(0,0,0,.4), inset 0 0 0 2px color-mix(in srgb, var(--pk-b, #25F4EE), transparent 12%), inset 0 0 22px color-mix(in srgb, var(--pk-b, #25F4EE), transparent 62%), 0 0 34px color-mix(in srgb, var(--pk-b, #25F4EE), transparent 52%); }
+.pkduo-board.lead-a { box-shadow:0 12px 30px rgba(0,0,0,.4), inset 0 0 0 2px rgba(var(--pk-a-rgb, 254,44,85),.88), inset 0 0 22px rgba(var(--pk-a-rgb, 254,44,85),.38), 0 0 34px rgba(var(--pk-a-rgb, 254,44,85),.48); }
+.pkduo-board.lead-b { box-shadow:0 12px 30px rgba(0,0,0,.4), inset 0 0 0 2px rgba(var(--pk-b-rgb, 37,244,238),.88), inset 0 0 22px rgba(var(--pk-b-rgb, 37,244,238),.38), 0 0 34px rgba(var(--pk-b-rgb, 37,244,238),.48); }
 .pkduo-board.neutral { box-shadow:0 12px 30px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.12), 0 0 18px rgba(255,255,255,.08); }
 
 .pkduo-content {
@@ -107,10 +107,11 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkduo-result.draw { color:#e5e7eb; text-shadow:0 2px 0 rgba(0,0,0,.36), 0 0 16px rgba(255,255,255,.28); }
 
 .pkduo-bar { position:relative; display:grid; grid-template-columns:82px minmax(0,1fr) minmax(0,1fr) 82px; align-items:center; height:42px; overflow:hidden;
+  /* OBS-safe: BỎ chốt color-mix ở đường ghép (CEF cũ của OBS không hiểu color-mix → cả nền thanh
+     biến mất/trong suốt). Để gradient tự hoà A→B qua dải 4.8% quanh mốc → vẫn có "mối nối" mượt. */
   background:linear-gradient(90deg,
     var(--pk-a, #FE2C55) 0,
     var(--pk-a, #FE2C55) calc(var(--pk-a-width, 50%) - 2.4%),
-    color-mix(in srgb, var(--pk-a, #FE2C55) 50%, var(--pk-b, #25F4EE) 50%) var(--pk-a-width, 50%),
     var(--pk-b, #25F4EE) calc(var(--pk-a-width, 50%) + 2.4%),
     var(--pk-b, #25F4EE) 100%);
 }
@@ -149,20 +150,115 @@ body { display:flex; justify-content:center; align-items:center; }
 /* KHÔNG đặt filter:drop-shadow lên chính <em> vì <em> ĐANG animate transform:
    trên OBS (OSR/CEF) lớp vừa filter vừa animate hay bị tô ĐEN cả khối. Bóng chuyển
    xuống phần tử con TĨNH (svg/img) — giống .pkduo-gift-icon img vốn chạy tốt trên OBS. */
-/* Đĩa mũi tên tròn gọn (~40px) nên XOAY không lòi khỏi thanh cao 42px → OBS không cắt.
-   Đứng yên: xoay vòng tròn liên tục. Có quà: .gain-* ở board ghi đè bằng dash 1 nhịp (lao/đẩy). */
-.pkduo-bar em { position:absolute; left:var(--pk-a-width, 50%); top:50%; z-index:4; display:grid; place-items:center; width:44px; height:42px; font-style:normal; pointer-events:none; transform:translate(-50%,-50%); animation:pkDuoArrowSpin 2.6s linear infinite; }
+/* Mũi tên ĐỨNG YÊN tại ranh giới, chỉ theo hướng bên đang dẫn đẩy (flip trên svg con).
+   KHÔNG xoay vòng tròn. Có quà: .gain-* ở board ghi đè bằng dash 1 nhịp (lao/đẩy) rồi về yên. */
+.pkduo-bar em { position:absolute; left:var(--pk-a-width, 50%); top:50%; z-index:4; display:grid; place-items:center; width:44px; height:42px; font-style:normal; pointer-events:none; transform:translate(-50%,-50%); }
 /* Icon giữa nhúng INLINE (<svg>) thay vì <img src=*.svg> để gradient luôn render trên OBS. */
 .pkduo-bar em svg, .pkduo-bar em img { width:40px; height:auto; display:block; filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
 /* Hướng mũi tên (flip) đặt trên <svg> con → độc lập với vòng xoay của <em>; lúc dash ngừng xoay nên lộ đúng hướng. */
 .pkduo-bar em.flip svg, .pkduo-bar em.flip img { transform:scaleX(-1); }
 /* Lao tới (bên nhà vừa ghi điểm, đẩy ranh giới đi) / bị đẩy lùi — ngừng xoay, nhào 1 nhịp theo hướng đẩy. */
-.pkduo-board.gain-a .pkduo-bar em { animation:pkDuoArrowDashRight .6s ease-out; }
-.pkduo-board.gain-b .pkduo-bar em { animation:pkDuoArrowDashLeft .6s ease-out; }
+/* Dash 1 nhịp khi ghi điểm — animation-delay:0s để KHÔNG dính delay âm đồng bộ ở trên (kẻo dash bị tua qua mất). */
+.pkduo-board.gain-a .pkduo-bar em.arw-classic { animation:pkDuoArrowDashRight .6s ease-out; animation-delay:0s; }
+.pkduo-board.gain-b .pkduo-bar em.arw-classic { animation:pkDuoArrowDashLeft .6s ease-out; animation-delay:0s; }
 
-.pkduo-board.status-prestart .pkduo-head > span,
-.pkduo-board.urgent .pkduo-head > span { animation:pkDuoBlink .5s ease-in-out infinite; color:#fff1a6; }
+/* Prestart 3-2-1: SỐ to màu vàng + nảy (giống đếm lùi 9s cuối nhưng vàng, "vào trận"). */
+.pkduo-board.status-prestart:not(.single-layout) .pkduo-head > span { font-size:calc(var(--pk-text, 21px) * 1.9); color:#fff1a6; letter-spacing:0; }
+.pkduo-board.status-prestart:not(.single-layout) .pkduo-head > span b { display:inline-block; animation:pkDuoStartPop .6s ease-in-out infinite; }
 .pkduo-board.urgent { box-shadow:0 0 0 2px rgba(255,255,255,.15), 0 0 24px rgba(255,54,84,.45); }
+/* Board rực đỏ mạnh hơn ở 9s cuối để "sắp hết giờ" rõ ràng. */
+.pkduo-board.final-count { box-shadow:0 0 0 2px rgba(255,255,255,.18), 0 0 30px rgba(255,40,64,.62); }
+
+/* ===== ĐẾM LÙI KHẨN CẤP ===== */
+/* Giây 10: đồng hồ lắc lư báo hiệu. Bỏ filter khi animate (OBS/CEF tô đen phần tử vừa filter vừa animate). */
+.pkduo-board.tick10 .pkduo-time-icon { filter:none; transform-origin:50% 50%; animation:pkDuoClockWobble .34s ease-in-out infinite; }
+/* Giây 9→1: số to + chớp đỏ, căn giữa. Áp cho cả 2 bố cục (single: action-center; fixed: head span). */
+.pkduo-board.single-layout.final-count .pkduo-action-center,
+.pkduo-board:not(.single-layout).final-count .pkduo-head > span { font-size:calc(var(--pk-text, 21px) * 1.9); letter-spacing:0; }
+.pkduo-board.single-layout.final-count .pkduo-action-center b,
+.pkduo-board:not(.single-layout).final-count .pkduo-head > span b { display:inline-block; animation:pkDuoFinalPop .6s ease-in-out infinite; }
+@keyframes pkDuoClockWobble { 0%,100%{transform:rotate(-13deg)} 50%{transform:rotate(13deg)} }
+@keyframes pkDuoFinalPop {
+  0%,100%{ transform:scale(1); color:#ff4d4d; text-shadow:0 2px 6px rgba(0,0,0,.6), 0 0 14px rgba(255,60,60,.85); }
+  50%{ transform:scale(1.18); color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.6), 0 0 20px rgba(255,80,80,.98); }
+}
+@keyframes pkDuoStartPop {
+  0%,100%{ transform:scale(1); color:#fff1a6; text-shadow:0 2px 6px rgba(0,0,0,.6), 0 0 14px rgba(255,220,90,.8); }
+  50%{ transform:scale(1.18); color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.6), 0 0 20px rgba(255,235,140,.95); }
+}
+
+/* =====================================================================
+   SKIN MŨI TÊN — chọn qua config arrowStyle. Momentum/combo tính client-side.
+   classic (mặc định, đứng yên chỉ hướng) | core | rope | cannon.
+   Tất cả OBS-safe: transform/opacity/box-shadow + SVG con TĨNH có filter (không animate cùng element).
+   ===================================================================== */
+
+/* --- A. LÕI ĐỘNG LƯỢNG: quả cầu nghiêng theo momentum (--pk-mom), đuôi sao + quầng tô màu bên lên tay. --- */
+.pkduo-bar em.arw-core { transform:translate(calc(-50% + var(--pk-mom, 0) * 20px), -50%); overflow:visible; }
+.arw-core .pk-core-orb { position:relative; z-index:3; display:grid; place-items:center; width:34px; height:34px; }
+.arw-core .pk-core-orb svg { width:34px; height:34px; filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+.arw-core .pk-core-ring { position:absolute; left:50%; top:50%; width:38px; height:38px; border-radius:50%; transform:translate(-50%,-50%);
+  border:2px solid var(--pk-surge, #37d5ff); opacity:.8; z-index:2; pointer-events:none;
+  box-shadow:0 0 9px rgba(var(--pk-surge-rgb, 55,213,255),.55);
+  animation:pkCoreRing 2.4s ease-in-out infinite; animation-delay:var(--pk-champ-delay, 0s); }
+.arw-core.charge-c1 .pk-core-ring { box-shadow:0 0 13px rgba(var(--pk-surge-rgb, 55,213,255),.75); }
+.arw-core.charge-c2 .pk-core-ring { border-width:3px; box-shadow:0 0 19px var(--pk-surge); }
+.arw-core.charge-c3 .pk-core-ring { border-width:3px; box-shadow:0 0 27px var(--pk-surge), 0 0 40px rgba(var(--pk-surge-rgb, 55,213,255),.6); }
+.arw-core .pk-core-tail { position:absolute; top:50%; height:9px; width:calc(var(--pk-mom-abs, 0) * 48px); transform:translateY(-50%);
+  border-radius:6px; z-index:1; opacity:.9; pointer-events:none; }
+.arw-core.mom-a .pk-core-tail { left:50%; background:linear-gradient(90deg, var(--pk-surge, #37d5ff), transparent); }
+.arw-core.mom-b .pk-core-tail { right:50%; background:linear-gradient(270deg, var(--pk-surge, #37d5ff), transparent); }
+@keyframes pkCoreRing { 0%,100%{ opacity:.5; transform:translate(-50%,-50%) scale(.86); } 50%{ opacity:.95; transform:translate(-50%,-50%) scale(1.1); } }
+
+/* --- B. DÂY KÉO CO: sợi dây căng ngang cả thanh + nút thắt ở ranh giới; giật khi ghi điểm. --- */
+.pkduo-bar .pk-rope { position:absolute; left:0; right:0; top:50%; height:6px; transform:translateY(-50%); z-index:2; pointer-events:none;
+  background:repeating-linear-gradient(90deg, #cba063 0 7px, #8a682f 7px 14px); box-shadow:0 1px 2px rgba(0,0,0,.45); opacity:.92; }
+.pkduo-board.gain-a .pkduo-bar .pk-rope { animation:pkRopeYankR .42s ease-out; }
+.pkduo-board.gain-b .pkduo-bar .pk-rope { animation:pkRopeYankL .42s ease-out; }
+.arw-rope .pk-core-orb, .arw-rope svg { width:36px; height:36px; }
+.arw-rope svg { filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
+@keyframes pkRopeYankR { 0%{transform:translateY(-50%)} 30%{transform:translate(7px,-50%)} 100%{transform:translateY(-50%)} }
+@keyframes pkRopeYankL { 0%{transform:translateY(-50%)} 30%{transform:translate(-7px,-50%)} 100%{transform:translateY(-50%)} }
+
+/* --- C. PHÁO COMBO: nòng pháo chỉ hướng đẩy (flip svg như classic), quầng sạc theo combo, bắn đạn khi ghi điểm. --- */
+.pkduo-bar em.arw-cannon { overflow:visible; }
+.arw-cannon svg { filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
+.arw-cannon::after { content:''; position:absolute; left:50%; top:50%; width:42px; height:42px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:0; }
+.arw-cannon.charge-c1::after { box-shadow:0 0 14px 2px rgba(255,180,60,.5); }
+.arw-cannon.charge-c2::after { box-shadow:0 0 20px 3px rgba(255,140,40,.72); }
+.arw-cannon.charge-c3::after { box-shadow:0 0 28px 5px rgba(255,90,40,.85); animation:pkCannonPulse .5s ease-in-out infinite; }
+.arw-cannon .pk-shot { position:absolute; left:50%; top:50%; width:12px; height:12px; border-radius:50%; transform:translate(-50%,-50%) scale(0); opacity:0; z-index:4; pointer-events:none;
+  background:radial-gradient(circle, #fff 0, #ffd24d 45%, #ff8a2a 100%); box-shadow:0 0 10px rgba(255,180,60,.9); }
+.pkduo-board.gain-a .arw-cannon .pk-shot { animation:pkShotRight .5s ease-out; }
+.pkduo-board.gain-b .arw-cannon .pk-shot { animation:pkShotLeft .5s ease-out; }
+@keyframes pkCannonPulse { 0%,100%{opacity:.72} 50%{opacity:1} }
+@keyframes pkShotRight { 0%{opacity:1;transform:translate(-50%,-50%) scale(.6)} 100%{opacity:0;transform:translate(calc(-50% + 130px),-50%) scale(1.25)} }
+@keyframes pkShotLeft { 0%{opacity:1;transform:translate(-50%,-50%) scale(.6)} 100%{opacity:0;transform:translate(calc(-50% - 130px),-50%) scale(1.25)} }
+
+/* --- Trạng thái trận (mọi skin): áp đảo → sóng chevron rực hơn. Lội ngược dòng đã thể hiện qua màu lõi/đuôi đảo bên. --- */
+.pkduo-bar.blowout.lead-a::after, .pkduo-bar.blowout.lead-b::after { opacity:.62; }
+
+/* ===== Viền avatar Creator BÊN ĐANG DẪN phát sáng theo màu đội (đồng bộ đồng hồ để không giật khi dựng lại). ===== */
+.pkduo-board.lead-a .pkduo-creator.left img,
+.pkduo-board.lead-b .pkduo-creator.right img { animation:pkDuoLeadGlow 2.4s ease-in-out infinite; animation-delay:var(--pk-champ-delay, 0s); }
+.pkduo-board.lead-a .pkduo-creator.left i,
+/* OBS-safe: bỏ lớp halo color-mix(currentColor,...) — giữ lớp currentColor đặc nên vẫn phát sáng,
+   tránh việc CEF cũ làm RỚT CẢ text-shadow/box-shadow (mất luôn bóng đen giúp đọc chữ). */
+.pkduo-board.lead-b .pkduo-creator.right i { text-shadow:0 2px 7px rgba(0,0,0,.95), 0 0 14px currentColor, 0 0 22px currentColor; }
+@keyframes pkDuoLeadGlow {
+  0%,100%{ box-shadow:0 0 0 2px currentColor, 0 0 7px currentColor; }
+  50%{ box-shadow:0 0 0 2px currentColor, 0 0 16px currentColor; }
+}
+
+/* ===== Chip "‹ Vòng N ›" — nền pill mờ tách khỏi nền video (chỉ bố cục CHỌN PHE). ===== */
+.pkduo-board.single-layout .pkduo-round { padding:3px 13px; border-radius:999px; background:rgba(8,10,16,.34); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14), 0 2px 6px rgba(0,0,0,.3); }
+
+/* ===== Tên MVP (người tặng top1) — nameplate mờ đè đáy avatar, bật qua config championNames. ===== */
+.pkduo-champ-name { position:absolute; left:50%; bottom:-4px; transform:translateX(-50%); z-index:6;
+  max-width:104px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:11px; font-weight:800; font-style:normal; line-height:1.35; letter-spacing:.01em; color:#fff;
+  background:rgba(6,8,14,.74); padding:0 7px; border-radius:999px;
+  box-shadow:0 1px 4px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.12); text-shadow:0 1px 2px rgba(0,0,0,.95); }
 
 .pkduo-board.status-grace .pkduo-head > span { font-size:calc(var(--pk-text, 21px) * .88); letter-spacing:-.03em; color:#fff; }
 .pkduo-board.status-finished .pkduo-head > span { color:#a7ffd1; font-size:calc(var(--pk-text, 21px) * 1.18); text-shadow:0 2px 4px rgba(0,0,0,.5), 0 0 12px rgba(52,211,153,.45); }
@@ -202,8 +298,8 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkduo-champ-side { position:relative; display:flex; align-items:flex-end; gap:14px; min-width:0; }
 .pkduo-champ-side.left { flex-direction:row-reverse; justify-content:flex-start; }   /* top1 sát tâm (phải), top3 ngoài (trái) */
 .pkduo-champ-side.right { justify-content:flex-start; }                               /* top1 sát tâm (trái), top3 ngoài (phải) */
-.pkduo-champ-side.left .pkduo-champ { --cc:var(--pk-a, #FE2C55); }
-.pkduo-champ-side.right .pkduo-champ { --cc:var(--pk-b, #25F4EE); }
+.pkduo-champ-side.left .pkduo-champ { --cc:var(--pk-a, #FE2C55); --cc-rgb:var(--pk-a-rgb, 254,44,85); }
+.pkduo-champ-side.right .pkduo-champ { --cc:var(--pk-b, #25F4EE); --cc-rgb:var(--pk-b-rgb, 37,244,238); }
 
 /* KHÔNG will-change:transform — OBS (OSR/CEF) hay KHÔNG vẽ nội dung của layer bị promote
    (avatar <img> bên trong biến mất) → lộ nền tối = ô ĐEN. Bỏ đi thì avatar render bình thường. */
@@ -214,7 +310,7 @@ body { display:flex; justify-content:center; align-items:center; }
    khối bị cắt-bo-góc bằng overflow → ô rỗng/đen. Bo tròn TRỰC TIẾP trên <img> (giống
    .pkduo-creator img đang chạy tốt trên OBS) thì ảnh render đúng. */
 .pkduo-champ-ava { position:relative; display:block; width:50px; height:50px; border-radius:50%; border:3px solid var(--cc); background:#fff url('/logo.png') center/72% no-repeat;
-  box-shadow:0 3px 9px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.14), 0 0 10px color-mix(in srgb, var(--cc), transparent 55%); }
+  box-shadow:0 3px 9px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.14), 0 0 10px rgba(var(--cc-rgb, 254,44,85),.45); }
 .pkduo-champ-ava img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; background:transparent; }
 /* Bậc thứ hạng: TOP1 lớn nhất và nhô cao (kiểu bục vinh danh), TOP3 nhỏ nhất */
 /* TOP 1/2/3 CÙNG cỡ avatar (72px); trạng thái giữ nguyên: TOP1 vẫn vương miện + quầng sáng + viền vàng */
@@ -236,9 +332,9 @@ body { display:flex; justify-content:center; align-items:center; }
   transform-origin:50% 90%; animation:pkDuoCrownFloat 2.4s ease-in-out infinite; animation-delay:var(--pk-champ-delay,0s); }
 
 /* MVP: quầng sáng nhịp quanh avatar để "nổi bật" rõ nhất bên nào */
-.pkduo-champ.mvp .pkduo-champ-ava { border-color:#ffd75a; box-shadow:0 3px 10px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.2), 0 0 14px color-mix(in srgb, var(--cc), transparent 30%); }
+.pkduo-champ.mvp .pkduo-champ-ava { border-color:#ffd75a; box-shadow:0 3px 10px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.2), 0 0 14px rgba(var(--cc-rgb, 254,44,85),.7); }
 .pkduo-champ.mvp::after { content:''; position:absolute; left:50%; bottom:-4px; width:80px; height:80px; border-radius:50%; transform:translateX(-50%);
-  pointer-events:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--cc), transparent 20%), 0 0 16px 2px color-mix(in srgb, var(--cc), transparent 40%);
+  pointer-events:none; box-shadow:0 0 0 2px rgba(var(--cc-rgb, 254,44,85),.8), 0 0 16px 2px rgba(var(--cc-rgb, 254,44,85),.6);
   animation:pkDuoMvpRing 1.9s ease-in-out infinite; animation-delay:var(--pk-champ-delay,0s); }
 
 /* Đổi MVP: bật nảy + vương miện xoay 1 nhịp (chỉ ở render phát hiện đổi) */
@@ -252,3 +348,62 @@ body { display:flex; justify-content:center; align-items:center; }
 @keyframes pkDuoChampSwap { 0%{transform:scale(1)} 22%{transform:scale(1.32) translateY(-4px)} 55%{transform:scale(.96)} 100%{transform:scale(1)} }
 @keyframes pkDuoCrownSwap { 0%{transform:translateX(-50%) rotate(-8deg) scale(.4);opacity:0} 40%{transform:translateX(-50%) rotate(14deg) scale(1.35);opacity:1} 70%{transform:translateX(-50%) rotate(-14deg) scale(1.1)} 100%{transform:translateX(-50%) rotate(-8deg) scale(1)} }
 @keyframes pkDuoChampEnter { 0%{opacity:0;transform:scale(.3) translateY(8px)} 60%{opacity:1;transform:scale(1.15)} 100%{opacity:1;transform:scale(1)} }
+
+/* ============================================================
+   BỐ CỤC CHỌN PHE (single-layout) — chỉ 1 icon quà mỗi bên.
+   Head:   [Avatar+tên Creator A] · ‹ Vòng N › · [tên+Avatar Creator B]
+   Action: [icon quà + avatar người tặng A] · [đếm lùi/KẾT THÚC] · [avatar người tặng B + icon quà]
+           WIN/LOSE đè lên cụm avatar+tên người tặng mỗi bên.
+   Bar máu giữ nguyên; dưới cùng chỉ còn huy hiệu chuỗi WIN.
+   ============================================================ */
+/* Chip ‹ Vòng N › ở giữa head — không nhấp nháy như đồng hồ (đồng hồ đã chuyển xuống action). */
+.pkduo-board.single-layout .pkduo-round { display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
+  font-size:calc(var(--pk-text, 21px) * 1.02); font-weight:950; letter-spacing:.02em; color:#fff; }
+.pkduo-board.single-layout .pkduo-round .chev { font-style:normal; color:#ffd75a; font-size:calc(var(--pk-text, 21px) * 1.2); line-height:1; text-shadow:0 2px 4px rgba(0,0,0,.6); }
+.pkduo-board.single-layout .pkduo-round b { font:inherit; color:inherit; text-shadow:0 2px 6px rgba(0,0,0,.85); }
+/* Head giữ tĩnh trong single-layout: mọi hiệu ứng nhấp nháy/đổi màu theo trạng thái nằm ở action-center. */
+.pkduo-board.single-layout.status-prestart .pkduo-head > span,
+.pkduo-board.single-layout.urgent .pkduo-head > span,
+.pkduo-board.single-layout.status-grace .pkduo-head > span,
+.pkduo-board.single-layout.status-finished .pkduo-head > span { animation:none; color:#fff; font-size:inherit; letter-spacing:.02em; text-shadow:none; }
+
+/* Bỏ tab "CHIẾN THẦN PK" ở chế độ CHỌN PHE → gọn; head bám sát mép trên bo góc board. */
+.pkduo-board.single-layout .pkduo-head { padding:11px 20px 6px; }
+/* Hàng hành động: quà + người tặng hai bên, đồng hồ/KẾT THÚC ở giữa. */
+.pkduo-action { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; padding:8px 18px 12px; }
+.pkduo-action-side { position:relative; display:flex; align-items:center; gap:10px; min-width:0; min-height:64px; }
+.pkduo-action-side.left { justify-content:flex-start; }        /* icon quà sát mép trái, cụm avatar dồn vào tâm */
+.pkduo-action-side.right { justify-content:flex-end; }         /* icon quà sát mép phải */
+.pkduo-action-side.left .pkduo-champ { --cc:var(--pk-a, #FE2C55); --cc-rgb:var(--pk-a-rgb, 254,44,85); }
+.pkduo-action-side.right .pkduo-champ { --cc:var(--pk-b, #25F4EE); --cc-rgb:var(--pk-b-rgb, 37,244,238); }
+/* icon quà kích hoạt của phe — đóng khung tròn nhẹ cho nổi trên nền board */
+.pkduo-action-gift { flex:0 0 auto; display:grid; place-items:center; }
+.pkduo-action-gift .pkduo-gift-icon { filter:drop-shadow(0 3px 6px rgba(0,0,0,.55)); }
+/* cụm avatar người tặng — trái đảo chiều để TOP1 (MVP) sát tâm, TOP3 ra ngoài */
+.pkduo-action-champs { display:flex; align-items:flex-end; gap:12px; min-width:0; }
+.pkduo-action-side.left .pkduo-action-champs { flex-direction:row-reverse; margin-right:auto; }
+.pkduo-action-side.right .pkduo-action-champs { margin-left:auto; }
+/* Avatar người tặng trong hàng action nhỏ gọn hơn băng vinh danh dưới cùng (72px) → 46px, MVP 54px. */
+.pkduo-action .pkduo-champ .pkduo-champ-ava { width:46px; height:46px; border-width:3px; }
+.pkduo-action .pkduo-champ.r1 .pkduo-champ-ava { width:54px; height:54px; border-width:4px; }
+.pkduo-action .pkduo-champ-crown { font-size:20px; top:-15px; }
+.pkduo-action .pkduo-champ.mvp::after { width:60px; height:60px; bottom:-3px; }
+.pkduo-action .pkduo-champ-rank { min-width:18px; height:18px; font-size:11px; }
+/* WIN/LOSE đè lên cụm người tặng mỗi bên — nổi HẲN lên trên avatar (z cao) + nền mờ để đọc rõ. */
+.pkduo-action-side .pkduo-result { z-index:9; font-size:40px; letter-spacing:.04em; }
+.pkduo-action-side .pkduo-result::before { inset:6px 6px; border-radius:14px; background:radial-gradient(120% 100% at 50% 50%, rgba(6,8,14,.7), rgba(6,8,14,.28) 62%, transparent); filter:none; }
+
+/* Đồng hồ đếm lùi / KẾT THÚC ở giữa hàng action */
+.pkduo-action-center { display:inline-flex; align-items:center; justify-content:center; gap:9px; white-space:nowrap;
+  min-width:96px; padding:0 6px; font-size:calc(var(--pk-text, 21px) * 1.3); font-weight:950; letter-spacing:-.01em; }
+.pkduo-action-center b { font:inherit; color:inherit; }
+.pkduo-board.single-layout.status-prestart .pkduo-action-center { font-size:calc(var(--pk-text, 21px) * 1.9); color:#fff1a6; }
+.pkduo-board.single-layout.status-prestart .pkduo-action-center b { display:inline-block; animation:pkDuoStartPop .6s ease-in-out infinite; }
+.pkduo-board.single-layout.status-grace .pkduo-action-center { font-size:calc(var(--pk-text, 21px) * .92); letter-spacing:-.03em; color:#fff; }
+.pkduo-board.single-layout.status-finished .pkduo-action-center { color:#a7ffd1; font-size:calc(var(--pk-text, 21px) * 1.24); text-shadow:0 2px 4px rgba(0,0,0,.5), 0 0 12px rgba(52,211,153,.45); }
+
+/* Băng dưới cùng khi CHỌN PHE chỉ còn huy hiệu chuỗi WIN → thấp gọn, canh giữa theo chiều dọc. */
+.pkduo-champs.streak-only { height:auto; min-height:0; grid-template-columns:1fr 92px 1fr; align-items:center; padding:6px 16px 8px; }
+.pkduo-champs.streak-only .pkduo-champ-side { align-items:center; }
+.pkduo-champs.streak-only .pkduo-champ-side.left { justify-content:flex-start; }
+.pkduo-champs.streak-only .pkduo-champ-side.right { justify-content:flex-end; }

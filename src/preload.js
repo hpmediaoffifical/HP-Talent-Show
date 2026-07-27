@@ -132,6 +132,19 @@ const api = {
     getFxUrl: () => ipcRenderer.invoke('cardflip:getFxUrl'),
   },
 
+  // ===== NHẠC DANCE · Video overlay =====
+  dancevideo: {
+    getState: () => ipcRenderer.invoke('dancevideo:getState'),
+    getConfig: () => ipcRenderer.invoke('dancevideo:getConfig'),
+    setConfig: (cfg) => ipcRenderer.invoke('dancevideo:setConfig', cfg),
+    play: (cmd) => ipcRenderer.invoke('dancevideo:play', cmd),
+    stopMain: () => ipcRenderer.invoke('dancevideo:stopMain'),
+    playBackground: (cmd) => ipcRenderer.invoke('dancevideo:playBackground', cmd),
+    stopBackground: () => ipcRenderer.invoke('dancevideo:stopBackground'),
+    stopAll: () => ipcRenderer.invoke('dancevideo:stopAll'),
+    getUrl: () => ipcRenderer.invoke('dancevideo:getUrl'),
+  },
+
   // ===== Match history (LỊCH SỬ trận đấu) =====
   history: {
     list: (filter) => ipcRenderer.invoke('history:list', filter),
@@ -227,7 +240,7 @@ const api = {
     const allowed = new Set([
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
-      'pkduo:state', 'pkduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'missiontrio:state', 'cardflip:state',
+      'pkduo:state', 'pkduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'missiontrio:state', 'cardflip:state', 'dancevideo:ended',
       'history:changed',
       'log',
     ]);
@@ -242,6 +255,7 @@ const api = {
     copyText: (text) => ipcRenderer.invoke('shell:copyText', text),
     pickAudio: () => ipcRenderer.invoke('shell:pickAudio'),
     pickAudios: () => ipcRenderer.invoke('shell:pickAudios'),
+    pickVideos: () => ipcRenderer.invoke('shell:pickVideos'),
     prepareGiftDrag: (data) => ipcRenderer.invoke('shell:prepareGiftDrag', data),
     startGiftDrag: (file) => ipcRenderer.send('shell:startGiftDrag', file),
     confirm: (opts) => ipcRenderer.invoke('shell:confirm', opts),

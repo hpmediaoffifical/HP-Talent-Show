@@ -91,9 +91,10 @@ body:not(.overlay-review) {
   width: calc(var(--icon, 66px) * 1.32);
   padding: calc(var(--icon, 66px) * 0.5) 10px 8px;
   border-radius: 14px;
-  background: var(--sd-bg, rgba(43, 47, 58, .55));
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* KHÔNG backdrop-filter: OBS Browser Source nền trong suốt → CEF tô backdrop thành ĐEN ĐẶC
+     (panel bị đen sì trên OBS dù ở web trong suốt). Bỏ blur, tăng nhẹ độ đục của nền xám để
+     panel vẫn "mờ khối" mà không cần blur → an toàn mọi phiên bản CEF của OBS. */
+  background: var(--sd-bg, rgba(43, 47, 58, .62));
   box-shadow: 0 4px 14px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .08);
   display: flex;
   align-items: center;

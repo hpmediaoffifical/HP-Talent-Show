@@ -8,6 +8,10 @@
     opts = opts || {};
     const STALE = opts.staleMs || 12000; // ~2 nhịp heartbeat lỡ ⇒ coi như kẹt
     let es = null, lastAt = Date.now(), lastPayload = '', closed = false, reconnecting = false;
+    // Phiên bản app lúc trang được tải. Khi server phát __ver KHÁC (sau khi cập nhật app) ⇒ tự reload
+    // MỘT LẦN để lấy CSS/JS mới (server trả no-store nên reload = bản mới), KHỎI bấm Refresh/Reset trong OBS.
+    // Giữ ở scope ngoài open() để sống qua các lần reconnect ⇒ chỉ reload khi ĐỔI version, không phải mỗi reconnect.
+    let loadedVer = null;
 
     function bump() { lastAt = Date.now(); }
     function open() {
@@ -16,6 +20,13 @@
       try { es = new EventSource(path); }
       catch (_) { return schedule(1500); }
       es.addEventListener('open', bump);
+      es.addEventListener('__ver', function (e) {
+        bump();
+        const v = String(e.data || '');
+        if (!v) return;                       // server không gửi version ⇒ tính năng tắt, không đụng gì
+        if (loadedVer === null) { loadedVer = v; return; } // lần đầu = phiên bản đang chạy
+        if (v !== loadedVer) { loadedVer = v; try { location.reload(); } catch (_) {} }
+      });
       es.addEventListener(eventName, function (e) {
         bump();
         const payload = e.data || '{}';

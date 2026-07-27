@@ -28,7 +28,7 @@ body { display:flex; align-items:center; justify-content:center; min-height:100v
 .mt-fill {
   position:absolute; z-index:1; inset:0 auto 0 0; width:0; overflow:hidden;
   border-radius:999px;
-  background:var(--mt-fill, linear-gradient(90deg, color-mix(in srgb, #ff8ed1, transparent 84%) 0%, color-mix(in srgb, #ff8ed1, transparent 42%) 26%, #ff8ed1 56%, #ff2f87 100%));
+  background:var(--mt-fill, linear-gradient(90deg, rgba(255,142,209,.16) 0%, rgba(255,142,209,.58) 26%, #ff8ed1 56%, #ff2f87 100%));
   box-shadow:inset -14px 0 22px -8px rgba(255,255,255,.30), inset 0 1px 0 rgba(255,255,255,.26), 0 0 16px rgba(255,91,174,.5);
   transition:width .3s ease-out, background .38s ease;
 }
