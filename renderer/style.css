@@ -542,6 +542,10 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .update-notes-title { margin-top:11px; font-size:11px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--tt-ink-2); }
 .update-notes { margin-top:5px; font-size:13px; line-height:1.55; color:var(--tt-ink); white-space:pre-wrap; max-height:230px; overflow:auto; }
 .update-card #updateStatus { margin-top:12px; }
+/* Thanh tiến độ tải bản cập nhật */
+.update-progress { position:relative; margin-top:9px; height:16px; border-radius:999px; background:rgba(254,44,85,.12); border:1px solid rgba(254,44,85,.22); overflow:hidden; }
+.update-progress-bar { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,var(--tt-pink,#fe2c55),#ff6a8b); transition:width .18s ease; }
+.update-progress-pct { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#7a1730; text-shadow:0 1px 0 rgba(255,255,255,.6); }
 
 /* Settings use native disclosure so secondary tools do not dominate the page. */
 .card.settings-card { padding:0; overflow:hidden; }

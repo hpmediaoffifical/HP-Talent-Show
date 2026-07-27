@@ -386,9 +386,34 @@ async function downloadAndInstallUpdate(downloadUrl, assetName = '') {
   fs.mkdirSync(dir, { recursive: true });
   const safeName = String(assetName || path.basename(new URL(downloadUrl).pathname) || 'HP-GROUP-LIVE-Setup.exe').replace(/[\\/:*?"<>|]/g, '_');
   const file = path.join(dir, safeName);
-  const res = await fetch(downloadUrl, { headers: { 'User-Agent': 'HP GROUP LIVE' } });
-  if (!res.ok) throw new Error('Không tải được bản cập nhật HTTP ' + res.status);
-  fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+  const tmp = file + '.part';
+  // fetch (undici) tự theo chuỗi redirect (github.com → release-assets.githubusercontent.com).
+  const res = await fetch(downloadUrl, { headers: { 'User-Agent': 'HP GROUP LIVE' }, redirect: 'follow' });
+  if (!res.ok || !res.body) throw new Error('Không tải được bản cập nhật HTTP ' + res.status);
+  const total = Number(res.headers.get('content-length')) || 0;
+  const sendProgress = (received, pct) => { try { win?.webContents?.send('updates:progress', { received, total, pct }); } catch {} };
+  // Tải theo LUỒNG ghi thẳng ra đĩa (không buffer cả file vào RAM) + báo tiến độ % cho renderer.
+  const { once } = require('events');
+  const out = fs.createWriteStream(tmp);
+  let received = 0, lastPct = -1, lastAt = 0;
+  sendProgress(0, 0);
+  try {
+    for await (const chunk of res.body) {
+      received += chunk.length;
+      if (!out.write(chunk)) await once(out, 'drain');
+      const pct = total ? Math.floor(received / total * 100) : 0;
+      const now = Date.now();
+      if (pct !== lastPct && now - lastAt >= 120) { lastPct = pct; lastAt = now; sendProgress(received, pct); }
+    }
+    out.end();
+    await once(out, 'finish');
+  } catch (e) {
+    out.destroy();
+    try { fs.unlinkSync(tmp); } catch {}
+    throw new Error('Tải bản cập nhật bị gián đoạn: ' + (e.message || e));
+  }
+  fs.renameSync(tmp, file);
+  sendProgress(total || received, 100);
   await shell.openPath(file);
   setTimeout(() => app.quit(), 1200);
   return { ok: true, file };

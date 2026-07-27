@@ -235,6 +235,12 @@ const api = {
   updates: {
     check: () => ipcRenderer.invoke('updates:check'),
     install: (info) => ipcRenderer.invoke('updates:install', info),
+    // Tiến độ tải bản cập nhật (received/total/pct) → renderer vẽ thanh %.
+    onProgress: (cb) => {
+      const h = (_e, d) => { try { cb(d); } catch {} };
+      ipcRenderer.on('updates:progress', h);
+      return () => ipcRenderer.removeListener('updates:progress', h);
+    },
   },
 
   app: {

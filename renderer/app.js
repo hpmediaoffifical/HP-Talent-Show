@@ -4152,15 +4152,30 @@ async function installLatestUpdate() {
   if (!latestUpdateInfo) await checkForUpdate(true);
   if (!latestUpdateInfo?.hasUpdate) return;
   $('#btnInstallUpdate').disabled = true;
+  const prog = $('#updateProgress'), bar = $('#updateProgressBar'), pctEl = $('#updateProgressPct');
+  const mb = b => (Number(b) / 1048576).toFixed(0);
+  const setBar = (pct) => { if (bar) bar.style.width = `${pct}%`; if (pctEl) pctEl.textContent = `${pct}%`; };
+  if (prog) prog.hidden = false;
+  setBar(0);
   $('#updateStatus').textContent = 'Đang tải bản cập nhật, vui lòng chờ...';
+  const off = window.api.updates.onProgress?.(({ received, total, pct }) => {
+    setBar(pct || 0);
+    $('#updateStatus').textContent = total
+      ? `Đang tải: ${pct}% (${mb(received)}/${mb(total)} MB)`
+      : `Đang tải: ${mb(received)} MB...`;
+  });
   try {
     await window.api.updates.install(latestUpdateInfo);
-    $('#updateStatus').textContent = 'Đã mở installer. Ứng dụng sẽ tự đóng để cập nhật.';
+    setBar(100);
+    $('#updateStatus').textContent = 'Đã tải xong — đang mở installer, ứng dụng sẽ tự đóng để cập nhật.';
   } catch (e) {
     $('#btnInstallUpdate').disabled = false;
+    if (prog) prog.hidden = true;
     const msg = e.message || String(e);
     $('#updateStatus').textContent = `Cập nhật thất bại: ${msg}`;
     toast(msg, 'error');
+  } finally {
+    if (typeof off === 'function') off();
   }
 }
 
