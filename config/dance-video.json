@@ -1,0 +1,8 @@
+{
+  "overlays": [
+    { "id": "webm1", "name": "WEBM 1" },
+    { "id": "webm2", "name": "WEBM 2" },
+    { "id": "webm3", "name": "WEBM 3" }
+  ],
+  "maxClipSec": 90
+}

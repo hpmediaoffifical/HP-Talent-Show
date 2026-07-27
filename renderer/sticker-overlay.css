@@ -207,24 +207,46 @@ body:not(.overlay-review) {
   z-index: 1;
 }
 
-/* Nhãn = chip bo tròn liền mạch. KHÔNG dùng overflow:hidden (sẽ cắt text-shadow
-   thành vệt dọc ở đầu/cuối chữ); để text tự do + padding cân 2 bên. */
+/* Nhãn = chip bo tròn. Chip TỰ ÔM nội dung (width:fit-content) và KHÔNG BAO GIỜ rộng quá
+   1 ô (max-width:100% = bề ngang ô) → tên dài không lòi sang ô bên cạnh.
+   Người dùng gõ Enter để xuống dòng → MỖI hàng là 1 .sd-lrow (luôn tôn trọng). Hàng nào DÀI
+   hơn khung sẽ tự CHẠY ngang (scroll) hoặc cắt "…" (clip) tuỳ chế độ data-label-long. */
 .sd-label {
   margin-top: 8px;
-  display: inline-block;
-  max-width: calc(var(--icon, 66px) * 2.4);
-  padding: 3px 11px;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 4px 11px;
   font: 700 var(--text, 14px) / 1.25 'Inter', 'Segoe UI', sans-serif;
   color: #fff;
   text-align: center;
-  white-space: nowrap;
   background: rgba(18, 20, 28, .62);
   border-radius: 9px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, .28);
   text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
 }
+/* Mỗi hàng: khung riêng, cắt phần tràn. Hàng ngắn căn giữa; hàng dài xử lý theo chế độ. */
+.sd-lrow { max-width: 100%; overflow: hidden; }
+.sd-lrow + .sd-lrow { margin-top: 1px; }
+.sd-ltxt { display: inline-block; max-width: 100%; white-space: nowrap; }
 /* Nhãn ở TRÊN icon: cách icon một chút. */
 .sd-sticker .sd-label:first-child { margin-top: 0; margin-bottom: 8px; }
+
+/* --- CHẠY NGANG (mặc định): hàng nào rộng hơn khung → marquee (JS thêm .scroll + nhân đôi
+   nội dung để lặp liền mạch); hàng vừa khung vẫn đứng yên & căn giữa. Áp cho CẢ 2 hàng. --- */
+.sd-lrow .sd-ltrack { display: inline-flex; gap: var(--mq-gap, 0px); white-space: nowrap; }
+.sd-lrow.scroll { text-align: left; }
+.sd-lrow.scroll .sd-ltxt { max-width: none; }
+.sd-lrow.scroll .sd-ltrack { animation: sd-lmarquee var(--mq-dur, 10s) linear infinite; will-change: transform; }
+@keyframes sd-lmarquee { from { transform: translateX(0); } to { transform: translateX(calc(var(--mq-dist, 0px) * -1)); } }
+
+/* --- CẮT GỌN: hàng dài cắt kèm "…" (không chạy). --- */
+#stickerRoot[data-label-long="clip"] .sd-ltxt {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ===== NHÃN Ở TRÊN → ĐẢO NGƯỢC bố cục theo chiều dọc cho CÂN ĐỐI:
    tên (trên) · số đếm trong nền xám (giữa) · icon THÒ XUỐNG dưới mép nền — đối xứng với kiểu

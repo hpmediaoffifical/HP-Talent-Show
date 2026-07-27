@@ -45,6 +45,7 @@ const GIFT_MENU_PATH = path.join(CONFIG_DIR, 'gift-menu.json');
 const DANCE_VIDEO_PATH = path.join(CONFIG_DIR, 'dance-video.json');
 const GROUP_PROFILES_PATH = path.join(CONFIG_DIR, 'group-profiles.json');
 const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
+const RANKING_APPLY_LOG_PATH = path.join(CONFIG_DIR, 'ranking-apply-log.json');
 const KC_DATA_PATH = path.join(CONFIG_DIR, 'kc-data.json');
 const KC_MONTHS_PATH = path.join(CONFIG_DIR, 'kc-months.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
@@ -82,7 +83,31 @@ const APP_ICON = fs.existsSync(ICON_ICO) ? ICON_ICO : (fs.existsSync(ICON_PNG) ?
 
 let win = null;
 let isQuitting = false; // true khi app đang thoát theo chương trình → bỏ qua hộp thoại xác nhận đóng
+let quitPromptOpen = false; // true khi popup xác nhận thoát (renderer) đang mở → tránh gửi trùng
 let ttClient = null;
+
+// Dialog gốc — chỉ dùng khi renderer không hiển thị được popup đẹp (treo/đang tải/crash).
+function nativeQuitConfirm() {
+  if (!win || win.isDestroyed()) return;
+  const choice = dialog.showMessageBoxSync(win, {
+    type: 'warning',
+    buttons: ['Thoát hẳn', 'Hủy'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+    title: 'Thoát HP GROUP LIVE?',
+    message: 'Bạn có chắc muốn thoát ứng dụng?',
+    detail: 'Khi thoát, overlay OBS và các cửa sổ popup (Review) sẽ NGƯNG hoạt động.',
+  });
+  if (choice === 0) { isQuitting = true; app.quit(); }
+}
+
+// Kết quả popup thoát từ renderer: true = Thoát hẳn, false = Ở lại.
+ipcMain.on('app:confirmQuitResult', (_e, ok) => {
+  quitPromptOpen = false;
+  if (ok) { isQuitting = true; app.quit(); }
+  else if (win && !win.isDestroyed()) win.focus();
+});
 let overlayServer = null;
 let pkDuoEngine = null;
 let pkGroupEngine = null;
@@ -107,7 +132,18 @@ function loadJson(p, fallback) {
 }
 function saveJson(p, data) {
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf8');
+  const json = JSON.stringify(data, null, 2);
+  // Ghi NGUYÊN TỬ: ghi ra file tạm rồi đổi tên (rename thay thế nguyên tử trên Windows qua libuv).
+  // → crash/tắt máy/mất điện giữa chừng KHÔNG làm hỏng file cũ (chỉ mất lần ghi mới nhất).
+  const tmp = p + '.tmp';
+  try {
+    fs.writeFileSync(tmp, json, 'utf8');
+    fs.renameSync(tmp, p);
+  } catch {
+    // Dự phòng: rename lỗi (file bị khoá bởi antivirus/OneDrive…) → ghi thẳng (không tệ hơn cách cũ).
+    try { fs.writeFileSync(p, json, 'utf8'); } catch {}
+    try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+  }
 }
 function uid(prefix = '') {
   return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -630,6 +666,12 @@ function saveMatchHistory(list) {
 function appendMatchHistory(rec) {
   if (!rec) return;
   const entry = { id: uid('m_'), savedAt: Date.now(), ...rec };
+  // Trận này kết thúc khi đang BẬT Liên kết THI ĐẤU NHÓM? → điểm đã cộng LIVE (và có thể Chốt vòng).
+  // Ghi cờ để khi áp điểm từ Lịch sử sẽ CẢNH BÁO tránh cộng ĐÔI. (Toggle giữa trận là ca hiếm.)
+  try {
+    const links = getRankingLinks();
+    entry.liveLinked = entry.type === 'group' ? !!links.pkgroup : (entry.type === 'duo' ? !!links.pkduo : false);
+  } catch {}
   if (entry.type === 'group' && entry.groupId && !entry.groupName) {
     const g = (loadGroups() || []).find(x => x.id === entry.groupId);
     entry.groupName = g ? g.name : '';
@@ -656,6 +698,194 @@ function appendMatchHistory(rec) {
     } catch {}
   }
   broadcast('history:changed', entry);
+}
+
+// =================================================================
+// LIÊN KẾT ĐIỂM: cộng điểm 1 trận PK (Đôi/Nhóm) vào THI ĐẤU NHÓM.
+// Nguyên tắc an toàn:
+//  - Nguồn chuẩn = match-history (mỗi trận có id riêng).
+//  - Idempotent: trận đã áp (match.applied) thì KHÔNG cộng lần 2.
+//  - Có audit trail: mỗi Creator được cộng đều ghi gameplayHistory kèm matchId.
+//  - Hoàn tác được: match.applied.entries lưu đúng delta đã cộng cho từng Creator
+//    → khi hoàn tác chỉ việc trừ lại đúng số đó.
+// =================================================================
+function _normName(s) { return String(s || '').trim().toLowerCase(); }
+
+// Tìm Creator khớp cho 1 participant. Ưu tiên: chỉ định tay (mapping) → tiktokId → tên.
+function _resolveCreatorForParticipant(creators, participant, index, mapping) {
+  const forcedId = mapping ? (mapping[String(index)] ?? mapping[participant.tiktokId]) : null;
+  if (forcedId) {
+    const hit = creators.find(c => c.id === forcedId || c.tiktokId === forcedId);
+    if (hit) return hit;
+  }
+  const tik = _normName(participant.tiktokId);
+  if (tik) {
+    const hit = creators.find(c => _normName(c.tiktokId) === tik);
+    if (hit) return hit;
+  }
+  const nm = _normName(participant.name);
+  if (nm) {
+    const hit = creators.find(c => _normName(c.nickname) === nm || _normName(c.tiktokId) === nm);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// Cộng điểm trận vào contestPoints của Creator. mapping (tùy chọn, dùng cho PK Đôi):
+//   { "<chỉ số phe>": creatorId } hoặc { "<tiktokId>": creatorId }.
+function applyMatchPointsToRanking(matchId, mapping = {}) {
+  const list = loadMatchHistory();
+  const idx = list.findIndex(m => m.id === matchId);
+  if (idx < 0) return { ok: false, reason: 'not-found' };
+  const match = list[idx];
+  if (match.applied) return { ok: false, reason: 'already-applied' };
+  // ĐẢM BẢO chỉ cộng 1 lần: trận đã cộng điểm LIVE (Liên kết bật) thì KHÔNG cho áp tay nữa (chặn hẳn,
+  // không có tuỳ chọn ghi đè) → tuyệt đối không cộng đôi. Trên UI nút "Áp điểm" cũng bị ẩn cho trận này.
+  if (match.liveLinked) return { ok: false, reason: 'live-linked' };
+  const parts = Array.isArray(match.participants) ? match.participants : [];
+  const creators = loadCreators();
+  const now = Date.now();
+  const label = `${match.content || (match.type === 'duo' ? 'PK ĐÔI' : 'PK NHÓM')} • vòng ${match.roundNo || 1}`;
+  // Gom điểm theo creatorId (đề phòng 2 participant trỏ cùng 1 Creator).
+  const byCreator = new Map(); // creatorId -> { delta }
+  const unmatched = [];        // { name, score }
+  parts.forEach((p, i) => {
+    const score = Number(p.score) || 0;
+    const cr = _resolveCreatorForParticipant(creators, p, i, mapping);
+    if (!cr) { if (score !== 0) unmatched.push({ name: p.name || p.tiktokId || '?', score }); return; }
+    const cur = byCreator.get(cr.id) || { delta: 0 };
+    cur.delta += score;
+    byCreator.set(cr.id, cur);
+  });
+  if (byCreator.size === 0) return { ok: false, reason: 'no-match', unmatched };
+  const entries = []; // { creatorId, tiktokId, name, delta } — dùng để hoàn tác
+  for (const [cid, { delta }] of byCreator) {
+    const cIdx = creators.findIndex(c => c.id === cid);
+    if (cIdx < 0) continue;
+    const before = Number(creators[cIdx].contestPoints) || 0;
+    const after = Math.max(0, before + delta);
+    const realDelta = after - before;
+    const hist = Array.isArray(creators[cIdx].gameplayHistory) ? creators[cIdx].gameplayHistory : [];
+    creators[cIdx] = {
+      ...creators[cIdx],
+      contestPoints: after,
+      gameplayHistory: [{ at: now, before, delta: realDelta, after, label, matchId }, ...hist].slice(0, 30),
+    };
+    entries.push({ creatorId: cid, tiktokId: creators[cIdx].tiktokId || '', name: creators[cIdx].nickname || creators[cIdx].tiktokId || '', delta: realDelta });
+  }
+  saveCreators(creators);
+  match.applied = { at: now, entries };
+  list[idx] = match;
+  saveMatchHistory(list);
+  rankingEngine?._emit();
+  broadcast('history:changed', match);
+  return { ok: true, applied: entries, unmatched };
+}
+
+// Hoàn tác: trừ lại đúng số điểm đã cộng ở lần áp, xoá dấu match.applied.
+function unapplyMatchPointsFromRanking(matchId) {
+  const list = loadMatchHistory();
+  const idx = list.findIndex(m => m.id === matchId);
+  if (idx < 0) return { ok: false, reason: 'not-found' };
+  const match = list[idx];
+  if (!match.applied || !Array.isArray(match.applied.entries)) return { ok: false, reason: 'not-applied' };
+  const creators = loadCreators();
+  const now = Date.now();
+  const label = `Hoàn tác: ${match.content || (match.type === 'duo' ? 'PK ĐÔI' : 'PK NHÓM')} • vòng ${match.roundNo || 1}`;
+  for (const e of match.applied.entries) {
+    const cIdx = creators.findIndex(c => c.id === e.creatorId || (e.tiktokId && c.tiktokId === e.tiktokId));
+    if (cIdx < 0) continue;
+    const before = Number(creators[cIdx].contestPoints) || 0;
+    const after = Math.max(0, before - (Number(e.delta) || 0));
+    const realDelta = after - before;
+    const hist = Array.isArray(creators[cIdx].gameplayHistory) ? creators[cIdx].gameplayHistory : [];
+    creators[cIdx] = {
+      ...creators[cIdx],
+      contestPoints: after,
+      gameplayHistory: [{ at: now, before, delta: realDelta, after, label, matchId }, ...hist].slice(0, 30),
+    };
+  }
+  saveCreators(creators);
+  delete match.applied;
+  list[idx] = match;
+  saveMatchHistory(list);
+  rankingEngine?._emit();
+  broadcast('history:changed', match);
+  return { ok: true };
+}
+
+// =================================================================
+// SỔ ÁP ĐIỂM chung (Tính điểm / Đập Trứng·Dance / Chốt vòng) — mỗi lần áp là 1 "batch"
+// có id riêng, lưu bền vững để đối chiếu + hoàn tác chính xác từng lần, kể cả sau khi
+// khởi động lại. gameplayHistory của Creator cũng gắn applyId để soi lại.
+// =================================================================
+const APPLY_LOG_MAX = 500;
+function loadApplyLog() { const l = loadJson(RANKING_APPLY_LOG_PATH, []); return Array.isArray(l) ? l : []; }
+function saveApplyLog(list) { saveJson(RANKING_APPLY_LOG_PATH, (Array.isArray(list) ? list : []).slice(-APPLY_LOG_MAX)); }
+
+// Cộng 1 batch delta vào contestPoints nhiều Creator + ghi sổ. rawEntries: [{ creatorId, delta }].
+function applyDeltaBatchToCreators(rawEntries, { label, source }) {
+  const creators = loadCreators();
+  const now = Date.now();
+  const applyId = uid('ap_');
+  const byCreator = new Map();
+  for (const e of (rawEntries || [])) {
+    if (!e || !e.creatorId) continue;
+    byCreator.set(e.creatorId, (byCreator.get(e.creatorId) || 0) + (Number(e.delta) || 0));
+  }
+  const entries = [];
+  for (const [cid, delta] of byCreator) {
+    if (!delta) continue;
+    const cIdx = creators.findIndex(c => c.id === cid);
+    if (cIdx < 0) continue;
+    const before = Number(creators[cIdx].contestPoints) || 0;
+    const after = Math.max(0, before + delta);
+    const realDelta = after - before;
+    const hist = Array.isArray(creators[cIdx].gameplayHistory) ? creators[cIdx].gameplayHistory : [];
+    creators[cIdx] = {
+      ...creators[cIdx],
+      contestPoints: after,
+      gameplayHistory: [{ at: now, before, delta: realDelta, after, label, applyId }, ...hist].slice(0, 30),
+    };
+    entries.push({ creatorId: cid, tiktokId: creators[cIdx].tiktokId || '', name: creators[cIdx].nickname || creators[cIdx].tiktokId || '', delta: realDelta });
+  }
+  if (!entries.length) return { ok: false, reason: 'no-match' };
+  saveCreators(creators);
+  const log = loadApplyLog();
+  const batch = { id: applyId, at: now, source: source || 'manual', label: label || '', entries };
+  log.push(batch);
+  saveApplyLog(log);
+  rankingEngine?._emit();
+  return { ok: true, batch };
+}
+
+// Hoàn tác 1 batch: trừ lại đúng delta đã cộng, xoá batch khỏi sổ.
+function undoApplyBatch(applyId) {
+  const log = loadApplyLog();
+  const idx = log.findIndex(b => b.id === applyId);
+  if (idx < 0) return { ok: false, reason: 'not-found' };
+  const batch = log[idx];
+  const creators = loadCreators();
+  const now = Date.now();
+  const label = `Hoàn tác: ${batch.label || 'áp điểm'}`;
+  for (const e of (batch.entries || [])) {
+    const cIdx = creators.findIndex(c => c.id === e.creatorId || (e.tiktokId && c.tiktokId === e.tiktokId));
+    if (cIdx < 0) continue;
+    const before = Number(creators[cIdx].contestPoints) || 0;
+    const after = Math.max(0, before - (Number(e.delta) || 0));
+    const realDelta = after - before;
+    const hist = Array.isArray(creators[cIdx].gameplayHistory) ? creators[cIdx].gameplayHistory : [];
+    creators[cIdx] = {
+      ...creators[cIdx],
+      contestPoints: after,
+      gameplayHistory: [{ at: now, before, delta: realDelta, after, label, applyId }, ...hist].slice(0, 30),
+    };
+  }
+  saveCreators(creators);
+  log.splice(idx, 1);
+  saveApplyLog(log);
+  rankingEngine?._emit();
+  return { ok: true };
 }
 
 function pad2(n) { return String(n).padStart(2, '0'); }
@@ -942,11 +1172,13 @@ async function fetchGroupMonthly() {
 // Engines
 // =================================================================
 class PkDuoEngine {
-  constructor({ onState, onResult, getCreators, onConfigChange }) {
+  constructor({ onState, onResult, getCreators, onConfigChange, onRankingPoints }) {
     this.onState = onState;
     this.onResult = onResult;
     // Gọi khi engine tự sửa config (VD: cập nhật chuỗi WIN sau trận) → main lưu file + báo renderer.
     this.onConfigChange = typeof onConfigChange === 'function' ? onConfigChange : null;
+    // Liên kết THI ĐẤU NHÓM: mỗi quà quy về 1 phe có creatorId → cộng realtime cho Creator đó.
+    this.onRankingPoints = typeof onRankingPoints === 'function' ? onRankingPoints : null;
     // Lấy danh sách creator hiện tại để resolve avatar realtime (không đông cứng snapshot).
     this.getCreators = typeof getCreators === 'function' ? getCreators : () => [];
     this.config = {
@@ -956,6 +1188,7 @@ class PkDuoEngine {
       prepSec: 3,
       delaySec: 5,
       joinMode: false, // false = fixed by gift, true = chosen by first gift sent
+      linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm phe cho Creator
       pointsBy: 'diamond',
       content: 'PK ĐÔI',
       bgColor: '#000000',
@@ -1188,6 +1421,11 @@ class PkDuoEngine {
     if (side === 'A') this.state.scoreA += pts;
     else this.state.scoreB += pts;
     this._addGifter(side, ev, pts);
+    // Liên kết BXH: cộng realtime cho Creator gắn với phe này (nếu có).
+    if (this.config.linkRanking && this.onRankingPoints) {
+      const team = side === 'A' ? this.config.teamA : this.config.teamB;
+      if (team && team.creatorId) this.onRankingPoints(team.creatorId, pts, ev);
+    }
     this._emit();
   }
   _runTicker() {
@@ -1233,9 +1471,11 @@ class PkDuoEngine {
 }
 
 class PkGroupEngine {
-  constructor({ onState, onResult, getCreators }) {
+  constructor({ onState, onResult, getCreators, onRankingPoints }) {
     this.onState = onState;
     this.onResult = onResult;
+    // Liên kết THI ĐẤU NHÓM: mỗi quà quy về 1 participant (là Creator) → cộng realtime cho Creator đó.
+    this.onRankingPoints = typeof onRankingPoints === 'function' ? onRankingPoints : null;
     // Lấy danh sách creator hiện tại để resolve avatar realtime (không đông cứng snapshot).
     this.getCreators = typeof getCreators === 'function' ? getCreators : () => [];
     this.config = {
@@ -1243,6 +1483,7 @@ class PkGroupEngine {
       groupId: '',
       layoutMode: 'joined', // joined | separated
       playMode: 'fixed', // fixed | join
+      linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm participant cho Creator
       pointsBy: 'diamond',
       noteEnabled: false,
       noteText: 'Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy',
@@ -1439,6 +1680,10 @@ class PkGroupEngine {
     }
     if (!target) return;
     this.addPoints(target.id, pts);
+    // Liên kết BXH: cộng realtime cho Creator của participant này (nếu có).
+    if (this.config.linkRanking && this.onRankingPoints && (target.creatorId || target.id)) {
+      this.onRankingPoints(target.creatorId || target.id, pts, ev);
+    }
   }
   _finalizeRound() {
     if (this.state.resultHandled) return;
@@ -1556,14 +1801,21 @@ function resolveDiamond(ev) {
 // - performingId (ngoài rt): giftId DUY NHẤT đang biểu diễn (để phóng to icon). Chỉ 1 quà diễn một lúc
 //   nên lưu thẳng id thay vì bộ đếm +/- — tránh icon "kẹt to" khi lệch tín hiệu start/end.
 class StickerEngine {
-  constructor({ onState }) {
+  constructor({ onState, onRankingPoints, getCreators }) {
     this.onState = onState;
+    // Liên kết THI ĐẤU NHÓM: mỗi quà rơi vào ô có creatorId (hoặc quà = Quà mặc định của Creator)
+    // → cộng realtime cho Creator đó.
+    this.onRankingPoints = typeof onRankingPoints === 'function' ? onRankingPoints : null;
+    this.getCreators = typeof getCreators === 'function' ? getCreators : () => [];
     this.config = {
       content: 'STICKER DANCE',
+      linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm ô quà cho Creator gắn ô
       rows: 3,
       cols: 6,
       countMode: 'cumulative', // 'cumulative' (đếm tăng) | 'countdown' (đếm lùi = đang chờ biểu diễn)
       labelPos: 'bottom',      // 'top' | 'bottom'
+      labelLong: 'scroll',     // Hàng DÀI: 'scroll' (chạy ngang, mặc định) | 'clip' (cắt …). Enter = xuống dòng luôn được giữ.
+      labelScrollSpeed: 4,     // tốc độ chạy ngang khi labelLong='scroll' (1..10)
       cells: [],               // [{ row, col, giftId, giftName, icon, diamond, text }]
       bg: '#2b2f3a',
       bgOpacity: 55,
@@ -1647,6 +1899,18 @@ class StickerEngine {
         rt.received += rep;
         rt.points += dia * rep;
         matched = true;
+        // Liên kết BXH: cộng realtime cho Creator gắn ô này. Ưu tiên c.creatorId, không có thì
+        // suy ra từ Quà mặc định của Creator (đúng cách nút "👤 Creator" dựng danh sách).
+        if (this.config.linkRanking && this.onRankingPoints) {
+          let cid = c.creatorId;
+          if (!cid) {
+            const cr = (this.getCreators() || []).find(x =>
+              (x.defaultGiftId && String(x.defaultGiftId) === String(c.giftId || '')) ||
+              (x.defaultGiftName && _normName(x.defaultGiftName) === _normName(c.giftName)));
+            cid = cr && cr.id;
+          }
+          if (cid) this.onRankingPoints(cid, dia * rep, ev);
+        }
       }
     }
     if (matched) this._emit();
@@ -1715,6 +1979,8 @@ class StickerEngine {
       rows, cols,
       countMode: mode,
       labelPos: this.config.labelPos === 'top' ? 'top' : 'bottom',
+      labelLong: this.config.labelLong === 'clip' ? 'clip' : 'scroll',
+      labelScrollSpeed: Math.max(1, Math.min(10, Number(this.config.labelScrollSpeed) || 4)),
       cells,
       topGiftId: (this.config.enlargeTop !== false && topVal > 0) ? topGiftId : '',
       crownGiftId: (this.config.showCrown !== false && topVal > 0) ? topGiftId : '',
@@ -2005,9 +2271,33 @@ class RankingEngine {
   startRound() { this.round++; this.scores = {}; this._emit(); }
   setActive(id) { this.activeId = id; this._emit(); }
 
-  routeGift(ev) {
+  // Cộng điểm LIVE cho 1 Creator từ nguồn bên ngoài (trò chơi đang Liên kết THI ĐẤU NHÓM).
+  // Điểm vào cùng "scores" như quà mặc định → hiện realtime; Chốt vòng gom vào điểm chính thức.
+  addLivePoints(creatorId, points, ev = {}) {
+    let key = String(creatorId || '');
+    const pts = Number(points) || 0;
+    if (!key || !pts) return;
+    // Chế độ NHÓM: gom điểm theo NHÓM của Creator (khớp routeGift + overlay đọc scores[groupId]),
+    // nếu không điểm live của game Liên kết sẽ rơi vào key creatorId và không bao giờ hiện/chốt.
+    if (this.config.mode === 'group') {
+      const c = this.getCreators().find(x => String(x.id) === key);
+      key = c ? String(c.groupId || '_nogroup') : key;
+    }
+    if (!this.scores[key]) this.scores[key] = { points: 0, lastGiftId: '', lastGiftIcon: '', lastGiftName: '' };
+    this.scores[key].points += pts;
+    if (ev.giftId) this.scores[key].lastGiftId = String(ev.giftId || '');
+    if (ev.giftIcon) this.scores[key].lastGiftIcon = ev.giftIcon || '';
+    if (ev.giftName) this.scores[key].lastGiftName = ev.giftName || '';
+    this.activeId = key;
+    this._emit();
+  }
+
+  // suppressAuto=true: có trò chơi đang Liên kết → NGƯNG tự cộng theo quà mặc định (tránh cộng trùng).
+  // VOTE (chấm thủ công) vẫn hoạt động bình thường.
+  routeGift(ev, suppressAuto = false) {
     const creators = this.getCreators();
     const voted = this.config.mode === 'creator' ? creators.find(c => !!c.voteActive) : null;
+    if (suppressAuto && !voted) return;
     // Tắt ô "Quà" = ngưng TỰ cộng điểm theo quà mặc định. Vẫn cho VOTE (chấm thủ công) hoạt động,
     // vì khi có Creator đang VOTE mọi điểm được điều khiển có chủ đích, không phải auto theo quà.
     if (this.config.showGift === false && !voted) return;
@@ -2545,74 +2835,84 @@ class CardFlipEngine {
 //  - main: clip quà đang phát theo 🎬 Hàng đợi (renderer điều khiển; overlay báo phát xong qua playId).
 //  - bg:   danh sách clip "Chạy nền" (đè lên trên), overlay tự phát tuần tự nên không cần round-trip.
 // =================================================================
-const DANCE_VIDEO_DEFAULT = {
-  title: 'NHẠC DANCE',
-  defaultPos: 'full',   // full | center | tl | tr | bl | br
-  defaultSize: 60,      // % chiều rộng khung (khi KHÔNG toàn màn hình)
-  fit: 'contain',       // contain | cover
-  bgLoop: false,        // lớp nền: lặp lại danh sách hay phát 1 lần rồi tắt
-  maxClipSec: 90,       // trần thời lượng 1 clip (renderer dùng làm dự phòng nếu overlay rớt kết nối)
-};
-const DANCE_VIDEO_POS = ['full', 'center', 'tl', 'tr', 'bl', 'br'];
+// NHẠC DANCE có 3 overlay ĐỘC LẬP (mỗi cái 1 link OBS riêng, 1080×1920): WEBM 1 (video thường),
+// WEBM 2 (chạy nền), WEBM 3 (Biến Hình). Mỗi kênh có lớp main + nền riêng, chạy SONG SONG.
+const DANCE_CHANNELS = ['webm1', 'webm2', 'webm3'];
+const DANCE_OVERLAYS_DEFAULT = [
+  { id: 'webm1', name: 'WEBM 1' },
+  { id: 'webm2', name: 'WEBM 2' },
+  { id: 'webm3', name: 'WEBM 3' },
+];
+const DANCE_VIDEO_DEFAULT = { overlays: DANCE_OVERLAYS_DEFAULT.map(o => ({ ...o })), maxClipSec: 90 };
 class DanceVideoEngine {
   constructor({ onState }) {
-    this.onState = onState;
-    this.config = { ...DANCE_VIDEO_DEFAULT };
-    this._bgSeq = 0;
-    this.state = { main: null, bg: { seq: 0, clips: [] } };
+    this.onState = onState; // (channel, stateForOverlay)
+    this.config = { overlays: DANCE_OVERLAYS_DEFAULT.map(o => ({ ...o })), maxClipSec: 90 };
+    this._bgSeq = {};
+    this.state = {};
+    for (const ch of DANCE_CHANNELS) { this._bgSeq[ch] = 0; this.state[ch] = { main: null, bg: { seq: 0, clips: [] }, speed: 1 }; }
+  }
+  // Nhân tốc độ TẠM THỜI cho MỌI kênh (lớp main + nền) — dùng cho "Tốc độ theo quà". factor 0.25..3.
+  setSpeedAll(factor) {
+    let f = Number(factor); if (!Number.isFinite(f) || f <= 0) f = 1;
+    f = Math.max(0.25, Math.min(3, f));
+    for (const ch of DANCE_CHANNELS) this.state[ch].speed = f;
+    this.emitAll();
   }
   _int(v, dv, min, max) { let n = Math.round(Number(v)); if (!Number.isFinite(n)) n = dv; return Math.max(min, Math.min(max, n)); }
-  _pos(v, dv) { return DANCE_VIDEO_POS.includes(v) ? v : dv; }
-  _fit(v, dv) { return v === 'cover' || v === 'contain' ? v : dv; }
+  _ch(ch) { return DANCE_CHANNELS.includes(ch) ? ch : 'webm1'; }
   setConfig(patch) {
     patch = patch || {};
     const c = this.config;
+    const src = Array.isArray(patch.overlays) ? patch.overlays : c.overlays;
     this.config = {
-      title: patch.title != null ? String(patch.title).slice(0, 80) : c.title,
-      defaultPos: this._pos(patch.defaultPos, c.defaultPos),
-      defaultSize: patch.defaultSize != null ? this._int(patch.defaultSize, c.defaultSize, 5, 100) : c.defaultSize,
-      fit: this._fit(patch.fit, c.fit),
-      bgLoop: patch.bgLoop != null ? !!patch.bgLoop : c.bgLoop,
+      // Cố định đúng 3 kênh webm1/2/3, chỉ cho đổi TÊN.
+      overlays: DANCE_CHANNELS.map((id, i) => {
+        const found = (src || []).find(o => o && o.id === id) || {};
+        const name = String(found.name || `WEBM ${i + 1}`).slice(0, 40).trim() || `WEBM ${i + 1}`;
+        return { id, name };
+      }),
       maxClipSec: patch.maxClipSec != null ? this._int(patch.maxClipSec, c.maxClipSec, 5, 600) : c.maxClipSec,
     };
-    this._emit();
+    this.emitAll();
   }
-  // Chuẩn hoá vị trí/kích thước 1 lệnh: 'default'/thiếu → lấy theo config overlay.
+  // Mọi overlay đều 1080×1920 toàn màn hình → bỏ vị trí/kích thước; chỉ giữ âm lượng + tốc độ.
   _place(cmd) {
-    const pos = (!cmd.pos || cmd.pos === 'default') ? this.config.defaultPos : this._pos(cmd.pos, this.config.defaultPos);
-    const size = cmd.size == null ? this.config.defaultSize : this._int(cmd.size, this.config.defaultSize, 5, 100);
-    const fit = (!cmd.fit || cmd.fit === 'default') ? this.config.fit : this._fit(cmd.fit, this.config.fit);
     const volume = cmd.volume == null ? 100 : this._int(cmd.volume, 100, 0, 100);
-    return { pos, size, fit, volume };
+    let rate = Number(cmd.rate); if (!Number.isFinite(rate) || rate <= 0) rate = 1;
+    rate = Math.max(0.25, Math.min(3, rate));
+    return { pos: 'full', size: 100, fit: 'contain', volume, rate };
   }
-  // Lớp MAIN: đặt clip hiện tại (playId mới) cho overlay phát.
-  playMain(cmd) {
-    cmd = cmd || {};
+  // Lớp MAIN của 1 kênh: đặt clip hiện tại (playId mới) cho overlay phát.
+  playMain(ch, cmd) {
+    ch = this._ch(ch); cmd = cmd || {};
     if (!cmd.src || !cmd.playId) return;
     const p = this._place(cmd);
-    this.state.main = { playId: String(cmd.playId), src: String(cmd.src), ...p };
-    this._emit();
+    this.state[ch].main = { playId: String(cmd.playId), src: String(cmd.src), ...p };
+    this._emit(ch);
   }
   // Overlay báo clip main phát xong/lỗi → xoá main (khớp playId) để heartbeat không phát lại.
-  finishMain(playId) {
-    if (this.state.main && String(this.state.main.playId) === String(playId)) { this.state.main = null; this._emit(); return true; }
+  finishMain(ch, playId) {
+    ch = this._ch(ch);
+    if (this.state[ch].main && String(this.state[ch].main.playId) === String(playId)) { this.state[ch].main = null; this._emit(ch); return true; }
     return false;
   }
-  stopMain() { if (this.state.main) { this.state.main = null; this._emit(); } }
-  // Lớp NỀN: danh sách clip phát tuần tự, đè lên trên. seq tăng để overlay biết là lượt nền mới.
-  playBackground(cmd) {
-    cmd = cmd || {};
+  stopMain(ch) { ch = this._ch(ch); if (this.state[ch].main) { this.state[ch].main = null; this._emit(ch); } }
+  // Lớp NỀN của 1 kênh: danh sách clip phát tuần tự, đè lên trên. seq tăng = lượt nền mới.
+  playBackground(ch, cmd) {
+    ch = this._ch(ch); cmd = cmd || {};
     const clips = Array.isArray(cmd.clips) ? cmd.clips.map(x => String(x || '')).filter(Boolean) : [];
     if (!clips.length) return;
     const p = this._place(cmd);
-    const loop = cmd.loop != null ? !!cmd.loop : this.config.bgLoop;
-    this.state.bg = { seq: ++this._bgSeq, clips, loop, ...p };
-    this._emit();
+    const loop = !!cmd.loop;
+    this.state[ch].bg = { seq: ++this._bgSeq[ch], clips, loop, ...p };
+    this._emit(ch);
   }
-  stopBackground() { this.state.bg = { seq: 0, clips: [] }; this._emit(); }
-  stopAll() { this.state.main = null; this.state.bg = { seq: 0, clips: [] }; this._emit(); }
-  getStateForOverlay() { return { title: this.config.title, main: this.state.main, bg: this.state.bg, serverNow: Date.now() }; }
-  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+  stopBackground(ch) { ch = this._ch(ch); this.state[ch].bg = { seq: 0, clips: [] }; this._emit(ch); }
+  stopAll() { for (const ch of DANCE_CHANNELS) { this.state[ch] = { main: null, bg: { seq: 0, clips: [] }, speed: this.state[ch].speed || 1 }; } this.emitAll(); }
+  getStateForOverlay(ch) { ch = this._ch(ch); return { channel: ch, main: this.state[ch].main, bg: this.state[ch].bg, speed: this.state[ch].speed || 1, serverNow: Date.now() }; }
+  _emit(ch) { try { this.onState(this._ch(ch), this.getStateForOverlay(ch)); } catch {} }
+  emitAll() { for (const ch of DANCE_CHANNELS) this._emit(ch); }
 }
 
 // Score theme presets — port từ BIGO spec
@@ -2676,17 +2976,12 @@ function createWindow() {
   win.on('close', (e) => {
     if (isQuitting) return;
     e.preventDefault();
-    const choice = dialog.showMessageBoxSync(win, {
-      type: 'warning',
-      buttons: ['Thoát hẳn', 'Hủy'],
-      defaultId: 1,
-      cancelId: 1,
-      noLink: true,
-      title: 'Thoát HP GROUP LIVE?',
-      message: 'Bạn có chắc muốn thoát ứng dụng?',
-      detail: 'Khi thoát, overlay OBS và các cửa sổ popup (Review) sẽ NGƯNG hoạt động.',
-    });
-    if (choice === 0) { isQuitting = true; app.quit(); }
+    // Ưu tiên popup đẹp trong renderer (đồng bộ giao diện app); nếu renderer treo/đang tải → dialog gốc.
+    const wc = win?.webContents;
+    const canAsk = win && !win.isDestroyed() && wc && !wc.isCrashed() && !wc.isLoading();
+    if (!canAsk) return nativeQuitConfirm();
+    quitPromptOpen = true;
+    wc.send('app:confirmQuit');
   });
 
   if (process.argv.includes('--dev')) win.webContents.openDevTools({ mode: 'detach' });
@@ -2694,6 +2989,32 @@ function createWindow() {
 
 function broadcast(channel, data) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
+}
+
+// ===== Liên kết trò chơi → THI ĐẤU NHÓM (realtime) =====
+// Callback duy nhất các engine trò chơi gọi khi 1 quà quy về Creator có gắn (khi Liên kết BẬT).
+function rankingLivePoints(creatorId, points, ev) {
+  rankingEngine?.addLivePoints(creatorId, points, ev);
+}
+// Nguồn chuẩn của trạng thái Liên kết: settings.rankingLinks { pkduo, pkgroup, sticker }.
+function getRankingLinks() {
+  const l = (settings.rankingLinks && typeof settings.rankingLinks === 'object') ? settings.rankingLinks : {};
+  return { pkduo: !!l.pkduo, pkgroup: !!l.pkgroup, sticker: !!l.sticker };
+}
+// Đẩy cờ linkRanking xuống từng engine để routeGift biết có cộng realtime hay không.
+function applyRankingLinksToEngines() {
+  const l = getRankingLinks();
+  if (pkDuoEngine) pkDuoEngine.config.linkRanking = l.pkduo;
+  if (pkGroupEngine) pkGroupEngine.config.linkRanking = l.pkgroup;
+  if (stickerEngine) stickerEngine.config.linkRanking = l.sticker;
+}
+// Có nguồn Liên kết nào đang "sống" không → BXH ngưng tự cộng quà mặc định (tránh cộng trùng).
+// PK Đôi/Nhóm chỉ tính khi trận đang chạy; Đập Trứng/Dance tính bất cứ khi nào bật (bảng luôn nhận quà).
+function anyLinkedGiftSourceActive() {
+  const l = getRankingLinks();
+  const pkDuoRun = l.pkduo && ['prestart', 'running', 'grace'].includes(pkDuoEngine?.state?.status);
+  const pkGroupRun = l.pkgroup && ['prestart', 'running', 'grace'].includes(pkGroupEngine?.state?.status);
+  return !!(pkDuoRun || pkGroupRun || l.sticker);
 }
 
 function bootstrapEngines() {
@@ -2709,6 +3030,7 @@ function bootstrapEngines() {
       broadcast('pkduo:config', { teamA: pkDuoEngine.config.teamA, teamB: pkDuoEngine.config.teamB });
     },
     getCreators: loadCreators,
+    onRankingPoints: rankingLivePoints,
   });
   const savedPk = loadPkDuoConfig();
   if (savedPk) pkDuoEngine.setConfig(savedPk);
@@ -2719,6 +3041,7 @@ function bootstrapEngines() {
     },
     onResult: appendMatchHistory,
     getCreators: loadCreators,
+    onRankingPoints: rankingLivePoints,
   });
   const savedPkGroup = loadPkGroupConfig();
   if (savedPkGroup) pkGroupEngine.setConfig(savedPkGroup);
@@ -2744,9 +3067,13 @@ function bootstrapEngines() {
       overlayServer?.sendSticker(st);
       broadcast('stickerdance:state', st);
     },
+    onRankingPoints: rankingLivePoints,
+    getCreators: loadCreators,
   });
   const savedSticker = loadStickerConfig();
   if (savedSticker) stickerEngine.setConfig(savedSticker);
+  // Áp trạng thái Liên kết THI ĐẤU NHÓM đã lưu vào các engine (nguồn chuẩn = settings.rankingLinks).
+  applyRankingLinksToEngines();
   mvpHonorEngine = new MvpHonorEngine({
     onState: (st) => {
       overlayServer?.sendMvpHonor(st);
@@ -2780,7 +3107,7 @@ function bootstrapEngines() {
   });
   if (settings.cardFlip) cardFlipEngine.setConfig(settings.cardFlip);
   danceVideoEngine = new DanceVideoEngine({
-    onState: (st) => { overlayServer?.sendDanceVideo(st); },
+    onState: (ch, st) => { overlayServer?.sendDanceVideo(ch, st); },
   });
   const savedDanceVideo = loadDanceVideoConfig();
   if (savedDanceVideo) danceVideoEngine.setConfig(savedDanceVideo);
@@ -2797,7 +3124,7 @@ function bootstrapEngines() {
   luckyWheelEngine._emit();
   missionTrioEngine._emit();
   cardFlipEngine._emit();
-  danceVideoEngine._emit();
+  danceVideoEngine.emitAll();
   overlayServer?.sendGiftMenu(giftMenuConfig);
 }
 
@@ -2834,7 +3161,8 @@ function bootstrapTikTok() {
     if (d.shouldProcess) {
       pkDuoEngine?.routeGift(d);
       pkGroupEngine?.routeGift(d);
-      rankingEngine?.routeGift(d);
+      // Khi có trò chơi đang Liên kết → BXH ngưng tự cộng quà mặc định (điểm đến từ trò chơi).
+      rankingEngine?.routeGift(d, anyLinkedGiftSourceActive());
       scoreEngine?.routeGift(d);
       stickerEngine?.routeGift(d);
       missionTrioEngine?.routeGift(d);
@@ -2873,9 +3201,9 @@ async function bootstrapOverlay() {
       return cardFlipEngine.getStateForOverlay();
     },
     // Video NHẠC DANCE phát xong/lỗi trên overlay → xoá main + báo renderer để 🎬 Hàng đợi bước tiếp.
-    onDanceVideoEnded: (playId, layer) => {
-      if (layer === 'main') danceVideoEngine?.finishMain(playId);
-      broadcast('dancevideo:ended', { playId, layer });
+    onDanceVideoEnded: (ch, playId, layer) => {
+      if (layer === 'main') danceVideoEngine?.finishMain(ch, playId);
+      broadcast('dancevideo:ended', { channel: ch, playId, layer });
     },
     onLog: (m) => broadcast('log', { source: 'overlay', message: m }),
   });
@@ -3184,14 +3512,23 @@ function registerIpc() {
     return list.slice().sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0));
   });
   ipcMain.handle('history:clear', (_e, filter) => {
+    // Trả điểm về trước khi xoá, tránh mồ côi điểm đã cộng vào BXH.
+    const doomed = loadMatchHistory().filter(m => !filter || !filter.type || m.type === filter.type);
+    for (const m of doomed) { if (m.applied) { try { unapplyMatchPointsFromRanking(m.id); } catch {} } }
     if (filter && filter.type) saveMatchHistory(loadMatchHistory().filter(m => m.type !== filter.type));
     else saveMatchHistory([]);
     return true;
   });
   ipcMain.handle('history:remove', (_e, id) => {
-    saveMatchHistory(loadMatchHistory().filter(m => m.id !== id));
+    // Nếu trận đã áp điểm vào BXH → hoàn tác điểm trước rồi mới xoá.
+    const m = loadMatchHistory().find(x => x.id === id);
+    if (m && m.applied) { try { unapplyMatchPointsFromRanking(id); } catch {} }
+    saveMatchHistory(loadMatchHistory().filter(x => x.id !== id));
     return true;
   });
+  // Cộng điểm 1 trận PK vào THI ĐẤU NHÓM (contestPoints Creator). Idempotent + hoàn tác được.
+  ipcMain.handle('history:apply', (_e, { id, mapping } = {}) => applyMatchPointsToRanking(id, mapping || {}));
+  ipcMain.handle('history:unapply', (_e, id) => unapplyMatchPointsFromRanking(id));
   ipcMain.handle('history:export', async (_e, filter) => {
     let list = loadMatchHistory();
     if (filter && filter.type) list = list.filter(m => m.type === filter.type);
@@ -3247,6 +3584,60 @@ function registerIpc() {
   ipcMain.handle('ranking:getUrl', () => overlayServer.getRankingUrl());
   ipcMain.handle('ranking:getGridUrl', () => overlayServer.getRankingUrl() + '&grid=1');
 
+  // ===== Liên kết điểm mini-game → THI ĐẤU NHÓM (contestPoints), idempotent + hoàn tác =====
+  // 🎯 Tính điểm: cộng số điểm đạt được vào 1 Creator (thường là Creator đang VOTE).
+  ipcMain.handle('ranking:applyScore', (_e, { creatorId, points, label } = {}) => {
+    const pts = Number(points) || 0;
+    if (!creatorId || !pts) return { ok: false, reason: 'invalid' };
+    return applyDeltaBatchToCreators([{ creatorId, delta: pts }], { label: label || '🎯 Tính điểm', source: 'score' });
+  });
+  // 🥚 Đập Trứng / 🎵 NHẠC DANCE: map mỗi ô quà → Creator có defaultGiftId trùng, cộng điểm (kim cương) ô đó.
+  ipcMain.handle('ranking:applySticker', () => {
+    const st = stickerEngine?.getStateForOverlay();
+    const cells = (st?.cells || []).filter(c => (Number(c.points) || 0) > 0);
+    if (!cells.length) return { ok: false, reason: 'empty' };
+    const creators = loadCreators();
+    const raw = [];
+    const unmatched = [];
+    for (const c of cells) {
+      const cr = creators.find(x =>
+        (x.defaultGiftId && String(x.defaultGiftId) === String(c.giftId || '')) ||
+        (x.defaultGiftName && _normName(x.defaultGiftName) === _normName(c.giftName)));
+      if (!cr) { unmatched.push({ giftName: c.giftName || c.giftId, points: Number(c.points) || 0 }); continue; }
+      raw.push({ creatorId: cr.id, delta: Number(c.points) || 0 });
+    }
+    if (!raw.length) return { ok: false, reason: 'no-match', unmatched };
+    const res = applyDeltaBatchToCreators(raw, { label: st.content || '🥚 Đập Trứng/Dance', source: 'sticker' });
+    return { ...res, unmatched };
+  });
+  // 🔒 Chốt vòng: gộp điểm LIVE của vòng (theo quà) vào contestPoints rồi dọn về 0 (chống hiển thị trùng).
+  ipcMain.handle('ranking:commitRound', () => {
+    if (rankingEngine.config.mode !== 'creator') return { ok: false, reason: 'not-creator-mode' };
+    const scores = rankingEngine.scores || {};
+    const raw = Object.keys(scores)
+      .map(cid => ({ creatorId: cid, delta: Number(scores[cid] && scores[cid].points) || 0 }))
+      .filter(e => e.delta > 0);
+    if (!raw.length) return { ok: false, reason: 'empty' };
+    const res = applyDeltaBatchToCreators(raw, { label: '🔒 Chốt vòng (điểm live)', source: 'round' });
+    if (res.ok) { rankingEngine.scores = {}; rankingEngine._emit(); }
+    return res;
+  });
+  ipcMain.handle('ranking:undoApply', (_e, applyId) => undoApplyBatch(applyId));
+  ipcMain.handle('ranking:applyLog', () => loadApplyLog().slice().reverse());
+  // ☑️ Liên kết trò chơi (PK Đôi/PK Nhóm/Đập Trứng·Dance) → THI ĐẤU NHÓM realtime.
+  ipcMain.handle('ranking:getLinks', () => getRankingLinks());
+  ipcMain.handle('ranking:setLinks', (_e, patch = {}) => {
+    const next = getRankingLinks();
+    if (typeof patch.pkduo === 'boolean') next.pkduo = patch.pkduo;
+    if (typeof patch.pkgroup === 'boolean') next.pkgroup = patch.pkgroup;
+    if (typeof patch.sticker === 'boolean') next.sticker = patch.sticker;
+    settings.rankingLinks = next;
+    saveSettings();
+    applyRankingLinksToEngines();
+    broadcast('ranking:links', next); // đồng bộ ô tích ở mọi tab + bảng tổng
+    return next;
+  });
+
   // Score
   ipcMain.handle('score:getState', () => scoreEngine.getStateForOverlay());
   ipcMain.handle('score:setConfig', (_e, cfg) => { scoreEngine.setConfig(cfg); settings.score = scoreEngine.config; saveSettings(); return scoreEngine.config; });
@@ -3277,18 +3668,19 @@ function registerIpc() {
   ipcMain.handle('cardflip:getUrl', () => overlayServer.getCardFlipUrl());
   ipcMain.handle('cardflip:getFxUrl', () => overlayServer.getCardFlipFxUrl());
 
-  // ===== NHẠC DANCE · Video overlay =====
-  ipcMain.handle('dancevideo:getState', () => danceVideoEngine.getStateForOverlay());
+  // ===== NHẠC DANCE · Video overlay (3 kênh độc lập webm1/2/3) =====
+  ipcMain.handle('dancevideo:getState', (_e, ch) => danceVideoEngine.getStateForOverlay(ch));
   ipcMain.handle('dancevideo:getConfig', () => danceVideoEngine.config);
   ipcMain.handle('dancevideo:setConfig', (_e, cfg) => { danceVideoEngine.setConfig(cfg); saveDanceVideoConfig(danceVideoEngine.config); return danceVideoEngine.config; });
-  // Trả về số overlay đang kết nối để renderer biết: có overlay → chờ overlay báo "phát xong";
-  // KHÔNG có overlay (OBS chưa mở) → bỏ qua nhanh, tránh kẹt 🎬 Hàng đợi cả phút.
-  ipcMain.handle('dancevideo:play', (_e, cmd) => { danceVideoEngine.playMain(cmd); return { clients: overlayServer?.danceVideoClients?.size || 0 }; });
-  ipcMain.handle('dancevideo:stopMain', () => { danceVideoEngine.stopMain(); return true; });
-  ipcMain.handle('dancevideo:playBackground', (_e, cmd) => { danceVideoEngine.playBackground(cmd); return true; });
-  ipcMain.handle('dancevideo:stopBackground', () => { danceVideoEngine.stopBackground(); return true; });
+  // Trả về số overlay đang kết nối của ĐÚNG kênh để renderer biết: có overlay → chờ overlay báo
+  // "phát xong"; KHÔNG có overlay (OBS chưa mở) → bỏ qua nhanh, tránh kẹt hàng đợi cả phút.
+  ipcMain.handle('dancevideo:play', (_e, cmd) => { danceVideoEngine.playMain(cmd?.channel, cmd); return { clients: overlayServer?.danceVideoClientCount(cmd?.channel) || 0 }; });
+  ipcMain.handle('dancevideo:stopMain', (_e, ch) => { danceVideoEngine.stopMain(ch); return true; });
+  ipcMain.handle('dancevideo:setSpeed', (_e, cmd) => { danceVideoEngine.setSpeedAll(Number(cmd && cmd.factor) || 1); return true; });
+  ipcMain.handle('dancevideo:playBackground', (_e, cmd) => { danceVideoEngine.playBackground(cmd?.channel, cmd); return true; });
+  ipcMain.handle('dancevideo:stopBackground', (_e, ch) => { danceVideoEngine.stopBackground(ch); return true; });
   ipcMain.handle('dancevideo:stopAll', () => { danceVideoEngine.stopAll(); return true; });
-  ipcMain.handle('dancevideo:getUrl', () => overlayServer.getDanceVideoUrl());
+  ipcMain.handle('dancevideo:getUrl', (_e, ch) => overlayServer.getDanceVideoUrl(ch));
 
   // Overlay Review windows
   ipcMain.handle('review:open', (_e, type) => openReviewWindow(type));
@@ -3470,6 +3862,20 @@ function registerIpc() {
     if (r.canceled || !Array.isArray(r.filePaths)) return [];
     return r.filePaths;
   });
+  // Chọn cả THƯ MỤC → nạp mọi file nhạc + video bên trong (sắp theo tên). Dùng cho NHẠC DANCE.
+  ipcMain.handle('shell:pickMediaFolder', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Chọn thư mục chứa nhạc/video',
+      properties: ['openDirectory'],
+    });
+    if (r.canceled || !r.filePaths?.[0]) return [];
+    const dir = r.filePaths[0];
+    const RE = /\.(mp3|wav|ogg|m4a|aac|flac|mp4|webm|mov|m4v|ogv|mkv)$/i;
+    let names = [];
+    try { names = fs.readdirSync(dir); } catch { return []; }
+    return names.filter(n => RE.test(n)).sort((a, b) => a.localeCompare(b, 'vi'))
+      .map(n => path.join(dir, n));
+  });
   ipcMain.handle('shell:prepareGiftDrag', async (_e, { url, giftId, giftName }) => {
     if (!url) return null;
     const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
@@ -3515,7 +3921,7 @@ app.whenReady().then(async () => {
   await bootstrapOverlay();
   // Overlay server sẵn sàng SAU khi engine đã nạp config đã lưu → phát lại state một lần
   // để OBS/Review nhận ĐÚNG cấu hình ngay khi kết nối, không phải chờ lần chỉnh sửa kế tiếp.
-  pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); cardFlipEngine?._emit(); danceVideoEngine?._emit();
+  pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); cardFlipEngine?._emit(); danceVideoEngine?.emitAll();
   overlayServer?.sendGiftMenu(giftMenuConfig);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

@@ -27,9 +27,37 @@ function errMessage(err) {
   return String(err);
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Ghép một message dễ hiểu (tiếng Việt) từ lỗi connect cuối cùng, gợi ý cách xử lý.
+function friendlyConnectError(err, username) {
+  const raw = errMessage(err);
+  const low = raw.toLowerCase();
+  // Host không LIVE / sai username
+  if (/not.*live|offline|user_not_found|isn['’]?t live|not currently|room is finished|status.*[:=]\s*4/.test(low)) {
+    return `@${username} hiện KHÔNG LIVE (hoặc sai username). Hãy chắc chắn host đang phát trực tiếp rồi thử lại.`;
+  }
+  // Bị TikTok chặn lấy Room ID (SIGI_STATE/captcha/all sources)
+  if (/sigi_state|captcha|blocked|room id|all sources|liveroom/.test(low)) {
+    return 'Không lấy được Room ID từ TikTok (bị chặn tạm thời).\n'
+      + `• Kiểm tra @${username} có đang LIVE thật không.\n`
+      + '• Thử KẾT NỐI lại sau vài giây (tránh VPN/mạng chập chờn).\n'
+      + '• Vẫn lỗi: vào CÀI ĐẶT nhập Session ID để kết nối ổn định hơn.';
+  }
+  // Euler/sign hết quyền
+  if (/euler|sign|permission/.test(low)) {
+    return 'Nguồn dự phòng (Euler/Sign) từ chối. Thử lại sau ít phút, hoặc nhập Session ID trong CÀI ĐẶT.';
+  }
+  return raw;
+}
+
 let _lib = null;
 function loadLib() {
   if (_lib) return _lib;
+  // Ngẫu nhiên hoá device/location fingerprint để giảm khả năng bị TikTok chặn
+  // hàng loạt theo một fingerprint cố định. config.js đọc các env này 1 lần lúc require.
+  if (!process.env.RANDOMIZE_TIKTOK_DEVICE) process.env.RANDOMIZE_TIKTOK_DEVICE = 'true';
+  if (!process.env.RANDOMIZE_TIKTOK_LOCATION) process.env.RANDOMIZE_TIKTOK_LOCATION = 'true';
   // tiktok-live-connector v2 là TS, được publish dưới dạng CJS exports.
   // Một số builds cũ export TikTokLiveConnection; build 2.x cũng có WebcastEvent.
   _lib = require('tiktok-live-connector');
@@ -56,44 +84,66 @@ class TikTokClient extends EventEmitter {
 
     this.connecting = true;
     this.username = username;
+    // Số lần thử: SIGI_STATE fail rồi API/Euler bị chặn tạm thời rất hay là hiccup
+    // thoáng qua — thử lại vài lần (fingerprint đã random) thường là kết nối được.
+    const maxAttempts = Math.max(1, Number(opts.retries ?? 3));
+    let lastErr = null;
     try {
       const lib = loadLib();
       const { TikTokLiveConnection, WebcastEvent } = lib;
       if (!TikTokLiveConnection) throw new Error('Thư viện tiktok-live-connector v2 không export TikTokLiveConnection.');
 
-      const connectionOpts = {
-        processInitialData: opts.processInitialData ?? false,
-        enableExtendedGiftInfo: true,
-      };
-      // Eulerstream sign key (optional, dùng cho production để ổn định hơn)
-      if (opts.signApiKey) connectionOpts.signApiKey = opts.signApiKey;
-      // Session id (optional, cho phép connect tới private/age-gated)
-      if (opts.sessionId) {
-        connectionOpts.sessionId = opts.sessionId;
-        connectionOpts.ttTargetIdc = opts.ttTargetIdc || 'useast2a';
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const connectionOpts = {
+          processInitialData: opts.processInitialData ?? false,
+          enableExtendedGiftInfo: true,
+        };
+        // Eulerstream sign key (optional, dùng cho production để ổn định hơn)
+        if (opts.signApiKey) connectionOpts.signApiKey = opts.signApiKey;
+        // Session id (optional, cho phép connect tới private/age-gated + ổn định hơn)
+        if (opts.sessionId) {
+          connectionOpts.sessionId = opts.sessionId;
+          connectionOpts.ttTargetIdc = opts.ttTargetIdc || 'useast2a';
+        }
+
+        const conn = new TikTokLiveConnection(username, connectionOpts);
+        this.connection = conn;
+        // Trong lúc connect, lib phát 'error' cho MỖI bước fallback (SIGI→API→Euler)
+        // dù cuối cùng có thể thành công. Nuốt các cảnh báo đó, chỉ dựa vào việc
+        // conn.connect() resolve/throw để quyết định kết quả thật.
+        this._connectPhase = true;
+        this._wireEvents(conn, WebcastEvent || {});
+
+        try {
+          const state = await conn.connect();
+          this._connectPhase = false;
+          this.connected = true;
+          this.roomInfo = {
+            roomId: state?.roomId || state?.room_id || null,
+            username,
+            nickname: state?.roomInfo?.owner?.nickname || state?.roomInfo?.owner?.nickName || username,
+            avatar: pickAvatar(state?.roomInfo?.owner) || '',
+            title: state?.roomInfo?.title || '',
+            viewerCount: state?.roomInfo?.userCount ?? state?.roomInfo?.user_count ?? 0,
+          };
+          this.emit('connected', this.roomInfo);
+          return this.roomInfo;
+        } catch (err) {
+          lastErr = err;
+          this._connectPhase = false;
+          // Dọn connection hỏng trước khi thử lại để không rò rỉ listener/socket.
+          try { await conn.disconnect(); } catch {}
+          this.connection = null;
+          if (attempt < maxAttempts) await sleep(1200 * attempt);
+        }
       }
 
-      const conn = new TikTokLiveConnection(username, connectionOpts);
-      this.connection = conn;
-      this._wireEvents(conn, WebcastEvent || {});
-
-      const state = await conn.connect();
-      this.connected = true;
-      this.roomInfo = {
-        roomId: state?.roomId || state?.room_id || null,
-        username,
-        nickname: state?.roomInfo?.owner?.nickname || state?.roomInfo?.owner?.nickName || username,
-        avatar: pickAvatar(state?.roomInfo?.owner) || '',
-        title: state?.roomInfo?.title || '',
-        viewerCount: state?.roomInfo?.userCount ?? state?.roomInfo?.user_count ?? 0,
-      };
-      this.emit('connected', this.roomInfo);
-      return this.roomInfo;
-    } catch (err) {
+      // Hết lượt thử — báo lỗi cuối cùng, rõ ràng.
       this.connected = false;
       this.connection = null;
-      this.emit('error', { message: errMessage(err), fatal: true });
-      throw err;
+      const msg = friendlyConnectError(lastErr, username);
+      this.emit('error', { message: msg, fatal: true });
+      throw new Error(msg);
     } finally {
       this.connecting = false;
     }
@@ -167,7 +217,13 @@ class TikTokClient extends EventEmitter {
     });
     // Lỗi runtime khi ĐANG LIVE thường không fatal (hiccup giải mã/websocket, lib
     // tự phục hồi). Chỉ coi là fatal nếu lúc đó đã mất kết nối thật.
-    conn.on('error', (err) => this.emit('error', { message: errMessage(err), fatal: !this.connected }));
+    conn.on('error', (err) => {
+      // Đang trong pha connect: đây là các cảnh báo fallback nội bộ của lib
+      // (SIGI_STATE fail → thử API → thử Euler). KHÔNG nổi banner đỏ; kết quả
+      // thật do conn.connect() resolve/throw quyết định trong connect().
+      if (this._connectPhase) return;
+      this.emit('error', { message: errMessage(err), fatal: !this.connected });
+    });
     conn.on('streamEnd', () => this.emit('streamEnd', { username: this.username }));
 
     conn.on('chat', (d) => this.emit('chat', shapeChat(d)));

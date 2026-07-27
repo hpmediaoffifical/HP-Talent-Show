@@ -15,7 +15,7 @@
   "segments": [
     {
       "id": "lw_a",
-      "text": "Thưởng 50K",
+      "text": "ABCDEF",
       "note": "Chuyển khoản",
       "type": "reward",
       "color": "#ff3d71",
@@ -24,7 +24,7 @@
     },
     {
       "id": "lw_b",
-      "text": "Hát 1 bài",
+      "text": "ABCDEF",
       "note": "",
       "type": "penalty",
       "color": "#00e0c7",
@@ -33,7 +33,7 @@
     },
     {
       "id": "lw_c",
-      "text": "x2 điểm",
+      "text": "ABCDEF",
       "note": "",
       "type": "reward",
       "color": "#7a5cff",
@@ -42,7 +42,7 @@
     },
     {
       "id": "lw_d",
-      "text": "Hít đất 10 cái",
+      "text": "ABCDEF",
       "note": "",
       "type": "penalty",
       "color": "#ff9f1c",
@@ -51,7 +51,7 @@
     },
     {
       "id": "lw_e",
-      "text": "May mắn lần sau",
+      "text": "ABCDEF",
       "note": "",
       "type": "reward",
       "color": "#2ec4ff",
@@ -60,7 +60,7 @@
     },
     {
       "id": "lw_f",
-      "text": "JACKPOT",
+      "text": "ABCDEF",
       "note": "Phần thưởng lớn",
       "type": "reward",
       "color": "#ff5db1",
@@ -69,7 +69,7 @@
     },
     {
       "id": "lw_mmeqohi",
-      "text": "Nhảy lò cò",
+      "text": "ABCDEF",
       "note": "",
       "type": "penalty",
       "color": "#38d67a",
@@ -78,7 +78,7 @@
     },
     {
       "id": "lw_jjrv55c",
-      "text": "Đi bộ",
+      "text": "ABCDEF",
       "note": "",
       "type": "penalty",
       "color": "#ffd23f",
@@ -87,7 +87,7 @@
     },
     {
       "id": "lw_5w0pily",
-      "text": "Cà tưng",
+      "text": "ABCDEF",
       "note": "",
       "type": "reward",
       "color": "#c86bff",
@@ -96,7 +96,7 @@
     },
     {
       "id": "lw_hph66xh",
-      "text": "Thụt xì",
+      "text": "ABCDEF",
       "note": "",
       "type": "reward",
       "color": "#4c8dff",
@@ -105,7 +105,7 @@
     },
     {
       "id": "lw_uy0j3cu",
-      "text": "5ngày",
+      "text": "ABCDEF",
       "note": "",
       "type": "penalty",
       "color": "#ff3d71",
@@ -114,7 +114,7 @@
     },
     {
       "id": "lw_rrpb685",
-      "text": "6 ngày",
+      "text": "ABCDEF",
       "note": "",
       "type": "reward",
       "color": "#00e0c7",

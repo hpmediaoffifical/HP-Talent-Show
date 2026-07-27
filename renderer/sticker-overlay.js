@@ -111,6 +111,31 @@ function fireLevelUp(countEl) {
   sticker.appendChild(b);
 }
 
+// Marquee nhãn (chỉ khi chọn "Chạy ngang"): CHỈ chạy khi chữ RỘNG HƠN khung. Nhân đôi
+// nội dung để lặp liền mạch vô hạn; tốc độ = px/giây theo "Tốc độ chạy" (1..10 → 12..120 px/s).
+function setupLabelMarquee(st) {
+  const pxPerSec = Math.max(1, Math.min(10, Number(st.labelScrollSpeed) || 4)) * 12;
+  // Đo TỪNG hàng (.sd-lrow) độc lập → hàng nào rộng hơn khung thì hàng đó chạy, kể cả khi có 2 hàng.
+  root.querySelectorAll('.sd-lrow').forEach(row => {
+    const txt = row.querySelector('.sd-ltxt');
+    if (!txt) return;
+    if (txt.scrollWidth <= row.clientWidth + 2) return; // vừa khung → đứng yên, căn giữa
+    const gap = Math.round((Number(st.iconSize) || 66) * 0.6);
+    const track = document.createElement('span');
+    track.className = 'sd-ltrack';
+    const clone = txt.cloneNode(true);
+    clone.setAttribute('aria-hidden', 'true');
+    row.appendChild(track);
+    track.appendChild(txt);
+    track.appendChild(clone);
+    const dist = txt.scrollWidth + gap;
+    track.style.setProperty('--mq-gap', gap + 'px');
+    track.style.setProperty('--mq-dist', dist + 'px');
+    track.style.setProperty('--mq-dur', Math.max(3, dist / pxPerSec).toFixed(1) + 's');
+    row.classList.add('scroll');
+  });
+}
+
 function render(st) {
   st = st || {};
   lastState = st;
@@ -145,6 +170,10 @@ function render(st) {
   // Nhãn ở TRÊN → đảo ngược bố cục theo chiều dọc (tên · nền xám+số · icon thò xuống)
   // để các ô cân đối dù icon quà to/nhỏ khác nhau (xem CSS [data-label-pos="top"]).
   root.dataset.labelPos = labelTop ? 'top' : 'bottom';
+  // Enter = xuống dòng (luôn tôn trọng). Hàng DÀI hơn khung xử lý theo: scroll (chạy ngang,
+  // mặc định) | clip (cắt …). Cấu hình cũ 'wrap' → coi như 'scroll'.
+  const labelLong = st.labelLong === 'clip' ? 'clip' : 'scroll';
+  root.dataset.labelLong = labelLong;
   const anim = st.animIcon !== false;
   const sparkOn = !!st.perfSparkle;
   const rippleOn = !!st.perfRipple;
@@ -222,7 +251,13 @@ function render(st) {
           : `<span class="sd-count${newlyHatched.has(key) ? ' sd-hatch' : ''}" data-k="${key}" data-gift="${esc(c.giftId)}" data-target="${cnt}" data-lv="${done ? 1 : 0}">${fmt(c.count)}</span>${barSlot}${crack}`;
       // Ô quà đặc biệt: BỎ hẳn panel nền xám — chỉ còn bong bóng nước ôm icon + tên.
       const panel = special ? '' : `<div class="sd-panel">${ripple}${shine}${inner}</div>`;
-      const label = c.text ? `<div class="sd-label" title="${esc(c.text)}">${esc(c.text)}</div>` : '';
+      // Mỗi lần gõ Enter = 1 HÀNG (.sd-lrow) — luôn giữ nguyên. Hàng nào dài hơn khung sẽ tự
+      // CHẠY ngang hoặc cắt "…" tuỳ chế độ; áp cho cả trường hợp nhiều hàng.
+      const tRaw = String(c.text || '');
+      const rowsHtml = tRaw.split('\n')
+        .map(line => `<div class="sd-lrow"><span class="sd-ltxt">${esc(line)}</span></div>`)
+        .join('');
+      const label = c.text ? `<div class="sd-label" title="${esc(tRaw)}">${rowsHtml}</div>` : '';
       // Huy chương top 3 theo điểm — badge góc. Ẩn huy chương #1 khi ô đã đội vương miện (tránh trùng).
       const medal = (showMedals && c.rank >= 1 && c.rank <= 3 && !(crowned && c.rank === 1)) ? `<div class="sd-medal m${c.rank}">${MEDALS[c.rank - 1]}</div>` : '';
       // Vương miện trên ô nhiều điểm nhất.
@@ -250,6 +285,9 @@ function render(st) {
   }
   html += '</div>';
   root.innerHTML = html;
+
+  // Tên dài + chọn "Chạy ngang": bật marquee cho các nhãn rộng hơn khung.
+  if (labelLong === 'scroll') setupLabelMarquee(st);
 
   // Đồng bộ tween: quà ở ô đổi → snap về target, giữ nguyên nếu cùng quà.
   root.querySelectorAll('.sd-count').forEach(el => {

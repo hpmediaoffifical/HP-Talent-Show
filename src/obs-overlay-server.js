@@ -44,8 +44,10 @@ class ObsOverlayServer {
     // KHÔNG xin được kết nối → tải trang trắng/không chạy JS. Tách mỗi loại sang 1 cổng loopback
     // riêng = mỗi loại có "ngân sách 6 kết nối" riêng, không tranh nhau. (Đã xác minh bằng netstat:
     // obs-browser-page giữ đúng 6 kết nối tới 18282, Vòng quay bị đói.)
-    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8, 'mission-trio': 9, 'card-flip': 10, 'card-flip-fx': 11, 'dance-video': 12 };
-    this.portCount = 13;
+    // NHẠC DANCE có 3 overlay độc lập, mỗi cái 1 cổng riêng (né trần 6 kết nối/host của CEF).
+    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8, 'mission-trio': 9, 'card-flip': 10, 'card-flip-fx': 11, 'dance-video-1': 12, 'dance-video-2': 13, 'dance-video-3': 14 };
+    this.portCount = 15;
+    this.danceChannels = ['webm1', 'webm2', 'webm3'];
     this.servers = [];
     this._boundPorts = new Set();
     this.pkDuoClients = new Set();
@@ -58,7 +60,8 @@ class ObsOverlayServer {
     this.giftMenuClients = new Set();
     this.missionTrioClients = new Set();
     this.cardFlipClients = new Set();
-    this.danceVideoClients = new Set();
+    // Mỗi kênh NHẠC DANCE 1 tập client + 1 state riêng.
+    this.danceVideoClients = { webm1: new Set(), webm2: new Set(), webm3: new Set() };
     this.pkDuoState = {};
     this.pkGroupState = {};
     this.rankingState = {};
@@ -69,7 +72,7 @@ class ObsOverlayServer {
     this.giftMenuState = {};
     this.missionTrioState = {};
     this.cardFlipState = {};
-    this.danceVideoState = {};
+    this.danceVideoState = { webm1: {}, webm2: {}, webm3: {} };
     this.heartbeatTimer = null;
     // Cache avatar theo "danh tính ảnh" = PATH của URL (bỏ query chữ ký/expires): URL avatar TikTok
     // đã chứa hash ảnh trong path nên đổi ảnh = đổi path. Nhờ vậy URL ký lại (đổi x-signature/x-expires)
@@ -118,7 +121,8 @@ class ObsOverlayServer {
   stop() {
     clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
-    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients, this.missionTrioClients, this.cardFlipClients, this.danceVideoClients]) {
+    const danceSets = this.danceChannels.map(ch => this.danceVideoClients[ch]);
+    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients, this.missionTrioClients, this.cardFlipClients, ...danceSets]) {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
     }
@@ -141,7 +145,14 @@ class ObsOverlayServer {
   // Overlay "lật 3D" toàn màn hình — DÙNG CHUNG stream /card-flip-events (không cần set/route riêng),
   // nhưng ở cổng riêng để né trần 6 kết nối/host của CEF.
   getCardFlipFxUrl() { return `http://127.0.0.1:${this._portFor('card-flip-fx')}/card-flip-fx?token=${encodeURIComponent(this.token)}&v=7`; }
-  getDanceVideoUrl() { return `http://127.0.0.1:${this._portFor('dance-video')}/dance-video?token=${encodeURIComponent(this.token)}&v=1`; }
+  // Mỗi kênh NHẠC DANCE 1 link OBS riêng (cổng riêng + ?ch=).
+  _danceChan(ch) { return this.danceChannels.includes(ch) ? ch : 'webm1'; }
+  getDanceVideoUrl(ch) {
+    ch = this._danceChan(ch);
+    const idx = { webm1: 1, webm2: 2, webm3: 3 }[ch];
+    return `http://127.0.0.1:${this._portFor('dance-video-' + idx)}/dance-video?token=${encodeURIComponent(this.token)}&ch=${ch}&v=2`;
+  }
+  danceVideoClientCount(ch) { const s = this.danceVideoClients[this._danceChan(ch)]; return s ? s.size : 0; }
 
   sendPkDuo(state) { this.pkDuoState = state || {}; this._broadcast(this.pkDuoClients, 'pkduo', this.pkDuoState); }
   sendPkGroup(state) { this.pkGroupState = state || {}; this._broadcast(this.pkGroupClients, 'pkgroup', this.pkGroupState); }
@@ -153,7 +164,7 @@ class ObsOverlayServer {
   sendGiftMenu(state) { this.giftMenuState = state || {}; this._broadcast(this.giftMenuClients, 'giftmenu', this.giftMenuState); }
   sendMissionTrio(state) { this.missionTrioState = state || {}; this._broadcast(this.missionTrioClients, 'missiontrio', this.missionTrioState); }
   sendCardFlip(state) { this.cardFlipState = state || {}; this._broadcast(this.cardFlipClients, 'cardflip', this.cardFlipState); }
-  sendDanceVideo(state) { this.danceVideoState = state || {}; this._broadcast(this.danceVideoClients, 'dancevideo', this.danceVideoState); }
+  sendDanceVideo(ch, state) { ch = this._danceChan(ch); this.danceVideoState[ch] = state || {}; this._broadcast(this.danceVideoClients[ch], 'dancevideo', this.danceVideoState[ch]); }
 
   _broadcast(set, event, data) {
     const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
@@ -175,7 +186,7 @@ class ObsOverlayServer {
       [this.giftMenuClients, 'giftmenu', this.giftMenuState],
       [this.missionTrioClients, 'missiontrio', this.missionTrioState],
       [this.cardFlipClients, 'cardflip', this.cardFlipState],
-      [this.danceVideoClients, 'dancevideo', this.danceVideoState],
+      ...this.danceChannels.map(ch => [this.danceVideoClients[ch], 'dancevideo', this.danceVideoState[ch]]),
     ];
     const ver = `event: __ver\ndata: ${this.assetVersion}\n\n`;
     for (const [set, event, data] of beats) {
@@ -282,9 +293,10 @@ class ObsOverlayServer {
 
     // Video NHẠC DANCE phát xong/lỗi trên overlay → báo về renderer để hàng đợi hiệu ứng bước tiếp.
     if (req.method === 'POST' && reqUrl.pathname === '/dance-video-ended') {
+      const ch = this._danceChan(reqUrl.searchParams.get('ch') || 'webm1');
       const playId = reqUrl.searchParams.get('playId') || '';
       const layer = reqUrl.searchParams.get('layer') || 'main';
-      try { this.onDanceVideoEnded?.(playId, layer); } catch {}
+      try { this.onDanceVideoEnded?.(ch, playId, layer); } catch {}
       return this._json(res, { ok: true });
     }
 
@@ -358,9 +370,15 @@ class ObsOverlayServer {
     // THẺ BÀI — dùng chung cơ chế SSE + fallback state.
     if (req.method === 'GET' && reqUrl.pathname === '/card-flip-state') return this._json(res, this.cardFlipState);
     if (req.method === 'GET' && reqUrl.pathname === '/card-flip-events') return this._sse(req, res, this.cardFlipClients, 'cardflip', this.cardFlipState);
-    // NHẠC DANCE (video) — dùng chung cơ chế SSE + fallback state.
-    if (req.method === 'GET' && reqUrl.pathname === '/dance-video-state') return this._json(res, this.danceVideoState);
-    if (req.method === 'GET' && reqUrl.pathname === '/dance-video-events') return this._sse(req, res, this.danceVideoClients, 'dancevideo', this.danceVideoState);
+    // NHẠC DANCE (video) — 3 kênh độc lập, chọn qua ?ch=webm1|2|3. Dùng chung cơ chế SSE + fallback.
+    if (req.method === 'GET' && reqUrl.pathname === '/dance-video-state') {
+      const ch = this._danceChan(reqUrl.searchParams.get('ch') || 'webm1');
+      return this._json(res, this.danceVideoState[ch]);
+    }
+    if (req.method === 'GET' && reqUrl.pathname === '/dance-video-events') {
+      const ch = this._danceChan(reqUrl.searchParams.get('ch') || 'webm1');
+      return this._sse(req, res, this.danceVideoClients[ch], 'dancevideo', this.danceVideoState[ch]);
+    }
 
     return this._reject(res, 404, 'not found');
   }

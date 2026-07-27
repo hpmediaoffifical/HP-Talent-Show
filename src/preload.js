@@ -134,15 +134,16 @@ const api = {
 
   // ===== NHẠC DANCE · Video overlay =====
   dancevideo: {
-    getState: () => ipcRenderer.invoke('dancevideo:getState'),
+    getState: (channel) => ipcRenderer.invoke('dancevideo:getState', channel),
     getConfig: () => ipcRenderer.invoke('dancevideo:getConfig'),
     setConfig: (cfg) => ipcRenderer.invoke('dancevideo:setConfig', cfg),
     play: (cmd) => ipcRenderer.invoke('dancevideo:play', cmd),
-    stopMain: () => ipcRenderer.invoke('dancevideo:stopMain'),
+    stopMain: (channel) => ipcRenderer.invoke('dancevideo:stopMain', channel),
+    setSpeed: (cmd) => ipcRenderer.invoke('dancevideo:setSpeed', cmd),
     playBackground: (cmd) => ipcRenderer.invoke('dancevideo:playBackground', cmd),
-    stopBackground: () => ipcRenderer.invoke('dancevideo:stopBackground'),
+    stopBackground: (channel) => ipcRenderer.invoke('dancevideo:stopBackground', channel),
     stopAll: () => ipcRenderer.invoke('dancevideo:stopAll'),
-    getUrl: () => ipcRenderer.invoke('dancevideo:getUrl'),
+    getUrl: (channel) => ipcRenderer.invoke('dancevideo:getUrl', channel),
   },
 
   // ===== Match history (LỊCH SỬ trận đấu) =====
@@ -151,6 +152,8 @@ const api = {
     clear: (filter) => ipcRenderer.invoke('history:clear', filter),
     remove: (id) => ipcRenderer.invoke('history:remove', id),
     export: (filter) => ipcRenderer.invoke('history:export', filter),
+    apply: (id, mapping) => ipcRenderer.invoke('history:apply', { id, mapping }),
+    unapply: (id) => ipcRenderer.invoke('history:unapply', id),
   },
 
   // ===== Ranking (BXH) =====
@@ -163,6 +166,13 @@ const api = {
     setActive: (id) => ipcRenderer.invoke('ranking:setActive', id),
     getUrl: () => ipcRenderer.invoke('ranking:getUrl'),
     getGridUrl: () => ipcRenderer.invoke('ranking:getGridUrl'),
+    applyScore: (creatorId, points, label) => ipcRenderer.invoke('ranking:applyScore', { creatorId, points, label }),
+    applySticker: () => ipcRenderer.invoke('ranking:applySticker'),
+    commitRound: () => ipcRenderer.invoke('ranking:commitRound'),
+    undoApply: (applyId) => ipcRenderer.invoke('ranking:undoApply', applyId),
+    applyLog: () => ipcRenderer.invoke('ranking:applyLog'),
+    getLinks: () => ipcRenderer.invoke('ranking:getLinks'),
+    setLinks: (patch) => ipcRenderer.invoke('ranking:setLinks', patch),
   },
 
   // ===== Score =====
@@ -227,6 +237,8 @@ const api = {
 
   app: {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),
+    // Phản hồi popup xác nhận thoát (true = Thoát hẳn, false = Ở lại) — thay dialog gốc bằng UI đẹp trong app.
+    confirmQuitResult: (ok) => ipcRenderer.send('app:confirmQuitResult', !!ok),
   },
 
   // ===== OBS WebSocket (reset overlay) =====
@@ -241,7 +253,8 @@ const api = {
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
       'pkduo:state', 'pkduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'missiontrio:state', 'cardflip:state', 'dancevideo:ended',
-      'history:changed',
+      'history:changed', 'ranking:links',
+      'app:confirmQuit',
       'log',
     ]);
     if (!allowed.has(channel)) return () => {};
@@ -256,6 +269,7 @@ const api = {
     pickAudio: () => ipcRenderer.invoke('shell:pickAudio'),
     pickAudios: () => ipcRenderer.invoke('shell:pickAudios'),
     pickVideos: () => ipcRenderer.invoke('shell:pickVideos'),
+    pickMediaFolder: () => ipcRenderer.invoke('shell:pickMediaFolder'),
     prepareGiftDrag: (data) => ipcRenderer.invoke('shell:prepareGiftDrag', data),
     startGiftDrag: (file) => ipcRenderer.send('shell:startGiftDrag', file),
     confirm: (opts) => ipcRenderer.invoke('shell:confirm', opts),

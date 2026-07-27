@@ -3,6 +3,7 @@
   "groupId": "g_mrtg107e1aqmz",
   "layoutMode": "joined",
   "playMode": "fixed",
+  "linkRanking": false,
   "pointsBy": "diamond",
   "noteEnabled": true,
   "noteText": "Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy",
@@ -25,7 +26,7 @@
       "creatorId": "c_mrtg28mrb1ni1",
       "tiktokId": "raidenhyun",
       "name": "Raiden",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/4212cc580704c9f032c4fa5d7412b570~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=1978c3ee&x-expires=1785160800&x-signature=NeKor4nsjhShdDGtRlqzqeWNNE8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=061ec41a&x-expires=1785330000&x-signature=HUTlMDgIDRb8o2QJqHo1Z8ejUaA%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#bc3cdd",
       "giftOverride": false,
       "gifts": [
@@ -45,7 +46,7 @@
       "creatorId": "c_mrtg2crd6d27p",
       "tiktokId": "manhhao2309",
       "name": "Im Xuhào☘️",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=f7d705c2&x-expires=1785160800&x-signature=S2Qv8gVQqFi7jcer6vuxStjNo50%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=ea9fabcb&x-expires=1785330000&x-signature=UZLUPmzW7SRpVd20gKZ%2BDioJJRs%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#3c7cdd",
       "giftOverride": false,
       "gifts": [
@@ -65,7 +66,7 @@
       "creatorId": "c_mrtg2obyczu0h",
       "tiktokId": "callme.ice23",
       "name": "I.CE❄️⚡️",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/ceab283203632412f0469537c948036e~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=7da4a439&x-expires=1785160800&x-signature=oKI8z7nAlEKTXMvYFQNGjCb%2FMaA%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/ceab283203632412f0469537c948036e~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=cdb4404a&x-expires=1785330000&x-signature=DDmuG2jTVUCUVn%2BbZy9iIuqoEMQ%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#3cdd7c",
       "giftOverride": false,
       "gifts": [
@@ -85,7 +86,7 @@
       "creatorId": "c_mrtg2s085v57p",
       "tiktokId": "gin.2264",
       "name": "GIN",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/8ad8152cd28abca9114653858cf057c9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=33e94203&x-expires=1785160800&x-signature=p3Ek6mFA56HRR5z8sl3AtfgvwCI%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/8ad8152cd28abca9114653858cf057c9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=06b61245&x-expires=1785330000&x-signature=wOQZ4IEmj8a8ZI3vvQ3LKtJIEag%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#bcdd3c",
       "giftOverride": false,
       "gifts": [
@@ -105,7 +106,7 @@
       "creatorId": "c_mrtg396ra59ws",
       "tiktokId": "d.one_2607",
       "name": "D-ONE✨🪐",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/412869dc3e6fe48871a2754d67b12aae~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=2df0d332&x-expires=1785160800&x-signature=QpXilFmhPRm8qQlrGI1P1u%2BrPDw%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/412869dc3e6fe48871a2754d67b12aae~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=ecfb7b7d&x-expires=1785330000&x-signature=Jdzb2SZx42mKReBZ4n1jXasaefk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#dd3c3c",
       "giftOverride": false,
       "gifts": [
