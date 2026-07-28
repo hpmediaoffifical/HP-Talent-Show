@@ -1931,37 +1931,37 @@ class StickerEngine {
       content: 'STICKER DANCE',
       linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm ô quà cho Creator gắn ô
       rows: 3,
-      cols: 6,
-      countMode: 'cumulative', // 'cumulative' (đếm tăng) | 'countdown' (đếm lùi = đang chờ biểu diễn)
-      labelPos: 'bottom',      // 'top' | 'bottom'
+      cols: 5,
+      countMode: 'countdown',  // 'cumulative' (đếm tăng) | 'countdown' (đếm lùi = đang chờ biểu diễn)
+      labelPos: 'top',         // 'top' | 'bottom'
       labelLong: 'scroll',     // Hàng DÀI: 'scroll' (chạy ngang, mặc định) | 'clip' (cắt …). Enter = xuống dòng luôn được giữ.
-      labelScrollSpeed: 4,     // tốc độ chạy ngang khi labelLong='scroll' (1..10)
+      labelScrollSpeed: 3,     // tốc độ chạy ngang khi labelLong='scroll' (1..10)
       cells: [],               // [{ row, col, giftId, giftName, icon, diamond, text }]
-      bg: '#2b2f3a',
-      bgOpacity: 55,
-      iconSize: 66,
-      textSize: 14,
+      bg: '#1f1f1f',
+      bgOpacity: 79,
+      iconSize: 79,
+      textSize: 18,
       overlayScale: 100,
       gap: 14,
-      colGap: 14,              // khoảng cách NGANG (giữa cột)
-      rowGap: 14,              // khoảng cách DỌC (giữa hàng)
-      animIcon: true,
+      colGap: 9,               // khoảng cách NGANG (giữa cột)
+      rowGap: -19,             // khoảng cách DỌC (giữa hàng)
+      animIcon: false,
       enlargeTop: true,        // phóng to quà nhiều điểm nhất
       perfBg: 'gold',          // hiệu ứng NỀN ô đang biểu diễn: none|gold|pink|blue|dark
-      perfBorder: 'glow',      // hiệu ứng VIỀN ô đang biểu diễn: none|glow|neon|rainbow|ring
-      perfSparkle: false,      // hạt lấp lánh quanh ô đang biểu diễn
-      perfRipple: false,       // vòng sáng lan toả
-      perfShine: false,        // tia sáng quét ngang panel
-      perfNotes: false,        // nốt nhạc bay lên
+      perfBorder: 'ring',      // hiệu ứng VIỀN ô đang biểu diễn: none|glow|neon|rainbow|ring
+      perfName: 'random',      // kiểu NHÃN TÊN người đang diễn: random|pill|metal|rainbow|eq|lights
+      perfSparkle: true,       // hạt lấp lánh quanh ô đang biểu diễn
+      perfRipple: true,        // vòng sáng lan toả
+      perfShine: true,         // tia sáng quét ngang panel
+      perfNotes: true,         // nốt nhạc bay lên
       showMedals: true,        // huy chương 🥇🥈🥉 cho 3 ô nhiều điểm nhất
-      showPerfBanner: true,    // dải ruy-băng "ĐANG DIỄN" trên ô đang biểu diễn
       showCrown: true,         // vương miện 👑 trên ô nhiều điểm nhất
       showLevelUp: true,       // hiệu ứng "LEVEL UP" khi ô đạt mục tiêu
       eggWhenZero: true,       // count=0 → hiện QUẢ TRỨNG thay số 0; có quà → trứng nở ra ("đập trứng")
-      eggSize: 85,             // cỡ quả trứng (% so với icon), 40–140
-      eggSkin: 'ivory',        // skin vỏ trứng: ivory|gold|pink|blue|dino (khủng long đốm)
-      eggSkinRandom: false,    // true → mỗi ô bốc skin ngẫu nhiên, đổi lại mỗi lần trứng tái tạo
-      streakEnabled: false,    // GIỮ CHUỖI: quà còn "máu chuỗi" được ưu tiên lên diễn
+      eggSize: 56,             // cỡ quả trứng (% so với icon), 40–140
+      eggSkin: 'dino',         // skin vỏ trứng: ivory|gold|pink|blue|dino (khủng long đốm)
+      eggSkinRandom: true,     // true → mỗi ô bốc skin ngẫu nhiên, đổi lại mỗi lần trứng tái tạo
+      streakEnabled: true,     // GIỮ CHUỖI: quà còn "máu chuỗi" được ưu tiên lên diễn
       streakSeconds: 10,       // thời lượng thanh máu chuỗi (giây)
       streakSteal: true,       // CƯỚP CHUỖI: cắt ngang quà đang phát khi quà khác còn máu vượt số lượng
       streakBarColor: 'tiktok',// màu thanh máu chuỗi: tiktok (hồng đỏ) | blue (xanh) | health (xanh→đỏ theo mức)
@@ -2115,12 +2115,12 @@ class StickerEngine {
       animIcon: this.config.animIcon !== false,
       perfBg: ['none', 'gold', 'pink', 'blue', 'dark'].includes(this.config.perfBg) ? this.config.perfBg : 'gold',
       perfBorder: ['none', 'glow', 'neon', 'rainbow', 'ring'].includes(this.config.perfBorder) ? this.config.perfBorder : 'glow',
+      perfName: ['random', 'pill', 'metal', 'rainbow', 'eq', 'lights'].includes(this.config.perfName) ? this.config.perfName : 'random',
       perfSparkle: !!this.config.perfSparkle,
       perfRipple: !!this.config.perfRipple,
       perfShine: !!this.config.perfShine,
       perfNotes: !!this.config.perfNotes,
       showMedals: this.config.showMedals !== false,
-      showPerfBanner: this.config.showPerfBanner !== false,
       showLevelUp: this.config.showLevelUp !== false,
       eggWhenZero: this.config.eggWhenZero !== false,
       eggSize: Math.max(40, Math.min(140, Number(this.config.eggSize) || 85)),
@@ -3507,6 +3507,20 @@ function registerIpc() {
 
   // Sao lưu / khôi phục dữ liệu Creator + Nhóm (xuất/nhập 1 file JSON)
   ipcMain.handle('data:counts', () => ({ creators: loadCreators().length, groups: loadGroups().length }));
+  // File cấu hình CHUNG bỏ qua khi xuất/nhập: đã có ở cấp cao (creators/groups/group-profiles),
+  // và settings.json (chứa token OBS / khoá bản quyền — máy-riêng, không nên chép sang máy khác).
+  const CONFIG_EXPORT_SKIP = new Set(['creators.json', 'groups.json', 'group-profiles.json', 'settings.json']);
+  // Đọc mọi *.json trong CONFIG_DIR (trừ bản .bak và danh sách bỏ qua) → gói cấu hình CHUNG.
+  const collectSharedConfigs = () => {
+    const out = {};
+    try {
+      for (const f of fs.readdirSync(CONFIG_DIR)) {
+        if (!f.endsWith('.json') || f.endsWith('.bak') || CONFIG_EXPORT_SKIP.has(f)) continue;
+        try { out[f] = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, f), 'utf8')); } catch {}
+      }
+    } catch {}
+    return out;
+  };
   ipcMain.handle('data:export', async () => {
     const payload = {
       app: 'HP GROUP LIVE',
@@ -3515,6 +3529,7 @@ function registerIpc() {
       creators: loadCreators(),
       groups: loadGroups(),
       groupProfiles: loadGroupProfiles(),
+      configs: collectSharedConfigs(), // cấu hình chung: sticker-dance, nhạc, menu quà, PK, vòng quay, MVP, KC...
     };
     const stamp = fmtDate(Date.now()).replace(/\//g, '-');
     const res = await dialog.showSaveDialog(win, {
@@ -3570,8 +3585,25 @@ function registerIpc() {
       }
       saveGroupProfiles(pMap);
     }
+    // Khôi phục cấu hình CHUNG (GHI ĐÈ file cùng tên trên máy đích) — để các chỉ số overlay sang máy khác
+    // vẫn đúng. Chặn path traversal: chỉ nhận tên file .json thuần, nằm đúng trong CONFIG_DIR.
+    let cfgWritten = 0;
+    if (data.configs && typeof data.configs === 'object' && !Array.isArray(data.configs)) {
+      for (const [fname, content] of Object.entries(data.configs)) {
+        if (!/^[a-z0-9._-]+\.json$/i.test(fname) || fname.endsWith('.bak') || CONFIG_EXPORT_SKIP.has(fname)) continue;
+        const dest = path.join(CONFIG_DIR, fname);
+        if (path.dirname(dest) !== CONFIG_DIR) continue;
+        try { fs.writeFileSync(dest, JSON.stringify(content, null, 2), 'utf8'); cfgWritten++; } catch {}
+      }
+    }
+    // Nạp lại cấu hình vừa ghi vào các engine đang chạy (khỏi phải khởi động lại để overlay đổi ngay).
+    if (cfgWritten) {
+      try { stickerEngine.setConfig(loadStickerConfig() || {}); } catch {}
+      try { pkDuoEngine.setConfig(loadPkDuoConfig() || {}); } catch {}
+      try { pkGroupEngine.setConfig(loadPkGroupConfig() || {}); } catch {}
+    }
     rankingEngine?._emit();
-    return { ok: true, creatorsAdded: cAdd, creatorsUpdated: cUpd, groupsAdded: gAdd, groupsUpdated: gUpd };
+    return { ok: true, creatorsAdded: cAdd, creatorsUpdated: cUpd, groupsAdded: gAdd, groupsUpdated: gUpd, configsRestored: cfgWritten };
   });
 
   // PK Duo

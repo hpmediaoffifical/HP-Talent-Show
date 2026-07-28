@@ -2080,12 +2080,12 @@ function normalizeStickerCfg(c) {
     enlargeTop: c.enlargeTop !== false,
     perfBg: ['none', 'gold', 'pink', 'blue', 'dark'].includes(c.perfBg) ? c.perfBg : 'gold',
     perfBorder: ['none', 'glow', 'neon', 'rainbow', 'ring'].includes(c.perfBorder) ? c.perfBorder : 'glow',
+    perfName: ['random', 'pill', 'metal', 'rainbow', 'eq', 'lights'].includes(c.perfName) ? c.perfName : 'random',
     perfSparkle: !!c.perfSparkle,
     perfRipple: !!c.perfRipple,
     perfShine: !!c.perfShine,
     perfNotes: !!c.perfNotes,
     showMedals: c.showMedals !== false,
-    showPerfBanner: c.showPerfBanner !== false,
     showCrown: c.showCrown !== false,
     showLevelUp: c.showLevelUp !== false,
     eggWhenZero: c.eggWhenZero !== false,
@@ -2235,6 +2235,25 @@ function renderStickerEditor() {
     });
   });
 }
+// Số hiển thị cạnh mỗi thanh trượt Sticker Dance → biết ngay chỉ số đang chỉnh là bao nhiêu.
+const STICKER_RANGE_IDS = ['sdLabelScrollSpeed', 'sdIconSize', 'sdTextSize', 'sdColGap', 'sdRowGap', 'sdEggSize', 'sdBgOpacity'];
+function wireStickerRangeReadouts() {
+  STICKER_RANGE_IDS.forEach(id => {
+    const el = $('#' + id);
+    if (!el || el._rv) return;
+    const out = document.createElement('span');
+    out.className = 'sd-rv';
+    out.style.cssText = 'margin-left:8px;padding:1px 7px;border-radius:6px;background:rgba(120,140,170,.18);font:600 12px/1.4 inherit;min-width:22px;text-align:center;display:inline-block;vertical-align:middle';
+    el.insertAdjacentElement('afterend', out);
+    el._rv = out;
+    const upd = () => { out.textContent = el.value; };
+    el.addEventListener('input', upd);
+    upd();
+  });
+}
+function refreshStickerRangeReadouts() {
+  STICKER_RANGE_IDS.forEach(id => { const el = $('#' + id); if (el && el._rv) el._rv.textContent = el.value; });
+}
 function applyStickerCfgToInputs() {
   if (!stickerCfg) return;
   const set = (id, v) => { const el = $('#' + id); if (el) el.value = v; };
@@ -2246,14 +2265,13 @@ function applyStickerCfgToInputs() {
   set('sdBg', stickerCfg.bg); set('sdBgOpacity', stickerCfg.bgOpacity);
   if ($('#sdAnimIcon')) $('#sdAnimIcon').checked = stickerCfg.animIcon !== false;
   if ($('#sdEnlargeTop')) $('#sdEnlargeTop').checked = stickerCfg.enlargeTop !== false;
-  set('sdPerfBg', stickerCfg.perfBg); set('sdPerfBorder', stickerCfg.perfBorder);
+  set('sdPerfBg', stickerCfg.perfBg); set('sdPerfBorder', stickerCfg.perfBorder); set('sdPerfName', stickerCfg.perfName);
   const chk = (id, v) => { const el = $('#' + id); if (el) el.checked = !!v; };
   chk('sdPerfSparkle', stickerCfg.perfSparkle);
   chk('sdPerfRipple', stickerCfg.perfRipple);
   chk('sdPerfShine', stickerCfg.perfShine);
   chk('sdPerfNotes', stickerCfg.perfNotes);
   chk('sdShowMedals', stickerCfg.showMedals !== false);
-  chk('sdPerfBanner', stickerCfg.showPerfBanner !== false);
   chk('sdShowCrown', stickerCfg.showCrown !== false);
   chk('sdShowLevelUp', stickerCfg.showLevelUp !== false);
   chk('sdEggZero', stickerCfg.eggWhenZero !== false);
@@ -2265,8 +2283,10 @@ function applyStickerCfgToInputs() {
   set('sdStreakSeconds', stickerCfg.streakSeconds);
   chk('sdStreakSteal', stickerCfg.streakSteal !== false);
   set('sdStreakBarColor', stickerCfg.streakBarColor);
+  refreshStickerRangeReadouts();
 }
 function wireStickerDanceTab() {
+  wireStickerRangeReadouts();
   $('#sdRows')?.addEventListener('change', () => { stickerCfg.rows = clampInt($('#sdRows').value, 3, 1, 12); $('#sdRows').value = stickerCfg.rows; pruneStickerCells(); renderStickerEditor(); scheduleStickerSave(); });
   $('#sdCols')?.addEventListener('change', () => { stickerCfg.cols = clampInt($('#sdCols').value, 6, 1, 12); $('#sdCols').value = stickerCfg.cols; pruneStickerCells(); renderStickerEditor(); scheduleStickerSave(); });
   $('#sdCountMode')?.addEventListener('change', () => { stickerCfg.countMode = $('#sdCountMode').value === 'countdown' ? 'countdown' : 'cumulative'; scheduleStickerSave(); });
@@ -2283,12 +2303,12 @@ function wireStickerDanceTab() {
   $('#sdEnlargeTop')?.addEventListener('change', () => { stickerCfg.enlargeTop = $('#sdEnlargeTop').checked; scheduleStickerSave(); });
   $('#sdPerfBg')?.addEventListener('change', () => { stickerCfg.perfBg = $('#sdPerfBg').value; scheduleStickerSave(); });
   $('#sdPerfBorder')?.addEventListener('change', () => { stickerCfg.perfBorder = $('#sdPerfBorder').value; scheduleStickerSave(); });
+  $('#sdPerfName')?.addEventListener('change', () => { stickerCfg.perfName = $('#sdPerfName').value; scheduleStickerSave(); });
   $('#sdPerfSparkle')?.addEventListener('change', () => { stickerCfg.perfSparkle = $('#sdPerfSparkle').checked; scheduleStickerSave(); });
   $('#sdPerfRipple')?.addEventListener('change', () => { stickerCfg.perfRipple = $('#sdPerfRipple').checked; scheduleStickerSave(); });
   $('#sdPerfShine')?.addEventListener('change', () => { stickerCfg.perfShine = $('#sdPerfShine').checked; scheduleStickerSave(); });
   $('#sdPerfNotes')?.addEventListener('change', () => { stickerCfg.perfNotes = $('#sdPerfNotes').checked; scheduleStickerSave(); });
   $('#sdShowMedals')?.addEventListener('change', () => { stickerCfg.showMedals = $('#sdShowMedals').checked; scheduleStickerSave(); });
-  $('#sdPerfBanner')?.addEventListener('change', () => { stickerCfg.showPerfBanner = $('#sdPerfBanner').checked; scheduleStickerSave(); });
   $('#sdShowCrown')?.addEventListener('change', () => { stickerCfg.showCrown = $('#sdShowCrown').checked; scheduleStickerSave(); });
   $('#sdShowLevelUp')?.addEventListener('change', () => { stickerCfg.showLevelUp = $('#sdShowLevelUp').checked; scheduleStickerSave(); });
   $('#sdEggZero')?.addEventListener('change', () => { stickerCfg.eggWhenZero = $('#sdEggZero').checked; scheduleStickerSave(); });
@@ -8144,15 +8164,17 @@ async function refreshDataBackupHint() {
 
 function wireDataBackup() {
   $('#btnExportData')?.addEventListener('click', async () => {
+    // Ghi NGAY mọi chỉnh sửa đang chờ (slider/ô lưới vừa kéo) TRƯỚC khi xuất → file JSON không sót thông số mới nhất.
+    try { await flushAllSaves(); } catch {}
     const res = await window.api.data.export();
-    if (res?.ok) toast(`Đã xuất ${res.creators} Creator + ${res.groups} Nhóm`, 'success');
+    if (res?.ok) toast(`Đã xuất ${res.creators} Creator + ${res.groups} Nhóm + cấu hình chung`, 'success');
     else if (res?.reason && res.reason !== 'canceled') toast('Xuất dữ liệu thất bại', 'error');
   });
   $('#btnImportData')?.addEventListener('click', async () => {
-    if (!confirm('Nhập dữ liệu từ file? Creator/Nhóm trùng ID sẽ được cập nhật, dữ liệu mới sẽ được thêm (không xoá dữ liệu hiện có).')) return;
+    if (!confirm('Nhập dữ liệu từ file?\n• Creator/Nhóm trùng ID sẽ được cập nhật, dữ liệu mới sẽ được thêm (không xoá dữ liệu hiện có).\n• Cấu hình CHUNG (sticker, nhạc, menu quà, PK, vòng quay...) sẽ được GHI ĐÈ theo file nhập.')) return;
     const res = await window.api.data.import();
     if (res?.ok) {
-      toast(`Nhập xong: +${res.creatorsAdded} / ↻${res.creatorsUpdated} Creator, +${res.groupsAdded} / ↻${res.groupsUpdated} Nhóm`, 'success');
+      toast(`Nhập xong: +${res.creatorsAdded} / ↻${res.creatorsUpdated} Creator, +${res.groupsAdded} / ↻${res.groupsUpdated} Nhóm${res.configsRestored ? `, ${res.configsRestored} cấu hình chung — nên khởi động lại app để mọi bảng cập nhật đủ` : ''}`, 'success');
       creators = await window.api.creators.list();
       groups = await window.api.groups.list();
       await refreshGroupProfiles();

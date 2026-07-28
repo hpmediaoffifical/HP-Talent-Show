@@ -5,10 +5,12 @@
 
 #stickerRoot {
   display: inline-block;
-  /* Chừa đủ chỗ phía trên cho ruy-băng "ĐANG DIỄN" + vương miện (tỉ lệ theo cỡ icon). */
+  /* Chừa đủ chỗ phía trên cho vương miện 👑 (tỉ lệ theo cỡ icon). */
   padding: calc(var(--icon, 66px) * 0.5) 12px 14px;
   zoom: var(--scale, 1);
   transform: translateZ(0);
+  /* Bề rộng chung của nền quà & nhãn tên → hai cái LUÔN bằng nhau (nhãn không thò rộng hơn nền). */
+  --panel-w: calc(var(--icon, 66px) * 1.32);
 }
 
 /* OBS: canh GIỮA cả cụm bảng quà trong khung Browser Source, để cụm luôn nằm chính giữa
@@ -88,7 +90,7 @@ body:not(.overlay-review) {
 /* Panel nền xám mờ — icon phủ lên nửa trên, số đếm nằm nửa dưới. */
 .sd-panel {
   margin-top: calc(var(--icon, 66px) * -0.46);
-  width: calc(var(--icon, 66px) * 1.32);
+  width: var(--panel-w);
   padding: calc(var(--icon, 66px) * 0.5) 10px 8px;
   border-radius: 14px;
   /* KHÔNG backdrop-filter: OBS Browser Source nền trong suốt → CEF tô backdrop thành ĐEN ĐẶC
@@ -214,7 +216,9 @@ body:not(.overlay-review) {
 .sd-label {
   margin-top: 8px;
   display: block;
-  width: fit-content;
+  /* Cách C: chip đồng nhất bề rộng = trọn 1 ô (thay fit-content) → cả hàng nhãn thẳng mép,
+     không còn rộng-hẹp lô nhô. Chữ dài vẫn được ôm trong ô (marquee/clip theo từng .sd-lrow). */
+  width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   padding: 4px 11px;
@@ -226,6 +230,96 @@ body:not(.overlay-review) {
   box-shadow: 0 2px 6px rgba(0, 0, 0, .28);
   text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
 }
+
+/* ===== Cách C — DẢI NHÃN cao CỐ ĐỊNH =====
+   Bọc mỗi nhãn trong 1 dải chừa sẵn chỗ cho tới 2 dòng, chip căn giữa dải. Nhờ vậy nhãn 1 dòng
+   và 2 dòng chiếm CÙNG chiều cao → icon/nền xám bên dưới (hoặc bên trên) của mọi ô LUÔN thẳng
+   hàng, không bị đẩy lệch. Ô không có tên vẫn giữ dải để cả hàng đều tăm tắp. */
+.sd-labelband {
+  width: 100%;
+  min-height: calc(var(--text, 14px) * 2.5 + 12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;               /* nhãn ở DƯỚI: tách khỏi nền xám */
+}
+#stickerRoot[data-label-pos="top"] .sd-labelband { margin-top: 0; margin-bottom: 8px; } /* nhãn ở TRÊN */
+/* Trong dải, chip tự bỏ lề (dải lo khoảng cách) và rộng ĐÚNG bằng nền quà (--panel-w),
+   căn giữa ô → mép trái/phải nhãn thẳng với nền quà bên dưới. */
+#stickerRoot .sd-labelband .sd-label { margin: 0; width: var(--panel-w); }
+
+/* ===== NHÃN TÊN người ĐANG DIỄN — 5 kiểu chọn ở tab Sticker Dance (mặc định NGẪU NHIÊN mỗi lượt).
+   Nền để BÁN TRONG (không đặc), mọi hiệu ứng GÓI TRONG chip (không lồi ra che icon). An toàn OBS:
+   chỉ animate transform/opacity/background-position, không dùng filter cùng chỗ đang animate. ===== */
+
+/* C · pill — chip kính mờ + vệt sáng quét ngang (clip trong chip). */
+.sd-sticker.performing[data-perfname="pill"] .sd-label {
+  position: relative; overflow: hidden;
+  background: rgba(255, 255, 255, .16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .32), inset 0 1px 0 rgba(255, 255, 255, .3);
+}
+.sd-sticker.performing[data-perfname="pill"] .sd-label::after {
+  content: ""; position: absolute; top: 0; left: -60%; width: 45%; height: 100%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .6), transparent);
+  transform: skewX(-18deg);
+  animation: sd-nameshine 2.6s ease-in-out infinite;
+}
+@keyframes sd-nameshine { 0% { left: -60%; } 55%, 100% { left: 130%; } }
+
+/* D · metal — chữ ánh kim (vệt sáng lướt qua CHỮ), nền kính mờ nhẹ. */
+.sd-sticker.performing[data-perfname="metal"] .sd-label {
+  background: rgba(255, 255, 255, .12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .24);
+}
+.sd-sticker.performing[data-perfname="metal"] .sd-ltxt {
+  text-shadow: none;
+  background: linear-gradient(100deg, #fff 10%, #ffe07a 30%, #fff 45%, #ffd24a 62%, #fff 82%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: sd-nametxt-shine 2.6s linear infinite;
+}
+@keyframes sd-nametxt-shine { to { background-position: -220% 0; } }
+
+/* E · rainbow — chữ đổ gradient nhiều màu CHẠY liên tục, nền trong. */
+.sd-sticker.performing[data-perfname="rainbow"] .sd-label {
+  background: rgba(255, 255, 255, .1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2);
+}
+.sd-sticker.performing[data-perfname="rainbow"] .sd-ltxt {
+  text-shadow: none;
+  background: linear-gradient(90deg, #ff6f9c, #ffcf6b, #5fe6c0, #5aa8ff, #c58cff, #ff6f9c);
+  background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: sd-nametxt-rainbow 4s linear infinite;
+}
+@keyframes sd-nametxt-rainbow { to { background-position: 300% 0; } }
+
+/* F · eq — nền kính mờ + mấy thanh equalizer nhún nhảy trước tên ("đang phát nhạc"). */
+.sd-sticker.performing[data-perfname="eq"] .sd-label {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: rgba(255, 255, 255, .12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .24);
+}
+.sd-eq { display: inline-flex; align-items: flex-end; gap: 2px; height: calc(var(--text, 14px) * .92); flex: 0 0 auto; }
+.sd-eq i { width: 3px; height: 100%; border-radius: 2px; background: linear-gradient(#7cf29a, #4dd0ff); transform-origin: bottom center; }
+.sd-eq i:nth-child(1) { animation: sd-eqbar .7s ease-in-out infinite; }
+.sd-eq i:nth-child(2) { animation: sd-eqbar .7s ease-in-out .18s infinite; }
+.sd-eq i:nth-child(3) { animation: sd-eqbar .7s ease-in-out .34s infinite; }
+.sd-eq i:nth-child(4) { animation: sd-eqbar .7s ease-in-out .5s infinite; }
+@keyframes sd-eqbar { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+
+/* G · lights — đèn viền chạy (chấm sáng chạy sát MÉP chip, không lồi ra che icon). */
+.sd-sticker.performing[data-perfname="lights"] .sd-label {
+  border: 2px solid transparent;
+  box-shadow: none;
+  background:
+    linear-gradient(rgba(20, 14, 22, .5), rgba(20, 14, 22, .5)) padding-box,
+    repeating-linear-gradient(90deg, #ffd54a 0 7px, rgba(255, 150, 60, .28) 7px 14px) border-box;
+  animation: sd-namelights 1s linear infinite;
+}
+@keyframes sd-namelights { to { background-position: 0 0, 14px 0; } }
 /* Mỗi hàng: khung riêng, cắt phần tràn. Hàng ngắn căn giữa; hàng dài xử lý theo chế độ. */
 .sd-lrow { max-width: 100%; overflow: hidden; }
 .sd-lrow + .sd-lrow { margin-top: 1px; }
@@ -358,24 +452,6 @@ body:not(.overlay-review) {
 .sd-streak.dead { opacity: .45; }
 .sd-streak.dead > i { box-shadow: none; }
 
-/* ===== Ruy-băng "ĐANG DIỄN" nổi trên ô đang biểu diễn (chỉ transform+opacity). ===== */
-.sd-ribbon {
-  position: absolute;
-  top: calc(var(--icon, 66px) * -0.32);
-  left: 50%;
-  padding: 2px 8px; border-radius: 999px; white-space: nowrap;
-  font: 800 calc(var(--icon, 66px) * 0.155) / 1.1 'Inter', 'Segoe UI', sans-serif;
-  color: #fff; letter-spacing: .3px;
-  background: linear-gradient(90deg, #ff416c, #ff4b2b);
-  box-shadow: 0 3px 10px rgba(255, 60, 80, .5), inset 0 1px 0 rgba(255, 255, 255, .35);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
-  z-index: 8; pointer-events: none;
-  animation: sd-ribbon-pulse 1.3s ease-in-out infinite;
-}
-@keyframes sd-ribbon-pulse {
-  0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
-  50%      { transform: translateX(-50%) translateY(-8%) scale(1.05); }
-}
 
 /* ===== Ô quà ĐẶC BIỆT: viền bong bóng (gradient pastel xoay màu) + bong bóng bay + sparkle luôn bật.
    Dành cho quà KHÔNG có clip/audio nhưng vẫn muốn nổi bật. Dùng lại @property --sd-ang / sd-angle. ===== */
@@ -478,8 +554,6 @@ body:not(.overlay-review) {
   0%, 100% { transform: translateX(-50%) rotate(-6deg); }
   50%      { transform: translateX(-50%) rotate(6deg); }
 }
-/* Khi ô vừa đội vương miện VỪA đang biểu diễn: nâng ruy-băng lên để không đè vương miện. */
-.sd-sticker.crowned .sd-ribbon { top: calc(var(--icon, 66px) * -0.6); }
 
 /* ===== LEVEL UP: khi ô đạt mục tiêu → chữ vàng bùng lên + tia sáng loé (chạy 1 lần). ===== */
 .sd-levelup {

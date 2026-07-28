@@ -50,6 +50,12 @@ function pickEggSkin(prev) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// ---- Kiểu NHÃN TÊN người ĐANG DIỄN (pill/metal/rainbow/eq/lights). Chế độ 'random' bốc 1 kiểu
+// khi ô VỪA vào diễn rồi GIỮ suốt lượt (không nhấp nháy mỗi frame vì render dựng lại innerHTML). ----
+const PERF_NAME_STYLES = ['pill', 'metal', 'rainbow', 'eq', 'lights'];
+const perfNameByKey = new Map(); // key ô -> kiểu đang áp (chỉ giữ khi đang diễn)
+function pickPerfName() { return PERF_NAME_STYLES[Math.floor(Math.random() * PERF_NAME_STYLES.length)]; }
+
 // ---- Nội suy số đếm (mượt) — key theo vị trí ô; đổi quà ở ô đó thì snap ngay. ----
 const disp = new Map(); // key "r-c" -> { cur, giftId }
 let raf = 0;
@@ -163,6 +169,8 @@ function render(st) {
   root.style.setProperty('--sd-bg', `rgba(${hexToRgb(st.bg || '#2b2f3a')}, ${(Number.isFinite(Number(st.bgOpacity)) ? Number(st.bgOpacity) : 55) / 100})`);
   root.dataset.perfBg = ['none', 'gold', 'pink', 'blue', 'dark'].includes(st.perfBg) ? st.perfBg : 'gold';
   root.dataset.perfBorder = ['none', 'glow', 'neon', 'rainbow', 'ring'].includes(st.perfBorder) ? st.perfBorder : 'glow';
+  // Kiểu nhãn tên đang diễn: 'random' (mặc định) bốc ngẫu nhiên mỗi lượt; còn lại là kiểu cố định.
+  const perfNameCfg = (st.perfName === 'random' || PERF_NAME_STYLES.includes(st.perfName)) ? st.perfName : 'random';
 
   const byPos = new Map();
   for (const c of (st.cells || [])) if (c && c.giftId) byPos.set(`${Number(c.row) || 0}-${Number(c.col) || 0}`, c);
@@ -180,7 +188,6 @@ function render(st) {
   const shineOn = !!st.perfShine;
   const notesOn = !!st.perfNotes;
   const showMedals = st.showMedals !== false;
-  const showBanner = st.showPerfBanner !== false;
   const showLevelUp = st.showLevelUp !== false;
   const streakOn = !!st.streakOn;
   streakDur = Math.max(1000, Number(st.streakDur) || 10000);
@@ -253,17 +260,28 @@ function render(st) {
       const panel = special ? '' : `<div class="sd-panel">${ripple}${shine}${inner}</div>`;
       // Mỗi lần gõ Enter = 1 HÀNG (.sd-lrow) — luôn giữ nguyên. Hàng nào dài hơn khung sẽ tự
       // CHẠY ngang hoặc cắt "…" tuỳ chế độ; áp cho cả trường hợp nhiều hàng.
+      // Kiểu nhãn tên cho ô đang diễn: random giữ ổn định theo key suốt lượt; hết diễn thì bỏ để
+      // lượt sau bốc kiểu mới. Kiểu cố định dùng thẳng giá trị cấu hình.
+      let perfNameStyle = '';
+      if (perf) {
+        if (perfNameCfg === 'random') { perfNameStyle = perfNameByKey.get(key) || pickPerfName(); perfNameByKey.set(key, perfNameStyle); }
+        else { perfNameStyle = perfNameCfg; perfNameByKey.delete(key); }
+      } else { perfNameByKey.delete(key); }
       const tRaw = String(c.text || '');
       const rowsHtml = tRaw.split('\n')
         .map(line => `<div class="sd-lrow"><span class="sd-ltxt">${esc(line)}</span></div>`)
         .join('');
-      const label = c.text ? `<div class="sd-label" title="${esc(tRaw)}">${rowsHtml}</div>` : '';
+      // Kiểu 'eq': chèn mấy thanh equalizer nhún nhảy trước tên (dấu hiệu "đang phát nhạc").
+      const eqMarkup = perfNameStyle === 'eq' ? '<span class="sd-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>' : '';
+      const labelInner = c.text ? `<div class="sd-label" title="${esc(tRaw)}">${eqMarkup}${rowsHtml}</div>` : '';
+      // Cách C: bọc nhãn trong DẢI cao cố định (.sd-labelband) để icon các ô luôn thẳng hàng —
+      // nhãn 1 dòng / 2 dòng không làm xê dịch icon. Giữ cả dải rỗng khi ô không có tên.
+      // Ô "quà đặc biệt" (special) để nhãn nổi tự do (không dải) để không phá bố cục bong bóng nước.
+      const label = special ? labelInner : `<div class="sd-labelband">${labelInner}</div>`;
       // Huy chương top 3 theo điểm — badge góc. Ẩn huy chương #1 khi ô đã đội vương miện (tránh trùng).
       const medal = (showMedals && c.rank >= 1 && c.rank <= 3 && !(crowned && c.rank === 1)) ? `<div class="sd-medal m${c.rank}">${MEDALS[c.rank - 1]}</div>` : '';
       // Vương miện trên ô nhiều điểm nhất.
       const crown = crowned ? '<div class="sd-crown">👑</div>' : '';
-      // Ruy-băng "ĐANG DIỄN" trên ô đang biểu diễn.
-      const ribbon = (perf && showBanner) ? '<div class="sd-ribbon">🎤 ĐANG DIỄN</div>' : '';
       // Hạt lấp lánh: chỉ khi ĐANG BIỂU DIỄN + bật (ô quà đặc biệt không còn sparkle cho gọn).
       const sparks = (perf && sparkOn)
         ? '<div class="sd-sparks">' + [0, 1, 2, 3, 4, 5].map(k => `<i class="sd-spark s${k}"></i>`).join('') + '</div>'
@@ -276,8 +294,8 @@ function render(st) {
       // Nhãn-ở-dưới (mặc định): icon (trên) · nền xám+số · nhãn (dưới).
       // Nhãn-ở-trên: ĐẢO NGƯỢC — nhãn (trên) · nền xám+số · icon THÒ XUỐNG (dưới), cân đối.
       const stack = labelTop ? (label + panel + iconHtml) : (iconHtml + panel + label);
-      html += `<div class="sd-cell"${rowMt}><div class="sd-sticker${big ? ' big' : ''}${perf ? ' performing' : ''}${special ? ' special' : ''}${crowned ? ' crowned' : ''}"${cellSkin ? ` data-egg-skin="${cellSkin}"` : ''}>`
-        + ribbon + medal + crown
+      html += `<div class="sd-cell"${rowMt}><div class="sd-sticker${big ? ' big' : ''}${perf ? ' performing' : ''}${special ? ' special' : ''}${crowned ? ' crowned' : ''}"${cellSkin ? ` data-egg-skin="${cellSkin}"` : ''}${perfNameStyle ? ` data-perfname="${perfNameStyle}"` : ''}>`
+        + medal + crown
         + stack
         + bubbles + sparks + notes
         + '</div></div>';
