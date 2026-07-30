@@ -42,6 +42,7 @@ const STICKER_PATH = path.join(CONFIG_DIR, 'sticker-dance.json');
 const MVP_HONOR_PATH = path.join(CONFIG_DIR, 'mvp-honor.json');
 const LUCKY_WHEEL_PATH = path.join(CONFIG_DIR, 'lucky-wheel.json');
 const GIFT_MENU_PATH = path.join(CONFIG_DIR, 'gift-menu.json');
+const INTERACT_PATH = path.join(CONFIG_DIR, 'interact-feed.json');
 const DANCE_VIDEO_PATH = path.join(CONFIG_DIR, 'dance-video.json');
 const GROUP_PROFILES_PATH = path.join(CONFIG_DIR, 'group-profiles.json');
 const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
@@ -121,6 +122,24 @@ let cardFlipEngine = null;
 let danceVideoEngine = null;
 // Menu Quà (thông tin quà) — chỉ hiển thị, không có engine/game state: config CHÍNH là state overlay.
 let giftMenuConfig = { items: [] };
+// TƯƠNG TÁC + QUÀ (overlay gộp chat + quà thành 1 cột dọc 1080×1920). Config CHÍNH là state overlay.
+const INTERACT_DEFAULT = {
+  showGift: true,      // 🎁 QUÀ TẶNG (cột trên)
+  showChat: true,      // 💬 TƯƠNG TÁC (cột dưới)
+  splitRatio: 0.5,     // tỉ lệ chiều cao dành cho cột QUÀ (0.1..0.9) — kéo vạch chia để đổi
+  newest: 'top',       // vị trí bình luận/quà MỚI: 'top' (trên cùng) | 'bottom' (dưới cùng)
+  bgColor: '#000000',
+  bgOpacity: 55,       // 0..100 (độ đậm nền)
+  avatarSize: 56,
+  nameSize: 30,
+  commentSize: 34,     // cỡ chữ bình luận
+  giftSize: 32,        // cỡ chữ dòng quà (tên quà / số lần / KC)
+  showAvatar: true,    // hiện avatar
+  showGiftName: true,  // hiện tên quà (cạnh icon)
+  showRepeat: true,    // hiện số lần tặng
+  showCoin: true,      // hiện số KC
+};
+let interactConfig = { ...INTERACT_DEFAULT };
 let settings = loadSettings();
 const reviewWindows = new Map();
 
@@ -451,6 +470,7 @@ const REVIEW_META = {
   cardflip: { title: 'Review THẺ BÀI', getUrl: () => overlayServer?.getCardFlipUrl(), width: 1040, height: 320 },
   cardflipfx: { title: 'Review THẺ BÀI · Lật 3D', getUrl: () => overlayServer?.getCardFlipFxUrl(), width: 720, height: 405 },
   dancevideo: { title: 'Review NHẠC DANCE · Video', getUrl: () => overlayServer?.getDanceVideoUrl(), width: 960, height: 540 },
+  interact: { title: 'Review TƯƠNG TÁC + QUÀ', getUrl: () => overlayServer?.getInteractUrl(), width: 432, height: 768 },
 };
 
 function normalizeReviewBg(value) {
@@ -673,6 +693,31 @@ function loadLuckyWheelConfig() { return loadJson(LUCKY_WHEEL_PATH, null); }
 function saveLuckyWheelConfig(cfg) { saveJson(LUCKY_WHEEL_PATH, cfg); }
 function loadGiftMenuConfig() { return loadJson(GIFT_MENU_PATH, null); }
 function saveGiftMenuConfig(cfg) { saveJson(GIFT_MENU_PATH, cfg); }
+function loadInteractConfig() { return loadJson(INTERACT_PATH, null); }
+function saveInteractConfig(cfg) { saveJson(INTERACT_PATH, cfg); }
+// Chuẩn hoá config overlay TƯƠNG TÁC: kẹp số về khoảng hợp lệ + BẮT BUỘC ≥1 cột bật (không tắt cả 2).
+function normalizeInteractConfig(raw) {
+  const c = { ...INTERACT_DEFAULT, ...(raw && typeof raw === 'object' ? raw : {}) };
+  let showGift = c.showGift !== false;
+  let showChat = c.showChat !== false;
+  if (!showGift && !showChat) showChat = true; // không cho tắt cả 2
+  const clamp = (v, lo, hi, dflt) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt; };
+  return {
+    showGift, showChat,
+    splitRatio: clamp(c.splitRatio, 0.1, 0.9, INTERACT_DEFAULT.splitRatio),
+    newest: c.newest === 'bottom' ? 'bottom' : 'top',
+    bgColor: /^#[0-9a-f]{6}$/i.test(String(c.bgColor)) ? c.bgColor : INTERACT_DEFAULT.bgColor,
+    bgOpacity: Math.round(clamp(c.bgOpacity, 0, 100, INTERACT_DEFAULT.bgOpacity)),
+    avatarSize: Math.round(clamp(c.avatarSize, 20, 140, INTERACT_DEFAULT.avatarSize)),
+    nameSize: Math.round(clamp(c.nameSize, 14, 80, INTERACT_DEFAULT.nameSize)),
+    commentSize: Math.round(clamp(c.commentSize, 14, 90, INTERACT_DEFAULT.commentSize)),
+    giftSize: Math.round(clamp(c.giftSize, 14, 90, INTERACT_DEFAULT.giftSize)),
+    showAvatar: c.showAvatar !== false,
+    showGiftName: c.showGiftName !== false,
+    showRepeat: c.showRepeat !== false,
+    showCoin: c.showCoin !== false,
+  };
+}
 function loadDanceVideoConfig() { return loadJson(DANCE_VIDEO_PATH, null); }
 function saveDanceVideoConfig(cfg) { saveJson(DANCE_VIDEO_PATH, cfg); }
 
@@ -2388,6 +2433,7 @@ class RankingEngine {
       showAvatar: true,
       showGift: true,
       showRound: true,
+      showPerfOrder: true,      // STT từ Vòng quay: tắt chỉ ẩn trên OBS, không xoá dữ liệu Creator
       showActive: true,         // thanh xanh dưới cùng: người dẫn đầu/đang nổi bật (dọc + ngang)
       gridRows: 3,
       gridCols: 3,
@@ -2492,6 +2538,7 @@ class RankingEngine {
           lost: !!c.lost,
           voteActive: !!c.voteActive,
           active: this.activeId === c.id || !!c.voteActive,
+          perfOrder: Number(c.perfOrder) || 0, // Số thứ tự thi đấu (gán từ VÒNG QUAY) — chip góc trên-trái
         };
       });
     } else {
@@ -2556,6 +2603,7 @@ class RankingEngine {
       showAvatar: this.config.showAvatar,
       showGift: this.config.showGift,
       showRound: this.config.showRound,
+      showPerfOrder: this.config.showPerfOrder !== false,
       showActive: this.config.showActive,
       gridRows: this.config.gridRows,
       gridCols: this.config.gridCols,
@@ -2574,6 +2622,8 @@ class RankingEngine {
 
 // ----------------- Score (challenge gọi quà đạt mục tiêu) -----------------
 // State machine: idle → prestart → running → grace → success | failed
+const SCORE_THEME_IDS = new Set(['douyin', 'vip', 'neon', 'battle', 'luxury', 'sunset', 'ocean', 'candy']);
+const SCORE_THEME_FALLBACK = { themePreset: 'douyin', barColor1: '#b93678', barColor2: '#ff8ed1', waveColor: '#ffffff', overColor: '#ffffff' };
 class ScoreEngine {
   constructor({ onState }) {
     this.onState = onState;
@@ -2588,11 +2638,12 @@ class ScoreEngine {
       themePreset: 'douyin',
       overlaySize: 'medium',
       barStyle: 'pill',
+      cardLayout: false, // false = Thanh ngang · true = Thẻ HUD góc
       compactMode: false,
       timeColor: '#ffffff',
       scoreFontSize: 18,
       contentColor: '#f0eef6',
-      overColor: '#ff0000',
+      overColor: '#ffffff',
       barColor1: '#b93678',
       barColor2: '#ff8ed1',
       waveColor: '#ffffff',
@@ -2602,9 +2653,24 @@ class ScoreEngine {
       showSpeed: false,
       hideAvatar: false,
       hideCreator: false,
-      milestoneGradientEnabled: false,
       colorByProgress: false,
-      customMilestoneValues: [],
+      kpiX2: false,
+      kpiMult: 2,
+      showRemaining: false,
+      fxGlowBorder: false,
+      fxGlass: false,
+      fxSparkle: false,
+      // FX riêng thẻ KÊU GỌI — BẬT sẵn cho bản release (cấu hình cũ không có key này → giữ mặc định bật khi cập nhật)
+      fxSpotlight: true,
+      fxAvatarAura: true,
+      fxScoreBounce: true,
+      fxFloatPoints: true,
+      fxCardBreathe: true,
+      fxLiquid: true,
+      cardBgOpacity: 88,
+      barBorderColor: '#ffffff',
+      barBorderOpacity: 50,
+      barBorderWidth: 1,
       startSound: '',
       warningSound: '',
       goalSound: '',
@@ -2625,30 +2691,39 @@ class ScoreEngine {
       resultAt: 0,
     };
     this._tick = null;
+    this._comboRepeats = new Map();
   }
-  setConfig(patch) {
-    this.config = { ...this.config, ...patch };
+  setConfig(patch = {}) {
+    // Mốc thưởng đã bị loại bỏ; bỏ qua cấu hình cũ còn lưu trên máy người dùng.
+    const { milestones, customMilestoneValues, milestoneGradientEnabled, ...next } = patch || {};
+    if (Object.prototype.hasOwnProperty.call(next, 'themePreset') && next.themePreset !== 'custom' && !SCORE_THEME_IDS.has(next.themePreset)) Object.assign(next, SCORE_THEME_FALLBACK);
+    this.config = { ...this.config, ...next };
     this._emit();
   }
   reset() {
     this._clearTicker();
+    this._comboRepeats.clear();
     this.state = { score: 0, status: 'idle', endAt: 0, runStartedAt: 0, lastAdd: 0, lastAddUser: '', recentGifts: [], topUsers: [], resultAt: 0 };
     this._emit();
   }
   start() {
     if (this.state.status === 'running' || this.state.status === 'prestart') return;
-    this.state.status = 'prestart';
+    const now = Date.now();
+    const prepMs = Math.max(0, Number(this.config.prepSec) || 0) * 1000;
+    this.state.status = prepMs > 0 ? 'prestart' : 'running';
     this.state.score = 0;
     this.state.lastAdd = 0;
     this.state.lastAddUser = '';
     this.state.recentGifts = [];
     this.state.topUsers = [];
-    this.state.endAt = Date.now() + (this.config.prepSec || 0) * 1000;
-    this.state.runStartedAt = 0;
+    this._comboRepeats.clear();
+    this.state.endAt = prepMs > 0 ? now + prepMs : now + Math.max(0, Number(this.config.durationMs) || 0);
+    this.state.runStartedAt = prepMs > 0 ? 0 : now;
     this._runTicker();
   }
   stop() {
     this._clearTicker();
+    this._comboRepeats.clear();
     this.state.status = (this.state.score >= this.config.target) ? 'success' : 'failed';
     this.state.resultAt = Date.now();
     this._emit();
@@ -2680,9 +2755,25 @@ class ScoreEngine {
   }
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
+    let repeat = Math.max(1, Number(ev.repeatCount) || 1);
+    if (Number(ev.giftType) === 1) {
+      const key = `${ev.uniqueId || ev.nickname || ev.avatar || 'anonymous'}:${ev.giftId || ev.giftName || 'gift'}`;
+      const now = Date.now();
+      const previous = this._comboRepeats.get(key);
+      let delta = repeat;
+      if (previous) {
+        if (repeat > previous.count) delta = repeat - previous.count;
+        else if (repeat === 1 && !ev.repeatEnd && now - previous.at > 1500) delta = 1; // A new streak arrived without a final packet.
+        else delta = 0;
+      }
+      if (ev.repeatEnd) this._comboRepeats.delete(key);
+      else this._comboRepeats.set(key, { count: repeat, at: now });
+      if (!delta) return;
+      repeat = delta;
+    }
     const pts = this.config.pointsBy === 'diamond'
-      ? Math.max(1, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1)
-      : Math.max(1, Number(ev.repeatCount) || 1);
+      ? Math.max(1, resolveDiamond(ev)) * repeat
+      : repeat;
     this.state.score += pts;
     this.state.lastAdd = pts;
     this.state.lastAddUser = ev.nickname || ev.uniqueId || '';
@@ -2692,7 +2783,7 @@ class ScoreEngine {
       avatar: ev.avatar || '',
       giftName: ev.giftName || 'Quà',
       giftIcon: ev.giftIcon || '',
-      repeat: Math.max(1, Number(ev.repeatCount) || 1),
+      repeat,
       points: pts,
       at: Date.now(),
     }, ...(this.state.recentGifts || [])].slice(0, 6);
@@ -2765,6 +2856,7 @@ class ScoreEngine {
       runStartedAt: this.state.runStartedAt,
       lastAdd: this.state.lastAdd,
       lastAddUser: this.state.lastAddUser,
+      lastAddAt: this.state.recentGifts?.[0]?.at || 0,
       recentGifts: this.state.recentGifts,
       topUsers: this.state.topUsers,
       resultAt: this.state.resultAt,
@@ -3062,16 +3154,6 @@ class DanceVideoEngine {
   emitAll() { for (const ch of DANCE_CHANNELS) this._emit(ch); }
 }
 
-// Score theme presets — port từ BIGO spec
-const SCORE_THEMES = {
-  douyin:  ['#b93678', '#ff8ed1', '#ffffff', '#ff0000'],
-  vip:     ['#b76b00', '#ffd36a', '#fff4c1', '#ffea7a'],
-  neon:    ['#00a6ff', '#35ffcf', '#e7ffff', '#70fff0'],
-  battle:  ['#8f101f', '#ff4b4b', '#ffe1e1', '#ff3b3b'],
-  luxury:  ['#4c2a85', '#c79cff', '#f6edff', '#d7b8ff'],
-  minimal: ['#6b7280', '#d1d5db', '#ffffff', '#ffffff'],
-};
-
 // =================================================================
 // Window + IPC
 // =================================================================
@@ -3319,6 +3401,7 @@ function bootstrapEngines() {
   if (savedDanceVideo) danceVideoEngine.setConfig(savedDanceVideo);
   const savedGiftMenu = loadGiftMenuConfig();
   if (savedGiftMenu && typeof savedGiftMenu === 'object') giftMenuConfig = savedGiftMenu;
+  interactConfig = normalizeInteractConfig(loadInteractConfig());
 
   // Phát state khởi tạo cho overlay khi mới connect
   pkDuoEngine._emit();
@@ -3332,6 +3415,7 @@ function bootstrapEngines() {
   cardFlipEngine._emit();
   danceVideoEngine.emitAll();
   overlayServer?.sendGiftMenu(giftMenuConfig);
+  overlayServer?.sendInteract(interactConfig);
 }
 
 // Cache avatar theo user — TikTok hay gửi GIFT event THIẾU avatar (user data tối giản);
@@ -3357,19 +3441,40 @@ function bootstrapTikTok() {
   ttClient.on('connected', (info) => broadcast('tt:connected', info));
   ttClient.on('disconnected', (info) => { _avatarCache.clear(); broadcast('tt:disconnected', info); });
   ttClient.on('error', (info) => broadcast('tt:error', info));
-  ttClient.on('chat', (d) => { _cacheAvatar(d); broadcast('tt:chat', d); });
+  ttClient.on('chat', (d) => {
+    _cacheAvatar(d);
+    broadcast('tt:chat', d);
+    // Overlay TƯƠNG TÁC + QUÀ (cột bình luận dưới) — chỉ đẩy khi thực sự có nội dung bình luận.
+    if (d && (d.comment || '').trim()) {
+      overlayServer?.pushInteractChat({
+        avatar: d.avatar || '', nickname: d.nickname || '', uniqueId: d.uniqueId || '',
+        level: d.level || '', comment: d.comment || '',
+      });
+    }
+  });
   ttClient.on('gift', (d) => {
     _cacheAvatar(d);   // gift có avatar thì lưu lại
     _fillAvatar(d);    // gift thiếu avatar thì bù từ cache
     if (d.avatar) overlayServer?.primeAvatar(d.avatar); // lưu đĩa avatar người tặng (champion PK) ngay
     broadcast('tt:gift', d);
-    // Route vào engines (chỉ route khi streak kết thúc để tránh double-count khi user combo)
+    // Overlay TƯƠNG TÁC + QUÀ (cột quà trên) — mirror renderer: chỉ hiện khi shouldProcess (né spam combo).
+    if (d.shouldProcess) {
+      const repeat = Math.max(1, Number(d.repeatCount) || 1);
+      const coinEach = resolveDiamond(d);
+      overlayServer?.pushInteractGift({
+        avatar: d.avatar || '', nickname: d.nickname || '', uniqueId: d.uniqueId || '',
+        level: d.level || '', giftId: d.giftId || '', giftName: d.giftName || '',
+        giftIcon: d.giftIcon || '', repeat, totalCoin: coinEach * repeat,
+      });
+    }
+    // Score tự cộng phần chênh lệch của từng nhịp combo để điểm lên ngay, không chờ chốt streak.
+    scoreEngine?.routeGift(d);
+    // Các game còn lại chỉ route khi streak kết thúc để tránh double-count khi user combo.
     if (d.shouldProcess) {
       pkDuoEngine?.routeGift(d);
       pkGroupEngine?.routeGift(d);
       // Khi có trò chơi đang Liên kết → BXH ngưng tự cộng quà mặc định (điểm đến từ trò chơi).
       rankingEngine?.routeGift(d, anyLinkedGiftSourceActive());
-      scoreEngine?.routeGift(d);
       stickerEngine?.routeGift(d);
       missionTrioEngine?.routeGift(d);
     }
@@ -3412,6 +3517,14 @@ async function bootstrapOverlay() {
       cardFlipEngine.flipCard(id);
       settings.cardFlip = cardFlipEngine.config; saveSettings();
       return cardFlipEngine.getStateForOverlay();
+    },
+    // Overlay TƯƠNG TÁC + QUÀ: kéo vạch chia (Quà/Bình luận) trên overlay/Review → lưu tỉ lệ + đồng bộ UI.
+    onInteractSplit: (ratio) => {
+      interactConfig = normalizeInteractConfig({ ...interactConfig, splitRatio: ratio });
+      saveInteractConfig(interactConfig);
+      overlayServer?.sendInteract(interactConfig);
+      broadcast('interact:state', interactConfig);
+      return interactConfig;
     },
     // Video NHẠC DANCE phát xong/lỗi trên overlay → xoá main + báo renderer để 🎬 Hàng đợi bước tiếp.
     onDanceVideoEnded: (ch, playId, layer) => {
@@ -3752,6 +3865,16 @@ function registerIpc() {
   });
   ipcMain.handle('giftmenu:getUrl', () => overlayServer?.getGiftMenuUrl());
 
+  // ===== TƯƠNG TÁC + QUÀ (overlay gộp chat + quà) — config-only, không có engine =====
+  ipcMain.handle('interact:getConfig', () => interactConfig);
+  ipcMain.handle('interact:setConfig', (_e, cfg) => {
+    interactConfig = normalizeInteractConfig(cfg);
+    saveInteractConfig(interactConfig);
+    overlayServer?.sendInteract(interactConfig);
+    return interactConfig;
+  });
+  ipcMain.handle('interact:getUrl', () => overlayServer?.getInteractUrl());
+
   // Match history (LỊCH SỬ trận đấu)
   ipcMain.handle('history:list', (_e, filter) => {
     let list = loadMatchHistory();
@@ -3830,6 +3953,48 @@ function registerIpc() {
   ipcMain.handle('ranking:setActive', (_e, id) => { rankingEngine.setActive(id); return true; });
   ipcMain.handle('ranking:getUrl', () => overlayServer.getRankingUrl());
   ipcMain.handle('ranking:getGridUrl', () => overlayServer.getRankingUrl() + '&grid=1');
+
+  // ===== SỐ THỨ TỰ THI ĐẤU (STT) — gán từ 🎡 VÒNG QUAY, hiện trên overlay THI ĐẤU DỌC/NGANG =====
+  ipcMain.handle('ranking:setPerfOrder', (_e, { creatorId, order } = {}) => {
+    const id = String(creatorId || '');
+    if (!id) return { ok: false, reason: 'no-creator' };
+    const list = loadCreators();
+    const idx = list.findIndex(c => c.id === id);
+    if (idx < 0) return { ok: false, reason: 'not-found' };
+    const n = Math.max(0, Math.round(Number(order) || 0));
+    list[idx] = { ...list[idx], perfOrder: n };
+    saveCreators(list);
+    rankingEngine._emit();
+    return { ok: true, perfOrder: n };
+  });
+  ipcMain.handle('ranking:clearPerfOrder', () => {
+    const list = loadCreators().map(c => (Number(c.perfOrder) ? { ...c, perfOrder: 0 } : c));
+    saveCreators(list);
+    rankingEngine._emit();
+    return { ok: true };
+  });
+  // Áp snapshot STT từ các ô quay còn hiệu lực trong một lần ghi: khi đổi Creator/khôi phục,
+  // không thể còn badge cũ trên một trong hai overlay DỌC/NGANG.
+  ipcMain.handle('ranking:syncPerfOrders', (_e, rawAssignments = []) => {
+    const creators = loadCreators();
+    const creatorIds = new Set(creators.map(c => String(c.id)));
+    const orders = new Map();
+    for (const assignment of (Array.isArray(rawAssignments) ? rawAssignments : [])) {
+      const creatorId = String(assignment?.creatorId || '');
+      const order = Math.max(0, Math.round(Number(assignment?.order) || 0));
+      if (creatorId && order && creatorIds.has(creatorId)) orders.set(creatorId, order);
+    }
+    let changed = false;
+    const list = creators.map(c => {
+      const perfOrder = orders.get(String(c.id)) || 0;
+      if ((Number(c.perfOrder) || 0) === perfOrder) return c;
+      changed = true;
+      return { ...c, perfOrder };
+    });
+    if (changed) saveCreators(list);
+    rankingEngine._emit();
+    return { ok: true, count: orders.size };
+  });
 
   // ===== Liên kết điểm mini-game → THI ĐẤU NHÓM (contestPoints), idempotent + hoàn tác =====
   // 🎯 Tính điểm: cộng số điểm đạt được vào 1 Creator (thường là Creator đang VOTE).
@@ -4170,6 +4335,7 @@ app.whenReady().then(async () => {
   // để OBS/Review nhận ĐÚNG cấu hình ngay khi kết nối, không phải chờ lần chỉnh sửa kế tiếp.
   pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); cardFlipEngine?._emit(); danceVideoEngine?.emitAll();
   overlayServer?.sendGiftMenu(giftMenuConfig);
+  overlayServer?.sendInteract(interactConfig);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 

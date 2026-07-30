@@ -1,0 +1,16 @@
+{
+  "showGift": true,
+  "showChat": true,
+  "splitRatio": 0.27,
+  "newest": "bottom",
+  "bgColor": "#000000",
+  "bgOpacity": 58,
+  "avatarSize": 127,
+  "nameSize": 62,
+  "commentSize": 82,
+  "giftSize": 45,
+  "showAvatar": true,
+  "showGiftName": false,
+  "showRepeat": true,
+  "showCoin": true
+}

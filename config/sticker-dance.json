@@ -1,9 +1,12 @@
 {
   "content": "STICKER DANCE",
+  "linkRanking": true,
   "rows": 3,
   "cols": 6,
   "countMode": "cumulative",
   "labelPos": "bottom",
+  "labelLong": "scroll",
+  "labelScrollSpeed": 4,
   "cells": [
     {
       "row": 0,
@@ -106,12 +109,12 @@
   "enlargeTop": true,
   "perfBg": "gold",
   "perfBorder": "glow",
+  "perfName": "random",
   "perfSparkle": false,
   "perfRipple": false,
   "perfShine": false,
   "perfNotes": false,
   "showMedals": true,
-  "showPerfBanner": true,
   "showCrown": true,
   "showLevelUp": true,
   "eggWhenZero": true,
@@ -121,5 +124,6 @@
   "streakEnabled": false,
   "streakSeconds": 10,
   "streakSteal": true,
-  "streakBarColor": "tiktok"
+  "streakBarColor": "tiktok",
+  "showPerfBanner": true
 }

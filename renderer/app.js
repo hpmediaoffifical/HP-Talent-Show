@@ -227,6 +227,7 @@ let stats = { gifts: 0, diamond: 0, donors: new Set(), viewers: 0 };
 let ttConnected = false;
 let liveUsername = '';
 let activeGroupId = ''; // '' = TALENT SHOW (mở tất cả); id = chỉ nhóm đó. KHÔNG lưu vào settings.
+const TALENT_SHOW_CONNECT_ID = 'hpmedia.official'; // ID TikTok đại diện của 🎤 TALENT SHOW (tự điền ô kết nối)
 let autoConnectPref = false; // Tự động kết nối khi mở app (popup Kết nối).
 let scoreLinkRanking = false;
 let scoreLinkVoteLock = false;
@@ -3069,10 +3070,16 @@ function wireMvpHonorTab() {
 // VÒNG QUAY MAY MẮN (Lucky Wheel)
 // ============================================================
 const LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
-let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, slowSec: 3, sound: true, confetti: true, showResult: true, edgeStops: true, autoRemove: false, pushDrawnTop: false, selectedSpinner: null, segments: [], history: [] };
+let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, slowSec: 3, sound: true, confetti: true, showResult: true, edgeStops: true, autoRemove: false, pushDrawnTop: false, autoContest: true, contestAssignmentsInitialized: false, selectedSpinner: null, segments: [], history: [] };
 // segId của ô đã trúng (đã xám danh sách) NHƯNG còn trên vòng quay app/OBS — sẽ bị loại khỏi
 // vòng quay khi BẮT ĐẦU lượt quay kế tiếp. null nếu không có ô nào đang chờ loại.
 let lwPendingDrawn = null;
+// Chế độ thi đấu: id Creator vừa bị cảnh báo "đã có STT" — bấm QUAY lần nữa cùng người này để GHI ĐÈ.
+let lwContestDupArm = null;
+// Tăng mỗi khi huỷ/reset lượt thi để kết quả của animation cũ không gán STT trở lại.
+let lwContestEpoch = 0;
+// Các thay đổi STT đi qua một hàng đợi để thao tác Khôi phục luôn thắng kết quả quay đến trễ.
+let lwPerfOrderQueue = Promise.resolve();
 
 function lwNormalize(cfg) {
   const c = cfg && typeof cfg === 'object' ? cfg : {};
@@ -3087,19 +3094,30 @@ function lwNormalize(cfg) {
     edgeStops: c.edgeStops !== false,
     autoRemove: c.autoRemove === true,
     pushDrawnTop: c.pushDrawnTop === true,
+    autoContest: c.autoContest !== false, // Chế độ thi đấu: gán STT cho Creator (mặc định BẬT — hợp TALENT SHOW)
+    // Đánh dấu đã có nguồn STT chính thức; tránh tự dựng lại STT sau khi user chủ động xoá.
+    contestAssignmentsInitialized: c.contestAssignmentsInitialized === true,
     showCount: c.showCount !== false, spinCount: Math.max(0, Math.round(Number(c.spinCount) || 0)),
     selectedSpinner: c.selectedSpinner?.name ? { id: String(c.selectedSpinner.id || ''), name: String(c.selectedSpinner.name), avatar: String(c.selectedSpinner.avatar || '') } : null,
-    segments: Array.isArray(c.segments) ? c.segments.map((s, i) => ({
-      id: s.id || ('lw_' + Math.random().toString(36).slice(2, 9)),
-      text: String(s.text || ''), note: String(s.note || ''),
-      type: ['reward', 'penalty', 'info'].includes(s.type) ? s.type : 'info',
-      color: /^#[0-9a-fA-F]{6}$/.test(s.color || '') ? s.color : LW_PALETTE[i % LW_PALETTE.length],
-      weight: clampInt(s.weight, 10, 1, 100),
-      jackpot: s.jackpot === true,
-      won: s.won === true,     // ĐÃ trúng: xám trong danh sách + hiện tên/avatar (từ lúc ra kết quả)
-      drawn: s.drawn === true, // ĐÃ loại khỏi vòng quay app/OBS (từ lượt quay kế tiếp)
-      wonBy: String(s.wonBy || ''), wonAvatar: String(s.wonAvatar || ''),
-    })) : [],
+    segments: Array.isArray(c.segments) ? c.segments.map((s, i) => {
+      const contestOrder = Math.max(0, Math.round(Number(s.contestOrder) || 0));
+      return {
+        id: s.id || ('lw_' + Math.random().toString(36).slice(2, 9)),
+        text: String(s.text || ''), note: String(s.note || ''),
+        type: ['reward', 'penalty', 'info'].includes(s.type) ? s.type : 'info',
+        color: /^#[0-9a-fA-F]{6}$/.test(s.color || '') ? s.color : LW_PALETTE[i % LW_PALETTE.length],
+        weight: clampInt(s.weight, 10, 1, 100),
+        jackpot: s.jackpot === true,
+        won: s.won === true,     // ĐÃ trúng: xám trong danh sách + hiện tên/avatar (từ lúc ra kết quả)
+        drawn: s.drawn === true, // ĐÃ loại khỏi vòng quay app/OBS (từ lượt quay kế tiếp)
+        wonBy: String(s.wonBy || ''), wonAvatar: String(s.wonAvatar || ''),
+        wonCreatorId: String(s.wonCreatorId || ''),
+        // Liên kết bền vững giữa ô quay và STT để đổi người/khôi phục đồng bộ được OBS.
+        contestCreatorId: contestOrder ? String(s.contestCreatorId || '') : '',
+        contestOrder,
+        contestSpinId: contestOrder ? String(s.contestSpinId || '') : '',
+      };
+    }) : [],
     history: Array.isArray(c.history) ? c.history : [],
   };
 }
@@ -3107,6 +3125,8 @@ function lwNormalize(cfg) {
 async function loadLuckyWheelConfig() {
   const cfg = await window.api.luckywheel.getConfig().catch(() => null);
   lwCfg = lwNormalize(cfg);
+  // Tắt chế độ chỉ ẨN chip STT trên OBS; dữ liệu Creator/ô quay vẫn được giữ để bật lại hiện ngay.
+  await window.api.ranking.setConfig({ showPerfOrder: lwCfg.autoContest }).catch(() => {});
   if (!lwCfg.segments.length) {
     // Ô mẫu để người dùng thấy ngay cách dùng
     lwCfg.segments = [
@@ -3122,7 +3142,7 @@ async function loadLuckyWheelConfig() {
   }
 }
 
-function lwPush() { window.api.luckywheel.setConfig(lwCfg).catch(() => {}); }
+function lwPush() { return window.api.luckywheel.setConfig(lwCfg).catch(() => {}); }
 const _lwSaver = makeAutoSaver(() => lwPush());
 function lwScheduleSave() { _lwSaver.schedule(); }
 // Vòng quay chỉ hiện các ô CHƯA quay (drawn=false). Ô đã quay bị làm xám trong danh sách
@@ -3151,7 +3171,77 @@ function lwShuffleSegments() {
 }
 function lwNewSeg() {
   const i = lwCfg.segments.length;
-  return { id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Số ' + (i + 1), note: '', type: 'info', color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false, drawn: false };
+  return {
+    id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Số ' + (i + 1), note: '', type: 'info',
+    color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false, won: false, drawn: false,
+    wonBy: '', wonAvatar: '', wonCreatorId: '', contestCreatorId: '', contestOrder: 0, contestSpinId: '',
+  };
+}
+
+function lwClearContestAssignment(seg) {
+  if (!seg) return;
+  seg.contestCreatorId = '';
+  seg.contestOrder = 0;
+  seg.contestSpinId = '';
+}
+
+function lwClearAllContestAssignments() {
+  lwCfg.segments.forEach(lwClearContestAssignment);
+}
+
+function lwAssignContestOrder(seg, creatorId, order, spinId = '') {
+  const id = String(creatorId || '');
+  const n = Math.max(0, Math.round(Number(order) || 0));
+  if (!seg || !id || !n) { lwClearContestAssignment(seg); return; }
+  // Mỗi Creator chỉ giữ STT mới nhất; ô cũ vẫn giữ người trúng nhưng không còn sở hữu STT.
+  lwCfg.segments.forEach(s => { if (s !== seg && s.contestCreatorId === id) lwClearContestAssignment(s); });
+  seg.contestCreatorId = id;
+  seg.contestOrder = n;
+  seg.contestSpinId = String(spinId || '');
+  lwCfg.contestAssignmentsInitialized = true;
+}
+
+function lwContestAssignments() {
+  return lwCfg.segments.reduce((list, seg) => {
+    const creatorId = String(seg.contestCreatorId || '');
+    const order = Math.max(0, Math.round(Number(seg.contestOrder) || 0));
+    if (creatorId && order) list.push({ creatorId, order });
+    return list;
+  }, []);
+}
+
+function lwContestOrderFromText(text) {
+  const match = String(text || '').match(/-?\d+/);
+  const order = match ? parseInt(match[0], 10) : 0;
+  return order > 0 ? order : 0;
+}
+
+// Chỉ dùng một lần để cứu dữ liệu của bản trước: lúc đó ô đã quay có Creator nhưng chưa lưu liên kết STT.
+function lwRestoreLegacyContestAssignments() {
+  if (lwCfg.contestAssignmentsInitialized || lwCfg.segments.some(s => s.contestCreatorId && Number(s.contestOrder) > 0)) return 0;
+  let restored = 0;
+  for (const seg of lwCfg.segments) {
+    const creatorId = String(seg.wonCreatorId || '');
+    const order = lwContestOrderFromText(seg.text);
+    if (!seg.won || !creatorId || !order || !creators.some(c => c.id === creatorId)) continue;
+    lwAssignContestOrder(seg, creatorId, order);
+    restored += 1;
+  }
+  return restored;
+}
+
+function lwInvalidateContestSpin() { lwContestEpoch += 1; }
+
+function lwSyncContestPerfOrders() {
+  const assignments = lwContestAssignments();
+  const sync = async () => {
+    const result = await window.api.ranking.syncPerfOrders(assignments).catch(() => null);
+    if (result?.ok) await refreshCreators();
+    return result;
+  };
+  const next = lwPerfOrderQueue.then(sync, sync);
+  lwPerfOrderQueue = next.catch(() => {});
+  return next;
 }
 
 // Tạo hàng loạt: thay danh sách ô hiện tại bằng dãy "Số 1 → Số N" (bốc số/rút thăm).
@@ -3160,7 +3250,8 @@ function lwGenerateNumbers(n) {
   lwCfg.segments = Array.from({ length: count }, (_, i) => ({
     id: 'lw_' + Math.random().toString(36).slice(2, 9),
     text: 'Số ' + (i + 1), note: '', type: 'info',
-    color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false, drawn: false,
+    color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false, won: false, drawn: false,
+    wonBy: '', wonAvatar: '', wonCreatorId: '', contestCreatorId: '', contestOrder: 0, contestSpinId: '',
   }));
   renderLwSegList(); renderLwPreview(); lwPush();
 }
@@ -3190,7 +3281,7 @@ function renderLwSegList() {
         ${g ? (s.wonBy
           ? `<span class="lw-seg-wonby" data-i="${i}" title="Người quay: ${escAttr(s.wonBy)} — bấm để chọn lại"><img class="lw-won-av js-avatar" src="${escAttr(safeAvatarUrl(s.wonAvatar))}" alt="" /><span class="lw-won-name">${escAttr(s.wonBy)}</span></span>`
           : `<span class="lw-seg-wonby lw-won-none" data-i="${i}" title="Bấm để chọn người quay">＋ tên</span>`) : ''}
-        ${g ? `<button class="lw-seg-restore" data-i="${i}" type="button" title="Khôi phục ô đã quay (đưa lại vào vòng quay)">↩️</button>` : ''}
+        ${g ? `<button class="lw-seg-restore" data-i="${i}" type="button" title="Khôi phục ô đã quay và xoá STT thi đấu liên quan">↩️</button>` : ''}
         <button class="lw-seg-gear" data-i="${i}" type="button" title="Cài đặt: loại kết quả · tỷ lệ · quà lớn">⚙️</button>
         <button class="lw-seg-del" data-i="${i}" type="button" title="Xoá ô">🗑</button>
       </div>
@@ -3214,7 +3305,18 @@ function renderLwSegList() {
   box.querySelectorAll('.lw-seg-weight-input').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].weight = clampInt(el.value, 10, 1, 100); lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-jackpot input').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].jackpot = el.checked; lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-wonby').forEach(el => el.addEventListener('click', () => lwOpenWonEditor(+el.dataset.i, el)));
-  box.querySelectorAll('.lw-seg-restore').forEach(el => el.addEventListener('click', () => { const s = lwCfg.segments[+el.dataset.i]; if (lwPendingDrawn === s.id) lwPendingDrawn = null; s.won = false; s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; renderLwSegList(); renderLwPreview(); lwPush(); }));
+  box.querySelectorAll('.lw-seg-restore').forEach(el => el.addEventListener('click', async () => {
+    const s = lwCfg.segments[+el.dataset.i];
+    if (!s) return;
+    lwInvalidateContestSpin();
+    if (lwPendingDrawn === s.id) lwPendingDrawn = null;
+    s.won = false; s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; s.wonCreatorId = '';
+    lwClearContestAssignment(s);
+    lwCfg.contestAssignmentsInitialized = true;
+    renderLwSegList(); renderLwPreview();
+    await lwPush();
+    await lwSyncContestPerfOrders();
+  }));
   box.querySelectorAll('.lw-seg-del').forEach(el => el.addEventListener('click', () => { lwCfg.segments.splice(+el.dataset.i, 1); renderLwSegList(); renderLwPreview(); lwScheduleSave(); }));
 }
 
@@ -3230,6 +3332,7 @@ function lwOpenWonEditor(i, anchorEl) {
   lwCloseWonEditor();
   const seg = lwCfg.segments[i]; if (!seg || !anchorEl) return;
   const list = visibleCreators();
+  const selectedWinnerId = String(seg.wonCreatorId || list.find(cr => (cr.nickname || cr.tiktokId || cr.id) === seg.wonBy)?.id || '');
   const pop = document.createElement('div');
   pop.id = 'lwWonPop';
   pop.className = 'lw-won-pop';
@@ -3237,7 +3340,7 @@ function lwOpenWonEditor(i, anchorEl) {
     <div class="lw-won-pop-title">Người quay trúng "${escAttr(seg.text) || 'ô này'}"</div>
     <select class="lw-won-pop-sel">
       <option value="">— Chọn thành viên —</option>
-      ${list.map(cr => { const nm = cr.nickname || cr.tiktokId || cr.id; return `<option value="${escAttr(cr.id)}"${nm === seg.wonBy ? ' selected' : ''}>${escAttr(nm)}</option>`; }).join('')}
+      ${list.map(cr => { const nm = cr.nickname || cr.tiktokId || cr.id; return `<option value="${escAttr(cr.id)}"${cr.id === selectedWinnerId ? ' selected' : ''}>${escAttr(nm)}</option>`; }).join('')}
     </select>
     <input class="lw-won-pop-name" type="text" placeholder="hoặc gõ tên tự do…" value="${escAttr(seg.wonBy)}" />
     <div class="lw-won-pop-actions">
@@ -3251,14 +3354,31 @@ function lwOpenWonEditor(i, anchorEl) {
   const sel = pop.querySelector('.lw-won-pop-sel');
   const name = pop.querySelector('.lw-won-pop-name');
   sel.addEventListener('change', () => { if (sel.value) { const cr = list.find(c => c.id === sel.value); if (cr) name.value = cr.nickname || cr.tiktokId || cr.id; } });
-  const apply = () => {
-    let wonBy = name.value.trim(), wonAvatar = '';
-    if (sel.value) { const cr = list.find(c => c.id === sel.value); if (cr) { wonBy = cr.nickname || cr.tiktokId || cr.id; wonAvatar = cr.avatar || ''; } }
-    seg.wonBy = wonBy; seg.wonAvatar = wonAvatar;
-    lwCloseWonEditor(); renderLwSegList(); renderLwPreview(); lwPush();
+  const apply = async () => {
+    let wonBy = name.value.trim(), wonAvatar = '', wonCreatorId = '';
+    if (sel.value) {
+      const cr = list.find(c => c.id === sel.value);
+      if (cr) { wonBy = cr.nickname || cr.tiktokId || cr.id; wonAvatar = cr.avatar || ''; wonCreatorId = cr.id; }
+    }
+    const contestOrder = Math.max(0, Math.round(Number(seg.contestOrder) || 0));
+    seg.wonBy = wonBy; seg.wonAvatar = wonAvatar; seg.wonCreatorId = wonCreatorId;
+    if (contestOrder) {
+      if (wonCreatorId) lwAssignContestOrder(seg, wonCreatorId, contestOrder, seg.contestSpinId);
+      else lwClearContestAssignment(seg);
+    }
+    lwCloseWonEditor(); renderLwSegList(); renderLwPreview();
+    await lwPush();
+    if (contestOrder) await lwSyncContestPerfOrders();
   };
   pop.querySelector('.lw-won-pop-apply').addEventListener('click', apply);
-  pop.querySelector('.lw-won-pop-clear').addEventListener('click', () => { seg.wonBy = ''; seg.wonAvatar = ''; lwCloseWonEditor(); renderLwSegList(); renderLwPreview(); lwPush(); });
+  pop.querySelector('.lw-won-pop-clear').addEventListener('click', async () => {
+    const contestOrder = Math.max(0, Math.round(Number(seg.contestOrder) || 0));
+    seg.wonBy = ''; seg.wonAvatar = ''; seg.wonCreatorId = '';
+    lwClearContestAssignment(seg);
+    lwCloseWonEditor(); renderLwSegList(); renderLwPreview();
+    await lwPush();
+    if (contestOrder) await lwSyncContestPerfOrders();
+  });
   name.addEventListener('keydown', (e) => { if (e.key === 'Enter') apply(); if (e.key === 'Escape') lwCloseWonEditor(); });
   // Đóng khi bấm ra ngoài hoặc cuộn danh sách (popup gắn theo toạ độ chip).
   const onDoc = (e) => { if (!pop.contains(e.target) && !(e.target instanceof Node && e.target.closest?.('.lw-seg-wonby'))) lwCloseWonEditor(); };
@@ -3434,6 +3554,32 @@ function lwSyncSelectedSpinner() {
   lwPush();
 }
 
+// 🏆 Chế độ thi đấu: quay gán STT xong thì TỰ nhảy dropdown sang Creator KẾ chưa có STT.
+// Tránh "kẹt" khi dropdown vẫn dính người vừa gán → mỗi lần bấm QUAY lại báo trùng chính họ.
+// Hết người chưa gán thì bỏ chọn + báo đã xong.
+function lwContestAdvanceAfter(afterId) {
+  const sel = $('#lwSpinnerSel'); if (!sel) return;
+  const list = visibleCreators();
+  const idx = list.findIndex(c => c.id === afterId);
+  let next = null;
+  for (let k = 1; k <= list.length; k++) {
+    const c = list[(Math.max(0, idx) + k) % list.length];
+    if (c && !(Number(c.perfOrder) > 0)) { next = c; break; }
+  }
+  lwContestDupArm = null;
+  sel.classList.remove('lw-invalid');
+  if (next) {
+    sel.value = next.id;
+    if ($('#lwSpinnerName')) $('#lwSpinnerName').value = '';
+    lwSyncSelectedSpinner(); // cập nhật selectedSpinner + đẩy avatar người kế lên tâm vòng quay OBS
+    toast(`➡️ Người quay kế: ${next.nickname || next.tiktokId || 'Creator'}`, 'info');
+  } else {
+    sel.value = '';
+    lwCfg.selectedSpinner = null; lwPush();
+    toast('✅ Mọi Creator đã có STT — hết người để quay', 'success');
+  }
+}
+
 function lwTypeLabel(t) { return t === 'reward' ? '🎁 Thưởng' : t === 'penalty' ? '⚡ Phạt' : '✨ Thông tin'; }
 function lwFmtTime(iso) { try { const d = new Date(iso); return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }); } catch { return ''; } }
 function lwBuildCsv() {
@@ -3473,6 +3619,28 @@ async function lwDoSpin() {
   if (!lwCfg.segments.length) { toast('Chưa có ô nào để quay', 'error'); return; }
   const btn = $('#lwSpinBtn');
   if (btn?.disabled) return;
+  // 🏆 CHẾ ĐỘ THI ĐẤU: bắt buộc chọn 1 Creator thật (không phải tên gõ tay) trước khi quay.
+  // Quay xong sẽ lọc SỐ từ ô trúng (vd "Số 10" → 10) gán làm STT thi đấu cho Creator đó.
+  const contest = !!lwCfg.autoContest;
+  if (contest) {
+    const selEl = $('#lwSpinnerSel');
+    const sp = lwGetSpinner();
+    if (!sp?.id) {
+      selEl?.classList.add('lw-invalid');
+      toast('🏆 Chế độ thi đấu: hãy CHỌN 1 Creator trong danh sách trước khi quay', 'error');
+      return;
+    }
+    // Trùng người đã có STT → cảnh báo (viền đỏ); bấm QUAY lần nữa CÙNG người để GHI ĐÈ.
+    const cr = creators.find(c => c.id === sp.id);
+    if (cr && Number(cr.perfOrder) > 0 && lwContestDupArm !== sp.id) {
+      lwContestDupArm = sp.id;
+      selEl?.classList.add('lw-invalid');
+      toast(`⚠️ "${sp.name}" đã có STT ${Math.round(cr.perfOrder)} — bấm QUAY lần nữa để GHI ĐÈ, hoặc chọn người khác`, 'error');
+      return;
+    }
+    lwContestDupArm = null;
+    selEl?.classList.remove('lw-invalid');
+  }
   // BẮT ĐẦU lượt mới → giờ mới loại ô của lượt TRƯỚC (làm xám + bỏ khỏi vòng quay app/OBS).
   // Đồng bộ sang engine TRƯỚC khi quay để lượt mới không trúng lại ô đó và hình vòng quay khớp.
   if (lwPendingDrawn) {
@@ -3486,6 +3654,7 @@ async function lwDoSpin() {
     lwPendingDrawn = null;
   }
   if (!lwPool().length) { toast('Đã quay hết ô — bấm ♻️ Khôi phục để quay tiếp', 'error'); return; }
+  const contestEpoch = lwContestEpoch;
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang quay…'; }
   const spinner = lwGetSpinner();
   const r = await window.api.luckywheel.spin({ spinner }).catch(() => null);
@@ -3498,7 +3667,7 @@ async function lwDoSpin() {
     const last = $('#lwLast'); if (last) { last.className = 'lw-last'; last.innerHTML = ''; }
     // Hé lộ kết quả + cập nhật lịch sử SAU khi vòng quay dừng (đồng bộ thời lượng)
     const rec = r.record;
-    setTimeout(() => {
+    setTimeout(async () => {
       renderLwHistory();
       if (last) {
         const tag = rec.type === 'reward' ? '🎁 THƯỞNG' : rec.type === 'penalty' ? '⚡ PHẠT' : '✨ KẾT QUẢ';
@@ -3516,13 +3685,51 @@ async function lwDoSpin() {
           seg.won = true;
           seg.wonBy = (spinner && spinner.name) || rec.member || '';
           seg.wonAvatar = (spinner && spinner.avatar) || '';
+          // Creator ID chỉ mang nghĩa STT khi quay trong Chế độ thi đấu.
+          seg.wonCreatorId = contest && spinner?.id ? spinner.id : '';
           lwPendingDrawn = rec.segId; // đánh dấu để LƯỢT KẾ loại khỏi vòng quay
           renderLwSegList(); renderLwPreview(); lwPush();
+        }
+      }
+      // 🏆 Chế độ thi đấu: lọc SỐ từ ô trúng → gán STT thi đấu cho Creator đang chọn → OBS THI ĐẤU DỌC/NGANG.
+      if (contest && spinner?.id && contestEpoch === lwContestEpoch && lwCfg.autoContest) {
+        const order = lwContestOrderFromText(rec.text);
+        const seg = lwCfg.segments.find(s => s.id === rec.segId);
+        if (order && seg) {
+          seg.wonCreatorId = spinner.id;
+          lwAssignContestOrder(seg, spinner.id, order, rec.id);
+          await lwPush();
+          const synced = await lwSyncContestPerfOrders();
+          if (synced?.ok) {
+            lwContestAdvanceAfter(spinner.id); // tự nhảy sang người kế chưa có STT
+            toast(`🏆 Gán STT ${order} cho ${spinner.name}`, 'success');
+          } else toast('Không thể đồng bộ STT thi đấu', 'error');
+        } else {
+          toast(`⚠️ Ô "${rec.text}" không có số — không gán được STT thi đấu`, 'error');
         }
       }
     }, secs * 1000 + 150);
   }
   setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY'; } }, secs * 1000 + 300);
+}
+
+// 🔄 Xoá toàn bộ STT thi đấu của mọi Creator (bắt đầu lượt thi mới). Dùng chung cho tab VÒNG QUAY + THI ĐẤU NHÓM.
+async function lwClearPerfOrders() {
+  const withOrder = creators.filter(c => Number(c.perfOrder) > 0);
+  const hasAssignments = lwCfg.segments.some(s => Number(s.contestOrder) > 0);
+  const count = Math.max(withOrder.length, hasAssignments ? 1 : 0);
+  const ok = await window.api.shell.confirm({ message: count ? `Xoá toàn bộ Số thứ tự thi đấu (STT) của ${count} Creator để bắt đầu lượt thi mới?` : 'Xoá toàn bộ Số thứ tự thi đấu (STT) để bắt đầu lượt thi mới?', confirmText: 'Xoá STT', cancelText: 'Huỷ' }).catch(() => false);
+  if (!ok) return false;
+  lwInvalidateContestSpin();
+  lwClearAllContestAssignments();
+  lwCfg.contestAssignmentsInitialized = true;
+  await lwPush();
+  const synced = await lwSyncContestPerfOrders();
+  if (!synced?.ok) { toast('Không thể xoá STT thi đấu', 'error'); return false; }
+  lwContestDupArm = null;
+  $('#lwSpinnerSel')?.classList.remove('lw-invalid');
+  toast(count ? `Đã xoá STT thi đấu của ${count} Creator` : 'Đã xoá STT thi đấu', 'success');
+  return true;
 }
 
 function lwCloseTools() { const p = $('#lwToolsPop'); if (p) p.hidden = true; }
@@ -3546,14 +3753,30 @@ function wireLuckyWheelTab() {
     lwCloseTools();
     toast(`Đã tạo dãy Số 1 → Số ${n}`, 'success');
   });
-  $('#lwRestoreAll')?.addEventListener('click', () => {
+  $('#lwRestoreAll')?.addEventListener('click', async () => {
     const grayed = lwCfg.segments.filter(lwIsGrayed).length;
-    if (!grayed) { toast('Không có ô xám nào', 'error'); return; }
+    const hasAssignments = lwCfg.segments.some(s => Number(s.contestOrder) > 0);
+    const hasPerfOrders = creators.some(c => Number(c.perfOrder) > 0);
+    if (!grayed && !hasAssignments && !hasPerfOrders) { toast('Không có ô xám nào', 'error'); return; }
+    lwInvalidateContestSpin();
     lwPendingDrawn = null;
-    lwCfg.segments.forEach(s => { s.won = false; s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; });
-    renderLwSegList(); renderLwPreview(); lwPush();
+    lwCfg.segments.forEach(s => {
+      s.won = false; s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; s.wonCreatorId = '';
+      lwClearContestAssignment(s);
+    });
+    lwCfg.contestAssignmentsInitialized = true;
+    // Khôi phục = bắt đầu lượt mới → đưa số lượt đã quay về 0 cho đúng logic.
+    lwCfg.spinCount = 0;
+    renderLwSegList(); renderLwPreview(); renderLwHistory();
+    await lwPush(); // đẩy lại đủ ô + spinCount=0 sang engine/OBS (setConfig gộp cả lwCfg)
+    // setConfig KHÔNG xoá spin → OBS còn treo thẻ kết quả + chip người quay cũ. reset() dọn sạch realtime.
+    await window.api.luckywheel.reset().catch(() => {});
+    // Khôi phục = lượt thi mới → xoá luôn STT thi đấu để badge #STT trên OBS THI ĐẤU DỌC/NGANG biến mất.
+    const synced = await lwSyncContestPerfOrders();
+    lwContestDupArm = null; $('#lwSpinnerSel')?.classList.remove('lw-invalid');
     lwCloseTools();
-    toast(`Đã khôi phục ${grayed} ô đã quay`, 'success');
+    if (synced?.ok) toast(grayed ? `Đã khôi phục ${grayed} ô đã quay + xoá STT thi đấu` : 'Đã xoá STT thi đấu', 'success');
+    else toast('Không thể đồng bộ STT thi đấu', 'error');
   });
   $('#lwClearAll')?.addEventListener('click', async () => {
     if (!lwCfg.segments.length) { toast('Danh sách đang trống', 'error'); return; }
@@ -3565,6 +3788,22 @@ function wireLuckyWheelTab() {
     toast('Đã xoá tất cả ô', 'success');
   });
   $('#lwAutoRemove')?.addEventListener('change', () => { lwCfg.autoRemove = $('#lwAutoRemove').checked; lwScheduleSave(); });
+  $('#lwAutoContest')?.addEventListener('change', async () => {
+    const enabled = $('#lwAutoContest').checked;
+    // Bật tay → cảnh báo gọn: tính năng dành cho TALENT SHOW, ô phải là SỐ (STT) không phải nội dung.
+    if (enabled) {
+      const ok = await window.api.shell.confirm({
+        title: '🏆 Chế độ thi đấu',
+        message: 'Tính năng dành cho TALENT SHOW — bạn chắc chắn dùng?',
+        detail: 'Mỗi ô Vòng quay phải là 1 SỐ thứ tự (STT), không phải nội dung.',
+        confirmText: 'Bật',
+        cancelText: 'Huỷ',
+      }).catch(() => false);
+      if (!ok) { $('#lwAutoContest').checked = false; return; }
+    }
+    await lwApplyContest(enabled);
+  });
+  $('#lwClearPerf')?.addEventListener('click', lwClearPerfOrders);
   $('#lwPushDrawnTop')?.addEventListener('change', () => { lwCfg.pushDrawnTop = $('#lwPushDrawnTop').checked; renderLwSegList(); lwPush(); });
   $('#lwTitleInput')?.addEventListener('input', () => { lwCfg.title = $('#lwTitleInput').value; lwScheduleSave(); });
   $('#lwShowTitle')?.addEventListener('change', () => { lwCfg.showTitle = $('#lwShowTitle').checked; lwPush(); });
@@ -3577,7 +3816,7 @@ function wireLuckyWheelTab() {
   $('#lwShowResult')?.addEventListener('change', () => { lwCfg.showResult = $('#lwShowResult').checked; lwScheduleSave(); });
   $('#lwShowCount')?.addEventListener('change', () => { lwCfg.showCount = $('#lwShowCount').checked; lwScheduleSave(); });
   $('#lwEdgeStops')?.addEventListener('change', () => { lwCfg.edgeStops = $('#lwEdgeStops').checked; lwScheduleSave(); });
-  $('#lwSpinnerSel')?.addEventListener('change', () => { if ($('#lwSpinnerSel').value && $('#lwSpinnerName')) $('#lwSpinnerName').value = ''; lwSyncSelectedSpinner(); });
+  $('#lwSpinnerSel')?.addEventListener('change', () => { if ($('#lwSpinnerSel').value && $('#lwSpinnerName')) $('#lwSpinnerName').value = ''; lwContestDupArm = null; $('#lwSpinnerSel')?.classList.remove('lw-invalid'); lwSyncSelectedSpinner(); });
   $('#lwSpinnerName')?.addEventListener('input', () => { if ($('#lwSpinnerName').value.trim() && $('#lwSpinnerSel')) $('#lwSpinnerSel').value = ''; lwSyncSelectedSpinner(); });
   $('#lwSpinCount')?.addEventListener('change', async () => {
     const n = Math.max(0, Math.round(Number($('#lwSpinCount').value) || 0));
@@ -3602,7 +3841,8 @@ function wireLuckyWheelTab() {
     const ok = await window.api.shell.confirm({ message: 'Xoá toàn bộ lịch sử quay?', confirmText: 'Xoá', cancelText: 'Huỷ' }).catch(() => true);
     if (!ok) return;
     await window.api.luckywheel.clearHistory().catch(() => {});
-    lwCfg.history = []; renderLwHistory();
+    // Engine.clearHistory đưa spinCount về 0 → sync lwCfg để app khớp OBS (tránh app hiện số cũ).
+    lwCfg.history = []; lwCfg.spinCount = 0; renderLwHistory();
   });
   $('#lwExport')?.addEventListener('click', async () => {
     const h = lwCfg.history || []; if (!h.length) { toast('Chưa có dữ liệu', 'error'); return; }
@@ -3632,6 +3872,7 @@ function wireLuckyWheelTab() {
   if ($('#lwShowCount')) $('#lwShowCount').checked = lwCfg.showCount;
   if ($('#lwEdgeStops')) $('#lwEdgeStops').checked = lwCfg.edgeStops;
   if ($('#lwAutoRemove')) $('#lwAutoRemove').checked = lwCfg.autoRemove;
+  if ($('#lwAutoContest')) $('#lwAutoContest').checked = lwCfg.autoContest;
   if ($('#lwPushDrawnTop')) $('#lwPushDrawnTop').checked = lwCfg.pushDrawnTop;
   if ($('#lwSpinCount')) $('#lwSpinCount').value = lwCfg.spinCount || 0;
   lwRefreshSpinners();
@@ -4743,6 +4984,18 @@ function wireConnectTab() {
   setChatFontSize(chatFontSize);
   $('#chatFontDown').addEventListener('click', () => setChatFontSize(chatFontSize - 1));
   $('#chatFontUp').addEventListener('click', () => setChatFontSize(chatFontSize + 1));
+  // Nút xuất nhanh overlay gộp TƯƠNG TÁC + QUÀ ngay từ tab này (khỏi vào Link Overlay).
+  $('#feedQuickReview')?.addEventListener('click', async () => {
+    const state = await window.api.review.getState().catch(() => ({}));
+    const r = state.interact?.open ? await window.api.review.close('interact') : await window.api.review.open('interact');
+    if (!r?.ok) { toast(r?.error || 'Không mở được cửa sổ Review', 'error'); return; }
+    toast(state.interact?.open ? 'Đã đóng Review overlay gộp' : 'Đã mở Review overlay gộp', 'success');
+  });
+  $('#feedQuickCopy')?.addEventListener('click', async () => {
+    const url = await window.api.interact.getUrl();
+    await window.api.shell.copyText(url);
+    toast('📋 Đã copy link OBS (1080×1920)', 'success');
+  });
   $('#userPopupClose').addEventListener('click', closeUserPopup);
   $('#userPopup').addEventListener('mousedown', e => { if (e.target === $('#userPopup')) closeUserPopup(); });
   $('#connDot').addEventListener('click', (e) => {
@@ -5115,10 +5368,12 @@ async function setActiveGroup(id) {
   if (sel && sel.value !== activeGroupId) sel.value = activeGroupId;
   const bar = $('#bottomLive');
   if (bar) bar.classList.toggle('mode-group', !!activeGroupId);
-  // Chế độ nhóm: tự điền TikTok ID đại diện của nhóm (vẫn cho sửa), không đụng khi đang LIVE
-  if (activeGroupId && !ttConnected) {
-    const g = groups.find(x => x.id === activeGroupId);
-    if (g && g.tiktokId) $('#ttUsername').value = g.tiktokId;
+  // Tự điền TikTok ID đại diện vào ô kết nối (vẫn cho sửa), không đụng khi đang LIVE:
+  // - Nhóm cụ thể → tiktokId của nhóm; - TALENT SHOW (tất cả) → hpmedia.official.
+  if (!ttConnected) {
+    const g = activeGroupId ? groups.find(x => x.id === activeGroupId) : null;
+    const repId = g ? (g.tiktokId || '') : TALENT_SHOW_CONNECT_ID;
+    if (repId && $('#ttUsername')) $('#ttUsername').value = repId;
   }
   // Chọn nhóm từ launcher/popup không tự phát sự kiện change. Đồng bộ select PK Nhóm về nhóm mới
   // và nạp lại hồ sơ/thành viên đầy đủ (kể cả khi giá trị select trùng) → luôn thấy đúng nhóm mới.
@@ -5131,7 +5386,34 @@ async function setActiveGroup(id) {
   applyActiveGroupMode();
 }
 
+// Bật/tắt 🏆 Chế độ thi đấu (đồng bộ STT sang THI ĐẤU NHÓM). silent=true dùng khi tự đổi theo chế độ (không toast/không hỏi).
+async function lwApplyContest(enabled, { silent = false } = {}) {
+  if (!lwCfg) return;
+  if ($('#lwAutoContest')) $('#lwAutoContest').checked = enabled;
+  lwCfg.autoContest = enabled;
+  if (!enabled) lwInvalidateContestSpin();
+  const recovered = enabled ? lwRestoreLegacyContestAssignments() : 0;
+  await lwPush();
+  const shown = await window.api.ranking.setConfig({ showPerfOrder: enabled }).catch(() => null);
+  const tracked = (lwCfg.segments || []).some(s => s.contestCreatorId && Number(s.contestOrder) > 0);
+  let synced = true;
+  if (enabled && (tracked || recovered)) synced = !!(await lwSyncContestPerfOrders())?.ok;
+  lwContestDupArm = null;
+  $('#lwSpinnerSel')?.classList.remove('lw-invalid');
+  const rankingState = await window.api.ranking.getState().catch(() => null);
+  if (rankingState) renderRkPreview(rankingState);
+  if (silent) return;
+  if (!shown || !synced) { toast('Không thể đồng bộ STT thi đấu', 'error'); return; }
+  if (enabled) toast(recovered ? `Đã bật Chế độ thi đấu và khôi phục STT cho ${recovered} Creator` : 'Đã bật Chế độ thi đấu, STT hiển thị lại trên THI ĐẤU NHÓM', 'success');
+  else toast('Đã tắt Chế độ thi đấu, STT tạm ẩn trên THI ĐẤU NHÓM', 'success');
+}
+
 function applyActiveGroupMode() {
+  // 🏆 Chế độ thi đấu MẶC ĐỊNH theo chế độ: TALENT SHOW (mở tất cả) → bật; chọn NHÓM → tắt. Vẫn cho bật/tắt tay sau đó.
+  if (lwCfg) {
+    const contestDefault = !activeGroupId;
+    if (lwCfg.autoContest !== contestDefault) lwApplyContest(contestDefault, { silent: true }).catch(() => {});
+  }
   renderCreators();
   renderGroups();
   renderCreatorGroupSelect();
@@ -7388,6 +7670,13 @@ function wireRankingTab() {
       toast('↺ RESET ĐIỂM', 'success');
     }
   });
+  // 🔄 XOÁ STT: xoá toàn bộ Số thứ tự thi đấu (gán từ 🎡 VÒNG QUAY) để bắt đầu lượt thi mới.
+  $('#rkClearPerfOrder')?.addEventListener('click', async () => {
+    if (await lwClearPerfOrders()) {
+      const st = await window.api.ranking.getState();
+      renderRkPreview(st);
+    }
+  });
   // 🧹 XÓA LỊCH SỬ: dọn gameplayHistory của MỌI Creator một lượt (hỏi Có/Không tránh bấm nhầm).
   $('#rkClearAllHistory')?.addEventListener('click', async () => {
     const targets = creators.filter(c => Array.isArray(c.gameplayHistory) && c.gameplayHistory.length);
@@ -7784,7 +8073,7 @@ function renderRkPreview(st) {
         ${st.showRank === false ? '' : `<span class="rk-rank">${rankLabel(r.rank, r.hideObs)}</span>`}
         ${st.showAvatar === false ? '' : `<img class="rk-avatar" src="${escapeAttr(safeAvatarUrl(r.avatar))}" onerror="this.onerror=null;this.src='../logo/hp-logo.png'" />`}
         <div class="rk-person">
-          <span class="rk-name">${escapeHtml(r.name)}</span>
+          <span class="rk-name">${escapeHtml(r.name)}${st.showPerfOrder !== false && Number(r.perfOrder) > 0 ? ` <span class="rk-perf" title="Số thứ tự thi đấu (gán từ VÒNG QUAY)">#${Math.round(r.perfOrder)}</span>` : ''}</span>
           <span class="rk-group">${r.groupName ? escapeHtml(r.groupName) : 'Chưa nhóm'}</span>
         </div>
       </div>
@@ -7880,11 +8169,11 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 async function loadScoreConfig() {
   const st = await window.api.score.getState();
-  // Mục tiêu điểm mặc định 1.000 (giá trị 1 là rác từ tính điểm liên kết → coi như chưa đặt)
-  const target = Number(st.target) > 1 ? st.target : 1000;
-  $('#scTarget').value = formatNumber(target);
-  // Bridge "Tính điểm liên kết" giữ nguyên thuật toán cũ (hiển thị đúng target đã lưu)
-  $('#rkScoreTarget').value = formatNumber(target);
+  // Mục tiêu điểm: TRỐNG (0) = chế độ "không mục tiêu" (chỉ cộng điểm bình thường, bỏ KPI). Có nhập >0 = như cũ.
+  const rawTarget = Number(st.target) || 0;
+  $('#scTarget').value = rawTarget > 0 ? formatNumber(rawTarget) : '';
+  // Bridge "Tính điểm liên kết" luôn cần mục tiêu ≥1 (panel này bị khoá khi chưa liên kết)
+  $('#rkScoreTarget').value = formatNumber(rawTarget > 0 ? rawTarget : 1000);
   const dMs = Number(st.durationMs) || 180000;
   const dSec = Math.floor(dMs / 1000);
   $('#scDurH').value = Math.floor(dSec / 3600);
@@ -7896,39 +8185,65 @@ async function loadScoreConfig() {
   $('#scCreatorName').value = st.creatorName || '';
   $('#scCreatorAvatar').value = st.creatorAvatar || '';
   renderScoreCreatorSelect(st);
-  $('#scTheme').value = st.themePreset || 'douyin';
+  $('#scTheme').value = ['douyin', 'vip', 'neon', 'battle', 'luxury', 'sunset', 'ocean', 'candy', 'custom'].includes(st.themePreset) ? st.themePreset : 'douyin';
   $('#scSize').value = st.overlaySize || 'medium';
   $('#scBarStyle').value = st.barStyle || 'pill';
+  if ($('#scLayout')) $('#scLayout').value = st.cardLayout ? 'card' : 'bar';
   $('#scCompact').checked = false;
   $('#scHideAvatar').checked = !!st.hideAvatar;
   $('#scHideCreator').checked = !!st.hideCreator;
-  $('#scMilestoneGradient').checked = false;
   if ($('#scColorByProgress')) $('#scColorByProgress').checked = !!st.colorByProgress;
+  if ($('#scKpiX2')) $('#scKpiX2').value = st.kpiX2 ? 'true' : 'false';
   $('#scShowGiftUser').checked = false;
   $('#scShowTopUsers').checked = false;
   $('#scShowSpeed').checked = false;
-  $('#scTimeColor').value = st.timeColor || '#ffffff';
+  // Số trên thanh / Time / Over / Viền: luôn TRẮNG (không còn ô chọn màu) → ép cứng #ffffff
+  $('#scTimeColor').value = '#ffffff';
   $('#scScoreFontSize').value = Math.max(12, Math.min(48, Number(st.scoreFontSize) || 18));
   $('#scContentColor').value = st.contentColor || '#f0eef6';
-  $('#scOverColor').value = st.overColor || '#ff0000';
+  $('#scOverColor').value = '#ffffff';
   $('#scBarColor1').value = st.barColor1 || '#b93678';
   $('#scBarColor2').value = st.barColor2 || '#ff8ed1';
   $('#scWaveColor').value = st.waveColor || '#ffffff';
+  if ($('#scBorderColor')) $('#scBorderColor').value = '#ffffff';
+  if ($('#scBorderOpacity')) { const o = Number.isFinite(Number(st.barBorderOpacity)) ? Number(st.barBorderOpacity) : 50; $('#scBorderOpacity').value = o; $('#scBorderOpacityValue').textContent = `${o}%`; }
+  if ($('#scBorderWidth')) { const w = Number.isFinite(Number(st.barBorderWidth)) ? Number(st.barBorderWidth) : 1; $('#scBorderWidth').value = w; $('#scBorderWidthValue').textContent = `${w}px`; }
+  if ($('#scShowRemaining')) $('#scShowRemaining').checked = !!st.showRemaining;
+  if ($('#scFxGlowBorder')) $('#scFxGlowBorder').checked = !!st.fxGlowBorder;
+  if ($('#scFxGlass')) $('#scFxGlass').checked = !!st.fxGlass;
+  if ($('#scFxSparkle')) $('#scFxSparkle').checked = !!st.fxSparkle;
+  if ($('#scFxSpotlight')) $('#scFxSpotlight').checked = !!st.fxSpotlight;
+  if ($('#scFxAvatarAura')) $('#scFxAvatarAura').checked = !!st.fxAvatarAura;
+  if ($('#scFxScoreBounce')) $('#scFxScoreBounce').checked = !!st.fxScoreBounce;
+  if ($('#scFxFloatPoints')) $('#scFxFloatPoints').checked = !!st.fxFloatPoints;
+  if ($('#scFxCardBreathe')) $('#scFxCardBreathe').checked = !!st.fxCardBreathe;
+  if ($('#scFxLiquid')) $('#scFxLiquid').checked = !!st.fxLiquid;
+  if ($('#scCardBgOpacity')) { const c = Number.isFinite(Number(st.cardBgOpacity)) ? Number(st.cardBgOpacity) : 88; $('#scCardBgOpacity').value = c; $('#scCardBgOpacityValue').textContent = `${c}%`; }
+  if ($('#scKpiMult')) $('#scKpiMult').value = String([2, 3, 5].includes(Number(st.kpiMult)) ? Number(st.kpiMult) : 2);
   syncScoreThemeChips();
   $('#scBigThreshold').value = st.bigGiftThreshold || 500;
   $('#scPointsBy').value = st.pointsBy || 'diamond';
   $('#scOverlayScale').value = st.overlayScale || 200;
   $('#scOverlayScaleValue').textContent = `${$('#scOverlayScale').value}%`;
-  $('#scMilestones').value = '';
   setSoundInput('scSndStart', st.startSound || '');
   setSoundInput('scSndWarn', st.warningSound || '');
   setSoundInput('scSndGoal', st.goalSound || '');
+  setSoundInput('scSndX2', st.x2Sound || '');
   setSoundInput('scSndSuccess', st.successSound || '');
   setSoundInput('scSndFail', st.failSound || '');
+  reflectScoreTargetMode();
   renderScPreview(st);
   const total = Math.floor((Number(st.durationMs) || 180000) / 1000);
   $('#rkScoreMin').value = Math.floor(total / 60);
   $('#rkScoreSec').value = total % 60;
+}
+
+// Mục tiêu TRỐNG → mờ + khoá KPI (không có mục tiêu thì KPI vô nghĩa).
+function reflectScoreTargetMode() {
+  const noTarget = !(parseNumberInput($('#scTarget')?.value) > 0);
+  document.querySelector('.sc-kpix2-row')?.classList.toggle('is-off', noTarget);
+  if ($('#scKpiX2')) $('#scKpiX2').disabled = noTarget;
+  if ($('#scKpiMult')) $('#scKpiMult').disabled = noTarget;
 }
 
 function collectScoreCfg() {
@@ -7936,10 +8251,8 @@ function collectScoreCfg() {
   const m = Number($('#scDurM').value) || 0;
   const s = Number($('#scDurS').value) || 0;
   const durationMs = Math.max(5000, (h * 3600 + m * 60 + s) * 1000);
-  // Parse milestones
-  const milestones = [];
   return {
-    target: Math.max(1, parseNumberInput($('#scTarget').value) || 1000),
+    target: parseNumberInput($('#scTarget').value), // 0 (trống) = không mục tiêu: chỉ cộng điểm, bỏ KPI
     durationMs,
     prepSec: Number($('#scPrep').value) || 0,
     delayMs: Math.max(0, Number($('#scDelay').value) || 0) * 1000,
@@ -7949,11 +8262,27 @@ function collectScoreCfg() {
     themePreset: $('#scTheme').value,
     overlaySize: $('#scSize').value,
     barStyle: $('#scBarStyle').value,
+    cardLayout: $('#scLayout')?.value === 'card',
     compactMode: false,
     hideAvatar: $('#scHideAvatar').checked,
     hideCreator: $('#scHideCreator').checked,
-    milestoneGradientEnabled: false,
     colorByProgress: $('#scColorByProgress')?.checked || false,
+    kpiX2: $('#scKpiX2')?.value === 'true',
+    kpiMult: [2, 3, 5].includes(Number($('#scKpiMult')?.value)) ? Number($('#scKpiMult').value) : 2,
+    showRemaining: $('#scShowRemaining')?.checked || false,
+    fxGlowBorder: $('#scFxGlowBorder')?.checked || false,
+    fxGlass: $('#scFxGlass')?.checked || false,
+    fxSparkle: $('#scFxSparkle')?.checked || false,
+    fxSpotlight: $('#scFxSpotlight')?.checked || false,
+    fxAvatarAura: $('#scFxAvatarAura')?.checked || false,
+    fxScoreBounce: $('#scFxScoreBounce')?.checked || false,
+    fxFloatPoints: $('#scFxFloatPoints')?.checked || false,
+    fxCardBreathe: $('#scFxCardBreathe')?.checked || false,
+    fxLiquid: $('#scFxLiquid')?.checked || false,
+    barBorderColor: $('#scBorderColor')?.value || '#ffffff',
+    barBorderOpacity: Math.max(0, Math.min(100, Number($('#scBorderOpacity')?.value) || 0)),
+    barBorderWidth: Math.max(0, Math.min(6, Number($('#scBorderWidth')?.value) || 0)),
+    cardBgOpacity: Math.max(0, Math.min(100, Number.isFinite(Number($('#scCardBgOpacity')?.value)) ? Number($('#scCardBgOpacity').value) : 88)),
     showGiftUser: false,
     showTopUsers: false,
     showSpeed: false,
@@ -7967,10 +8296,10 @@ function collectScoreCfg() {
     bigGiftThreshold: Math.max(1, Number($('#scBigThreshold').value) || 500),
     pointsBy: $('#scPointsBy').value,
     overlayScale: Math.max(80, Math.min(300, Number($('#scOverlayScale').value) || 200)),
-    customMilestoneValues: milestones,
     startSound: gameplaySoundValue('scSndStart'),
     warningSound: gameplaySoundValue('scSndWarn'),
     goalSound: gameplaySoundValue('scSndGoal'),
+    x2Sound: gameplaySoundValue('scSndX2'),
     successSound: gameplaySoundValue('scSndSuccess'),
     failSound: gameplaySoundValue('scSndFail'),
   };
@@ -8043,12 +8372,14 @@ function scheduleScoreAutoSave() { _scoreSaver.schedule(); }
 
 // Bảng màu preset: [bar1, bar2, wave, over]
 const SCORE_THEMES = {
-  douyin:  ['#b93678', '#ff8ed1', '#ffffff', '#ff0000'],
-  vip:     ['#b76b00', '#ffd36a', '#fff4c1', '#ffea7a'],
-  neon:    ['#00a6ff', '#35ffcf', '#e7ffff', '#70fff0'],
-  battle:  ['#8f101f', '#ff4b4b', '#ffe1e1', '#ff3b3b'],
-  luxury:  ['#4c2a85', '#c79cff', '#f6edff', '#d7b8ff'],
-  minimal: ['#6b7280', '#d1d5db', '#ffffff', '#ffffff'],
+  douyin:  ['#b93678', '#ff8ed1', '#ffffff', '#ffffff'],
+  vip:     ['#b76b00', '#ffd36a', '#fff4c1', '#ffffff'],
+  neon:    ['#00a6ff', '#35ffcf', '#e7ffff', '#ffffff'],
+  battle:  ['#8f101f', '#ff4b4b', '#ffe1e1', '#ffffff'],
+  luxury:  ['#4c2a85', '#c79cff', '#f6edff', '#ffffff'],
+  sunset:  ['#ff6a3d', '#ffc46b', '#fff3dd', '#ffffff'],
+  ocean:   ['#0088cc', '#22e0c8', '#e3fbff', '#ffffff'],
+  candy:   ['#ff8fcf', '#c9a9ff', '#fff2fb', '#ffffff'],
 };
 
 // Chip "đang chọn" = preset có đúng 4 màu trùng với 4 ô màu hiện tại
@@ -8086,13 +8417,22 @@ function wireScoreTab() {
   $$('#scThemeChips .stc-chip').forEach(chip => {
     chip.addEventListener('click', () => applyScoreTheme(chip.dataset.theme));
   });
-  $('#scTarget').addEventListener('input', syncScoreTargetFromScoreTab);
+  $('#scTarget').addEventListener('input', () => { syncScoreTargetFromScoreTab(); reflectScoreTargetMode(); });
   $('#scTarget').addEventListener('blur', () => {
-    $('#scTarget').value = formatNumber(parseNumberInput($('#scTarget').value) || 1000);
+    const v = parseNumberInput($('#scTarget').value);
+    $('#scTarget').value = v > 0 ? formatNumber(v) : ''; // trống = không mục tiêu
+    reflectScoreTargetMode();
   });
   ['scDurH', 'scDurM', 'scDurS'].forEach(id => $('#' + id).addEventListener('input', syncScoreDurationFromScoreTab));
+  // Accordion: mở 1 thẻ gập nhóm thì tự đóng các thẻ còn lại (gọn, đỡ cuộn)
+  $$('.sc-group').forEach(d => d.addEventListener('toggle', () => {
+    if (d.open) $$('.sc-group').forEach(o => { if (o !== d) o.open = false; });
+  }));
   $('#scOverlayScale').addEventListener('input', () => { $('#scOverlayScaleValue').textContent = `${$('#scOverlayScale').value}%`; scheduleScoreAutoSave(); });
-  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scHideAvatar','scHideCreator','scColorByProgress','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
+  $('#scBorderOpacity')?.addEventListener('input', () => { $('#scBorderOpacityValue').textContent = `${$('#scBorderOpacity').value}%`; scheduleScoreAutoSave(); });
+  $('#scBorderWidth')?.addEventListener('input', () => { $('#scBorderWidthValue').textContent = `${$('#scBorderWidth').value}px`; scheduleScoreAutoSave(); });
+  $('#scCardBgOpacity')?.addEventListener('input', () => { $('#scCardBgOpacityValue').textContent = `${$('#scCardBgOpacity').value}%`; scheduleScoreAutoSave(); });
+  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scLayout','scContent','scHideAvatar','scHideCreator','scColorByProgress','scKpiX2','scKpiMult','scShowRemaining','scFxGlowBorder','scFxGlass','scFxSparkle','scFxSpotlight','scFxAvatarAura','scFxScoreBounce','scFxFloatPoints','scFxCardBreathe','scFxLiquid','scBorderColor','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', scheduleScoreAutoSave);
@@ -8154,6 +8494,21 @@ function wireScoreTab() {
     const url = await window.api.score.getUrl(); await window.api.shell.copyText(url);
     toast('📋 Đã copy link Score', 'success');
   });
+  // ⚙️ Popover công cụ (COPY OBS + TEST) — gọn hàng điều khiển, bấm ngoài/Esc để đóng
+  const scToolsBtn = $('#scToolsBtn');
+  const scToolsPop = $('#scToolsPop');
+  if (scToolsBtn && scToolsPop) {
+    const closeTools = () => { scToolsPop.hidden = true; scToolsBtn.setAttribute('aria-expanded', 'false'); };
+    scToolsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = scToolsPop.hidden;
+      scToolsPop.hidden = !open;
+      scToolsBtn.setAttribute('aria-expanded', String(open));
+    });
+    scToolsPop.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', () => { if (!scToolsPop.hidden) closeTools(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !scToolsPop.hidden) closeTools(); });
+  }
 }
 
 function renderScPreview(st) {
@@ -8176,9 +8531,11 @@ function renderScPreview(st) {
   }
   renderScoreBridge();
   applyVoteLockState();
-  const target = Math.max(1, Number(st.target) || 1);
+  // Mục tiêu = 0 (trống) → chế độ "không mục tiêu": thanh đầy, ẩn mục tiêu/Over/KPI (khớp overlay OBS).
+  const noTarget = !(Number(st.target) > 0);
+  const target = noTarget ? 0 : Math.max(1, Number(st.target) || 1);
   const score = Math.max(0, Number(st.score) || 0);
-  const pct = Math.min(100, Math.round((score / target) * 100));
+  const pct = noTarget ? 100 : Math.min(100, Math.round((score / target) * 100));
   const barColor1 = st.barColor1 || '#ff6aa9';
   const barColor2 = st.barColor2 || '#8eb6ff';
   // Đổi màu theo %: hành trình sắc màu theo tiến độ (khớp overlay OBS)
@@ -8186,6 +8543,16 @@ function renderScPreview(st) {
     ? (() => { const h = 280 - 250 * Math.max(0, Math.min(1, pct / 100));
         return `linear-gradient(90deg, hsl(${(h + 16).toFixed(0)},88%,67%), hsl(${h.toFixed(0)},90%,61%), hsl(${(h - 14).toFixed(0)},92%,55%))`; })()
     : `linear-gradient(90deg, ${barColor1}, ${barColor2})`;
+  const reviewIdleColor = (hex, pct) => {
+    const m = /^#([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return hex;
+    const n = parseInt(m[1], 16), t = pct / 100;
+    const base = [23, 35, 51];
+    const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v, i) => Math.round(v + (base[i] - v) * t));
+    return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+  };
+  const reviewIdle = `linear-gradient(90deg, ${reviewIdleColor(barColor2, 58)} 0%, ${reviewIdleColor(barColor1, 60)} 100%)`;
+  const reviewEdge = `${barColor1}ad`;
   const status = st.status || 'idle';
   const running = ['prestart', 'running', 'grace'].includes(status);
   const startBtn = $('#scStart');
@@ -8214,25 +8581,54 @@ function renderScPreview(st) {
   const visibleTopUsers = topUsers.slice(0, 5);
   // TRÊN CÙNG: khối thông tin gọn (thời gian + thanh máu + creator + điểm + trạng thái).
   const scoreFont = Math.max(12, Math.min(48, Number(st.scoreFontSize) || 18));
-  const over = Math.max(0, score - target);
+  const over = noTarget ? 0 : Math.max(0, score - target);
+  if (st.cardLayout) {
+    // Preview khớp Thẻ HUD góc GỌN: tên idol trên cùng · avatar to giữa-trái · đồng hồ/trạng thái giữa · thanh máu ôm đáy
+    const isWord = ['success', 'failed', 'grace'].includes(status);
+    const clockText = status === 'success' ? 'THÀNH CÔNG' : status === 'failed' ? 'KHÔNG HOÀN THÀNH' : status === 'grace' ? 'ĐANG TÍNH ĐIỂM' : (st.timeText || '00:00');
+    const clockColor = status === 'success' ? '#65ff9a' : status === 'failed' ? '#ff6b7d' : (st.timeColor || '#ffffff');
+    const title = (st.content && st.content.trim()) ? st.content : (st.creatorName || 'Creator');
+    const kpiMult = [2, 3, 5].includes(Number(st.kpiMult)) ? Number(st.kpiMult) : 2;
+    const kpiTotal = score <= target ? score : target + (score - target) * kpiMult;
+    const showKpi2 = !noTarget && !!st.kpiX2 && score > target;
+    $('#scPreview').innerHTML = `
+      <div class="sc-rev-card${!noTarget && score >= target ? ' kpi-met' : ''}">
+        <div class="sc-rev-tab">${escapeHtml(title)}</div>
+        <div class="sc-rev-mid">
+          ${st.creatorAvatar ? `<img class="sc-rev-avatar js-avatar" src="${escapeAttr(st.creatorAvatar)}" />` : '<div class="sc-rev-avatar sc-rev-avatar--ph">HP</div>'}
+          <div class="sc-rev-clock${isWord ? ' is-word' : ''}" style="color:${clockColor}">${escapeHtml(clockText)}</div>
+          ${showKpi2 ? `<div class="sc-rev-kpi2">x${kpiMult} → ${formatNumber(kpiTotal)} điểm</div>` : ''}
+        </div>
+        <div class="sc-rev-bar${noTarget ? ' is-free' : ''}" style="--score-review-fill:${escapeAttr(reviewFill)};--score-review-idle:${escapeAttr(reviewIdle)};--score-review-edge:${escapeAttr(reviewEdge)}">
+          <i class="${score > 0 ? 'has-fill' : ''}" style="width:${pct}%"></i>
+          <div class="sc-rev-labels${over > 0 ? ' has-over' : ''}">
+            ${over > 0 ? `<span class="sc-rev-over" style="--sc-over:${escapeAttr(st.overColor || '#fff2a8')}"><small>+OVER</small><b>${formatNumber(over)}</b></span>` : ''}
+            <span class="sc-rev-score">${formatNumber(score)}</span>
+            ${noTarget ? '' : `<span class="sc-rev-target"><small>ĐIỂM</small><b>${formatNumber(target)}</b></span>`}
+          </div>
+        </div>
+      </div>
+    `;
+  } else {
   $('#scPreview').innerHTML = `
-    <div class="score-review-card${score >= target ? ' kpi-met' : ''}">
+    <div class="score-review-card${!noTarget && score >= target ? ' kpi-met' : ''}">
       <div class="score-review-topline">
         <span class="score-review-chip ${statusClass}">${escapeHtml(statusLabel)}</span>
         <div class="score-review-time">${escapeHtml(st.timeText || '00:00')}</div>
-        <span class="score-review-chip score-review-chip--pct">${pct}%</span>
+        ${noTarget ? '<span class="score-review-chip score-review-chip--free">TỰ DO</span>' : `<span class="score-review-chip score-review-chip--pct">${pct}%</span>`}
       </div>
-      <div class="score-review-progress" style="--score-review-fill:${escapeAttr(reviewFill)}"><i style="width:${pct}%"></i><span class="score-review-sheen" style="width:${pct}%"></span><b>⚑</b></div>
+      <div class="score-review-progress${noTarget ? ' is-free' : ''}" style="--score-review-fill:${escapeAttr(reviewFill)};--score-review-idle:${escapeAttr(reviewIdle)};--score-review-edge:${escapeAttr(reviewEdge)}"><i class="${score > 0 ? 'has-fill' : ''}" style="width:${pct}%"></i><span class="score-review-sheen" style="width:${pct}%"></span><b>⚑</b></div>
       <div class="score-review-head">
         <div class="score-review-creator">
           ${st.creatorAvatar ? `<img class="js-avatar" src="${escapeAttr(st.creatorAvatar)}" />` : '<span>HP</span>'}
           <strong>${escapeHtml(st.creatorName || 'Creator')}</strong>
         </div>
-        ${over > 0 ? `<div class="score-review-over" style="--sc-over:${escapeAttr(st.overColor || '#ff3b6b')}"><small>+ DƯ</small><b>${formatNumber(over)}</b></div>` : ''}
-        <div class="score-review-score" style="font-size:${scoreFont}px"><small>ĐIỂM</small><b>${formatNumber(score)}</b><span>/ ${formatNumber(target)}</span></div>
+        ${over > 0 ? `<div class="score-review-over" style="--sc-over:${escapeAttr(st.overColor || '#ffffff')}"><small>+ DƯ</small><b>${formatNumber(over)}</b></div>` : ''}
+        <div class="score-review-score" style="font-size:${scoreFont}px"><small>ĐIỂM</small><b>${formatNumber(score)}</b>${noTarget ? '' : `<span>/ ${formatNumber(target)}</span>`}</div>
       </div>
     </div>
   `;
+  }
   // CUỐI TRANG: danh sách quà/user (ít dùng) — render riêng ra khối dưới cùng.
   const listsEl = $('#scReviewLists');
   if (listsEl) listsEl.innerHTML = `
@@ -8287,10 +8683,10 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx] = await Promise.all([
-    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(),
+  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx, interact] = await Promise.all([
+    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(), window.api.interact.getUrl(),
   ]);
-  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx };
+  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx, urlInteract: interact };
   $$('[data-copy]').forEach(button => { button.dataset.url = urls[button.dataset.copy]; });
   await refreshReviewButtons();
 }
@@ -8390,6 +8786,73 @@ function wireOverlaysTab() {
     toast('Review trở về nền trong suốt', 'success');
   }));
 
+  wireInteractConfig();
+}
+
+// ---- Tuỳ chỉnh overlay TƯƠNG TÁC + QUÀ ----
+let interactCfg = null;
+function fillInteractUI(cfg) {
+  if (!cfg) return;
+  interactCfg = cfg;
+  const set = (id, v) => { const el = $('#' + id); if (el) el.value = v; };
+  const chk = (id, v) => { const el = $('#' + id); if (el) el.checked = v; };
+  chk('ifShowGift', cfg.showGift !== false);
+  chk('ifShowChat', cfg.showChat !== false);
+  chk('ifShowAvatar', cfg.showAvatar !== false);
+  chk('ifShowGiftName', cfg.showGiftName !== false);
+  chk('ifShowRepeat', cfg.showRepeat !== false);
+  chk('ifShowCoin', cfg.showCoin !== false);
+  set('ifNewest', cfg.newest === 'bottom' ? 'bottom' : 'top');
+  set('ifBgColor', cfg.bgColor || '#000000');
+  set('ifBgOpacity', cfg.bgOpacity ?? 55);
+  set('ifAvatar', cfg.avatarSize ?? 56);
+  set('ifName', cfg.nameSize ?? 30);
+  set('ifComment', cfg.commentSize ?? 34);
+  set('ifGift', cfg.giftSize ?? 32);
+  set('ifSplit', Math.round((Number(cfg.splitRatio) || 0.5) * 100));
+  $('#ifBgOpacityVal').textContent = (cfg.bgOpacity ?? 55) + '%';
+  $('#ifAvatarVal').textContent = cfg.avatarSize ?? 56;
+  $('#ifNameVal').textContent = cfg.nameSize ?? 30;
+  $('#ifCommentVal').textContent = cfg.commentSize ?? 34;
+  $('#ifGiftVal').textContent = cfg.giftSize ?? 32;
+  $('#ifSplitVal').textContent = Math.round((Number(cfg.splitRatio) || 0.5) * 100) + '%';
+}
+
+async function wireInteractConfig() {
+  try { fillInteractUI(await window.api.interact.getConfig()); } catch {}
+  // Overlay tự báo khi kéo vạch chia (đổi splitRatio) → cập nhật thanh trượt cho khớp.
+  window.api.on('interact:state', (cfg) => fillInteractUI(cfg));
+
+  const saveFromUI = async () => {
+    let showGift = $('#ifShowGift').checked;
+    let showChat = $('#ifShowChat').checked;
+    if (!showGift && !showChat) { showChat = true; $('#ifShowChat').checked = true; toast('Phải giữ ít nhất 1 cột (Tương tác hoặc Quà tặng)', 'error'); }
+    const cfg = {
+      showGift, showChat,
+      showAvatar: $('#ifShowAvatar').checked,
+      showGiftName: $('#ifShowGiftName').checked,
+      showRepeat: $('#ifShowRepeat').checked,
+      showCoin: $('#ifShowCoin').checked,
+      newest: $('#ifNewest').value === 'bottom' ? 'bottom' : 'top',
+      bgColor: $('#ifBgColor').value,
+      bgOpacity: Number($('#ifBgOpacity').value),
+      avatarSize: Number($('#ifAvatar').value),
+      nameSize: Number($('#ifName').value),
+      commentSize: Number($('#ifComment').value),
+      giftSize: Number($('#ifGift').value),
+      splitRatio: Number($('#ifSplit').value) / 100,
+    };
+    $('#ifBgOpacityVal').textContent = cfg.bgOpacity + '%';
+    $('#ifAvatarVal').textContent = cfg.avatarSize;
+    $('#ifNameVal').textContent = cfg.nameSize;
+    $('#ifCommentVal').textContent = cfg.commentSize;
+    $('#ifGiftVal').textContent = cfg.giftSize;
+    $('#ifSplitVal').textContent = Math.round(cfg.splitRatio * 100) + '%';
+    try { interactCfg = await window.api.interact.setConfig(cfg); } catch {}
+  };
+  ['ifShowGift', 'ifShowChat', 'ifShowAvatar', 'ifShowGiftName', 'ifShowRepeat', 'ifShowCoin',
+    'ifNewest', 'ifBgColor', 'ifBgOpacity', 'ifAvatar', 'ifName', 'ifComment', 'ifGift', 'ifSplit']
+    .forEach(id => { const el = $('#' + id); if (el) el.addEventListener('input', saveFromUI); });
 }
 
 // ============================================================

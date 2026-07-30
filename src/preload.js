@@ -109,6 +109,13 @@ const api = {
     getUrl: () => ipcRenderer.invoke('giftmenu:getUrl'),
   },
 
+  // ===== TƯƠNG TÁC + QUÀ (overlay gộp chat + quà thành 1 cột dọc) =====
+  interact: {
+    getConfig: () => ipcRenderer.invoke('interact:getConfig'),
+    setConfig: (cfg) => ipcRenderer.invoke('interact:setConfig', cfg),
+    getUrl: () => ipcRenderer.invoke('interact:getUrl'),
+  },
+
   // ===== NHIỆM VỤ · BỘ BA (3 KPI: người tặng quà / tim / điểm) =====
   missiontrio: {
     getState: () => ipcRenderer.invoke('missiontrio:getState'),
@@ -175,6 +182,9 @@ const api = {
     applyLog: () => ipcRenderer.invoke('ranking:applyLog'),
     getLinks: () => ipcRenderer.invoke('ranking:getLinks'),
     setLinks: (patch) => ipcRenderer.invoke('ranking:setLinks', patch),
+    setPerfOrder: (creatorId, order) => ipcRenderer.invoke('ranking:setPerfOrder', { creatorId, order }),
+    clearPerfOrder: () => ipcRenderer.invoke('ranking:clearPerfOrder'),
+    syncPerfOrders: (assignments) => ipcRenderer.invoke('ranking:syncPerfOrders', assignments),
   },
 
   // ===== Score =====
@@ -260,7 +270,7 @@ const api = {
     const allowed = new Set([
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
-      'pkduo:state', 'pkduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'missiontrio:state', 'cardflip:state', 'dancevideo:ended',
+      'pkduo:state', 'pkduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'cardflip:state', 'dancevideo:ended',
       'history:changed', 'ranking:links',
       'app:confirmQuit',
       'log',

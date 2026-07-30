@@ -260,7 +260,7 @@
             </div>
           </div>
           <div class="card">
-            <h3>💬 TƯƠNG TÁC <span class="log-tools"><button class="ghost tiny" id="chatFontDown" type="button">A-</button><button class="ghost tiny" id="chatFontUp" type="button">A+</button></span></h3>
+            <h3>💬 TƯƠNG TÁC <span class="log-tools"><button class="ghost tiny" id="feedQuickReview" type="button" title="Mở/đóng cửa sổ Review overlay gộp TƯƠNG TÁC + QUÀ (1080×1920)">🖥 Overlay</button><button class="ghost tiny" id="feedQuickCopy" type="button" title="Copy link OBS overlay gộp (1080×1920)">📋</button><button class="ghost tiny" id="chatFontDown" type="button">A-</button><button class="ghost tiny" id="chatFontUp" type="button">A+</button></span></h3>
             <div class="log-list" id="chatList"></div>
           </div>
           <div class="card">
@@ -889,6 +889,7 @@
             <button id="rkResetRound" class="ghost" type="button" title="Đưa round toàn bộ Creator về 0">RESET ROUND</button>
             <button id="rkCommitRound" class="ghost" type="button" title="Gộp điểm live của vòng vào điểm chính thức rồi dọn về 0 (chống hiển thị trùng)">🔒 CHỐT VÒNG</button>
             <button id="rkReset" class="warn" type="button">↺ RESET ĐIỂM</button>
+            <button id="rkClearPerfOrder" class="ghost" type="button" title="Xoá toàn bộ Số thứ tự thi đấu (STT) — gán từ 🎡 VÒNG QUAY — để bắt đầu lượt thi mới">🔄 XOÁ STT</button>
             <button id="rkClearAllHistory" class="ghost" type="button" title="Xóa toàn bộ lịch sử gameplay của mọi Creator trong THI ĐẤU NHÓM">🧹 XÓA LỊCH SỬ</button>
           </div>
           <div class="rk-score-bridge" id="rkScoreBridge" hidden>
@@ -932,16 +933,27 @@
               <input id="scCreatorName" type="hidden" />
               <input id="scCreatorAvatar" type="hidden" />
             </label>
+            <label class="score-command-layout" title="ĐƯỜNG ĐUA: thanh ngang cho vùng rộng · KÊU GỌI: gom thông tin thành một thẻ gọn ở góc màn hình.">🖼️
+              <select id="scLayout">
+                <option value="bar">ĐƯỜNG ĐUA</option>
+                <option value="card">KÊU GỌI</option>
+              </select>
+            </label>
             <button id="scStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="scReset" class="ghost" type="button">↺ Reset</button>
             <button id="scSaveCfg" class="ghost" type="button">💾 LƯU</button>
-            <button id="scCopyUrl" class="ghost" type="button">📋 COPY OBS</button>
-            <div class="score-command-test">
-              <span>TEST</span>
-              <div class="score-test-row">
-                <input id="scTestPoints" type="number" min="1" max="999999" value="100" />
-                <button id="scTestMinus" class="ghost" type="button">-</button>
-                <button id="scTestPlus" class="primary" type="button">+</button>
+            <div class="sc-tools">
+              <button id="scToolsBtn" class="ghost sc-tools-btn" type="button" title="Công cụ: COPY OBS · TEST cộng/trừ điểm" aria-expanded="false">⚙️</button>
+              <div class="sc-tools-pop" id="scToolsPop" hidden>
+                <button id="scCopyUrl" class="ghost" type="button">📋 COPY OBS</button>
+                <div class="score-command-test">
+                  <span>TEST</span>
+                  <div class="score-test-row">
+                    <input id="scTestPoints" type="number" min="1" max="999999" value="100" />
+                    <button id="scTestMinus" class="ghost" type="button">-</button>
+                    <button id="scTestPlus" class="primary" type="button">+</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -954,17 +966,17 @@
               <button type="button" class="stc-chip" data-theme="neon" style="--c1:#00a6ff;--c2:#35ffcf">Neon</button>
               <button type="button" class="stc-chip" data-theme="battle" style="--c1:#8f101f;--c2:#ff4b4b">Battle</button>
               <button type="button" class="stc-chip" data-theme="luxury" style="--c1:#4c2a85;--c2:#c79cff">Luxury</button>
-              <button type="button" class="stc-chip" data-theme="minimal" style="--c1:#6b7280;--c2:#d1d5db">Minimal</button>
+              <button type="button" class="stc-chip" data-theme="sunset" style="--c1:#ff6a3d;--c2:#ffc46b">Hoàng hôn</button>
+              <button type="button" class="stc-chip" data-theme="ocean" style="--c1:#0088cc;--c2:#22e0c8">Đại dương</button>
+              <button type="button" class="stc-chip" data-theme="candy" style="--c1:#ff8fcf;--c2:#c9a9ff">Kẹo ngọt</button>
             </div>
           </div>
 
           <div class="score-ops-grid">
             <fieldset class="score-config-card score-main-config">
               <legend>Thiết lập phiên</legend>
-              <div class="form-grid compact">
-                <label>Mục tiêu điểm <input id="scTarget" type="text" inputmode="numeric" value="1.000" /></label>
-                <label>Chuẩn bị (giây) <input id="scPrep" type="number" min="0" max="120" value="3" /></label>
-                <label>Delay sau kết thúc (giây) <input id="scDelay" type="number" min="0" max="60" value="5" /></label>
+              <div class="form-grid compact sc-session-grid">
+                <label title="Để TRỐNG = KHÔNG MỤC TIÊU: chỉ cộng điểm bình thường, bỏ KPI, thanh luôn đầy. Có nhập >0 = chạy mục tiêu như cũ.">Mục tiêu điểm <input id="scTarget" type="text" inputmode="numeric" value="1.000" placeholder="Trống = không mục tiêu" /></label>
                 <div class="time-zone">
                   <div class="time-zone__head"><span class="tz-ico">⏱️</span>Thời gian</div>
                   <div class="time-zone__fields">
@@ -975,30 +987,27 @@
                     <label class="time-seg"><input id="scDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
                   </div>
                 </div>
-                <input id="scContent" type="hidden" value="" />
+                <label>Chuẩn bị (giây) <input id="scPrep" type="number" min="0" max="120" value="3" /></label>
+                <label>Delay sau kết thúc (giây) <input id="scDelay" type="number" min="0" max="60" value="5" /></label>
+                <div class="sc-kpix2-row" title="Điểm vượt mục tiêu (KPI) được nhân hệ số. VD: KPI 5.000, tặng 10.000 → 5.000 + (5.000 ×2) = 15.000 điểm. Hiện thêm dòng tổng nhỏ dưới điểm.">
+                  <label class="sc-kpix2">✖️ KPI nhân bù <select id="scKpiX2" aria-label="Bật hoặc tắt KPI nhân bù"><option value="false">Tắt</option><option value="true">Bật</option></select></label>
+                  <label class="sc-kpix2-mult">Hệ số: <select id="scKpiMult"><option value="2">×2</option><option value="3">×3</option><option value="5">×5</option></select></label>
+                </div>
+                <label class="sc-content-field" title="Tiêu đề hiển thị trên đỉnh thẻ KÊU GỌI. Để TRỐNG = tự lấy tên thành viên (idol). Điền vào đây để đặt tên chính tùy ý, VD: KÊU GỌI ĐIỂM">📛 Tên chính trên thẻ (để trống = tên idol)
+                  <input id="scContent" type="text" placeholder="Để trống = tên idol · VD: KÊU GỌI ĐIỂM" value="" />
+                </label>
               </div>
             </fieldset>
 
-            <details class="cfg-adv">
+            <details class="cfg-adv sc-group">
               <summary>
-                <span class="cfg-adv__ico">⚙️</span>
-                <span>Giao diện OBS</span>
-                <span class="cfg-adv__hint">chỉnh một lần</span>
+                <span class="cfg-adv__ico">📐</span>
+                <span>Bố cục &amp; Cỡ</span>
+                <span class="cfg-adv__hint">kích thước · ẩn/hiện</span>
                 <span class="cfg-adv__chev">▾</span>
               </summary>
               <div class="cfg-adv__body">
               <div class="form-grid compact">
-                <label>Theme preset
-                  <select id="scTheme">
-                    <option value="douyin">Douyin (hồng)</option>
-                    <option value="vip">VIP (vàng)</option>
-                    <option value="neon">Neon (cyan)</option>
-                    <option value="battle">Battle (đỏ)</option>
-                    <option value="luxury">Luxury (tím)</option>
-                    <option value="minimal">Minimal (xám)</option>
-                    <option value="custom">Custom (giữ màu user)</option>
-                  </select>
-                </label>
                 <label>Kích cỡ overlay
                   <select id="scSize">
                     <option value="small">Nhỏ</option>
@@ -1014,42 +1023,110 @@
                     <option value="segments">Segments (đoạn rời)</option>
                   </select>
                 </label>
-                <label>Màu Time <input id="scTimeColor" type="color" value="#ffffff" /></label>
                 <label>Cỡ chữ điểm/mục tiêu (px) <input id="scScoreFontSize" type="number" min="12" max="48" value="18" /></label>
-                <input id="scContentColor" type="hidden" value="#f0eef6" />
-                <label>Màu Over <input id="scOverColor" type="color" value="#ff0000" /></label>
-                <label>Bar màu 1 <input id="scBarColor1" type="color" value="#b93678" /></label>
-                <label>Bar màu 2 <input id="scBarColor2" type="color" value="#ff8ed1" /></label>
-                <label>Wave màu <input id="scWaveColor" type="color" value="#ffffff" /></label>
-                <label class="full">Hiệu ứng màu
-                  <div class="option-pills">
-                    <span title="Màu thanh tự biến đổi theo % tiến độ (tím→lam→lục→vàng), không hiện số %"><input id="scColorByProgress" type="checkbox" /> ✨ Đổi màu theo % (ảo diệu)</span>
-                  </div>
-                </label>
-                <input id="scCompact" type="checkbox" hidden />
-                <input id="scShowGiftUser" type="checkbox" hidden />
-                <input id="scShowTopUsers" type="checkbox" hidden />
-                <input id="scShowSpeed" type="checkbox" hidden />
-                <div class="fld">Avatar/Creator
+                <div class="full sc-range-pair">
+                  <label class="sc-range-cell">Scale OBS
+                    <div class="range-inline">
+                      <input id="scOverlayScale" type="range" min="80" max="300" step="5" value="200" />
+                      <span id="scOverlayScaleValue" class="prefix">200%</span>
+                    </div>
+                  </label>
+                  <label class="sc-range-cell" title="Chỉ áp thẻ KÊU GỌI — không đụng thanh máu/avatar/tab">Nền thẻ KÊU GỌI (mờ)
+                    <div class="range-inline">
+                      <input id="scCardBgOpacity" type="range" min="0" max="100" step="5" value="88" />
+                      <span id="scCardBgOpacityValue" class="prefix">88%</span>
+                    </div>
+                  </label>
+                </div>
+                <div class="fld full">Avatar/Creator
                   <div class="option-pills">
                     <label><input id="scHideAvatar" type="checkbox" /> Ẩn avatar</label>
                     <label><input id="scHideCreator" type="checkbox" /> Ẩn creator</label>
                   </div>
                 </div>
-                <label class="full">Scale Tính điểm OBS
-                  <div class="range-inline">
-                    <input id="scOverlayScale" type="range" min="80" max="300" step="5" value="200" />
-                    <span id="scOverlayScaleValue" class="prefix">200%</span>
-                  </div>
-                </label>
+                <input id="scCompact" type="checkbox" hidden />
+                <input id="scShowGiftUser" type="checkbox" hidden />
+                <input id="scShowTopUsers" type="checkbox" hidden />
+                <input id="scShowSpeed" type="checkbox" hidden />
               </div>
+              </div>
+            </details>
+
+            <details class="cfg-adv sc-group">
+              <summary>
+                <span class="cfg-adv__ico">🎨</span>
+                <span>Màu sắc</span>
+                <span class="cfg-adv__hint">bar · wave · viền</span>
+                <span class="cfg-adv__chev">▾</span>
+              </summary>
+              <div class="cfg-adv__body">
+              <div class="form-grid compact">
+                <label>Bar màu 1 <input id="scBarColor1" type="color" value="#b93678" /></label>
+                <label>Bar màu 2 <input id="scBarColor2" type="color" value="#ff8ed1" /></label>
+                <label>Wave màu <input id="scWaveColor" type="color" value="#ffffff" /></label>
+                <div class="full sc-range-pair">
+                  <label class="sc-range-cell">Viền — độ đậm
+                    <div class="range-inline">
+                      <input id="scBorderOpacity" type="range" min="0" max="100" step="5" value="50" />
+                      <span id="scBorderOpacityValue" class="prefix">50%</span>
+                    </div>
+                  </label>
+                  <label class="sc-range-cell">Viền — độ dày
+                    <div class="range-inline">
+                      <input id="scBorderWidth" type="range" min="0" max="6" step="1" value="1" />
+                      <span id="scBorderWidthValue" class="prefix">1px</span>
+                    </div>
+                  </label>
+                </div>
+                <!-- Giữ ẩn: các màu này luôn TRẮNG (số/time/over/viền) & theme preset điều khiển bằng chip nhanh -->
+                <select id="scTheme" hidden>
+                  <option value="douyin">Douyin</option>
+                  <option value="vip">VIP</option>
+                  <option value="neon">Neon</option>
+                  <option value="battle">Battle</option>
+                  <option value="luxury">Luxury</option>
+                  <option value="sunset">Hoàng hôn</option>
+                  <option value="ocean">Đại dương</option>
+                  <option value="candy">Kẹo ngọt</option>
+                  <option value="custom">Custom</option>
+                </select>
+                <input id="scTimeColor" type="hidden" value="#ffffff" />
+                <input id="scContentColor" type="hidden" value="#f0eef6" />
+                <input id="scOverColor" type="hidden" value="#ffffff" />
+                <input id="scBorderColor" type="hidden" value="#ffffff" />
+              </div>
+              </div>
+            </details>
+
+            <details class="cfg-adv sc-group">
+              <summary>
+                <span class="cfg-adv__ico">✨</span>
+                <span>Hiệu ứng</span>
+                <span class="cfg-adv__hint">tuỳ chọn — mặc định tắt</span>
+                <span class="cfg-adv__chev">▾</span>
+              </summary>
+              <div class="cfg-adv__body">
+                <div class="option-pills">
+                  <label title="Màu thanh tự biến đổi theo % tiến độ (tím→lam→lục→vàng), không hiện số %"><input id="scColorByProgress" type="checkbox" /> ✨ Đổi màu theo % (ảo diệu)</label>
+                  <label title="Hiện dòng nhỏ 'còn N điểm' khi chưa đạt mục tiêu để kêu gọi tặng thêm"><input id="scShowRemaining" type="checkbox" /> 🔥 Hiện 'còn ... điểm'</label>
+                  <label title="Viền thanh là dải màu gradient chuyển động chạy vòng quanh (neon). Tuỳ chọn — không bật thì giữ giao diện cũ."><input id="scFxGlowBorder" type="checkbox" /> 🌈 Viền sáng chạy</label>
+                  <label title="Nền thanh/thẻ kiểu kính mờ tối cho nền video sáng, chữ nổi rõ. Tuỳ chọn."><input id="scFxGlass" type="checkbox" /> 🫧 Nền kính mờ tối</label>
+                  <label title="Vài đốm sáng lấp lánh trôi chậm phía sau thanh. Tuỳ chọn."><input id="scFxSparkle" type="checkbox" /> 💫 Lấp lánh nền</label>
+                </div>
+                <div class="sc-fx-sub">🖼️ Riêng thẻ <b>KÊU GỌI</b></div>
+                <div class="option-pills">
+                  <label title="Dải đèn sân khấu mờ xoay chậm phía sau avatar & đồng hồ — chiều sâu, hợp Talent Show."><input id="scFxSpotlight" type="checkbox" checked /> 🎬 Đèn sân khấu quét</label>
+                  <label title="Mỗi cú tặng bắn vòng sáng nở ra quanh avatar; combo dồn dập = nhiều vòng chồng nhau."><input id="scFxAvatarAura" type="checkbox" checked /> 🌟 Hào quang avatar</label>
+                  <label title="Điểm tăng thì con số bật to + loé sáng 1 nhịp rồi về — kéo mắt đúng lúc điểm vào."><input id="scFxScoreBounce" type="checkbox" checked /> 🔢 Số điểm nhảy nảy</label>
+                  <label title="Mỗi lần cộng, chip +N bay lên từ thanh máu rồi tan — combo tạo 'mưa điểm'."><input id="scFxFloatPoints" type="checkbox" checked /> ➕ '+N' bay lên</label>
+                  <label title="Cả khung thẻ phập phồng nhẹ khi đang chạy, càng gần hết giờ thở càng gấp."><input id="scFxCardBreathe" type="checkbox" checked /> 💓 Viền thẻ thở</label>
+                  <label title="Mặt trên phần máu gợn sóng như nước — sinh động hơn dải sheen phẳng."><input id="scFxLiquid" type="checkbox" checked /> 🌊 Thác chất lỏng</label>
+                </div>
               </div>
             </details>
 
             <input id="scBigThreshold" type="hidden" value="500" />
             <select id="scPointsBy" hidden><option value="diamond">Coin</option><option value="count">Số lượng quà</option></select>
-            <input id="scMilestones" type="hidden" value="" />
-            <input id="scMilestoneGradient" type="checkbox" hidden />
           </div>
 
           <!-- CUỐI TRANG: danh sách quà/user (ít dùng) — đưa xuống dưới cho gọn phần chỉnh sửa -->
@@ -1842,6 +1919,12 @@
                 <input type="text" id="lwSpinnerName" placeholder="hoặc gõ tên tự do…" />
               </div>
               <button class="primary lw-big-spin" id="lwSpinBtn" type="button" title="Phím tắt: Ctrl + Space">🎯 QUAY NGAY</button>
+              <div class="lw-contest-tools">
+                <label class="lw-chk lw-contest-chk" title="BẬT: mỗi lần quay gán SỐ THỨ TỰ thi đấu cho Creator đang chọn. TẮT chỉ ẩn STT trên OBS; bật lại sẽ hiện STT đã gán.">
+                  <input type="checkbox" id="lwAutoContest" /><span>🏆 Chế độ thi đấu</span>
+                </label>
+                <button class="ghost lw-clear-perf" id="lwClearPerf" type="button" title="Xoá toàn bộ Số thứ tự thi đấu (STT) của mọi Creator để bắt đầu lượt thi mới">🔄 Xoá STT</button>
+              </div>
             </div>
 
             <!-- Cột giữa: danh sách ô + thông báo kết quả -->
@@ -1858,7 +1941,7 @@
                         <input type="number" id="lwBatchQty" class="lw-batch-qty" min="1" max="200" value="10" title="Số lượng ô muốn tạo" />
                         <button class="ghost" id="lwBatchGen" type="button" title="Tạo dãy Số 1 → Số N">🔢 Tạo dãy số</button>
                       </div>
-                      <button class="ghost lw-tools-item" id="lwRestoreAll" type="button" title="Bỏ xám tất cả ô đã quay, đưa lại vào vòng quay">♻️ Khôi phục ô đã quay</button>
+                      <button class="ghost lw-tools-item" id="lwRestoreAll" type="button" title="Bỏ xám tất cả ô đã quay, đưa lại vào vòng quay và xoá STT thi đấu">♻️ Khôi phục ô đã quay</button>
                       <button class="ghost lw-tools-item" id="lwClearAll" type="button" title="Xoá tất cả ô khỏi danh sách">🗑️ Xoá tất cả ô</button>
                     </div>
                   </div>
@@ -2077,7 +2160,59 @@
             <input class="review-bg-alpha" data-review-alpha="cardflipfx" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="cardflipfx" type="button">Trong suốt</button>
           </div>
+          <div class="ovl-row">
+            <label>💬 TƯƠNG TÁC</label>
+            <button class="primary" data-copy="urlInteract" type="button">📋COPY OBS (1080×1920)</button>
+            <button class="ghost" data-review-toggle="interact" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="interact" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="interact" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="interact" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="interact" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="interact" type="button">Trong suốt</button>
+          </div>
         </div>
+
+        <!-- 💬 TƯƠNG TÁC + 🎁 QUÀ · Tuỳ chỉnh overlay gộp -->
+        <details class="card if-card" open>
+          <summary class="dv-summary"><span class="dv-summary__ico">💬</span> TƯƠNG TÁC + QUÀ · Tuỳ chỉnh overlay</summary>
+          <p class="sub">Cột dọc 1080×1920: 🎁 <b>QUÀ TẶNG</b> ở trên, 💬 <b>TƯƠNG TÁC</b> ở dưới. Kéo vạch chia trên cửa sổ Review (hoặc OBS ▸ <b>Interact</b>) để đổi tỉ lệ — vị trí được ghi nhớ.</p>
+          <div class="if-sub">Cột hiển thị</div>
+          <div class="if-grid">
+            <label class="if-check"><input type="checkbox" id="ifShowGift" checked /> 🎁 Hiện QUÀ TẶNG</label>
+            <label class="if-check"><input type="checkbox" id="ifShowChat" checked /> 💬 Hiện TƯƠNG TÁC</label>
+            <label class="if-range if-narrow">Bình luận mới ở
+              <select id="ifNewest">
+                <option value="top">Trên cùng</option>
+                <option value="bottom">Dưới cùng</option>
+              </select></label>
+          </div>
+          <div class="if-sub">Hiển thị trong mỗi dòng</div>
+          <div class="if-grid">
+            <label class="if-check"><input type="checkbox" id="ifShowAvatar" checked /> 👤 Avatar</label>
+            <label class="if-check"><input type="checkbox" id="ifShowGiftName" checked /> 🎁 Tên quà</label>
+            <label class="if-check"><input type="checkbox" id="ifShowRepeat" checked /> ✖ Số lần tặng</label>
+            <label class="if-check"><input type="checkbox" id="ifShowCoin" checked /> 💎 Số KC</label>
+          </div>
+          <div class="if-sub">Nền</div>
+          <div class="if-grid">
+            <label class="if-color">Màu nền <input type="color" id="ifBgColor" value="#000000" /></label>
+            <label class="if-range">Độ trong suốt nền <span class="if-val" id="ifBgOpacityVal">55%</span>
+              <input type="range" id="ifBgOpacity" min="0" max="100" value="55" /></label>
+          </div>
+          <div class="if-sub">Kích thước</div>
+          <div class="if-grid">
+            <label class="if-range">Cỡ avatar <span class="if-val" id="ifAvatarVal">56</span>
+              <input type="range" id="ifAvatar" min="20" max="140" value="56" /></label>
+            <label class="if-range">Cỡ tên user <span class="if-val" id="ifNameVal">30</span>
+              <input type="range" id="ifName" min="14" max="80" value="30" /></label>
+            <label class="if-range">Cỡ bình luận <span class="if-val" id="ifCommentVal">34</span>
+              <input type="range" id="ifComment" min="14" max="90" value="34" /></label>
+            <label class="if-range">Cỡ chữ quà <span class="if-val" id="ifGiftVal">32</span>
+              <input type="range" id="ifGift" min="14" max="90" value="32" /></label>
+            <label class="if-range">Tỉ lệ Quà / Bình luận <span class="if-val" id="ifSplitVal">50%</span>
+              <input type="range" id="ifSplit" min="10" max="90" value="50" /></label>
+          </div>
+        </details>
 
         <!-- 🎵 NHẠC DANCE · Overlay Video (WEBM 1/2/3) — dùng trực tiếp link OBS, không qua cửa sổ -->
         <details class="card dv-card" open>
@@ -2171,6 +2306,7 @@
             <label>Start <span class="inline"><input id="scSndStart" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndStart" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndStart" type="button">Nghe</button></span></label>
             <label>Warning 10s <span class="inline"><input id="scSndWarn" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndWarn" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndWarn" type="button">Nghe</button></span></label>
             <label>Goal đạt <span class="inline"><input id="scSndGoal" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndGoal" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndGoal" type="button">Nghe</button></span></label>
+            <label>Vào vùng nhân bù <span class="inline"><input id="scSndX2" readonly placeholder="(trống = dùng Goal đạt)" /><button class="ghost score-sound-file" data-target="scSndX2" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndX2" type="button">Nghe</button></span></label>
             <label>Success/Thắng <span class="inline"><input id="scSndSuccess" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndSuccess" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndSuccess" type="button">Nghe</button></span></label>
             <label>Thua / bị loại tự động <span class="inline"><input id="scSndFail" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndFail" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndFail" type="button">Nghe</button></span></label>
           </div>

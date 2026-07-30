@@ -58,7 +58,11 @@ function rowHtml(row, state, selFxOn) {
   const groupColor = row.groupColor || 'transparent';
   // Đánh dấu hàng của người đang thi đấu PK đã Liên kết (chỉ khi có kiểu FX bật + hàng inMatch).
   const selMark = (selFxOn && row.inMatch) ? selectMarkHtml() : '';
-  return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}${row.inMatch ? ' in-match' : ''}" style="--row-group-color:${esc(groupColor)}">
+  // Số thứ tự thi đấu (STT) — chip góc trên-PHẢI (chỗ R#, thường tắt khi thi đấu), dạng "#10".
+  const hasPerf = state.showPerfOrder !== false && Number(row.perfOrder) > 0;
+  const perf = hasPerf ? `<div class="ranking-perf" title="Số thứ tự thi đấu">#${Math.round(row.perfOrder)}</div>` : '';
+  return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}${row.inMatch ? ' in-match' : ''}${hasPerf ? ' has-perf' : ''}" style="--row-group-color:${esc(groupColor)}">
+    ${perf}
     ${state.showRank === false ? '' : `<div class="ranking-rank">${rankEmoji}</div>`}
     ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${selMark}${avatarHtml(row.avatar, row.initials, row.avatarVersion, row.avatarKey)}</div>`}
     <div class="ranking-main">

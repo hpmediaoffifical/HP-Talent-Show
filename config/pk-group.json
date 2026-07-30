@@ -30,10 +30,18 @@
       "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=a7512b74&x-expires=1785495600&x-signature=G9pvwC7%2F8CkPQmLD%2FHcIsRKBHWA%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#bc3cdd",
       "giftOverride": false,
-      "gifts": [],
+      "gifts": [
+        {
+          "giftName": "Go Popular",
+          "giftId": "13651",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
       "streak": 0,
       "score": 0,
-      "nameOverride": false
+      "nameOverride": false,
+      "avatarKey": "d2f7a0ed10441222facb47f2e8bc147a6ab175f2"
     },
     {
       "id": "c_mrtg2crd6d27p",
@@ -43,10 +51,18 @@
       "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=96437b14&x-expires=1785495600&x-signature=HR6h7%2B1SzfTeCiPGLRKaYGoTNWk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#3c7cdd",
       "giftOverride": false,
-      "gifts": [],
+      "gifts": [
+        {
+          "giftName": "GG",
+          "giftId": "6064",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
       "streak": 0,
       "score": 0,
-      "nameOverride": true
+      "nameOverride": true,
+      "avatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b"
     },
     {
       "id": "c_mrtg2obyczu0h",
@@ -56,10 +72,18 @@
       "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/ceab283203632412f0469537c948036e~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=cd27b950&x-expires=1785495600&x-signature=7aE8nluKxcS%2BYmnjDHwA%2FPStzW0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#3cdd7c",
       "giftOverride": false,
-      "gifts": [],
+      "gifts": [
+        {
+          "giftName": "Good Job",
+          "giftId": "231955",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/047bfa2dcc6813c72fd2d8f649ee8ee2.png~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
       "streak": 0,
       "score": 0,
-      "nameOverride": true
+      "nameOverride": true,
+      "avatarKey": "257e01bcb983d9242993df341399fb664d63f4ed"
     },
     {
       "id": "c_mrtg2s085v57p",
@@ -69,10 +93,18 @@
       "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/8ad8152cd28abca9114653858cf057c9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=0944bc69&x-expires=1785495600&x-signature=WiU%2BlekzuTW1peuM%2F8cNg9APhDs%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#bcdd3c",
       "giftOverride": false,
-      "gifts": [],
+      "gifts": [
+        {
+          "giftName": "Creeper",
+          "giftId": "54724",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/d686d45bd66e16b0aca8b0e5eb52a977.png~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
       "streak": 1,
       "score": 0,
-      "nameOverride": true
+      "nameOverride": true,
+      "avatarKey": "3dafaf85608b5ed478ea2c98dc543fb5db28bf2f"
     },
     {
       "id": "c_mrtg396ra59ws",
@@ -82,10 +114,18 @@
       "avatar": "https://p16-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/412869dc3e6fe48871a2754d67b12aae~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=fe3ad74d&x-expires=1785495600&x-signature=8NrFrHOc8o%2F6GsScPGPhevJ8EK0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#dd3c3c",
       "giftOverride": false,
-      "gifts": [],
+      "gifts": [
+        {
+          "giftName": "Clap Clap",
+          "giftId": "231956",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/f2349d1d943c0c3bbcc03044268ee535.png~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
       "streak": 0,
       "score": 0,
-      "nameOverride": true
+      "nameOverride": true,
+      "avatarKey": "c42357b47abbdc3e44861e82a1e9655428d84fbe"
     }
   ],
   "creatorColors": {

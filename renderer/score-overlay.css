@@ -1,11 +1,13 @@
 /* Score overlay — port verbatim từ BIGO Action với theme presets + state machine */
 html, body { margin:0; width:100%; height:100%; background:transparent; overflow:hidden; font-family:'Inter','Segoe UI', Arial, sans-serif; }
 /* zoom (không phải transform:scale) → render chữ ở độ phân giải cao thật → nét trên OBS */
-.score-obs { width:620px; max-width:none; margin:0 auto; padding:8px 12px 10px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.75); box-sizing:border-box; zoom:var(--score-scale,1); }
+.score-obs { width:620px; max-width:none; margin:0 auto; padding:28px 12px 10px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.75); box-sizing:border-box; zoom:var(--score-scale,1); }
 .score-obs.hidden { display:none; }
 .score-obs.size-small { width:480px; }
 .score-obs.size-large { width:760px; }
-.score-time { height:54px; margin:0 0 9px; color:var(--score-time-color,#fff); font-size:34px; font-weight:950; line-height:54px; letter-spacing:.02em; text-align:center; transform-origin:center; display:flex; align-items:center; justify-content:center; gap:10px; }
+/* Dòng đồng hồ/trạng thái nằm DƯỚI thanh máu (đã giải phóng khu vực trên cùng) — gọn lại chút cho cân đối */
+.score-time { height:46px; margin:6px 0 2px; color:var(--score-time-color,#fff); font-size:32px; font-weight:950; line-height:46px; letter-spacing:.02em; text-align:center; white-space:nowrap; transform-origin:center; display:flex; align-items:center; justify-content:center; gap:10px; }
+.score-time > span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .score-time-icon { position:relative; width:28px; height:28px; flex:0 0 auto; border:3px solid currentColor; border-radius:50%; filter:drop-shadow(0 2px 3px rgba(0,0,0,.36)); }
 .score-time-icon.clock::before { content:''; position:absolute; left:50%; top:50%; width:3px; height:9px; border-radius:999px; background:currentColor; transform:translate(-50%,-100%); }
 .score-time-icon.clock::after { content:''; position:absolute; left:50%; top:50%; width:9px; height:3px; border-radius:999px; background:currentColor; transform:translate(0,-50%); }
@@ -16,18 +18,22 @@ html, body { margin:0; width:100%; height:100%; background:transparent; overflow
 .size-small .score-time-icon { width:23px; height:23px; }
 .size-large .score-time { height:64px; font-size:42px; line-height:64px; }
 .size-large .score-time-icon { width:34px; height:34px; }
-.score-bar { --score-pct:0%; position:relative; height:30px; border-radius:999px; overflow:hidden; background:linear-gradient(180deg,rgba(130,130,130,.72),rgba(62,62,62,.78)); border:1px solid rgba(255,255,255,.24); box-shadow:0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.15); }
+.score-bar { --score-pct:0%; position:relative; height:30px; border-radius:999px; overflow:hidden; background:var(--score-bar-idle-gradient,linear-gradient(90deg,rgb(107,65,98),rgb(77,39,65))); border:var(--score-bar-border-width,1px) solid var(--score-bar-border,rgba(255,255,255,.5)); box-shadow:0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.15); }
 .size-small .score-bar { height:22px; }
 .size-large .score-bar { height:40px; }
 .bar-game .score-bar { border-radius:10px; border-width:2px; }
 .bar-game .score-fill { border-radius:8px; }
 .bar-luxury .score-bar { height:16px; border-radius:999px; }
 .bar-luxury .score-fill { border-radius:999px; }
-.bar-segments .score-bar { background:linear-gradient(180deg,rgba(130,130,130,.72),rgba(62,62,62,.78)); }
+.bar-segments .score-bar { background:var(--score-bar-idle-gradient,linear-gradient(90deg,rgb(107,65,98),rgb(77,39,65))); }
 .bar-segments .score-fill { background:var(--score-fill-gradient, linear-gradient(90deg,var(--score-bar-color-1,#b93678),var(--score-bar-color-2,#ff8ed1))); }
-.bar-segments.milestone-gradient .score-fill { background:var(--score-fill-gradient, linear-gradient(90deg,var(--score-bar-color-1,#b93678),var(--score-bar-color-2,#ff8ed1))); }
 /* Fill = "vệt sao băng": đuôi (điểm gốc bên trái) mờ trong suốt, đầu (mép đang tiến bên phải) đậm & sáng nhất */
 .score-fill { position:absolute; z-index:1; inset:0 auto 0 0; width:0; border-radius:999px; overflow:hidden; background:var(--score-fill-gradient, linear-gradient(90deg, var(--score-bar-color-2,#ff8ed1) 0%, var(--score-bar-color-1,#b93678) 100%)); box-shadow:inset -14px 0 22px -8px rgba(255,255,255,.32), inset 0 1px 0 rgba(255,255,255,.28), 0 0 20px rgba(255,91,174,.55); transition:width .22s ease-out, background .38s ease; }
+/* Độ "lem": dải màu mềm ôm mép máu đang chạy, hoà màu máu vào nền nhạt hơn để không còn ranh giới cứng.
+   Dùng gradient trong suốt (KHÔNG filter:blur trên phần tử đang animate → tránh OBS tô đen). */
+.score-bar::after { content:''; position:absolute; z-index:2; top:0; bottom:0; left:var(--score-pct,0%); width:34px; margin-left:-17px; opacity:0; background:linear-gradient(90deg, transparent 0%, var(--score-bar-color-1,#b93678) 30%, var(--score-bar-color-1,#b93678) 52%, transparent 100%); pointer-events:none; transition:left .22s ease-out, opacity .3s ease; }
+.has-score .score-bar::after { opacity:.42; }
+.status-running .score-bar::after, .status-grace .score-bar::after { opacity:.55; }
 /* Gợn sóng chảy liên tục — dải chéo mềm trôi ngang tạo cảm giác năng lượng chuyên nghiệp */
 /* Sóng chảy = nhiều vệt xéo trắng liền mạch (barber-pole). KHÔNG dùng mix-blend/filter vì OBS phải repaint mỗi frame → giật. Chỉ dùng rgba trắng + transform (GPU composite) → mượt. */
 .score-fill::before { content:''; position:absolute; top:0; bottom:0; left:-40px; right:-40px; opacity:0; background-image:linear-gradient(115deg, transparent 0 44%, rgba(255,255,255,.18) 50%, transparent 56% 100%); background-size:40px 100%; background-repeat:repeat; will-change:transform; pointer-events:none; }
@@ -51,25 +57,42 @@ html, body { margin:0; width:100%; height:100%; background:transparent; overflow
 .goal-met .score-bar { border-color:rgba(255,255,255,.95); box-shadow:0 0 0 1px rgba(255,255,255,.55), 0 0 20px rgba(255,82,174,.72), 0 0 38px rgba(104,210,255,.48), 0 0 58px rgba(255,218,95,.35), inset 0 1px 0 rgba(255,255,255,.3); animation:scoreSuccessGlow 1.8s ease-in-out infinite; }
 .goal-met .score-fill { background:linear-gradient(90deg,#ff4f9a 0%,#ffe66d 38%,#35ffcf 68%,#7aa7ff 100%); box-shadow:inset 0 1px 0 rgba(255,255,255,.34), 0 0 24px rgba(255,255,255,.48); }
 .urgent .score-time { animation:scoreUrgentBlink .55s linear infinite; }
-.urgent .score-bar { animation:scoreUrgentShake .32s linear infinite; }
-.score-over { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:4; padding:1px 12px 3px; border-radius:999px; background:rgba(80,16,58,.62); border:1px solid rgba(255,255,255,.38); color:var(--score-over-color,#ff0000); font-size:18px; font-weight:900; line-height:1.15; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.32); }
-.score-pop { position:absolute; top:50%; transform:translate(calc(-100% - 6px),-50%); z-index:5; max-width:min(230px,calc(var(--score-pct) - 10px)); height:20px; display:inline-flex; align-items:center; gap:3px; padding:0 2px; color:#fff; font-size:15px; font-weight:950; line-height:1; text-shadow:0 2px 4px rgba(0,0,0,.95), 0 0 8px rgba(255,255,255,.45); white-space:nowrap; pointer-events:none; overflow:hidden; }
+/* FX "Nước rút 10 giây cuối": viền đập nhịp tim (thay rung nhẹ) + vạch tốc độ chạy ngang */
+.urgent .score-bar { animation:scoreHeartbeat .82s ease-in-out infinite; }
+/* +Over: nằm CHÍNH GIỮA trong thanh máu */
+.score-over { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:4; padding:1px 12px 3px; border-radius:999px; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.5); color:var(--score-over-color,#ffffff); font-size:18px; font-weight:900; line-height:1.15; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.9); box-shadow:0 2px 8px rgba(0,0,0,.4); }
+.score-pop { position:absolute; top:50%; transform:translate(calc(-100% - 6px),-50%); z-index:5; max-width:min(230px,calc(var(--score-pct) - 10px)); height:28px; display:inline-flex; align-items:center; gap:4px; padding:0 2px; color:#fff; font-size:15px; font-weight:950; line-height:1; text-shadow:0 2px 4px rgba(0,0,0,.95), 0 0 8px rgba(255,255,255,.45); white-space:nowrap; pointer-events:none; }
 .score-pop.at-start { transform:translate(0,-50%); max-width:calc(var(--score-pct) - 10px); }
 .score-pop span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
-.score-pop.big { height:23px; color:#fff2a8; text-shadow:0 2px 4px rgba(0,0,0,.95), 0 0 12px rgba(255,214,102,.88); }
-.score-pop b { flex:0 0 auto; font-size:13px; line-height:1; filter:drop-shadow(0 1px 2px rgba(0,0,0,.38)); animation:scoreRunner .42s ease-in-out infinite alternate; }
-.score-marker { position:absolute; z-index:3; top:0; bottom:0; width:2px; background:rgba(255,255,255,.55); box-shadow:0 0 6px rgba(255,255,255,.55); }
-.score-marker.reached { background:#fff; box-shadow:0 0 10px #fff; }
-.milestone-gradient .score-marker.reached { width:4px; background:#fff7a8; box-shadow:0 0 14px #fff2a0, 0 0 24px rgba(255,255,255,.55); }
-.score-flag { position:absolute; right:-4px; top:50%; transform:translateY(-50%); z-index:4; width:38px; height:38px; display:grid; place-items:center; border-radius:50%; background:#c03e85; border:4px solid rgba(255,255,255,.82); font-size:22px; box-shadow:0 4px 14px rgba(0,0,0,.38), 0 0 16px rgba(255,255,255,.28); }
-.score-meta { position:relative; display:block; height:38px; margin-top:8px; font-size:20px; font-weight:800; }
-.score-person { position:absolute; left:0; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:7px; width:330px; min-width:0; overflow:hidden; }
-.score-avatar { width:36px; height:36px; display:grid; place-items:center; border-radius:50%; overflow:hidden; background:rgba(0,0,0,.38); border:1px solid rgba(255,255,255,.55); font-size:18px; }
+.score-pop.big { height:30px; color:#fff2a8; text-shadow:0 2px 4px rgba(0,0,0,.95), 0 0 12px rgba(255,214,102,.88); }
+/* Người chạy: TO hơn + vòng chạy 3D (nhún người + ngả thân + xoay chiều sâu rotateY/perspective) */
+.score-pop b { flex:0 0 auto; font-size:24px; line-height:1; transform-origin:center bottom; backface-visibility:hidden; will-change:transform; filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)); animation:scoreRun3D .5s ease-in-out infinite; }
+.score-pop.big b { font-size:28px; filter:drop-shadow(0 2px 4px rgba(0,0,0,.55)) drop-shadow(0 0 6px rgba(255,214,102,.6)); }
+/* Vòng cờ đích truyền thống: chỉ nhô hơn nền thanh một chút, có viền xám-trắng như mẫu. */
+.score-barwrap { position:relative; }
+.score-flag { position:absolute; right:-5px; top:50%; transform:translateY(-50%); z-index:7; width:42px; height:42px; display:grid; place-items:center; border-radius:50%; background:radial-gradient(circle at 35% 30%,#e15bb0,#b3306f 70%); border:4px solid rgba(255,255,255,.92); color:#fff; font-size:25px; line-height:1; box-shadow:0 0 0 3px rgba(171,180,182,.72),0 5px 14px rgba(0,0,0,.42),0 0 18px rgba(255,120,200,.4),inset 0 2px 4px rgba(255,255,255,.35); pointer-events:none; }
+.size-small .score-flag { width:34px; height:34px; border-width:3px; font-size:20px; }
+.size-large .score-flag { width:52px; height:52px; border-width:5px; font-size:31px; }
+.goal-met .score-flag, .status-success .score-flag { animation:scoreFlagPop 1s ease-in-out infinite; }
+@keyframes scoreFlagPop { 0%,100% { transform:translateY(-50%) scale(1); } 50% { transform:translateY(-50%) scale(1.06); } }
+/* 1 HÀNG GỌN: tên (trái) · đồng hồ/trạng thái (giữa) · điểm (phải) — kéo lên ngang đồng hồ */
+.score-meta { position:relative; display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:12px; min-height:40px; margin-top:2px; font-size:20px; font-weight:800; }
+.layout-bar .score-meta { margin-top:7px; }
+.score-person { justify-self:start; display:flex; align-items:center; gap:7px; min-width:0; overflow:hidden; }
+/* Đồng hồ giờ là cột GIỮA của hàng — bỏ canh lề dọc riêng */
+.score-meta .score-time { grid-column:2; justify-self:center; height:auto; margin:0; }
+.score-avatar { flex:0 0 auto; width:36px; height:36px; display:grid; place-items:center; border-radius:50%; overflow:hidden; background:rgba(0,0,0,.38); border:1px solid rgba(255,255,255,.55); font-size:18px; }
 .score-avatar img { width:100%; height:100%; object-fit:cover; }
 .score-creator { flex:1; min-width:0; color:#fff; font-size:20px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 2px 6px rgba(0,0,0,.9); }
 .score-content-line { display:grid; place-items:center; margin-top:0; min-height:27px; }
 .score-content { max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--score-content-color,#f0eef6); font-size:21px; font-weight:950; text-align:center; }
-.score-points { position:absolute; right:0; top:50%; transform:translateY(-50%); width:190px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:var(--score-points-font-size,18px); text-align:right; }
+/* KPI chính luôn thẳng hàng với Creator và trạng thái giữa; x2 nằm cân đối ngay phía dưới. */
+.score-points { justify-self:end; grid-column:3; display:grid; grid-template-rows:minmax(0,1fr) auto; align-self:stretch; align-items:end; line-height:1.12; }
+.score-points-main { align-self:center; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:var(--score-points-font-size,18px); text-align:right; }
+.layout-bar.has-kpi-x2 .score-meta { min-height:48px; }
+.layout-bar.has-kpi-x2 .score-points-main { transform:translateY(7px); }
+/* Dòng KPI x2 nhỏ ngay dưới điểm (điểm vượt mục tiêu tính gấp đôi). */
+.score-points-x2 { margin:0; justify-self:end; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:13px; font-weight:900; color:#ffe08a; text-shadow:0 1px 3px rgba(0,0,0,.9); }
 .score-extra { margin-top:4px; color:#d5dae7; font-size:13px; font-weight:800; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .compact .score-meta, .compact .score-extra { display:none; }
 .compact .score-sub { font-size:13px; }
@@ -81,12 +104,23 @@ html, body { margin:0; width:100%; height:100%; background:transparent; overflow
 .color-progress .score-fill { box-shadow:inset 0 1px 0 rgba(255,255,255,.34), 0 0 20px rgba(255,255,255,.28); }
 .status-success .score-time { color:#65ff9a; }
 .status-failed .score-time { color:#ff6b7d; }
-/* Chữ kết quả (THÀNH CÔNG / KHÔNG HOÀN THÀNH) nhỏ lại cho cân đối, không lấn thanh */
-.status-success .score-time, .status-failed .score-time { font-size:22px; height:36px; line-height:36px; }
-.size-small.status-success .score-time, .size-small.status-failed .score-time { font-size:18px; height:30px; line-height:30px; }
-.size-large.status-success .score-time, .size-large.status-failed .score-time { font-size:28px; height:44px; line-height:44px; }
-.status-success .score-time-icon, .status-failed .score-time-icon { width:20px; height:20px; border-width:2.5px; }
-.status-failed .score-time-icon.off::after { width:26px; height:3px; }
+/* "ĐANG TÍNH ĐIỂM" (grace) nhỏ lại cho gọn, không lấn thanh */
+.status-grace .score-time { font-size:23px; height:38px; line-height:38px; }
+.size-small.status-grace .score-time { font-size:19px; height:32px; line-height:32px; }
+.size-large.status-grace .score-time { font-size:28px; height:44px; line-height:44px; }
+.status-grace .score-time-icon { width:20px; height:20px; border-width:2.5px; }
+/* Chữ kết quả nhỏ lại cho vừa 1 hàng, không bị đẩy xuống dòng — "THÀNH CÔNG" bỏ icon, "KHÔNG HOÀN THÀNH" (dài) bé hơn */
+.status-success .score-time { font-size:20px; height:34px; line-height:34px; }
+.status-failed .score-time { font-size:16px; height:32px; line-height:32px; }
+.size-small.status-success .score-time { font-size:17px; height:30px; line-height:30px; }
+.size-small.status-failed .score-time { font-size:14px; height:28px; line-height:28px; }
+.size-large.status-success .score-time { font-size:26px; height:42px; line-height:42px; }
+.size-large.status-failed .score-time { font-size:21px; height:40px; line-height:40px; }
+/* THÀNH CÔNG: bỏ icon; KHÔNG HOÀN THÀNH: giữ icon nhỏ */
+.status-success .score-time-icon { display:none; }
+.status-success .score-time { gap:0; }
+.status-failed .score-time-icon { width:18px; height:18px; border-width:2.5px; }
+.status-failed .score-time-icon.off::after { width:23px; height:3px; }
 @keyframes scoreFlow { from { transform:translate3d(-40px,0,0); } to { transform:translate3d(0,0,0); } }
 @keyframes scoreWaveTravel { 0%,18% { transform:translate3d(-125%,0,0) skewX(-16deg); opacity:0; } 24% { opacity:.95; } 52% { transform:translate3d(245%,0,0) skewX(-16deg); opacity:.9; } 62%,100% { transform:translate3d(245%,0,0) skewX(-16deg); opacity:0; } }
 @keyframes scoreAddFlash { 0%, 70% { opacity:0; transform:scale(.8); } 78% { opacity:.95; transform:scale(1.2); } 100% { opacity:0; transform:scale(1.8); } }
@@ -95,4 +129,253 @@ html, body { margin:0; width:100%; height:100%; background:transparent; overflow
 @keyframes scorePrepPulse { 0%,100% { transform:scale(.9); opacity:.72; } 50% { transform:scale(1.18); opacity:1; text-shadow:0 0 18px rgba(255,209,102,.75), 0 2px 4px rgba(0,0,0,.75); } }
 @keyframes scoreSuccessGlow { 0%,100% { box-shadow:0 0 0 1px rgba(255,255,255,.45), 0 0 16px rgba(255,82,174,.45), 0 0 30px rgba(104,210,255,.36), 0 0 44px rgba(255,218,95,.3), inset 0 1px 0 rgba(255,255,255,.3); } 50% { box-shadow:0 0 0 2px rgba(255,255,255,.82), 0 0 22px rgba(255,82,174,.72), 0 0 42px rgba(104,210,255,.58), 0 0 60px rgba(255,218,95,.48), inset 0 1px 0 rgba(255,255,255,.38); } }
 @keyframes scoreSuccessHue { from { filter:hue-rotate(0deg) saturate(1.08); } to { filter:hue-rotate(360deg) saturate(1.08); } }
-@keyframes scoreRunner { from { transform:translateX(-1px) scaleX(-1) rotate(-4deg); } to { transform:translateX(3px) scaleX(-1) rotate(4deg); } }
+/* Vòng chạy 3D: 2 sải/chu kỳ — nhún lên khi sải, thân ngả trước/sau, xoay nhẹ theo trục dọc tạo chiều sâu.
+   scaleX(-1) trong cùng để giữ mặt hướng về đích; perspective() ngoài cùng để rotateY có chiều sâu thật. */
+@keyframes scoreRun3D {
+  0%   { transform:perspective(180px) rotateY(8deg)  rotateZ(-8deg) translate(-1px,0)   scale(1)    scaleX(-1); }
+  25%  { transform:perspective(180px) rotateY(20deg) rotateZ(3deg)  translate(2px,-3px) scale(1.08) scaleX(-1); }
+  50%  { transform:perspective(180px) rotateY(8deg)  rotateZ(8deg)  translate(3px,0)    scale(1)    scaleX(-1); }
+  75%  { transform:perspective(180px) rotateY(-6deg) rotateZ(3deg)  translate(2px,-3px) scale(1.08) scaleX(-1); }
+  100% { transform:perspective(180px) rotateY(8deg)  rotateZ(-8deg) translate(-1px,0)   scale(1)    scaleX(-1); }
+}
+
+/* ===================== FX ĐẶC BIỆT (OBS-safe: chỉ transform + rgba, không color-mix/backdrop-filter) ===================== */
+
+/* FX 1 — Sao băng đầu thanh: vệt sáng ngắn kéo sau mép đang tiến + đốm lấp lánh ở đầu, mượt khi thanh tăng */
+.score-comet { position:absolute; z-index:2; top:0; bottom:0; left:0; width:calc(var(--score-pct,0%)); opacity:0; pointer-events:none; transition:width .22s ease-out; }
+.has-score .score-comet { opacity:1; }
+.status-success .score-comet, .status-failed .score-comet { opacity:0; }
+/* Màu đầu fill loang qua nền chờ để mép tiến không bị cắt thẳng. */
+.score-comet::before { content:''; position:absolute; top:0; bottom:0; right:-40px; width:80px; border-radius:999px; background:linear-gradient(90deg,var(--score-edge-glow,rgba(0,136,204,.68)) 0%,var(--score-edge-soft,rgba(0,136,204,.18)) 48%,transparent 100%); filter:blur(5px); }
+.score-comet::after { content:''; position:absolute; top:50%; right:-4px; width:9px; height:9px; margin-top:-4.5px; border-radius:50%; background:radial-gradient(circle, #fff 22%, rgba(255,255,255,.28) 54%, transparent 74%); }
+.status-running .score-comet::after, .status-grace .score-comet::after { animation:scoreTwinkle 1.1s ease-in-out infinite; }
+
+/* FX 2 — Quà lớn tạo sóng: 1 vệt sáng vàng kim quét dọc thanh khi có cú tặng ≥ ngưỡng */
+.score-ripple { position:absolute; z-index:3; top:0; bottom:0; left:0; width:64px; opacity:0; pointer-events:none; background:linear-gradient(90deg, transparent, rgba(255,236,150,.9), transparent); filter:drop-shadow(0 0 10px rgba(255,214,102,.85)); transform:translate3d(-90px,0,0); }
+.score-ripple.go { animation:scoreRippleSweep .9s ease-out; }
+
+/* FX 3 — Nước rút 10 giây cuối: vạch tốc độ đỏ chạy ngang (chỉ hiện khi .urgent) */
+.score-speedlines { position:absolute; z-index:2; left:-40px; right:-40px; top:0; bottom:0; opacity:0; pointer-events:none; background-image:repeating-linear-gradient(115deg, rgba(255,80,80,0) 0 15px, rgba(255,80,80,.22) 15px 19px); background-size:38px 100%; will-change:transform; }
+.urgent .score-speedlines { opacity:1; animation:scoreSpeedLines .5s linear infinite; }
+
+/* FX 4 — Cán đích bùng nổ: vòng sóng nở ra + đốm sáng bắn quanh khi vừa ĐỦ ĐIỂM
+   (giữ trong thanh để không lộ dải sóng ra ngoài; quầng sáng ngoài đã có sẵn từ box-shadow của thanh) */
+.score-burst { position:absolute; z-index:6; left:50%; top:50%; width:38px; height:38px; margin:-19px 0 0 -19px; border-radius:50%; opacity:0; pointer-events:none; }
+.score-burst.go { animation:scoreBurst 1.05s ease-out; }
+.score-burst.go::before { animation:scoreSpark 1.05s ease-out; }
+.score-burst.go::after { animation:scoreSpark 1.05s ease-out .1s; }
+.score-burst::before, .score-burst::after { content:''; position:absolute; inset:-34px; border-radius:50%; opacity:0; background:radial-gradient(4px 4px at 18% 28%, #fff, transparent 62%), radial-gradient(3px 3px at 82% 22%, #ffe66d, transparent 62%), radial-gradient(3px 3px at 70% 84%, #fff, transparent 62%), radial-gradient(4px 4px at 26% 78%, #7aa7ff, transparent 62%), radial-gradient(3px 3px at 52% 12%, #35ffcf, transparent 62%); }
+
+@keyframes scoreTwinkle { 0%,100% { transform:scale(1); opacity:.85; } 50% { transform:scale(1.55); opacity:1; } }
+@keyframes scoreRippleSweep { 0% { opacity:0; transform:translate3d(-90px,0,0); } 12% { opacity:1; } 100% { opacity:0; transform:translate3d(820px,0,0); } }
+@keyframes scoreSpeedLines { from { transform:translate3d(0,0,0); } to { transform:translate3d(-38px,0,0); } }
+@keyframes scoreBurst { 0% { opacity:0; transform:scale(.2); box-shadow:0 0 0 0 rgba(255,255,255,.9), 0 0 0 0 rgba(255,218,95,.7); } 14% { opacity:1; } 100% { opacity:0; transform:scale(1); box-shadow:0 0 0 42px rgba(255,255,255,0), 0 0 0 74px rgba(255,218,95,0); } }
+@keyframes scoreSpark { 0% { opacity:0; transform:scale(.2) rotate(0deg); } 20% { opacity:1; } 100% { opacity:0; transform:scale(2.4) rotate(28deg); } }
+@keyframes scoreHeartbeat { 0%,100% { box-shadow:0 0 0 1px rgba(255,80,80,.5), 0 0 12px rgba(255,60,60,.4), inset 0 1px 0 rgba(255,255,255,.15); } 15% { box-shadow:0 0 0 2px rgba(255,80,80,.95), 0 0 26px rgba(255,50,50,.85), 0 0 46px rgba(255,50,50,.5), inset 0 1px 0 rgba(255,255,255,.2); } 30% { box-shadow:0 0 0 1px rgba(255,80,80,.6), 0 0 14px rgba(255,60,60,.45), inset 0 1px 0 rgba(255,255,255,.15); } 45% { box-shadow:0 0 0 2px rgba(255,80,80,.9), 0 0 24px rgba(255,50,50,.8), 0 0 40px rgba(255,50,50,.45), inset 0 1px 0 rgba(255,255,255,.2); } }
+
+/* FX 5 — Vùng NHÂN BÙ (điểm vượt mục tiêu): thanh rực vàng kim đập nhẹ + fill sáng hơn.
+   Đặt SAU .goal-met để thắng cascade khi cả hai cùng đúng (điểm > mục tiêu). */
+.x2-active .score-bar { animation:scoreX2Glow 1.4s ease-in-out infinite; }
+.x2-active .score-fill { filter:saturate(1.18) brightness(1.08); }
+.x2-active .score-points-x2 { animation:scoreX2Pulse 1.1s ease-in-out infinite; }
+@keyframes scoreX2Glow {
+  0%,100% { box-shadow:0 0 0 1px rgba(255,214,102,.55), 0 0 14px rgba(255,196,60,.5), 0 0 22px rgba(255,150,40,.32), inset 0 1px 0 rgba(255,255,255,.2); }
+  50%     { box-shadow:0 0 0 2px rgba(255,224,140,.9), 0 0 20px rgba(255,196,60,.8), 0 0 32px rgba(255,150,40,.5), inset 0 1px 0 rgba(255,255,255,.28); }
+}
+@keyframes scoreX2Pulse { 0%,100% { transform:scale(1); opacity:.92; } 50% { transform:scale(1.08); opacity:1; } }
+
+/* Dòng "còn N điểm" — nằm dưới cùng, canh giữa */
+.score-remaining { text-align:center; margin-top:3px; font-size:15px; font-weight:900; color:#ffd36a; text-shadow:0 1px 3px rgba(0,0,0,.9); letter-spacing:.01em; }
+.score-remaining.is-hidden { display:none; }
+.size-small .score-remaining { font-size:13px; }
+.size-large .score-remaining { font-size:18px; }
+
+/* ============================================================================
+   BỐ CỤC "THẺ HUD GÓC" (.layout-card) — gói tất cả vào 1 khung bo:
+   tab nội dung ở đỉnh · đồng hồ VÒNG ở giữa · thanh máu ôm sát đáy thẻ.
+   Giữ nguyên toàn bộ FX của thanh (sao băng/sóng/cán đích…) vì dùng chung barInnerHTML.
+   OBS-safe: chỉ box-shadow + rgba + SVG stroke, không color-mix/backdrop-filter/filter-động.
+   ============================================================================ */
+.score-obs.layout-card { width:400px; padding:16px 12px 20px; }
+.score-obs.layout-card.size-small { width:330px; }
+.score-obs.layout-card.size-large { width:480px; }
+
+/* Khung thẻ: nền tối tách nền video, viền mảnh sáng, overflow visible để tab đỉnh straddle mép */
+.layout-card .score-card { position:relative; padding:34px 0 0; border-radius:18px; background:rgba(10,11,16,var(--score-card-bg-alpha,.88)); border:1px solid rgba(255,255,255,.14); box-shadow:0 12px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07); }
+
+/* Tab tiêu đề = TÊN IDOL (mặc định) / hoặc Nội dung ghi đè — treo từ đỉnh thẻ, bo đáy */
+.layout-card .sc-tab { position:absolute; z-index:5; top:-1px; left:50%; transform:translateX(-50%); max-width:86%; padding:6px 22px 8px; border:1px solid rgba(255,255,255,.13); border-top:none; border-radius:0 0 14px 14px; background:rgb(34,38,54); box-shadow:0 4px 12px rgba(0,0,0,.35); }
+.layout-card .sc-tab-text { display:block; font-size:20px; font-weight:950; letter-spacing:.04em; text-transform:uppercase; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 2px 4px rgba(0,0,0,.7); }
+.layout-card.size-small .sc-tab-text { font-size:16px; }
+.layout-card.size-large .sc-tab-text { font-size:24px; }
+
+/* Khu giữa GỌN (không vòng tròn → hạ thấp chiều cao): avatar TO bên trái · đồng hồ/trạng thái ở giữa · KPI x2 phải */
+.layout-card .sc-card-mid { position:relative; display:flex; align-items:center; justify-content:center; min-height:74px; padding:6px 16px 10px; }
+.layout-card.size-small .sc-card-mid { min-height:60px; }
+.layout-card.size-large .sc-card-mid { min-height:88px; }
+/* Avatar idol TO, canh giữa theo chiều dọc ở mép trái (đúng chỗ đánh dấu) */
+.layout-card .sc-card-avatar { position:absolute; left:16px; top:50%; transform:translateY(-50%); width:64px; height:64px; border-radius:50%; overflow:hidden; background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.62); box-shadow:0 4px 14px rgba(0,0,0,.45); }
+.layout-card .sc-card-avatar img { width:100%; height:100%; object-fit:cover; }
+.layout-card.size-small .sc-card-avatar { width:50px; height:50px; left:12px; }
+.layout-card.size-large .sc-card-avatar { width:78px; height:78px; left:20px; }
+/* Đồng hồ đếm lùi (khi chạy) — chuyển thành chữ trạng thái nhỏ gọn khi grace/kết thúc */
+.layout-card .sc-card-clock { text-align:center; min-width:0; }
+.layout-card .sc-clock-text { font-size:42px; font-weight:950; color:var(--score-time-color,#fff); line-height:1; letter-spacing:.02em; font-variant-numeric:tabular-nums; }
+.layout-card.size-small .sc-clock-text { font-size:33px; }
+.layout-card.size-large .sc-clock-text { font-size:52px; }
+/* Trạng thái chữ (grace/kết quả): nhỏ + giới hạn bề ngang để KHÔNG chạm avatar bên trái / KPI bên phải */
+.layout-card.status-grace .sc-clock-text, .layout-card.status-success .sc-clock-text, .layout-card.status-failed .sc-clock-text { display:inline-block; max-width:min(100%, 240px); white-space:normal; line-height:1.08; }
+.layout-card.status-grace .sc-clock-text { font-size:19px; }
+.layout-card.status-success .sc-clock-text { font-size:22px; color:#65ff9a; }
+.layout-card.status-failed .sc-clock-text { font-size:16px; color:#ff6b7d; }
+.layout-card.size-small.status-grace .sc-clock-text { font-size:16px; }
+.layout-card.size-small.status-success .sc-clock-text { font-size:18px; }
+.layout-card.size-small.status-failed .sc-clock-text { font-size:14px; }
+.layout-card.size-large.status-failed .sc-clock-text { font-size:20px; }
+.layout-card.status-prestart .sc-clock-text { color:#ffd166; animation:scorePrepPulse .72s ease-in-out infinite; }
+.layout-card.urgent .sc-clock-text { animation:scoreUrgentBlink .55s linear infinite; }
+
+/* KPI x2: nằm sát MÉP TRÊN thanh máu, canh phải cho gọn */
+.layout-card .sc-card-kpi2 { position:absolute; right:12px; bottom:0; top:auto; transform:none; z-index:4; }
+.layout-card .sc-card-kpi2 .score-points-x2 { margin:0; font-size:13px; }
+
+/* Thanh máu ôm sát đáy thẻ: full ngang, chỉ bo 2 góc dưới khớp thẻ, bỏ viền các cạnh dính thẻ */
+/* Bọc thanh + nhãn: nhãn điểm nằm NGOÀI thanh (overflow visible) để số "nhảy nảy" không bị thanh cắt viền */
+.layout-card .sc-cardbar-wrap { position:relative; margin-top:8px; }
+.layout-card .sc-cardbar { height:38px; border-radius:0 0 17px 17px; border-left:none; border-right:none; border-bottom:none; }
+.layout-card.size-small .sc-cardbar { height:34px; }
+.layout-card.size-large .sc-cardbar { height:46px; }
+.layout-card .sc-cardbar .score-fill { border-radius:0 0 0 17px; }
+.layout-card .score-flag { display:none; }
+/* Runner "vừa tặng" nổi lên PHÍA TRÊN thanh (khỏi đè chip điểm/mục tiêu) */
+.layout-card .score-pop { top:0; transform:translate(-50%, calc(-100% - 5px)); }
+.layout-card .score-pop.at-start { transform:translate(0, calc(-100% - 5px)); }
+
+/* Điểm chạy luôn neo đúng giữa; KPI là nhãn phụ nhỏ ở mép phải nên không làm lệch tâm. */
+.layout-card .sc-cardbar-labels { position:absolute; z-index:6; inset:0; display:block; padding:0; pointer-events:none; overflow:visible; }
+/* Chip điểm tự co theo số (width auto) & KHÔNG cắt → số phóng to vẫn hiện đủ, nổi trên thanh */
+.layout-card .sc-score-chip { position:absolute; z-index:2; left:50%; top:50%; transform:translate(-50%,-50%); width:auto; max-width:92%; padding:0; background:none; border:none; box-shadow:none; overflow:visible; white-space:nowrap; }
+/* Số điểm — 2 bên thoáng để phóng to khi nhảy nảy vẫn hiện đủ (không nền, chỉ viền chữ nổi bằng shadow) */
+.layout-card .sc-score-chip-val { display:inline-block; overflow:visible; white-space:nowrap; padding:2px 10px; font-variant-numeric:tabular-nums; line-height:1; font-size:26px; font-weight:950; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.95), 0 0 6px rgba(0,0,0,.6); }
+.layout-card .sc-target-label { position:absolute; right:12px; top:50%; transform:translateY(-50%); display:inline-flex; align-items:baseline; gap:4px; max-width:31%; overflow:hidden; color:#fff; font-variant-numeric:tabular-nums; line-height:1; text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.55); }
+.layout-card .sc-target-label small { flex:0 0 auto; font-size:11px; font-weight:950; letter-spacing:.05em; color:rgba(255,255,255,.9); }
+.layout-card .sc-target-label b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:18px; font-weight:950; }
+.layout-card .sc-cardbar-labels.has-over .sc-score-chip-val { font-size:22px; }
+.layout-card .sc-card-over { position:absolute; left:12px; top:50%; transform:translateY(-50%); display:inline-flex; align-items:baseline; gap:3px; min-width:0; max-width:calc(50% - 62px); padding:3px 6px; overflow:hidden; border:1px solid rgba(255,255,255,.42); border-radius:999px; background:rgba(10,14,24,.42); color:var(--score-over-color,#fff2a8); font-size:10px; font-weight:950; letter-spacing:.04em; line-height:1; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.9); }
+.layout-card .sc-card-over b { min-width:0; overflow:hidden; text-overflow:ellipsis; font-size:13px; letter-spacing:0; }
+.layout-card.size-small .sc-score-chip-val { font-size:22px; }
+.layout-card.size-small .sc-target-label { right:9px; max-width:32%; }
+.layout-card.size-small .sc-target-label small { font-size:9px; }
+.layout-card.size-small .sc-target-label b { font-size:15px; }
+.layout-card.size-small .sc-cardbar-labels.has-over .sc-score-chip-val { font-size:19px; }
+.layout-card.size-small .sc-card-over { padding:2px 4px; font-size:8px; }
+.layout-card.size-small .sc-card-over b { font-size:11px; }
+.layout-card.size-large .sc-score-chip-val { font-size:32px; }
+.layout-card.size-large .sc-target-label b { font-size:21px; }
+.layout-card.size-large .sc-cardbar-labels.has-over .sc-score-chip-val { font-size:26px; }
+.layout-card .score-remaining { margin-top:8px; }
+
+/* ============================================================================
+   FX GIAO DIỆN TÙY CHỌN (opt-in) — CHỈ chạy khi bật; mặc định tắt → KHÔNG đổi giao diện cũ.
+   OBS-safe: chỉ transform/opacity + rgba + box-shadow (không color-mix/backdrop-filter/filter-động).
+   ============================================================================ */
+
+/* (1) Viền phát sáng gradient CHẠY quanh thanh — lớp quầng phía sau, xoay hue để "chạy màu" */
+.fx-glowborder .score-barwrap { position:relative; }
+.fx-glowborder .score-barwrap::before, .fx-glowborder .score-card::before {
+  content:''; position:absolute; z-index:0; inset:-3px; border-radius:999px; padding:3px;
+  background:linear-gradient(90deg,#ff4f9a,#ffb84f,#ffe66d,#35ffcf,#7aa7ff,#c79cff,#ff4f9a);
+  background-size:300% 100%;
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite:exclude;
+  opacity:.95; pointer-events:none; will-change:background-position; animation:scoreGlowFlow 3.2s linear infinite;
+}
+.fx-glowborder .score-card { position:relative; }
+.fx-glowborder .score-card::before { inset:-2px; border-radius:20px; }
+@keyframes scoreGlowFlow { from { background-position:0% 50%; } to { background-position:300% 50%; } }
+
+/* (2) Nền KÍNH MỜ TỐI — cho nền video sáng, chữ nổi rõ (giả lập bằng nhiều lớp rgba, KHÔNG backdrop-filter) */
+.fx-glass .score-bar { background:var(--score-bar-idle-gradient,linear-gradient(90deg,rgb(107,65,98),rgb(77,39,65))); }
+.fx-glass .score-card { background:rgba(16,18,28, var(--score-card-bg-alpha,.88)); }
+.fx-glass.layout-bar .score-meta { background:linear-gradient(180deg, rgba(12,14,22,.42), rgba(12,14,22,.26)); border-radius:14px; padding:2px 12px; }
+
+/* (3) LẤP LÁNH nền nhẹ — vài đốm sáng trôi chậm phía SAU thanh (đặt trên .score-obs, sau nội dung) */
+.fx-sparkle { position:relative; }
+.fx-sparkle::before {
+  content:''; position:absolute; z-index:0; left:0; right:0; top:10px; height:64px; pointer-events:none; opacity:.55;
+  background-image:
+    radial-gradient(2px 2px at 12% 40%, #fff, transparent 60%),
+    radial-gradient(2px 2px at 32% 70%, #ffe9a8, transparent 60%),
+    radial-gradient(1.5px 1.5px at 54% 30%, #fff, transparent 60%),
+    radial-gradient(2px 2px at 72% 62%, #bfe9ff, transparent 60%),
+    radial-gradient(1.5px 1.5px at 88% 45%, #fff, transparent 60%);
+  background-repeat:no-repeat; will-change:transform,opacity; animation:scoreSparkleDrift 4.5s ease-in-out infinite;
+}
+.fx-sparkle .score-barwrap, .fx-sparkle .score-card, .fx-sparkle .score-meta { position:relative; z-index:1; }
+@keyframes scoreSparkleDrift { 0%,100% { transform:translateX(0); opacity:.4; } 50% { transform:translateX(10px); opacity:.7; } }
+
+/* =========================================================================
+   FX RIÊNG THẺ KÊU GỌI (.layout-card) — mỗi cái bật/tắt độc lập, mặc định tắt.
+   Chỉ dùng transform/opacity (+box-shadow) → an toàn OBS, không filter khi đang animate.
+   ========================================================================= */
+
+/* 🎬 Đèn sân khấu quét — 2 dải sáng mờ xoay ngược chiều sau nội dung thẻ */
+.sc-fx-spotlight { display:none; position:absolute; inset:0; z-index:0; overflow:hidden; border-radius:18px; pointer-events:none; }
+.fx-spotlight .sc-fx-spotlight { display:block; }
+.fx-spotlight .sc-card-mid, .fx-spotlight .sc-cardbar { z-index:1; }
+.sc-fx-spotlight::before, .sc-fx-spotlight::after { content:''; position:absolute; left:50%; top:50%; width:260%; height:260%; margin-left:-130%; margin-top:-130%; background:linear-gradient(102deg, transparent 44%, rgba(255,255,255,.13) 50%, transparent 56%); will-change:transform; animation:scoreSpotSweep 9s linear infinite; }
+.sc-fx-spotlight::after { animation-duration:13s; animation-direction:reverse; opacity:.55; }
+@keyframes scoreSpotSweep { from { transform:rotate(0); } to { transform:rotate(360deg); } }
+
+/* 🌟 Hào quang avatar — mỗi cú tặng nở 2 vòng sáng theo màu Bar 2 */
+.sc-fx-aura { display:none; position:absolute; left:16px; top:50%; width:64px; height:64px; margin-top:-32px; border-radius:50%; z-index:0; pointer-events:none; }
+.fx-avataraura .sc-fx-aura { display:block; }
+.fx-avataraura .sc-card-avatar { z-index:1; }
+.layout-card.size-small .sc-fx-aura { left:12px; width:50px; height:50px; margin-top:-25px; }
+.layout-card.size-large .sc-fx-aura { left:20px; width:78px; height:78px; margin-top:-39px; }
+.sc-fx-aura::before, .sc-fx-aura::after { content:''; position:absolute; inset:-4px; border-radius:50%; border:2px solid var(--score-bar-color-2,#ff8ed1); opacity:0; will-change:transform,opacity; }
+.sc-fx-aura.go::before { animation:scoreAuraRing 1s ease-out; }
+.sc-fx-aura.go::after { animation:scoreAuraRing 1s ease-out .18s; }
+@keyframes scoreAuraRing { 0% { transform:scale(.92); opacity:.85; } 100% { transform:scale(2.15); opacity:0; } }
+
+/* 🔢 Số điểm nhảy nảy — bật to + loé sáng 1 nhịp khi điểm tăng */
+.sc-bump { animation:scoreNumBump .44s cubic-bezier(.2,1.4,.4,1); }
+@keyframes scoreNumBump {
+  0% { transform:translateY(0) scale(1); }
+  30% { transform:translateY(-3px) scale(1.36); text-shadow:0 0 14px rgba(255,255,255,.95), 0 2px 5px rgba(0,0,0,.95); }
+  60% { transform:translateY(0) scale(1.08); }
+  100% { transform:translateY(0) scale(1); }
+}
+
+/* ➕ '+N' bay lên — chip điểm cộng trôi lên từ thanh máu rồi tan (JS tạo/gỡ node) */
+.sc-fx-floats { display:none; position:absolute; left:0; right:0; bottom:44px; height:0; z-index:7; pointer-events:none; }
+.fx-floatpoints .sc-fx-floats { display:block; }
+.sc-float { position:absolute; left:50%; bottom:0; transform:translateX(-50%); white-space:nowrap; font-size:15px; font-weight:950; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 8px var(--score-edge-glow,rgba(255,120,190,.6)); will-change:transform,opacity; animation:scoreFloatUp 1.15s ease-out forwards; }
+.sc-float.big { font-size:19px; color:#ffe66d; }
+.layout-card.size-small .sc-float { font-size:13px; }
+.layout-card.size-large .sc-float { font-size:18px; }
+@keyframes scoreFloatUp { 0% { transform:translate(calc(-50% + var(--fx,0px)), 6px) scale(.7); opacity:0; } 18% { opacity:1; } 100% { transform:translate(calc(-50% + var(--fx,0px)), -52px) scale(1.08); opacity:0; } }
+
+/* 💓 Viền thẻ thở — phập phồng nhẹ khi chạy, gấp hơn lúc nước rút */
+.fx-cardbreathe.layout-card.status-running .score-card,
+.fx-cardbreathe.layout-card.status-grace .score-card { animation:scoreCardBreathe 2.6s ease-in-out infinite; }
+.fx-cardbreathe.layout-card.urgent .score-card { animation-duration:.82s; }
+@keyframes scoreCardBreathe {
+  0%,100% { box-shadow:0 12px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 0 rgba(255,255,255,0); }
+  50% { box-shadow:0 12px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07), 0 0 22px 2px var(--score-edge-glow,rgba(255,120,190,.5)); }
+}
+
+/* 🌊 Thác chất lỏng — hàng bọt sáng gợn sóng trôi trên mặt phần máu (trong fill, bị clip gọn) */
+.score-liquid { display:none; position:absolute; left:-24px; right:-24px; top:0; height:9px; opacity:.6; background:radial-gradient(9px 7px at 10px 8px, rgba(255,255,255,.55), transparent 72%) 0 0/20px 9px repeat-x; will-change:transform; animation:scoreLiquidFlow 2s linear infinite; pointer-events:none; }
+.fx-liquid .score-liquid { display:block; }
+@keyframes scoreLiquidFlow { from { transform:translateX(0); } to { transform:translateX(20px); } }
+
+/* =========================================================================
+   CHẾ ĐỘ KHÔNG MỤC TIÊU (.no-target) — Mục tiêu để trống: chỉ cộng điểm.
+   Thanh luôn đầy & chảy (pct=100), ẩn nhãn mục tiêu/Over, canh giữa số điểm.
+   Áp cho cả 2 phong cách: ĐƯỜNG ĐUA (layout-bar) & KÊU GỌI (layout-card).
+   ========================================================================= */
+.no-target .sc-target-label,
+.no-target .score-over,
+.no-target .sc-card-over { display:none !important; }
+.no-target.layout-card .sc-score-chip { max-width:84%; }

@@ -328,6 +328,18 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   background:rgba(12,12,18,.5); color:#e8e8ef; font-size:9px; font-weight:800; text-align:center;
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
 }
+/* Số thứ tự thi đấu (STT) — chip góc TRÊN-PHẢI (chỗ badge Round, thường tắt khi thi đấu), dạng "#10".
+   Gán từ 🎡 VÒNG QUAY (chế độ thi đấu). z-index trên nội dung tĩnh, dưới lớp FX ::after. */
+.ranking-perf {
+  position:absolute; right:3px; top:3px; z-index:4; pointer-events:none;
+  min-width:16px; padding:1px 5px; border-radius:5px;
+  background:linear-gradient(180deg, rgba(255,224,130,.98), rgba(240,158,32,.98));
+  color:#3a2606; font-size:10px; font-weight:950; line-height:1.2; text-align:center;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.4), 0 1px 3px rgba(0,0,0,.45);
+}
+/* Khi vẫn bật Round cùng lúc: đẩy R# sang trái để không chồng lên STT (cùng góc trên-phải). */
+.ranking-row.has-perf .ranking-round { right:34px; }
+.ranking-board.layout-grid .ranking-perf { font-size:11px; padding:1px 6px; }
 
 /* Panel người đang được chọn — thẻ nổi ở cuối */
 /* Thanh dưới = FOOTER ôm sát mép ngoài board (áp cho cả dọc & ngang).
