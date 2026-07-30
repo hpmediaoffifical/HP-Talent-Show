@@ -3118,6 +3118,29 @@ function broadcast(channel, data) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
 }
 
+// broadcast CÓ GOM NHỊP cho các kênh state tần suất cao (đếm TIM/like). Mission Trio & Card Flip
+// gọi onState mỗi lần có 1 like → nếu bắn IPC thẳng sang renderer mỗi like (hàng trăm/giây) thì
+// cửa sổ chính bị nghẽn, gõ liệu/đổi số bị đơ. Ở đây chỉ giữ TRẠNG THÁI MỚI NHẤT rồi gửi tối đa
+// ~8 lần/giây (đủ mượt cho preview), luôn flush lần cuối để số cuối cùng không bị bỏ sót.
+const _throttleState = new Map(); // channel -> { last, timer, pending }
+function throttledBroadcast(channel, data, ms = 120) {
+  const rec = _throttleState.get(channel) || { last: 0, timer: null, pending: null };
+  const now = Date.now();
+  const send = () => {
+    rec.last = Date.now();
+    rec.pending = null;
+    broadcast(channel, rec.latest);
+  };
+  rec.latest = data;
+  if (now - rec.last >= ms) {
+    if (rec.timer) { clearTimeout(rec.timer); rec.timer = null; }
+    send();
+  } else if (!rec.timer) {
+    rec.timer = setTimeout(() => { rec.timer = null; send(); }, ms - (now - rec.last));
+  }
+  _throttleState.set(channel, rec);
+}
+
 // ===== Liên kết trò chơi → THI ĐẤU NHÓM (realtime) =====
 // Callback duy nhất các engine trò chơi gọi khi 1 quà quy về Creator có gắn (khi Liên kết BẬT).
 function rankingLivePoints(creatorId, points, ev) {
@@ -3258,14 +3281,14 @@ function bootstrapEngines() {
   missionTrioEngine = new MissionTrioEngine({
     onState: (st) => {
       overlayServer?.sendMissionTrio(st);
-      broadcast('missiontrio:state', st);
+      throttledBroadcast('missiontrio:state', st);
     },
   });
   if (settings.missionTrio) missionTrioEngine.setConfig(settings.missionTrio);
   cardFlipEngine = new CardFlipEngine({
     onState: (st) => {
       overlayServer?.sendCardFlip(st);
-      broadcast('cardflip:state', st);
+      throttledBroadcast('cardflip:state', st);
     },
   });
   if (settings.cardFlip) cardFlipEngine.setConfig(settings.cardFlip);
@@ -3331,10 +3354,17 @@ function bootstrapTikTok() {
       missionTrioEngine?.routeGift(d);
     }
   });
-  ttClient.on('like', (d) => { _cacheAvatar(d); missionTrioEngine?.routeLike(d); cardFlipEngine?.routeLike(d); broadcast('tt:like', d); });
-  ttClient.on('member', (d) => { _cacheAvatar(d); broadcast('tt:member', d); });
-  ttClient.on('follow', (d) => { _cacheAvatar(d); broadcast('tt:follow', d); });
-  ttClient.on('share', (d) => { _cacheAvatar(d); broadcast('tt:share', d); });
+  // QUAN TRỌNG (fix treo/đơ giao diện khi LIVE): like/member/follow/share là các
+  // sự kiện TẦN SUẤT RẤT CAO (like có thể hàng trăm/giây, member = mỗi lượt vào phòng).
+  // Renderer KHÔNG có listener nào cho tt:like/tt:member/tt:follow/tt:share — nhưng trước
+  // đây vẫn broadcast tất cả sang cửa sổ chính. Mỗi broadcast là một IPC phải serialize +
+  // dispatch ở renderer → làm nghẽn main-thread của renderer → gõ ID/đổi số/thời gian bị đơ,
+  // "phải chờ 1 lúc mới nhập được rồi lại đơ". Vì vậy CHỈ route vào engine + cache avatar ở
+  // main, KHÔNG gửi sang renderer nữa (overlay lấy dữ liệu qua SSE riêng, không ảnh hưởng).
+  ttClient.on('like', (d) => { _cacheAvatar(d); missionTrioEngine?.routeLike(d); cardFlipEngine?.routeLike(d); });
+  ttClient.on('member', (d) => { _cacheAvatar(d); });
+  ttClient.on('follow', (d) => { _cacheAvatar(d); });
+  ttClient.on('share', (d) => { _cacheAvatar(d); });
   ttClient.on('roomUser', (d) => broadcast('tt:roomUser', d));
 }
 

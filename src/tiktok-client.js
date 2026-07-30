@@ -29,6 +29,20 @@ function errMessage(err) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// fetch có TIMEOUT. fetchProfile được gọi rất nhiều (bù avatar cho từng người xem trong
+// chat/gift + tự lấy lại avatar creator/nhóm lúc mở app). fetch() mặc định KHÔNG có timeout:
+// nếu TikTok/tikwm treo hoặc bị chặn, các request dồn lại vô hạn làm nghẽn tiến trình main
+// (chậm IPC → giao diện đơ). Giới hạn mỗi request tối đa ~7s rồi bỏ qua để không dồn ứ.
+async function fetchWithTimeout(url, opts = {}, ms = 7000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 // Ghép một message dễ hiểu (tiếng Việt) từ lỗi connect cuối cùng, gợi ý cách xử lý.
 function friendlyConnectError(err, username) {
   const raw = errMessage(err);
@@ -165,7 +179,7 @@ class TikTokClient extends EventEmitter {
     let best = { uniqueId: username, nickname: username, avatar: '', found: false, source: 'fallback' };
     try {
       const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent('https://www.tiktok.com/@' + username)}`;
-      const res = await fetch(oembedUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const res = await fetchWithTimeout(oembedUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
       if (res.ok) {
         const data = await res.json();
         best = {
@@ -243,7 +257,7 @@ class TikTokClient extends EventEmitter {
 
 async function fetchTikwmProfile(username) {
   const url = `https://www.tikwm.com/api/user/info?unique_id=${encodeURIComponent(username)}`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
   if (!res.ok) return {};
   const data = await res.json();
   const user = data?.data?.user;
@@ -261,7 +275,7 @@ async function fetchTikwmProfile(username) {
 
 async function fetchTikTokProfilePage(username) {
   const url = `https://www.tiktok.com/@${encodeURIComponent(username)}`;
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
       'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
