@@ -3047,6 +3047,9 @@ function wireMvpHonorTab() {
 // ============================================================
 const LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
 let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, slowSec: 3, sound: true, confetti: true, showResult: true, edgeStops: true, autoRemove: false, selectedSpinner: null, segments: [], history: [] };
+// Ô vừa trúng CHỜ bị loại: giữ nguyên trên vòng quay (app + OBS) để người xem thấy kim dừng
+// ở ô đó, chỉ làm xám/bỏ khỏi vòng quay khi BẮT ĐẦU lượt quay kế tiếp.
+let lwPendingDrawn = null;
 
 function lwNormalize(cfg) {
   const c = cfg && typeof cfg === 'object' ? cfg : {};
@@ -3069,6 +3072,7 @@ function lwNormalize(cfg) {
       color: /^#[0-9a-fA-F]{6}$/.test(s.color || '') ? s.color : LW_PALETTE[i % LW_PALETTE.length],
       weight: clampInt(s.weight, 10, 1, 100),
       jackpot: s.jackpot === true,
+      drawn: s.drawn === true,
     })) : [],
     history: Array.isArray(c.history) ? c.history : [],
   };
@@ -3095,9 +3099,12 @@ async function loadLuckyWheelConfig() {
 function lwPush() { window.api.luckywheel.setConfig(lwCfg).catch(() => {}); }
 const _lwSaver = makeAutoSaver(() => lwPush());
 function lwScheduleSave() { _lwSaver.schedule(); }
+// Vòng quay chỉ hiện các ô CHƯA quay (drawn=false). Ô đã quay bị làm xám trong danh sách
+// nhưng biến mất khỏi vòng quay ở app + OBS. Chỉ số ô trúng (spin.index) tính theo tập này.
+function lwPool() { return lwCfg.segments.filter(s => !s.drawn); }
 function lwNewSeg() {
   const i = lwCfg.segments.length;
-  return { id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Số ' + (i + 1), note: '', type: 'info', color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false };
+  return { id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Số ' + (i + 1), note: '', type: 'info', color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false, drawn: false };
 }
 
 // Tạo hàng loạt: thay danh sách ô hiện tại bằng dãy "Số 1 → Số N" (bốc số/rút thăm).
@@ -3106,7 +3113,7 @@ function lwGenerateNumbers(n) {
   lwCfg.segments = Array.from({ length: count }, (_, i) => ({
     id: 'lw_' + Math.random().toString(36).slice(2, 9),
     text: 'Số ' + (i + 1), note: '', type: 'info',
-    color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false,
+    color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false, drawn: false,
   }));
   renderLwSegList(); renderLwPreview(); lwPush();
 }
@@ -3115,10 +3122,11 @@ function renderLwSegList() {
   const box = $('#lwSegList'); if (!box) return;
   if (!lwCfg.segments.length) { box.innerHTML = '<div class="lw-empty">Chưa có ô nào. Nhấn <b>＋ Thêm ô</b>.</div>'; return; }
   box.innerHTML = lwCfg.segments.map((s, i) => `
-    <div class="lw-seg" data-i="${i}">
+    <div class="lw-seg${s.drawn ? ' lw-seg-drawn' : ''}" data-i="${i}">
       <div class="lw-seg-row" data-i="${i}">
         <input type="color" class="lw-seg-color" data-i="${i}" value="${s.color}" title="Màu ô" />
         <input type="text" class="lw-seg-text" data-i="${i}" value="${escAttr(s.text)}" placeholder="Nội dung ô" />
+        ${s.drawn ? `<button class="lw-seg-restore" data-i="${i}" type="button" title="Khôi phục ô đã quay (đưa lại vào vòng quay)">↩️</button>` : ''}
         <button class="lw-seg-gear" data-i="${i}" type="button" title="Cài đặt: loại kết quả · tỷ lệ · quà lớn">⚙️</button>
         <button class="lw-seg-del" data-i="${i}" type="button" title="Xoá ô">🗑</button>
       </div>
@@ -3141,6 +3149,7 @@ function renderLwSegList() {
   box.querySelectorAll('.lw-seg-type').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].type = el.value; lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-weight-input').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].weight = clampInt(el.value, 10, 1, 100); lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-jackpot input').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].jackpot = el.checked; lwScheduleSave(); }));
+  box.querySelectorAll('.lw-seg-restore').forEach(el => el.addEventListener('click', () => { lwCfg.segments[+el.dataset.i].drawn = false; renderLwSegList(); renderLwPreview(); lwPush(); }));
   box.querySelectorAll('.lw-seg-del').forEach(el => el.addEventListener('click', () => { lwCfg.segments.splice(+el.dataset.i, 1); renderLwSegList(); renderLwPreview(); lwScheduleSave(); }));
 }
 
@@ -3153,7 +3162,7 @@ function lwDrawPreviewAt(rot) {
   const cv = $('#lwPreview'); if (!cv) return;
   const ctx = cv.getContext('2d'); const S = cv.width, C = S / 2, R = C - 12;
   ctx.clearRect(0, 0, S, S);
-  const segs = lwCfg.segments;
+  const segs = lwPool();
   const rims = { neon: '#0d0d1a', gold: '#3a2607', pastel: '#f0e6ff', dark: '#0b0e13' };
   const rim = rims[lwCfg.style] || '#0d0d1a';
   if (!segs.length) { ctx.beginPath(); ctx.arc(C, C, R, 0, Math.PI * 2); ctx.fillStyle = 'rgba(30,30,40,.5)'; ctx.fill(); ctx.lineWidth = 14; ctx.strokeStyle = rim; ctx.stroke(); return; }
@@ -3197,7 +3206,8 @@ function lwPlayPreviewEdgeCatch(offset) {
 }
 
 function lwAnimatePreview(index, durSec, landingOffset, edgeCatch) {
-  const n = lwCfg.segments.length; if (!n) return;
+  const pool = lwPool();
+  const n = pool.length; if (!n) return;
   const seg = Math.PI * 2 / n;
   const norm = (a) => { a %= Math.PI * 2; return a < 0 ? a + Math.PI * 2 : a; };
   const start = (lwPreviewRot == null) ? (-Math.PI / 2 - seg / 2) : lwPreviewRot;
@@ -3226,7 +3236,7 @@ function lwAnimatePreview(index, durSec, landingOffset, edgeCatch) {
     // Nháy nhanh ô đang nằm dưới mũi tên → chậm dần theo vòng quay (cảm giác "máy xèng").
     if (p < 1) {
       const ci = ((Math.floor(norm(-Math.PI / 2 - lwPreviewRot) / seg) % n) + n) % n;
-      if (ci !== scanIdx) { scanIdx = ci; lwShowScan(lwCfg.segments[ci]); }
+      if (ci !== scanIdx) { scanIdx = ci; lwShowScan(pool[ci]); }
     }
     lwDrawPreviewAt(lwPreviewRot);
     if (p < 1) requestAnimationFrame(frame);
@@ -3349,6 +3359,16 @@ async function lwDoSpin() {
   if (!lwCfg.segments.length) { toast('Chưa có ô nào để quay', 'error'); return; }
   const btn = $('#lwSpinBtn');
   if (btn?.disabled) return;
+  // BẮT ĐẦU lượt mới → giờ mới loại ô của lượt TRƯỚC (làm xám + bỏ khỏi vòng quay app/OBS).
+  // Đồng bộ sang engine TRƯỚC khi quay để lượt mới không trúng lại ô đó và hình vòng quay khớp.
+  if (lwPendingDrawn) {
+    if (lwCfg.autoRemove) {
+      const prev = lwCfg.segments.find(s => s.id === lwPendingDrawn);
+      if (prev && !prev.drawn) { prev.drawn = true; renderLwSegList(); renderLwPreview(); await window.api.luckywheel.setConfig(lwCfg).catch(() => {}); }
+    }
+    lwPendingDrawn = null;
+  }
+  if (!lwPool().length) { toast('Đã quay hết ô — bấm ♻️ Khôi phục để quay tiếp', 'error'); return; }
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang quay…'; }
   const spinner = lwGetSpinner();
   const r = await window.api.luckywheel.spin({ spinner }).catch(() => null);
@@ -3360,10 +3380,10 @@ async function lwDoSpin() {
     if (lwCfg.history.length > 300) lwCfg.history.length = 300;
     const last = $('#lwLast'); if (last) { last.className = 'lw-last'; last.innerHTML = ''; }
     // Hé lộ kết quả + cập nhật lịch sử SAU khi vòng quay dừng (đồng bộ thời lượng)
+    const rec = r.record;
     setTimeout(() => {
       renderLwHistory();
       if (last) {
-        const rec = r.record;
         const tag = rec.type === 'reward' ? '🎁 THƯỞNG' : rec.type === 'penalty' ? '⚡ PHẠT' : '✨ KẾT QUẢ';
         last.className = 'lw-last lw-result-card lw-rt-' + rec.type;
         last.innerHTML = `<div class="lw-rc-tag">${tag}</div>`
@@ -3371,18 +3391,24 @@ async function lwDoSpin() {
           + (rec.note ? `<div class="lw-rc-note">${escAttr(rec.note)}</div>` : '')
           + (rec.member ? `<div class="lw-rc-who">🎯 ${escAttr(rec.member)}</div>` : '');
       }
-      // Tự xoá ô vừa quay trúng khỏi danh sách (bốc số không lặp) — làm sau khi vòng quay đã dừng.
-      if (lwCfg.autoRemove && rec.segId) {
-        const idx = lwCfg.segments.findIndex(s => s.id === rec.segId);
-        if (idx >= 0) { lwCfg.segments.splice(idx, 1); renderLwSegList(); renderLwPreview(); lwPush(); }
-      }
+      // KHÔNG loại ngay: chỉ ghi nhớ ô vừa trúng. Ô vẫn nằm trên vòng quay để người xem thấy
+      // kim dừng đúng vùng ô đó (cảm giác thật hơn); sẽ bị làm xám khi bấm QUAY lượt kế tiếp.
+      if (lwCfg.autoRemove && rec.segId) lwPendingDrawn = rec.segId;
     }, secs * 1000 + 150);
   }
   setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY'; } }, secs * 1000 + 300);
 }
 
+function lwCloseTools() { const p = $('#lwToolsPop'); if (p) p.hidden = true; }
 function wireLuckyWheelTab() {
   $('#lwAddSeg')?.addEventListener('click', () => { lwCfg.segments.push(lwNewSeg()); renderLwSegList(); renderLwPreview(); lwScheduleSave(); });
+  // Nút ⚙️ Công cụ: mở/đóng popup (Tạo dãy · Khôi phục · Xoá tất cả); bấm ra ngoài thì đóng.
+  $('#lwToolsBtn')?.addEventListener('click', (e) => { e.stopPropagation(); const p = $('#lwToolsPop'); if (p) p.hidden = !p.hidden; });
+  document.addEventListener('click', (e) => {
+    const p = $('#lwToolsPop'); if (!p || p.hidden) return;
+    const t = e.target;
+    if (t instanceof Node && !p.contains(t) && t !== $('#lwToolsBtn') && !$('#lwToolsBtn')?.contains(t)) p.hidden = true;
+  });
   $('#lwBatchGen')?.addEventListener('click', async () => {
     const n = clampInt($('#lwBatchQty')?.value, 10, 1, 200);
     if (lwCfg.segments.length) {
@@ -3390,7 +3416,25 @@ function wireLuckyWheelTab() {
       if (!ok) return;
     }
     lwGenerateNumbers(n);
+    lwCloseTools();
     toast(`Đã tạo dãy Số 1 → Số ${n}`, 'success');
+  });
+  $('#lwRestoreAll')?.addEventListener('click', () => {
+    const grayed = lwCfg.segments.filter(s => s.drawn).length;
+    if (!grayed) { toast('Không có ô xám nào', 'error'); return; }
+    lwCfg.segments.forEach(s => { s.drawn = false; });
+    renderLwSegList(); renderLwPreview(); lwPush();
+    lwCloseTools();
+    toast(`Đã khôi phục ${grayed} ô đã quay`, 'success');
+  });
+  $('#lwClearAll')?.addEventListener('click', async () => {
+    if (!lwCfg.segments.length) { toast('Danh sách đang trống', 'error'); return; }
+    const ok = await window.api.shell.confirm({ message: `Xoá TẤT CẢ ${lwCfg.segments.length} ô khỏi danh sách?`, confirmText: 'Xoá tất cả', cancelText: 'Huỷ' }).catch(() => false);
+    if (!ok) return;
+    lwCfg.segments = [];
+    renderLwSegList(); renderLwPreview(); lwPush();
+    lwCloseTools();
+    toast('Đã xoá tất cả ô', 'success');
   });
   $('#lwAutoRemove')?.addEventListener('change', () => { lwCfg.autoRemove = $('#lwAutoRemove').checked; lwScheduleSave(); });
   $('#lwTitleInput')?.addEventListener('input', () => { lwCfg.title = $('#lwTitleInput').value; lwScheduleSave(); });

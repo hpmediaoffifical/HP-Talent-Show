@@ -2257,6 +2257,7 @@ class LuckyWheelEngine {
       ...s,
       weight: _lwNum(s?.weight, 10, 1, 100),
       jackpot: s?.jackpot === true,
+      drawn: s?.drawn === true,
       color: _lwHex(s?.color, _LW_PALETTE[i % _LW_PALETTE.length]),
     }));
     const selected = this.config.selectedSpinner;
@@ -2276,7 +2277,9 @@ class LuckyWheelEngine {
     this._emit();
   }
   doSpin({ spinner } = {}) {
-    const segs = this.config.segments || [];
+    // Vòng quay chỉ gồm ô CHƯA quay (drawn=false). index trả về tính theo tập này để
+    // OBS/preview (vẽ đúng tập này) dừng khớp ô. Ô đã quay do bảng điều khiển làm xám.
+    const segs = (this.config.segments || []).filter(s => !s.drawn);
     if (!segs.length) return null;
     const totalWeight = segs.reduce((sum, seg) => sum + _lwNum(seg.weight, 10, 1, 100), 0);
     let pick = Math.random() * totalWeight;
@@ -2334,7 +2337,8 @@ class LuckyWheelEngine {
       edgeStops: c.edgeStops !== false,
       spinCount: Math.max(0, Math.round(Number(c.spinCount) || 0)),
       selectedSpinner: c.selectedSpinner,
-      segments: (c.segments || []).map((s, i) => ({
+      // Chỉ gửi ô CHƯA quay → vòng quay trên OBS bỏ hẳn ô đã quay (đồng bộ với index doSpin).
+      segments: (c.segments || []).filter(s => !s.drawn).map((s, i) => ({
         id: s.id, text: String(s.text || ''), note: String(s.note || ''),
         type: ['reward', 'penalty', 'info'].includes(s.type) ? s.type : 'info',
         color: _lwHex(s.color, _LW_PALETTE[i % _LW_PALETTE.length]),

@@ -861,7 +861,8 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 /* Hộp toggle bấm nhanh nằm cột trái — nổi bật để thao tác nhanh */
 .rk-toggle-box { border:1px solid var(--tt-border); border-radius:14px; background:linear-gradient(180deg,#fff,#fafbfe); box-shadow:0 6px 18px rgba(22,24,35,.045); padding:11px 12px; }
 .rk-toggle-box__title { display:block; margin-bottom:8px; color:var(--tt-ink-3); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
-.rk-toggle-box .rk-toggle-row { margin-top:0; }
+.rk-toggle-box .rk-toggle-row { margin-top:0; flex-wrap:nowrap; gap:5px; }
+.rk-toggle-box .rk-toggle-row label { padding:6px 7px; font-size:11.5px; gap:5px; white-space:nowrap; }
 /* Hai nút copy link overlay (dọc/ngang) chuyển lên cột phải, lấp khoảng trống dưới Giao diện OBS */
 .rk-copy-actions { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:auto; }
 .rk-copy-actions button { width:100%; }
@@ -2584,9 +2585,27 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 .lw-seg-adv .lw-seg-jackpot span { font-size: 12px; font-weight: 700; line-height: 1; }
 .lw-seg-del { border: 1px solid var(--tt-border); background: #fff; border-radius: 8px; cursor: pointer; height: 32px; font-size: 14px; }
 .lw-seg-del:hover { background: #fff0f2; border-color: var(--tt-pink); }
+/* Ô đã quay: làm xám trong danh sách nhưng giữ lại để khôi phục (đã biến mất khỏi vòng quay) */
+.lw-seg-drawn .lw-seg-row { grid-template-columns: 34px minmax(100px, 1fr) 32px 34px 32px; }
+.lw-seg-drawn .lw-seg-text { opacity: .5; text-decoration: line-through; color: var(--tt-ink-2); }
+.lw-seg-drawn .lw-seg-color { opacity: .4; filter: grayscale(.6); }
+.lw-seg-restore { border: 1px solid var(--tt-border); background: #fff; border-radius: 8px; cursor: pointer; height: 32px; font-size: 13px; }
+.lw-seg-restore:hover { background: #eafff2; border-color: #38d67a; }
 .lw-add { font-size: 12px; padding: 4px 10px; }
 .lw-add-grp { display: flex; align-items: center; gap: 6px; }
 .lw-batch-qty { width: 54px; padding: 5px 7px; border: 1px solid var(--tt-border); border-radius: 8px; font-size: 12px; background: #fff; color: var(--tt-ink); }
+/* Công cụ danh sách gom vào 1 nút ⚙️ mở popup cho gọn header */
+.lw-tools-wrap { position: relative; }
+.lw-tools-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; width: 220px; padding: 10px; display: flex; flex-direction: column; gap: 7px; background: #fff; border: 1px solid var(--tt-border); border-radius: 12px; box-shadow: 0 12px 32px rgba(22,24,35,.18); }
+.lw-tools-pop[hidden] { display: none; }
+.lw-tools-title { font-size: 11px; font-weight: 800; color: var(--tt-ink-3); text-transform: uppercase; letter-spacing: .03em; }
+.lw-tools-row { display: flex; gap: 6px; align-items: center; }
+.lw-tools-row .lw-batch-qty { width: 52px; }
+.lw-tools-row button { flex: 1; }
+.lw-tools-pop button { border: 1px solid var(--tt-border); background: #fff; border-radius: 8px; cursor: pointer; font-size: 12px; padding: 7px 10px; color: var(--tt-ink); }
+.lw-tools-pop button:hover { background: #f2f4fb; border-color: var(--tt-blue, #6a7dff); }
+.lw-tools-item { text-align: left; }
+#lwClearAll:hover { background: #fff0f2; border-color: var(--tt-pink); }
 .lw-empty { padding: 18px 12px; text-align: center; color: var(--tt-ink-2); font-size: 13px; }
 .lw-count-ctl { display: flex; gap: 6px; align-items: center; }
 .lw-count-ctl input[type="number"] { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--tt-border); border-radius: 8px; font-size: 13px; background: #fff; color: var(--tt-ink); }

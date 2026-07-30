@@ -879,7 +879,6 @@
             <label title="PK Nhóm: mỗi quà vào Creator tự cộng cho Creator"><input id="rkLinkPkgroup" type="checkbox" /> 🧩 PK Nhóm</label>
             <label title="Tính điểm: chọn VOTE điều khiển đúng Creator; kết thúc lượt tự cộng điểm"><input id="rkLinkScore" type="checkbox" /> 🎯 Tính điểm</label>
             <label title="Đập Trứng/NHẠC DANCE: mỗi quà vào ô (có gắn Creator) tự cộng cho Creator"><input id="rkLinkSticker" type="checkbox" /> 🥚 Đập Trứng/Dance</label>
-            <span class="rk-links-hint">Bật là điểm chạy thẳng vào bảng; bấm 🔒 CHỐT VÒNG để gom vào điểm chính thức.</span>
           </div>
           <div class="rk-preview" id="rkPreview"></div>
         </div>
@@ -1821,8 +1820,18 @@
             <div class="lw-col lw-segs">
               <div class="lw-col-h">Nội dung
                 <span class="lw-add-grp">
-                  <input type="number" id="lwBatchQty" class="lw-batch-qty" min="1" max="200" value="10" title="Số lượng ô muốn tạo hàng loạt" />
-                  <button class="ghost lw-add" id="lwBatchGen" type="button" title="Tạo dãy Số 1 → Số N">🔢 Tạo dãy</button>
+                  <div class="lw-tools-wrap">
+                    <button class="ghost lw-add" id="lwToolsBtn" type="button" title="Công cụ danh sách: tạo dãy số, khôi phục, xoá tất cả">⚙️ Công cụ</button>
+                    <div class="lw-tools-pop" id="lwToolsPop" hidden>
+                      <div class="lw-tools-title">Công cụ danh sách</div>
+                      <div class="lw-tools-row">
+                        <input type="number" id="lwBatchQty" class="lw-batch-qty" min="1" max="200" value="10" title="Số lượng ô muốn tạo" />
+                        <button class="ghost" id="lwBatchGen" type="button" title="Tạo dãy Số 1 → Số N">🔢 Tạo dãy số</button>
+                      </div>
+                      <button class="ghost lw-tools-item" id="lwRestoreAll" type="button" title="Bỏ xám tất cả ô đã quay, đưa lại vào vòng quay">♻️ Khôi phục ô đã quay</button>
+                      <button class="ghost lw-tools-item" id="lwClearAll" type="button" title="Xoá tất cả ô khỏi danh sách">🗑️ Xoá tất cả ô</button>
+                    </div>
+                  </div>
                   <button class="ghost lw-add" id="lwAddSeg" type="button">＋ Thêm ô</button>
                 </span>
               </div>
@@ -1855,7 +1864,7 @@
               <label class="lw-chk"><input type="checkbox" id="lwShowResult" checked /> 🏆 Hiện thẻ kết quả</label>
               <label class="lw-chk"><input type="checkbox" id="lwShowCount" checked /> 🔢 Hiện lượt quay trên OBS</label>
               <label class="lw-chk" title="32% lượt quay sẽ dừng sát vạch ngăn ô, nhưng kết quả vẫn thuộc đúng ô đã chọn."><input type="checkbox" id="lwEdgeStops" checked /> 🎭 Dừng sát mép</label>
-              <label class="lw-chk" title="Sau khi quay trúng 1 ô, tự động xoá ô đó khỏi danh sách (bốc số/rút thăm không lặp lại)."><input type="checkbox" id="lwAutoRemove" /> 🗑️ Tự xoá ô đã quay</label>
+              <label class="lw-chk" title="Sau khi quay trúng 1 ô: làm xám ô đó trong danh sách và bỏ khỏi vòng quay (app + OBS). Bấm ↩️ hoặc ♻️ Khôi phục để đưa lại."><input type="checkbox" id="lwAutoRemove" /> 🗑️ Tự loại ô đã quay</label>
               <label class="lw-row"><span>Đã quay</span>
                 <div class="lw-count-ctl">
                   <input type="number" id="lwSpinCount" min="0" value="0" />
