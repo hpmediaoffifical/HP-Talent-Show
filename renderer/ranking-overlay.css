@@ -103,6 +103,181 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   animation:rankingStreakBar 1.5s ease-in-out infinite;
 }
 
+/* ============================================================
+   NỀN HÀNG ĐƯỢC VOTE — kiểu chọn qua "Kiểu nền Active" (af-*).
+   Viền + hào quang vẫn theo Màu Active; chỉ NỀN đổi theo màu/preset riêng.
+   OBS-safe: chỉ transform/opacity/gradient/clip-path — KHÔNG filter/color-mix/backdrop-filter.
+   Nội dung (rank/avatar/tên/điểm) nâng z-index để nổi trên lớp hiệu ứng nền.
+   ============================================================ */
+/* Nội dung tĩnh (rank/avatar/tên/điểm) nâng z-index để nổi trên lớp hiệu ứng nền.
+   QUAN TRỌNG: chỉ đặt position:relative cho phần tử TĨNH; KHÔNG đụng .ranking-round /
+   .ranking-gift (đang position:absolute) — nếu ép relative sẽ trôi theo dòng làm R0
+   xuống hàng, phình khung card. Round/Gift chỉ cần z-index, giữ nguyên absolute. */
+.ranking-row.active > .ranking-rank,
+.ranking-row.active > .ranking-avatar,
+.ranking-row.active > .ranking-main { position:relative; z-index:3; }
+.ranking-row.active > .ranking-gift,
+.ranking-row.active > .ranking-round { z-index:3; }
+
+/* =============== (A) NỀN ACTIVE = MÀU + ĐỘ ĐẬM (độc lập với FX) ===============
+   Luôn áp dụng cho hàng được VOTE. a1/a2 = độ đậm (mờ↔đậm) truyền từ JS.
+   Lớp tối mỏng phía dưới giữ chữ trắng luôn dễ đọc dù màu nền sáng. */
+.ranking-row.active:not(.loser) {
+  background:
+    linear-gradient(90deg,
+      rgba(var(--ranking-active-bg-rgb, 255,202,58), var(--ranking-active-bg-opacity, .55)),
+      rgba(var(--ranking-active-bg-rgb, 255,202,58), var(--ranking-active-bg-opacity2, .28)) 82%),
+    linear-gradient(90deg, rgba(16,14,10,.9), rgba(11,10,14,.9));
+}
+
+/* =============== (B) KIỂU NỀN ACTIVE = FX riêng, ĐỘC LẬP màu nền ===============
+   Nhóm ACCENT (phủ lên, vẫn thấy Màu nền A): shine · spotlight · sparkle · neon · pulse.
+   Nhóm SKIN (tự thay phong cách, bỏ qua Màu nền A): gold · rainbow.
+   Tất cả là ::after pointer-events:none, tuyệt đối KHÔNG đụng layout/điểm. */
+
+/* -- Óng ánh: dải sáng trắng quét, ép trong khung (biên độ ±40% → không lòi) -- */
+.ranking-board.af-shine .ranking-row.active:not(.loser)::after,
+.ranking-board.af-gold  .ranking-row.active:not(.loser)::after,
+.ranking-board.af-rainbow .ranking-row.active:not(.loser)::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:inset(0 round 10px); will-change:transform;
+  background:linear-gradient(105deg, transparent 40%, rgba(255,255,255,.5) 50%, transparent 60%);
+  animation:rankingActiveShine 2.4s ease-in-out infinite;
+}
+.ranking-board.af-gold .ranking-row.active:not(.loser)::after {
+  background:linear-gradient(105deg, transparent 40%, rgba(255,244,200,.62) 50%, transparent 60%);
+}
+
+/* -- Đèn quét: vầng sáng trắng lia ngang + thở -- */
+.ranking-board.af-spotlight .ranking-row.active:not(.loser)::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:inset(0 round 10px);
+  background:radial-gradient(90% 150% at 22% 50%, rgba(255,255,255,.55), rgba(255,255,255,.12) 40%, transparent 66%);
+  animation:rankingActiveSpot 2.6s ease-in-out infinite;
+}
+
+/* -- Lấp lánh: nhiều đốm sáng trắng nhấp nháy (gộp trong 1 background, luôn trong khung) -- */
+.ranking-board.af-sparkle .ranking-row.active:not(.loser)::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:inset(0 round 10px);
+  background:
+    radial-gradient(circle at 18% 32%, rgba(255,255,255,.95) 0, transparent 9%),
+    radial-gradient(circle at 63% 70%, rgba(255,255,255,.9) 0, transparent 8%),
+    radial-gradient(circle at 85% 26%, rgba(255,255,255,.85) 0, transparent 7%),
+    radial-gradient(circle at 42% 82%, rgba(255,255,255,.8) 0, transparent 7%);
+  animation:rankingActiveSparkle 1.5s ease-in-out infinite;
+}
+
+/* -- Neon viền: viền phát sáng bên trong nhấp nháy (inset box-shadow → luôn trong khung).
+   Màu neon cố định cyan→trắng nên độc lập hoàn toàn với Màu nền A. -- */
+.ranking-board.af-neon .ranking-row.active:not(.loser)::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  box-shadow:
+    inset 0 0 0 2px rgba(125,240,255,.95),
+    inset 0 0 13px rgba(125,240,255,.7);
+  animation:rankingActiveNeon 1.25s ease-in-out infinite;
+}
+
+/* -- Nhịp sáng: cả thẻ sáng-tối thở bằng lớp phủ trắng mỏng -- */
+.ranking-board.af-pulse .ranking-row.active:not(.loser)::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:inset(0 round 10px);
+  background:rgba(255,255,255,.34);
+  animation:rankingActivePulse 1.4s ease-in-out infinite;
+}
+
+/* -- SKIN Vàng kim: nền vàng cố định (bỏ qua Màu nền A) + quét vàng óng ánh (::after ở trên) -- */
+.ranking-board.af-gold .ranking-row.active:not(.loser) {
+  background:
+    linear-gradient(100deg, rgba(158,116,34,.96), rgba(120,88,26,.6) 55%, rgba(58,44,16,.96)),
+    linear-gradient(90deg, rgba(20,16,10,.97), rgba(13,12,16,.97));
+}
+
+/* -- SKIN Cầu vồng: nền nhiều màu cố định (bỏ qua Màu nền A) + dải sáng quét -- */
+.ranking-board.af-rainbow .ranking-row.active:not(.loser) {
+  background:
+    linear-gradient(100deg,
+      rgba(244,63,94,.82), rgba(249,115,22,.8) 22%, rgba(250,204,21,.8) 42%,
+      rgba(34,197,94,.8) 62%, rgba(59,130,246,.8) 82%, rgba(168,85,247,.85)),
+    linear-gradient(90deg, rgba(16,14,20,.9), rgba(11,10,16,.9));
+}
+
+@keyframes rankingActiveShine   { 0% { transform:translateX(-40%); } 55%, 100% { transform:translateX(40%); } }
+@keyframes rankingActivePulse   { 0%, 100% { opacity:.1; } 50% { opacity:.55; } }
+@keyframes rankingActiveSpot    { 0%, 100% { opacity:.4; transform:translateX(-5%); } 50% { opacity:.85; transform:translateX(5%); } }
+@keyframes rankingActiveNeon    { 0%, 100% { opacity:.42; } 50% { opacity:1; } }
+@keyframes rankingActiveSparkle { 0%, 100% { opacity:.25; } 25% { opacity:.95; } 50% { opacity:.4; } 75% { opacity:1; } }
+
+/* =============== ĐỒNG BỘ THANH DƯỚI (người dẫn đầu) với Nền + Kiểu FX Active ===============
+   Bật qua nút tích "Đồng bộ" → class .bar-sync trên .ranking-board. Thanh dưới = .ranking-active-name.
+   Khi BẬT: nền màu + FX của thanh giống hệt hàng VOTE. Khi TẮT: giữ nguyên xanh ngọc mặc định.
+   Dùng lại chính các keyframe của hàng VOTE. Không đụng layout (::after pointer-events:none). */
+.ranking-board.bar-sync .ranking-active-name {
+  position:relative;
+  background:
+    linear-gradient(90deg,
+      rgba(var(--ranking-active-bg-rgb, 255,202,58), var(--ranking-active-bg-opacity, .55)),
+      rgba(var(--ranking-active-bg-rgb, 255,202,58), var(--ranking-active-bg-opacity2, .28)) 82%),
+    linear-gradient(90deg, rgba(16,14,10,.92), rgba(11,10,14,.92));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12), 0 4px 14px rgba(0,0,0,.35);
+}
+.ranking-board.bar-sync .ranking-active-avatar,
+.ranking-board.bar-sync .ranking-active-main { position:relative; z-index:3; }
+
+/* SKIN đè nền thanh (bỏ qua Màu nền A) */
+.ranking-board.bar-sync.af-gold .ranking-active-name {
+  background:
+    linear-gradient(100deg, rgba(158,116,34,.96), rgba(120,88,26,.6) 55%, rgba(58,44,16,.96)),
+    linear-gradient(90deg, rgba(20,16,10,.97), rgba(13,12,16,.97));
+}
+.ranking-board.bar-sync.af-rainbow .ranking-active-name {
+  background:
+    linear-gradient(100deg,
+      rgba(244,63,94,.82), rgba(249,115,22,.8) 22%, rgba(250,204,21,.8) 42%,
+      rgba(34,197,94,.8) 62%, rgba(59,130,246,.8) 82%, rgba(168,85,247,.85)),
+    linear-gradient(90deg, rgba(16,14,20,.9), rgba(11,10,16,.9));
+}
+
+/* FX ::after cho thanh */
+.ranking-board.bar-sync.af-shine .ranking-active-name::after,
+.ranking-board.bar-sync.af-gold .ranking-active-name::after,
+.ranking-board.bar-sync.af-rainbow .ranking-active-name::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:inset(0 round 10px); will-change:transform;
+  background:linear-gradient(105deg, transparent 40%, rgba(255,255,255,.5) 50%, transparent 60%);
+  animation:rankingActiveShine 2.4s ease-in-out infinite;
+}
+.ranking-board.bar-sync.af-gold .ranking-active-name::after {
+  background:linear-gradient(105deg, transparent 40%, rgba(255,244,200,.62) 50%, transparent 60%);
+}
+.ranking-board.bar-sync.af-spotlight .ranking-active-name::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:inset(0 round 10px);
+  background:radial-gradient(90% 150% at 22% 50%, rgba(255,255,255,.55), rgba(255,255,255,.12) 40%, transparent 66%);
+  animation:rankingActiveSpot 2.6s ease-in-out infinite;
+}
+.ranking-board.bar-sync.af-sparkle .ranking-active-name::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:inset(0 round 10px);
+  background:
+    radial-gradient(circle at 18% 32%, rgba(255,255,255,.95) 0, transparent 9%),
+    radial-gradient(circle at 63% 70%, rgba(255,255,255,.9) 0, transparent 8%),
+    radial-gradient(circle at 85% 26%, rgba(255,255,255,.85) 0, transparent 7%),
+    radial-gradient(circle at 42% 82%, rgba(255,255,255,.8) 0, transparent 7%);
+  animation:rankingActiveSparkle 1.5s ease-in-out infinite;
+}
+.ranking-board.bar-sync.af-neon .ranking-active-name::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  box-shadow:inset 0 0 0 2px rgba(125,240,255,.95), inset 0 0 13px rgba(125,240,255,.7);
+  animation:rankingActiveNeon 1.25s ease-in-out infinite;
+}
+.ranking-board.bar-sync.af-pulse .ranking-active-name::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:inset(0 round 10px);
+  background:rgba(255,255,255,.34);
+  animation:rankingActivePulse 1.4s ease-in-out infinite;
+}
+
 .ranking-rank { position:relative; width:24px; min-width:0; display:grid; place-items:center; font-size:13px; font-weight:950; text-align:center; color:#f8fafc; }
 .ranking-row.top-1 .ranking-rank, .ranking-row.top-2 .ranking-rank, .ranking-row.top-3 .ranking-rank {
   z-index:2; font-size:19px; line-height:1; transform:translateX(-4px); filter:drop-shadow(0 2px 2px rgba(0,0,0,.52));

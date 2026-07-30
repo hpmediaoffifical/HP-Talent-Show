@@ -2379,6 +2379,10 @@ class RankingEngine {
       overlayBoardColor: '#000000',
       overlayBgOpacity: 70,
       overlayBoardOpacity: 75,
+      activeBgColor: '#ffca3a',  // (A) màu nền hàng được VOTE (tách riêng khỏi màu viền Active)
+      activeBgOpacity: 55,       // (A) độ đậm nền Active % (mờ nhẹ ↔ đậm)
+      activeBgFx: 'off',         // (B) kiểu FX độc lập: off|shine|spotlight|sparkle|neon|pulse|gold|rainbow
+      activeBarSync: false,      // đồng bộ Màu nền + Kiểu FX sang Thanh dưới (người dẫn đầu)
       hideAllScores: false,
       showRank: true,
       showAvatar: true,
@@ -2543,6 +2547,10 @@ class RankingEngine {
       overlayBoardColor: this.config.overlayBoardColor,
       overlayBgOpacity: this.config.overlayBgOpacity,
       overlayBoardOpacity: this.config.overlayBoardOpacity,
+      activeBgColor: this.config.activeBgColor,
+      activeBgOpacity: this.config.activeBgOpacity,
+      activeBgFx: this.config.activeBgFx,
+      activeBarSync: this.config.activeBarSync,
       hideAllScores: this.config.hideAllScores,
       showRank: this.config.showRank,
       showAvatar: this.config.showAvatar,

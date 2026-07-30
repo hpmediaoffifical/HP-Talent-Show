@@ -3165,9 +3165,22 @@ function lwGenerateNumbers(n) {
   renderLwSegList(); renderLwPreview(); lwPush();
 }
 
+// Chỉ số nhỏ gọn trên thanh "Nội dung": tổng ô đã tạo · ô còn lại (chưa quay) · số lượt đã quay.
+function lwUpdateSegStats() {
+  const el = $('#lwSegStats'); if (!el) return;
+  const total = lwCfg.segments.length;
+  const left = lwCfg.segments.filter(s => !lwIsGrayed(s)).length;
+  const spins = Math.max(0, Math.round(Number(lwCfg.spinCount) || 0));
+  el.innerHTML =
+    `<span class="lw-stat" title="Tổng số ô đã tạo">🎡 <b>${total}</b></span>` +
+    `<span class="lw-stat lw-stat-left" title="Số ô còn lại (chưa quay)">🟢 <b>${left}</b></span>` +
+    `<span class="lw-stat" title="Số lượt đã quay">🎯 <b>${spins}</b></span>`;
+}
+
 function renderLwSegList() {
   const box = $('#lwSegList'); if (!box) return;
   lwSortDrawn();
+  lwUpdateSegStats();
   if (!lwCfg.segments.length) { box.innerHTML = '<div class="lw-empty">Chưa có ô nào. Nhấn <b>＋ Thêm ô</b>.</div>'; return; }
   box.innerHTML = lwCfg.segments.map((s, i) => { const g = lwIsGrayed(s); return `
     <div class="lw-seg${g ? ' lw-seg-drawn' : ''}" data-i="${i}">
@@ -3430,7 +3443,7 @@ function lwBuildCsv() {
   ).join('\r\n');
 }
 
-function lwUpdateCountInput() { const inp = $('#lwSpinCount'); if (inp && document.activeElement !== inp) inp.value = lwCfg.spinCount || 0; }
+function lwUpdateCountInput() { const inp = $('#lwSpinCount'); if (inp && document.activeElement !== inp) inp.value = lwCfg.spinCount || 0; lwUpdateSegStats(); }
 
 function renderLwHistory() {
   const box = $('#lwHistTable'); const stats = $('#lwStats');
@@ -7230,6 +7243,10 @@ async function loadRankingConfig() {
   $('#rkBoardColor').value = st.overlayBoardColor || '#000000';
   $('#rkBgOpacity').value = st.overlayBgOpacity ?? 70;
   $('#rkBoardOpacity').value = st.overlayBoardOpacity ?? 75;
+  $('#rkActiveBg').value = st.activeBgColor || '#ffca3a';
+  $('#rkActiveBgOpacity').value = st.activeBgOpacity ?? 55;
+  $('#rkActiveFx').value = st.activeBgFx || 'off';
+  $('#rkActiveSync').checked = !!st.activeBarSync;
   $('#rkShowRank').checked = st.showRank !== false;
   $('#rkShowAvatar').checked = st.showAvatar !== false;
   $('#rkShowGift').checked = st.showGift !== false;
@@ -7312,6 +7329,10 @@ function wireRankingTab() {
     overlayBoardColor: $('#rkBoardColor').value,
     overlayBgOpacity: Number($('#rkBgOpacity').value),
     overlayBoardOpacity: Number($('#rkBoardOpacity').value),
+    activeBgColor: $('#rkActiveBg').value,
+    activeBgOpacity: Number($('#rkActiveBgOpacity').value),
+    activeBgFx: $('#rkActiveFx').value,
+    activeBarSync: $('#rkActiveSync').checked,
     showRank: $('#rkShowRank').checked,
     showAvatar: $('#rkShowAvatar').checked,
     showGift: $('#rkShowGift').checked,
@@ -7335,7 +7356,7 @@ function wireRankingTab() {
       await window.api.ranking.setConfig(collectRkCfg());
     }, 180);
   };
-  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkTitleColor','rkBg','rkBoardColor','rkBgOpacity','rkBoardOpacity','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale'].forEach(id => {
+  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkTitleColor','rkBg','rkBoardColor','rkBgOpacity','rkBoardOpacity','rkActiveBg','rkActiveBgOpacity','rkActiveFx','rkActiveSync','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener('input', updateRkRealtime);
     el.addEventListener('change', updateRkRealtime);

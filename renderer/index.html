@@ -830,6 +830,29 @@
                       </span>
                     </label>
                   </div>
+                  <div class="rk-fields rk-active-fx">
+                    <label class="rk-color-cell rk-color-op" title="Màu + độ đậm nền hàng được VOTE (mờ nhẹ ↔ đậm). Độc lập với Kiểu nền.">Nền Active
+                      <span class="rk-co-inline">
+                        <input id="rkActiveBg" type="color" value="#ffca3a" />
+                        <input id="rkActiveBgOpacity" type="number" min="0" max="100" value="55" title="Độ đậm nền Active (%)" />
+                      </span>
+                    </label>
+                    <label class="full" title="Hiệu ứng nổi bật riêng cho hàng được VOTE — độc lập với Màu nền">Kiểu nền Active
+                      <select id="rkActiveFx">
+                        <option value="off">Không (chỉ Màu nền)</option>
+                        <option value="shine">Óng ánh (dải sáng quét)</option>
+                        <option value="spotlight">Đèn quét (vầng sáng lia)</option>
+                        <option value="sparkle">Lấp lánh (đốm sáng)</option>
+                        <option value="neon">Neon viền (cyan nhấp nháy)</option>
+                        <option value="pulse">Nhịp sáng (sáng-tối thở)</option>
+                        <option value="gold">Vàng kim (skin vàng)</option>
+                        <option value="rainbow">Cầu vồng (skin nhiều màu)</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label class="rk-sync-check" title="Cho Thanh dưới (người dẫn đầu) dùng chung Màu nền + Kiểu FX như hàng được VOTE">
+                    <input id="rkActiveSync" type="checkbox" /> 🔗 Đồng bộ Nền + Kiểu vào Thanh dưới
+                  </label>
                   <div class="rk-fields three">
                     <label class="full">Scale Thi đấu nhóm OBS
                       <div class="range-inline">
@@ -1824,6 +1847,7 @@
             <!-- Cột giữa: danh sách ô + thông báo kết quả -->
             <div class="lw-col lw-segs">
               <div class="lw-col-h">Nội dung
+                <span class="lw-seg-stats" id="lwSegStats" title="Tổng số ô · Ô còn lại (chưa quay) · Số lượt đã quay"></span>
                 <span class="lw-add-grp">
                   <button class="ghost lw-add lw-dice" id="lwShuffle" type="button" title="🎲 Xáo trộn NGẪU NHIÊN thứ tự các ô (đảo vị trí số trên vòng quay app + OBS)">🎲</button>
                   <div class="lw-tools-wrap">

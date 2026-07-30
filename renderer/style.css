@@ -851,6 +851,11 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .rk-fields.rk-obs-colors { grid-template-columns:repeat(4, minmax(0, 1fr)); }
 .rk-fields.four .rk-color-cell input[type="color"], .rk-fields.rk-obs-colors .rk-color-cell input[type="color"] { min-width:0; }
 .rk-fields.four + .rk-fields.three, .rk-fields.rk-obs-colors + .rk-fields.three { margin-top:10px; }
+/* Hàng Nền Active: ô màu ngắn + dropdown kiểu hiệu ứng rộng */
+.rk-fields.rk-active-fx { grid-template-columns:minmax(0,1fr) 2fr; margin-top:10px; }
+/* Nút tích đồng bộ Thanh dưới — nằm ngay dưới cụm Nền/Kiểu Active */
+.rk-sync-check { display:flex; flex-direction:row; align-items:center; gap:7px; margin-top:8px; color:var(--tt-ink-2); font-size:12px; font-weight:800; cursor:pointer; }
+.rk-sync-check input { width:auto; margin:0; flex:0 0 auto; }
 /* Ô màu ghép độ đậm: swatch co giãn + ô số % nhỏ bên phải, cùng 1 dòng */
 .rk-color-op .rk-co-inline { display:flex; align-items:stretch; gap:6px; }
 .rk-color-op .rk-co-inline input[type="color"] { flex:1 1 auto; min-width:0; }
@@ -2516,6 +2521,10 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 .lw-workspace { display: grid; grid-template-columns: 250px minmax(0, 1fr) 224px; gap: 12px; align-items: stretch; }
 .lw-col { background: var(--tt-bg-2, #fff); border: 1px solid var(--tt-border); border-radius: 12px; padding: 11px; min-width: 0; }
 .lw-col-h { font-weight: 700; font-size: 13px; color: var(--tt-ink); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lw-seg-stats { display: flex; align-items: center; gap: 5px; margin-left: auto; margin-right: 4px; font-weight: 600; }
+.lw-seg-stats .lw-stat { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; line-height: 1; color: var(--tt-ink-2); background: var(--tt-soft, rgba(127,127,127,.1)); border: 1px solid var(--tt-line, rgba(127,127,127,.22)); border-radius: 999px; padding: 3px 7px; white-space: nowrap; }
+.lw-seg-stats .lw-stat b { font-weight: 800; color: var(--tt-ink); font-size: 12px; }
+.lw-seg-stats .lw-stat.lw-stat-left b { color: #16a34a; }
 .lw-col label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--tt-ink-2); margin-bottom: 9px; min-width: 0; }
 .lw-col label.lw-chk { flex-direction: row; align-items: center; gap: 7px; font-size: 12.5px; color: var(--tt-ink); line-height: 1.25; }
 .lw-col label.lw-chk input { flex: 0 0 auto; }

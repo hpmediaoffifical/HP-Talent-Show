@@ -123,7 +123,9 @@ function render(state = {}) {
     root.style.setProperty('--rk-sel-ring', `${-((now % 3000) / 1000).toFixed(3)}s`);
   }
 
-  root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}${showSelect ? ` sel-on sel-${selFx}` : ''}" style="
+  const activeFx = ['shine', 'spotlight', 'sparkle', 'neon', 'pulse', 'gold', 'rainbow'].includes(state.activeBgFx) ? state.activeBgFx : 'off';
+  const activeBgOp = Math.max(0, Math.min(1, (Number(state.activeBgOpacity ?? 55)) / 100));
+  root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}${showSelect ? ` sel-on sel-${selFx}` : ''} af-${activeFx}${state.activeBarSync ? ' bar-sync' : ''}" style="
     --ranking-card-bg-rgb:${hexToRgb(state.overlayBgColor || '#2a2d37')};
     --ranking-card-bg-opacity:${((Number(state.overlayBgOpacity ?? 74)) / 100).toFixed(2)};
     --ranking-board-bg-rgb:${hexToRgb(state.overlayBoardColor || '#000000')};
@@ -131,6 +133,10 @@ function render(state = {}) {
     --ranking-title-color:${esc(state.overlayTitleColor || '#ffffff')};
     --ranking-streak-color:${esc(state.streakColor || '#67e8f9')};
     --ranking-streak-rgb:${hexToRgb(state.streakColor || '#67e8f9')};
+    --ranking-active-bg-color:${esc(state.activeBgColor || '#ffca3a')};
+    --ranking-active-bg-rgb:${hexToRgb(state.activeBgColor || '#ffca3a', '255,202,58')};
+    --ranking-active-bg-opacity:${activeBgOp.toFixed(2)};
+    --ranking-active-bg-opacity2:${(activeBgOp * 0.5).toFixed(2)};
     --rk-rows:${effRows};
     --rk-cols:${effCols};
     --rk-flow:${gridFlow};
