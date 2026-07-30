@@ -2239,6 +2239,7 @@ class LuckyWheelEngine {
       showResult: true,
       showCount: true,          // hiện bộ đếm lượt quay trên OBS
       edgeStops: true,          // thỉnh thoảng dừng sát vạch ngăn ô, nhưng vẫn trong ô trúng
+      autoRemove: false,        // quay trúng ô nào thì tự xoá ô đó (bốc số/rút thăm không lặp) — bảng điều khiển xử lý
       spinCount: 0,             // số lượt đã quay (trừ tay được khi xoá lượt lỗi)
       selectedSpinner: null,    // người đang chọn trước khi quay, để tâm vòng quay đồng bộ với bảng điều khiển
       segments: [],             // [{ id, text, note, type: reward|penalty|info, color, weight, jackpot }]
@@ -2376,6 +2377,7 @@ class RankingEngine {
       showAvatar: true,
       showGift: true,
       showRound: true,
+      showActive: true,         // thanh xanh dưới cùng: người dẫn đầu/đang nổi bật (dọc + ngang)
       gridRows: 3,
       gridCols: 3,
       gridFlow: 'row',
@@ -2537,6 +2539,7 @@ class RankingEngine {
       showAvatar: this.config.showAvatar,
       showGift: this.config.showGift,
       showRound: this.config.showRound,
+      showActive: this.config.showActive,
       gridRows: this.config.gridRows,
       gridCols: this.config.gridCols,
       gridFlow: this.config.gridFlow,

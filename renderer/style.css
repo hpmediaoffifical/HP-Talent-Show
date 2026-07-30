@@ -2585,6 +2585,8 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 .lw-seg-del { border: 1px solid var(--tt-border); background: #fff; border-radius: 8px; cursor: pointer; height: 32px; font-size: 14px; }
 .lw-seg-del:hover { background: #fff0f2; border-color: var(--tt-pink); }
 .lw-add { font-size: 12px; padding: 4px 10px; }
+.lw-add-grp { display: flex; align-items: center; gap: 6px; }
+.lw-batch-qty { width: 54px; padding: 5px 7px; border: 1px solid var(--tt-border); border-radius: 8px; font-size: 12px; background: #fff; color: var(--tt-ink); }
 .lw-empty { padding: 18px 12px; text-align: center; color: var(--tt-ink-2); font-size: 13px; }
 .lw-count-ctl { display: flex; gap: 6px; align-items: center; }
 .lw-count-ctl input[type="number"] { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--tt-border); border-radius: 8px; font-size: 13px; background: #fff; color: var(--tt-ink); }

@@ -3046,7 +3046,7 @@ function wireMvpHonorTab() {
 // VÒNG QUAY MAY MẮN (Lucky Wheel)
 // ============================================================
 const LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
-let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, slowSec: 3, sound: true, confetti: true, showResult: true, edgeStops: true, selectedSpinner: null, segments: [], history: [] };
+let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, slowSec: 3, sound: true, confetti: true, showResult: true, edgeStops: true, autoRemove: false, selectedSpinner: null, segments: [], history: [] };
 
 function lwNormalize(cfg) {
   const c = cfg && typeof cfg === 'object' ? cfg : {};
@@ -3059,6 +3059,7 @@ function lwNormalize(cfg) {
     slowSec: clampInt(c.slowSec, 3, 0, 6),
     sound: c.sound !== false, confetti: c.confetti !== false, showResult: c.showResult !== false,
     edgeStops: c.edgeStops !== false,
+    autoRemove: c.autoRemove === true,
     showCount: c.showCount !== false, spinCount: Math.max(0, Math.round(Number(c.spinCount) || 0)),
     selectedSpinner: c.selectedSpinner?.name ? { id: String(c.selectedSpinner.id || ''), name: String(c.selectedSpinner.name), avatar: String(c.selectedSpinner.avatar || '') } : null,
     segments: Array.isArray(c.segments) ? c.segments.map((s, i) => ({
@@ -3096,7 +3097,18 @@ const _lwSaver = makeAutoSaver(() => lwPush());
 function lwScheduleSave() { _lwSaver.schedule(); }
 function lwNewSeg() {
   const i = lwCfg.segments.length;
-  return { id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Ô ' + (i + 1), note: '', type: 'info', color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false };
+  return { id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Số ' + (i + 1), note: '', type: 'info', color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false };
+}
+
+// Tạo hàng loạt: thay danh sách ô hiện tại bằng dãy "Số 1 → Số N" (bốc số/rút thăm).
+function lwGenerateNumbers(n) {
+  const count = clampInt(n, 10, 1, 200);
+  lwCfg.segments = Array.from({ length: count }, (_, i) => ({
+    id: 'lw_' + Math.random().toString(36).slice(2, 9),
+    text: 'Số ' + (i + 1), note: '', type: 'info',
+    color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false,
+  }));
+  renderLwSegList(); renderLwPreview(); lwPush();
 }
 
 function renderLwSegList() {
@@ -3359,6 +3371,11 @@ async function lwDoSpin() {
           + (rec.note ? `<div class="lw-rc-note">${escAttr(rec.note)}</div>` : '')
           + (rec.member ? `<div class="lw-rc-who">🎯 ${escAttr(rec.member)}</div>` : '');
       }
+      // Tự xoá ô vừa quay trúng khỏi danh sách (bốc số không lặp) — làm sau khi vòng quay đã dừng.
+      if (lwCfg.autoRemove && rec.segId) {
+        const idx = lwCfg.segments.findIndex(s => s.id === rec.segId);
+        if (idx >= 0) { lwCfg.segments.splice(idx, 1); renderLwSegList(); renderLwPreview(); lwPush(); }
+      }
     }, secs * 1000 + 150);
   }
   setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY'; } }, secs * 1000 + 300);
@@ -3366,6 +3383,16 @@ async function lwDoSpin() {
 
 function wireLuckyWheelTab() {
   $('#lwAddSeg')?.addEventListener('click', () => { lwCfg.segments.push(lwNewSeg()); renderLwSegList(); renderLwPreview(); lwScheduleSave(); });
+  $('#lwBatchGen')?.addEventListener('click', async () => {
+    const n = clampInt($('#lwBatchQty')?.value, 10, 1, 200);
+    if (lwCfg.segments.length) {
+      const ok = await window.api.shell.confirm({ message: `Tạo dãy Số 1 → Số ${n} sẽ thay toàn bộ ${lwCfg.segments.length} ô hiện có?`, confirmText: 'Tạo dãy', cancelText: 'Huỷ' }).catch(() => false);
+      if (!ok) return;
+    }
+    lwGenerateNumbers(n);
+    toast(`Đã tạo dãy Số 1 → Số ${n}`, 'success');
+  });
+  $('#lwAutoRemove')?.addEventListener('change', () => { lwCfg.autoRemove = $('#lwAutoRemove').checked; lwScheduleSave(); });
   $('#lwTitleInput')?.addEventListener('input', () => { lwCfg.title = $('#lwTitleInput').value; lwScheduleSave(); });
   $('#lwShowTitle')?.addEventListener('change', () => { lwCfg.showTitle = $('#lwShowTitle').checked; lwPush(); });
   $('#lwStyle')?.addEventListener('change', () => { lwCfg.style = $('#lwStyle').value; renderLwPreview(); lwScheduleSave(); });
@@ -3431,6 +3458,7 @@ function wireLuckyWheelTab() {
   if ($('#lwShowResult')) $('#lwShowResult').checked = lwCfg.showResult;
   if ($('#lwShowCount')) $('#lwShowCount').checked = lwCfg.showCount;
   if ($('#lwEdgeStops')) $('#lwEdgeStops').checked = lwCfg.edgeStops;
+  if ($('#lwAutoRemove')) $('#lwAutoRemove').checked = lwCfg.autoRemove;
   if ($('#lwSpinCount')) $('#lwSpinCount').value = lwCfg.spinCount || 0;
   lwRefreshSpinners();
   if ($('#lwSpinnerName') && !lwCfg.selectedSpinner?.id) $('#lwSpinnerName').value = lwCfg.selectedSpinner?.name || '';
@@ -7043,6 +7071,7 @@ async function loadRankingConfig() {
   $('#rkShowAvatar').checked = st.showAvatar !== false;
   $('#rkShowGift').checked = st.showGift !== false;
   $('#rkShowRound').checked = st.showRound !== false;
+  $('#rkShowActive').checked = st.showActive !== false;
   $('#rkHideAllScores').checked = !!st.hideAllScores;
   $('#rkGridRows').value = st.gridRows || 3;
   $('#rkGridCols').value = st.gridCols || 3;
@@ -7122,6 +7151,7 @@ function wireRankingTab() {
     showAvatar: $('#rkShowAvatar').checked,
     showGift: $('#rkShowGift').checked,
     showRound: $('#rkShowRound').checked,
+    showActive: $('#rkShowActive').checked,
     hideAllScores: $('#rkHideAllScores').checked,
     gridRows: Number($('#rkGridRows').value) || 3,
     gridCols: Number($('#rkGridCols').value) || 3,
@@ -7140,7 +7170,7 @@ function wireRankingTab() {
       await window.api.ranking.setConfig(collectRkCfg());
     }, 180);
   };
-  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkBg','rkBoardColor','rkBgOpacity','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale'].forEach(id => {
+  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkBg','rkBoardColor','rkBgOpacity','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener('input', updateRkRealtime);
     el.addEventListener('change', updateRkRealtime);

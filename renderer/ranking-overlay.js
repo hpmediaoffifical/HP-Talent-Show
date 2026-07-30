@@ -138,7 +138,7 @@ function render(state = {}) {
   ">
     <div class="ranking-title">${esc(state.title || 'TOP IDOL')}</div>
     <div class="ranking-list">${visibleRows.length === 0 ? '<div class="ranking-empty">Chưa có dữ liệu thi đấu nhóm</div>' : visibleRows.map(r => rowHtml(r, state, selFxOn)).join('')}</div>
-    ${state.active ? `<div class="ranking-active-name ${activeLong ? 'long' : ''}">
+    ${state.active && state.showActive !== false ? `<div class="ranking-active-name ${activeLong ? 'long' : ''}">
       <div class="ranking-active-avatar">${avatarHtml(state.active.avatar, state.active.initials, state.active.avatarVersion, state.active.avatarKey)}</div>
       <div class="ranking-active-main"><div>${activeName}</div><b>${activePoints}</b></div>
     </div>` : ''}

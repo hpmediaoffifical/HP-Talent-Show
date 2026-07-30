@@ -794,6 +794,7 @@
                   <label><input id="rkShowAvatar" type="checkbox" checked /> Avatar</label>
                   <label title="Tắt = ẩn icon quà trên OBS VÀ ngưng tự cộng điểm theo quà mặc định"><input id="rkShowGift" type="checkbox" checked /> Quà</label>
                   <label><input id="rkShowRound" type="checkbox" checked /> Round</label>
+                  <label title="Thanh xanh dưới cùng: hiện người dẫn đầu/đang nổi bật (áp dụng cả OBS dọc và ngang)"><input id="rkShowActive" type="checkbox" checked /> Thanh dưới</label>
                   <label><input id="rkHideAllScores" type="checkbox" /> Ẩn điểm</label>
                 </div>
               </div>
@@ -1819,7 +1820,11 @@
             <!-- Cột giữa: danh sách ô + thông báo kết quả -->
             <div class="lw-col lw-segs">
               <div class="lw-col-h">Nội dung
-                <button class="ghost lw-add" id="lwAddSeg" type="button">＋ Thêm ô</button>
+                <span class="lw-add-grp">
+                  <input type="number" id="lwBatchQty" class="lw-batch-qty" min="1" max="200" value="10" title="Số lượng ô muốn tạo hàng loạt" />
+                  <button class="ghost lw-add" id="lwBatchGen" type="button" title="Tạo dãy Số 1 → Số N">🔢 Tạo dãy</button>
+                  <button class="ghost lw-add" id="lwAddSeg" type="button">＋ Thêm ô</button>
+                </span>
               </div>
               <div class="lw-seg-list" id="lwSegList"></div>
               <div class="lw-last" id="lwLast"></div>
@@ -1850,6 +1855,7 @@
               <label class="lw-chk"><input type="checkbox" id="lwShowResult" checked /> 🏆 Hiện thẻ kết quả</label>
               <label class="lw-chk"><input type="checkbox" id="lwShowCount" checked /> 🔢 Hiện lượt quay trên OBS</label>
               <label class="lw-chk" title="32% lượt quay sẽ dừng sát vạch ngăn ô, nhưng kết quả vẫn thuộc đúng ô đã chọn."><input type="checkbox" id="lwEdgeStops" checked /> 🎭 Dừng sát mép</label>
+              <label class="lw-chk" title="Sau khi quay trúng 1 ô, tự động xoá ô đó khỏi danh sách (bốc số/rút thăm không lặp lại)."><input type="checkbox" id="lwAutoRemove" /> 🗑️ Tự xoá ô đã quay</label>
               <label class="lw-row"><span>Đã quay</span>
                 <div class="lw-count-ctl">
                   <input type="number" id="lwSpinCount" min="0" value="0" />
