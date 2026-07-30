@@ -320,5 +320,47 @@
         "delta": 3300
       }
     ]
+  },
+  {
+    "id": "ap_ms7mzxu1wzspj",
+    "at": 1785423407113,
+    "source": "score",
+    "label": "🎯 Tính điểm (chưa đạt)",
+    "entries": [
+      {
+        "creatorId": "c_ms71nvzoicoaa",
+        "tiktokId": "phucdao8886",
+        "name": "NPC•YAN🔥",
+        "delta": 700
+      }
+    ]
+  },
+  {
+    "id": "ap_ms7nfckift9gh",
+    "at": 1785424126050,
+    "source": "score",
+    "label": "🎯 Tính điểm (đạt)",
+    "entries": [
+      {
+        "creatorId": "c_ms71nvzoicoaa",
+        "tiktokId": "phucdao8886",
+        "name": "NPC•YAN🔥",
+        "delta": 16865
+      }
+    ]
+  },
+  {
+    "id": "ap_ms7r0i0dr87lu",
+    "at": 1785430151725,
+    "source": "score",
+    "label": "🎯 Tính điểm (chưa đạt)",
+    "entries": [
+      {
+        "creatorId": "c_mrtg396ra59ws",
+        "tiktokId": "d.one_2607",
+        "name": "D-One",
+        "delta": 3900
+      }
+    ]
   }
 ]

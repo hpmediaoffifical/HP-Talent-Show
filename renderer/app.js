@@ -7544,6 +7544,7 @@ async function loadRankingConfig() {
   $('#rkGiftScaleValue').textContent = `${$('#rkGiftScale').value}%`;
   $('#rkOverlayScale').value = st.overlayScale || 200;
   $('#rkOverlayScaleValue').textContent = `${$('#rkOverlayScale').value}%`;
+  if ($('#rkScoreFloor')) $('#rkScoreFloor').value = formatNumber(Math.max(0, Number(st.scoreFloor) || 0));
   renderRkPreview(st);
 }
 
@@ -7627,6 +7628,7 @@ function wireRankingTab() {
     avatarScale: Math.max(80, Math.min(170, Number($('#rkAvatarScale').value) || 130)),
     giftScale: Math.max(80, Math.min(180, Number($('#rkGiftScale').value) || 145)),
     overlayScale: Math.max(80, Math.min(300, Number($('#rkOverlayScale').value) || 200)),
+    scoreFloor: Math.max(0, parseNumberInput($('#rkScoreFloor')?.value) || 0),
     activeGroupId,
   });
   $('#rkOverlayScale').addEventListener('input', () => { $('#rkOverlayScaleValue').textContent = `${$('#rkOverlayScale').value}%`; updateRkRealtime(); });
@@ -7742,6 +7744,14 @@ function wireRankingTab() {
   $('#rkScoreTarget').addEventListener('blur', () => {
     $('#rkScoreTarget').value = formatNumber(parseNumberInput($('#rkScoreTarget').value) || 1000);
   });
+  // Điểm sàn: lưu vào cấu hình THI ĐẤU NHÓM + tính lại Mục tiêu cho Creator đang VOTE.
+  $('#rkScoreFloor')?.addEventListener('input', updateRkRealtime);
+  $('#rkScoreFloor')?.addEventListener('blur', async () => {
+    $('#rkScoreFloor').value = formatNumber(parseNumberInput($('#rkScoreFloor').value) || 0);
+    await window.api.ranking.setConfig(collectRkCfg());
+    const voted = getVotedCreator();
+    if (voted && scoreLinkRanking) await applyAutoTargetForVote({ ...voted, voteActive: true });
+  });
   $('#rkLockVoteRunning').addEventListener('change', async () => {
     scoreLinkVoteLock = $('#rkLockVoteRunning').checked;
     await window.api.settings.set({ scoreLinkVoteLock });
@@ -7772,7 +7782,10 @@ function getRequiredTargetForCreator(creatorId) {
   if (idx <= 0) return Math.max(1, parseNumberInput($('#scTarget').value) || 1000);
   const current = parseNumberInput(rows[idx].querySelector('[data-rk-points]')?.value || '0');
   const above = parseNumberInput(rows[idx - 1].querySelector('[data-rk-points]')?.value || '0');
-  return Math.max(1, above - current + 1);
+  // Điểm sàn (mặc định 0): yêu cầu = (điểm TOP trên − điểm người đang VOTE) + Điểm sàn.
+  // Để 0/để trống → tính bình thường (chỉ cần hơn TOP trên 1 điểm).
+  const floor = Math.max(0, parseNumberInput($('#rkScoreFloor')?.value) || 0);
+  return Math.max(1, above - current + (floor > 0 ? floor : 1));
 }
 
 async function applyAutoTargetForVote(c) {
@@ -7833,7 +7846,7 @@ function renderScoreBridge() {
   if (!box) return;
   const c = getVotedCreator();
   box.hidden = !scoreLinkRanking;
-  $('#rkScoreBridgeName').textContent = c ? `Đang VOTE: ${c.nickname || c.tiktokId}` : 'Chọn VOTE một Creator để điều khiển';
+  $('#rkScoreBridgeName').textContent = c ? `Đang VOTE: ${c.nickname || c.tiktokId}` : '';
   const running = ['prestart', 'running', 'grace'].includes(latestScoreState?.status);
   const toggle = $('#rkScoreToggle');
   toggle.textContent = running ? '■ DỪNG' : '▶ BẮT ĐẦU';
@@ -7884,7 +7897,7 @@ function renderScoreApply(votedCreator) {
       renderScoreBridge();
     };
   } else if (votedCreator) {
-    box.innerHTML = `<button class="primary tiny" data-score-apply type="button">➕ Cộng tay ${formatNumber(score)} vào BXH cho ${escapeHtml(votedCreator.nickname || votedCreator.tiktokId)}</button>`;
+    box.innerHTML = `<button class="primary tiny" data-score-apply type="button" title="Cộng tay ${formatNumber(score)} vào BXH cho ${escapeHtml(votedCreator.nickname || votedCreator.tiktokId)}">➕ Cộng tay ${formatNumber(score)} vào BXH</button>`;
     box.querySelector('[data-score-apply]').onclick = async () => {
       const res = await window.api.ranking.applyScore(votedCreator.id, score, `🎯 Tính điểm (${st.status === 'success' ? 'đạt' : 'chưa đạt'})`);
       if (res?.ok) { scoreApplyBatchId = res.batch.id; scoreApplyRunKey = runKey; toast(`Đã cộng ${formatNumber(score)} điểm vào BXH`, 'success'); await refreshCreators(); }
@@ -8494,6 +8507,16 @@ function wireScoreTab() {
     const url = await window.api.score.getUrl(); await window.api.shell.copyText(url);
     toast('📋 Đã copy link Score', 'success');
   });
+  // 2 nguồn OBS tách kiểu: mỗi link render cố định 1 phong cách → thêm 2 Browser Source riêng trong OBS,
+  // bật/tắt con mắt + đặt vị trí độc lập, không còn lệch chiều cao khi chuyển ĐƯỜNG ĐUA ↔ KÊU GỌI.
+  $('#scCopyUrlBar')?.addEventListener('click', async () => {
+    const url = await window.api.score.getBarUrl(); await window.api.shell.copyText(url);
+    toast('📋 Đã copy link ĐƯỜNG ĐUA', 'success');
+  });
+  $('#scCopyUrlCard')?.addEventListener('click', async () => {
+    const url = await window.api.score.getCardUrl(); await window.api.shell.copyText(url);
+    toast('📋 Đã copy link KÊU GỌI', 'success');
+  });
   // ⚙️ Popover công cụ (COPY OBS + TEST) — gọn hàng điều khiển, bấm ngoài/Esc để đóng
   const scToolsBtn = $('#scToolsBtn');
   const scToolsPop = $('#scToolsPop');
@@ -8683,10 +8706,12 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx, interact] = await Promise.all([
+  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx, interact, giftMenu, dance1, dance2, dance3, scBar, scCard] = await Promise.all([
     window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(), window.api.interact.getUrl(),
+    window.api.giftmenu.getUrl(), window.api.dancevideo.getUrl('webm1'), window.api.dancevideo.getUrl('webm2'), window.api.dancevideo.getUrl('webm3'),
+    window.api.score.getBarUrl(), window.api.score.getCardUrl(),
   ]);
-  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx, urlInteract: interact };
+  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx, urlInteract: interact, urlGiftMenu: giftMenu, urlDance1: dance1, urlDance2: dance2, urlDance3: dance3, urlScBar: scBar, urlScCard: scCard };
   $$('[data-copy]').forEach(button => { button.dataset.url = urls[button.dataset.copy]; });
   await refreshReviewButtons();
 }

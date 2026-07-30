@@ -196,6 +196,8 @@ const api = {
     reset: () => ipcRenderer.invoke('score:reset'),
     addPoints: (points, user) => ipcRenderer.invoke('score:addPoints', { points, user }),
     getUrl: () => ipcRenderer.invoke('score:getUrl'),
+    getBarUrl: () => ipcRenderer.invoke('score:getBarUrl'),
+    getCardUrl: () => ipcRenderer.invoke('score:getCardUrl'),
   },
 
   review: {

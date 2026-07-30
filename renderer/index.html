@@ -792,6 +792,9 @@
                   <label title="Thanh xanh dưới cùng: hiện người dẫn đầu/đang nổi bật (áp dụng cả OBS dọc và ngang)"><input id="rkShowActive" type="checkbox" checked /> Thanh dưới</label>
                   <label><input id="rkHideAllScores" type="checkbox" /> Ẩn điểm</label>
                 </div>
+                <label class="rk-sync-check" title="Cho Thanh dưới (người dẫn đầu) dùng chung Màu nền + Kiểu FX như hàng được VOTE">
+                  <input id="rkActiveSync" type="checkbox" /> 🔗 Đồng bộ Thanh dưới
+                </label>
               </div>
             </div>
 
@@ -850,9 +853,6 @@
                       </select>
                     </label>
                   </div>
-                  <label class="rk-sync-check" title="Cho Thanh dưới (người dẫn đầu) dùng chung Màu nền + Kiểu FX như hàng được VOTE">
-                    <input id="rkActiveSync" type="checkbox" /> 🔗 Đồng bộ Nền + Kiểu vào Thanh dưới
-                  </label>
                   <div class="rk-fields three">
                     <label class="full">Scale Thi đấu nhóm OBS
                       <div class="range-inline">
@@ -894,12 +894,13 @@
           </div>
           <div class="rk-score-bridge" id="rkScoreBridge" hidden>
             <div><b>🎯 Tính điểm liên kết</b><span id="rkScoreBridgeName">Chưa chọn VOTE</span></div>
+            <label title="Điểm sàn (mặc định 0): khi bấm VOTE, Mục tiêu tự tính = (điểm TOP trên − điểm người đang VOTE) + Điểm sàn. Để 0 = tính bình thường.">Điểm sàn <input id="rkScoreFloor" type="text" inputmode="numeric" value="0" /></label>
             <label>Mục tiêu <input id="rkScoreTarget" type="text" inputmode="numeric" value="1.000" /></label>
             <label>Phút <input id="rkScoreMin" type="number" min="0" max="999" value="3" /></label>
             <label>Giây <input id="rkScoreSec" type="number" min="0" max="59" value="0" /></label>
             <label class="rk-lock-vote"><input id="rkLockVoteRunning" type="checkbox" /> Khóa VOTE</label>
             <button id="rkScoreToggle" class="primary" type="button">▶ BẮT ĐẦU</button>
-            <button id="rkScoreReset" class="ghost" type="button">↺ RESET</button>
+            <button id="rkScoreReset" class="ghost" type="button" title="RESET Tính điểm">↺</button>
             <div class="rk-score-apply" id="rkScoreApply"></div>
           </div>
           <div class="rk-links-panel">
@@ -945,7 +946,11 @@
             <div class="sc-tools">
               <button id="scToolsBtn" class="ghost sc-tools-btn" type="button" title="Công cụ: COPY OBS · TEST cộng/trừ điểm" aria-expanded="false">⚙️</button>
               <div class="sc-tools-pop" id="scToolsPop" hidden>
-                <button id="scCopyUrl" class="ghost" type="button">📋 COPY OBS</button>
+                <button id="scCopyUrl" class="ghost" type="button" title="Link 1 nguồn đổi kiểu theo dropdown (tương thích cũ)">📋 COPY OBS</button>
+                <div class="sc-copy-split">
+                  <button id="scCopyUrlBar" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu ĐƯỜNG ĐUA — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · ĐƯỜNG ĐUA</button>
+                  <button id="scCopyUrlCard" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu KÊU GỌI — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · KÊU GỌI</button>
+                </div>
                 <div class="score-command-test">
                   <span>TEST</span>
                   <div class="score-test-row">
@@ -2101,6 +2106,26 @@
             <button class="ghost" data-review-bg-clear="score" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
+            <label>🎯 ĐƯỜNG ĐUA</label>
+            <button class="primary" data-copy="urlScBar" type="button">📋 OBS · ĐƯỜNG ĐUA</button>
+            <button class="ghost" data-review-toggle="scorebar" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="scorebar" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="scorebar" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="scorebar" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="scorebar" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="scorebar" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🎯 KÊU GỌI</label>
+            <button class="primary" data-copy="urlScCard" type="button">📋 OBS · KÊU GỌI</button>
+            <button class="ghost" data-review-toggle="scorecard" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="scorecard" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="scorecard" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="scorecard" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="scorecard" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="scorecard" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
             <label>🥚 ĐẬP TRỨNG</label>
             <button class="primary" data-copy="urlSticker" type="button">📋COPY OBS</button>
             <button class="ghost" data-review-toggle="stickerdance" type="button">🖥 CỬA SỔ</button>
@@ -2109,6 +2134,16 @@
             <input class="review-bg-picker" data-review-bg="stickerdance" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="stickerdance" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="stickerdance" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>📜 MENU QUÀ</label>
+            <button class="primary" data-copy="urlGiftMenu" type="button">📋COPY OBS</button>
+            <button class="ghost" data-review-toggle="giftmenu" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="giftmenu" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="giftmenu" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="giftmenu" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="giftmenu" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="giftmenu" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
             <label>🎡 VÒNG QUAY</label>
@@ -2169,6 +2204,36 @@
             <input class="review-bg-picker" data-review-bg="interact" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="interact" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="interact" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🎬 DANCE · WEBM 1</label>
+            <button class="primary" data-copy="urlDance1" type="button">📋COPY OBS (1080×1920)</button>
+            <button class="ghost" data-review-toggle="dancevideo" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="dancevideo" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="dancevideo" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="dancevideo" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="dancevideo" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="dancevideo" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🎬 DANCE · WEBM 2</label>
+            <button class="primary" data-copy="urlDance2" type="button">📋COPY OBS (1080×1920)</button>
+            <button class="ghost" data-review-toggle="dancevideo2" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="dancevideo2" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="dancevideo2" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="dancevideo2" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="dancevideo2" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="dancevideo2" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🎬 DANCE · WEBM 3</label>
+            <button class="primary" data-copy="urlDance3" type="button">📋COPY OBS (1080×1920)</button>
+            <button class="ghost" data-review-toggle="dancevideo3" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="dancevideo3" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="dancevideo3" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="dancevideo3" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="dancevideo3" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="dancevideo3" type="button">Trong suốt</button>
           </div>
         </div>
 

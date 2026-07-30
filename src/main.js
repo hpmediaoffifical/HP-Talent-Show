@@ -460,6 +460,8 @@ const REVIEW_META = {
   pkduofx: { title: 'Review PK Đôi FX', getUrl: () => overlayServer?.getPkDuoFxUrl(), width: 338, height: 600 },
   pkgroup: { title: 'Review PK Nhóm', getUrl: () => overlayServer?.getPkGroupUrl(), width: 1280, height: 420 },
   score: { title: 'Review Tính điểm', getUrl: () => overlayServer?.getScoreUrl(), width: 900, height: 300 },
+  scorebar: { title: 'Review Tính điểm · ĐƯỜNG ĐUA', getUrl: () => overlayServer?.getScoreBarUrl(), width: 900, height: 300 },
+  scorecard: { title: 'Review Tính điểm · KÊU GỌI', getUrl: () => overlayServer?.getScoreCardUrl(), width: 520, height: 360 },
   ranking: { title: 'Review Thi đấu', getUrl: () => overlayServer?.getRankingUrl(), width: 420, height: 900 },
   rankinggrid: { title: 'Review Thi đấu ngang', getUrl: () => overlayServer?.getRankingUrl() + '&grid=1', width: 1280, height: 520 },
   stickerdance: { title: 'Review Đập Trứng', getUrl: () => overlayServer?.getStickerUrl(), width: 900, height: 380 },
@@ -469,7 +471,9 @@ const REVIEW_META = {
   missiontrio: { title: 'Review NHIỆM VỤ · BỘ BA', getUrl: () => overlayServer?.getMissionTrioUrl(), width: 720, height: 320 },
   cardflip: { title: 'Review THẺ BÀI', getUrl: () => overlayServer?.getCardFlipUrl(), width: 1040, height: 320 },
   cardflipfx: { title: 'Review THẺ BÀI · Lật 3D', getUrl: () => overlayServer?.getCardFlipFxUrl(), width: 720, height: 405 },
-  dancevideo: { title: 'Review NHẠC DANCE · Video', getUrl: () => overlayServer?.getDanceVideoUrl(), width: 960, height: 540 },
+  dancevideo: { title: 'Review NHẠC DANCE · WEBM 1', getUrl: () => overlayServer?.getDanceVideoUrl('webm1'), width: 540, height: 960 },
+  dancevideo2: { title: 'Review NHẠC DANCE · WEBM 2', getUrl: () => overlayServer?.getDanceVideoUrl('webm2'), width: 540, height: 960 },
+  dancevideo3: { title: 'Review NHẠC DANCE · WEBM 3', getUrl: () => overlayServer?.getDanceVideoUrl('webm3'), width: 540, height: 960 },
   interact: { title: 'Review TƯƠNG TÁC + QUÀ', getUrl: () => overlayServer?.getInteractUrl(), width: 432, height: 768 },
 };
 
@@ -2441,6 +2445,7 @@ class RankingEngine {
       avatarScale: 130,
       giftScale: 145,
       overlayScale: 100,
+      scoreFloor: 0,           // Điểm sàn cộng vào Mục tiêu tự tính khi VOTE (0 = tính bình thường)
     };
     // Snapshot scores tích lũy theo round
     this.round = 0;
@@ -2611,6 +2616,7 @@ class RankingEngine {
       avatarScale: this.config.avatarScale,
       giftScale: this.config.giftScale,
       overlayScale: this.config.overlayScale,
+      scoreFloor: this.config.scoreFloor,
       rows,
       // Kiểu FX đánh dấu người đang thi đấu PK (Đôi/Nhóm) đã Liên kết — 'off' nếu không có ai đang đấu.
       selectFx: fighters ? fighters.fx : 'off',
@@ -4058,6 +4064,8 @@ function registerIpc() {
   ipcMain.handle('score:reset', () => { scoreEngine.reset(); return true; });
   ipcMain.handle('score:addPoints', (_e, { points, user } = {}) => { scoreEngine.addPoints(points, user); return true; });
   ipcMain.handle('score:getUrl', () => overlayServer.getScoreUrl());
+  ipcMain.handle('score:getBarUrl', () => overlayServer.getScoreBarUrl());
+  ipcMain.handle('score:getCardUrl', () => overlayServer.getScoreCardUrl());
 
   // NHIỆM VỤ · BỘ BA
   ipcMain.handle('missiontrio:getState', () => missionTrioEngine.getStateForOverlay());

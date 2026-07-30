@@ -1,5 +1,9 @@
 // Score overlay — port từ BIGO với state machine + theme presets + top users + runner
 const token = new URLSearchParams(location.search).get('token') || '';
+// Overlay TÁCH KIỂU: ?layout=bar|card ép cứng 1 phong cách (bỏ qua cardLayout của state) → cho phép
+// dùng 2 nguồn OBS riêng (ĐƯỜNG ĐUA / KÊU GỌI), mỗi cái 1 con mắt bật/tắt + đặt vị trí độc lập,
+// nên chuyển qua lại KHÔNG còn lệch chiều cao. Không có param = giữ hành vi cũ (theo dropdown).
+const forcedLayout = (new URLSearchParams(location.search).get('layout') || '').toLowerCase();
 if (new URLSearchParams(location.search).get('review') === '1') {
   document.body.classList.add('overlay-review');
   const bg = new URLSearchParams(location.search).get('reviewBg') || 'transparent';
@@ -203,7 +207,7 @@ function render(state = {}) {
   const creator = state.creatorName || 'Creator';
   const shortCreator = shortText(creator, 28);
   const content = state.content || '';
-  const cardLayout = !!state.cardLayout;
+  const cardLayout = forcedLayout === 'card' ? true : forcedLayout === 'bar' ? false : !!state.cardLayout;
   const hasContent = !!content.trim();
   const statusText = scoreStatusText(status, state.timeText);
   const activeRunner = ['running', 'grace'].includes(status) && !!state.lastAdd;

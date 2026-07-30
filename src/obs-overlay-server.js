@@ -146,6 +146,10 @@ class ObsOverlayServer {
   getPkGroupUrl() { return `http://127.0.0.1:${this._portFor('pk-group')}/pk-group?token=${encodeURIComponent(this.token)}`; }
   getRankingUrl() { return `http://127.0.0.1:${this._portFor('ranking')}/ranking?token=${encodeURIComponent(this.token)}`; }
   getScoreUrl() { return `http://127.0.0.1:${this._portFor('score')}/score?token=${encodeURIComponent(this.token)}`; }
+  // 2 nguồn OBS TÁCH KIỂU (ép cứng qua ?layout=) — dùng chung state/SSE /score-events (cùng điểm/đồng hồ),
+  // nhưng mỗi link render CỐ ĐỊNH 1 phong cách để bật/tắt con mắt + đặt vị trí độc lập trong OBS.
+  getScoreBarUrl() { return `${this.getScoreUrl()}&layout=bar`; }
+  getScoreCardUrl() { return `${this.getScoreUrl()}&layout=card`; }
   getStickerUrl() { return `http://127.0.0.1:${this._portFor('sticker')}/sticker?token=${encodeURIComponent(this.token)}`; }
   getMvpHonorUrl() { return `http://127.0.0.1:${this._portFor('mvp-honor')}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
   getLuckyWheelUrl() { return `http://127.0.0.1:${this._portFor('lucky-wheel')}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=15`; }

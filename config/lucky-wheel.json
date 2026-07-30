@@ -305,6 +305,6 @@
     }
   ],
   "pushDrawnTop": true,
-  "autoContest": true,
+  "autoContest": false,
   "contestAssignmentsInitialized": true
 }
