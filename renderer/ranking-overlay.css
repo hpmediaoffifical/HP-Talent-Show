@@ -29,16 +29,27 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board:not(.hide-avatar):not(.hide-gift), .ranking-board:not(.hide-avatar):not(.hide-round) { --rk-width:152px; }
 .ranking-board.layout-grid { width:max-content; grid-template-columns:minmax(0,max-content); }
 
+/* Tiêu đề = HEADER ôm sát mép TRÊN board (đối xứng với footer Thanh dưới).
+   margin âm -6px = padding board → chạm mép ngoài; ĐỈNH bo 15px khớp board, ĐÁY vuông.
+   Header + footer cùng bo về 2 mép → kẹp "ôm" phần thông tin ở giữa. */
 .ranking-title {
-  width:100%; box-sizing:border-box;
-  padding:7px 9px 8px; margin-bottom:6px;
-  border-radius:10px;
+  position:relative;
+  box-sizing:border-box;
+  padding:7px 9px 9px; margin:-6px -6px 6px;
+  border-radius:15px 15px 0 0;
   font-size:15px; font-weight:950; letter-spacing:.03em;
   color:var(--ranking-title-color, #fff);
   text-align:center; white-space:normal; line-height:1.1;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   background:linear-gradient(180deg, rgba(46,43,58,.96), rgba(26,24,34,.94));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.07), 0 3px 10px rgba(0,0,0,.28);
+}
+/* Vạch nhấn dưới tiêu đề theo Màu Active — cho header ăn nhập footer/thanh dưới.
+   Gradient mờ 2 đầu, không glow (tránh bị overflow:hidden của title cắt). */
+.ranking-title::after {
+  content:""; position:absolute; left:10px; right:10px; bottom:3px; height:2px; border-radius:2px;
+  background:linear-gradient(90deg, transparent, var(--ranking-streak-color, #67e8f9), transparent);
+  pointer-events:none;
 }
 .ranking-list { display:grid; gap:4px; overflow:visible; }
 .ranking-empty { padding:16px 10px; color:#d5dae7; font-size:12px; text-align:center; }
@@ -50,9 +61,10 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   background:rgba(var(--ranking-card-bg-rgb, 42,45,55), var(--ranking-card-bg-opacity, .74));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.2);
 }
-.ranking-row.top-1 { background:linear-gradient(90deg, rgba(120,88,28,.9), rgba(46,38,28,.8)); box-shadow:inset 3px 0 0 rgba(255,218,95,.85), inset 0 0 0 1px rgba(255,218,95,.18), 0 2px 8px rgba(0,0,0,.24); }
-.ranking-row.top-2 { background:linear-gradient(90deg, rgba(82,95,116,.86), rgba(38,42,52,.8)); box-shadow:inset 3px 0 0 rgba(198,216,248,.82), inset 0 0 0 1px rgba(198,216,248,.16), 0 2px 8px rgba(0,0,0,.24); }
-.ranking-row.top-3 { background:linear-gradient(90deg, rgba(128,82,46,.86), rgba(45,36,30,.8)); box-shadow:inset 3px 0 0 rgba(251,146,60,.82), inset 0 0 0 1px rgba(251,146,60,.16), 0 2px 8px rgba(0,0,0,.24); }
+/* Top-3 kim loại: thêm sheen sáng mép TRÊN (inset 0 1px) tạo cảm giác kim loại bóng */
+.ranking-row.top-1 { background:linear-gradient(90deg, rgba(120,88,28,.9), rgba(46,38,28,.8)); box-shadow:inset 3px 0 0 rgba(255,218,95,.85), inset 0 1px 0 rgba(255,244,200,.28), inset 0 0 0 1px rgba(255,218,95,.18), 0 2px 8px rgba(0,0,0,.24); }
+.ranking-row.top-2 { background:linear-gradient(90deg, rgba(82,95,116,.86), rgba(38,42,52,.8)); box-shadow:inset 3px 0 0 rgba(198,216,248,.82), inset 0 1px 0 rgba(240,247,255,.28), inset 0 0 0 1px rgba(198,216,248,.16), 0 2px 8px rgba(0,0,0,.24); }
+.ranking-row.top-3 { background:linear-gradient(90deg, rgba(128,82,46,.86), rgba(45,36,30,.8)); box-shadow:inset 3px 0 0 rgba(251,146,60,.82), inset 0 1px 0 rgba(255,224,196,.26), inset 0 0 0 1px rgba(251,146,60,.16), 0 2px 8px rgba(0,0,0,.24); }
 .ranking-row.loser,
 .ranking-row.active.loser {
   filter:none;
@@ -243,7 +255,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board.bar-sync.af-gold .ranking-active-name::after,
 .ranking-board.bar-sync.af-rainbow .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 10px); will-change:transform;
+  clip-path:inset(0 round 0 0 15px 15px); will-change:transform;
   background:linear-gradient(105deg, transparent 40%, rgba(255,255,255,.5) 50%, transparent 60%);
   animation:rankingActiveShine 2.4s ease-in-out infinite;
 }
@@ -252,13 +264,13 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 }
 .ranking-board.bar-sync.af-spotlight .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 10px);
+  clip-path:inset(0 round 0 0 15px 15px);
   background:radial-gradient(90% 150% at 22% 50%, rgba(255,255,255,.55), rgba(255,255,255,.12) 40%, transparent 66%);
   animation:rankingActiveSpot 2.6s ease-in-out infinite;
 }
 .ranking-board.bar-sync.af-sparkle .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 10px);
+  clip-path:inset(0 round 0 0 15px 15px);
   background:
     radial-gradient(circle at 18% 32%, rgba(255,255,255,.95) 0, transparent 9%),
     radial-gradient(circle at 63% 70%, rgba(255,255,255,.9) 0, transparent 8%),
@@ -273,7 +285,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 }
 .ranking-board.bar-sync.af-pulse .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 10px);
+  clip-path:inset(0 round 0 0 15px 15px);
   background:rgba(255,255,255,.34);
   animation:rankingActivePulse 1.4s ease-in-out infinite;
 }
@@ -293,9 +305,10 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   background:#fff url('/logo.png') center/72% no-repeat; color:#fff; font-size:10px; font-weight:950;
   border:2px solid rgba(148,163,184,.55); transform:scale(var(--rk-avatar-visual-scale, 1)); transform-origin:center;
 }
-.ranking-row.top-1 .ranking-avatar { border-color:#facc15; }
-.ranking-row.top-2 .ranking-avatar { border-color:#bfdbfe; }
-.ranking-row.top-3 .ranking-avatar { border-color:#fb923c; }
+/* Top-3 kim loại: ring 2 lớp (viền màu podium + vành tối ngoài + quầng sáng mềm) */
+.ranking-row.top-1 .ranking-avatar { border-color:#f6cc45; box-shadow:0 0 0 1px rgba(120,80,12,.95), 0 0 6px 1px rgba(255,208,80,.55); }
+.ranking-row.top-2 .ranking-avatar { border-color:#e6edf7; box-shadow:0 0 0 1px rgba(84,96,116,.95), 0 0 6px 1px rgba(210,226,248,.5); }
+.ranking-row.top-3 .ranking-avatar { border-color:#f6a866; box-shadow:0 0 0 1px rgba(104,58,22,.95), 0 0 6px 1px rgba(250,162,92,.5); }
 .ranking-row.active .ranking-avatar { border-color:var(--ranking-streak-color, #67e8f9); }
 .ranking-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; background:transparent; }
 
@@ -317,9 +330,13 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 }
 
 /* Panel người đang được chọn — thẻ nổi ở cuối */
+/* Thanh dưới = FOOTER ôm sát mép ngoài board (áp cho cả dọc & ngang).
+   Board có padding:6px + radius:15px + overflow:visible → margin âm -6px để thanh chạm
+   đúng mép ngoài (border-box). ĐỈNH vuông góc, ĐÁY bo 15px khớp nền board bên dưới. */
 .ranking-active-name {
-  margin-top:6px; display:flex; align-items:center; justify-content:flex-start; gap:8px;
-  min-height:40px; padding:6px 9px; border-radius:10px;
+  box-sizing:border-box;
+  margin:6px -6px -6px; display:flex; align-items:center; justify-content:flex-start; gap:8px;
+  min-height:40px; padding:6px 9px; border-radius:0 0 15px 15px;
   background:linear-gradient(90deg, rgba(38,183,185,.9), rgba(45,133,154,.94));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.12), 0 4px 14px rgba(26,140,150,.32);
   color:#eaffff; line-height:1.08;
@@ -344,7 +361,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board.layout-grid .ranking-row.active { transform:scale(1.04); }
 .ranking-board.layout-grid .ranking-main { max-width:70px; }
 .ranking-board.layout-grid .ranking-name { max-width:9.5ch; }
-.ranking-board.layout-grid .ranking-active-name { margin:6px 1px 1px; border-radius:10px; min-height:40px; }
+.ranking-board.layout-grid .ranking-active-name { margin:6px -6px -6px; border-radius:0 0 15px 15px; min-height:40px; }
 .ranking-board.hide-avatar .ranking-row { grid-template-columns:24px minmax(0,1fr); }
 .ranking-board.hide-avatar .ranking-main { max-width:104px; }
 .ranking-board:not(.hide-avatar) .ranking-row { grid-template-columns:24px 25px minmax(0,1fr); }
