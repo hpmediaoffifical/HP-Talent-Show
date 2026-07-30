@@ -11,10 +11,14 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   display:inline-grid; grid-template-columns:minmax(0,var(--rk-width, 116px)); width:var(--rk-width, 116px); min-width:0;
   padding:6px; border-radius:15px; overflow:visible; color:#fff;
   /* Màu nền board tuỳ chỉnh — OBS-safe: phủ lớp trắng(đỉnh)→đen(đáy) lên màu đặc thay color-mix
-     (CEF cũ của OBS không hiểu color-mix → nền board biến mất/đen). */
-  background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(0,0,0,.20)),
-    rgb(var(--ranking-board-bg-rgb, 35,38,51));
-  box-shadow:0 14px 38px rgba(0,0,0,.46), inset 0 0 0 1px rgba(255,255,255,.06);
+     (CEF cũ của OBS không hiểu color-mix → nền board biến mất/đen).
+     Độ đậm nền (--ranking-board-bg-opacity, 0..1) nhân đều màu nền + lớp gloss + đổ bóng để
+     khi kéo về 0 thì nền TRONG SUỐT hoàn toàn, chỉ còn các thẻ nổi (card giữ độ đậm riêng). */
+  background:linear-gradient(180deg,
+      rgba(255,255,255,calc(.07 * var(--ranking-board-bg-opacity, 1))),
+      rgba(0,0,0,calc(.20 * var(--ranking-board-bg-opacity, 1)))),
+    rgba(var(--ranking-board-bg-rgb, 35,38,51), var(--ranking-board-bg-opacity, 1));
+  box-shadow:0 14px 38px rgba(0,0,0,calc(.46 * var(--ranking-board-bg-opacity, 1))), inset 0 0 0 1px rgba(255,255,255,calc(.06 * var(--ranking-board-bg-opacity, 1)));
   text-shadow:0 1px 3px rgba(0,0,0,.6);
 }
 .ranking-board { --rk-width:116px; }
@@ -30,6 +34,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   padding:7px 9px 8px; margin-bottom:6px;
   border-radius:10px;
   font-size:15px; font-weight:950; letter-spacing:.03em;
+  color:var(--ranking-title-color, #fff);
   text-align:center; white-space:normal; line-height:1.1;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   background:linear-gradient(180deg, rgba(46,43,58,.96), rgba(26,24,34,.94));

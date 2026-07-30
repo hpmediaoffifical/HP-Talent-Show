@@ -7225,9 +7225,11 @@ async function loadRankingConfig() {
   $('#rkNameMode').value = st.nameMode || 'two-line';
   $('#rkPointsBy').value = st.pointsBy || 'diamond';
   $('#rkStreak').value = st.streakColor || '#67e8f9';
+  $('#rkTitleColor').value = st.overlayTitleColor || '#ffffff';
   $('#rkBg').value = st.overlayBgColor || '#2a2d37';
-  $('#rkBoardColor').value = st.overlayBoardColor || '#232633';
-  $('#rkBgOpacity').value = st.overlayBgOpacity ?? 74;
+  $('#rkBoardColor').value = st.overlayBoardColor || '#000000';
+  $('#rkBgOpacity').value = st.overlayBgOpacity ?? 70;
+  $('#rkBoardOpacity').value = st.overlayBoardOpacity ?? 75;
   $('#rkShowRank').checked = st.showRank !== false;
   $('#rkShowAvatar').checked = st.showAvatar !== false;
   $('#rkShowGift').checked = st.showGift !== false;
@@ -7305,9 +7307,11 @@ function wireRankingTab() {
     nameMode: $('#rkNameMode').value,
     pointsBy: $('#rkPointsBy').value,
     streakColor: $('#rkStreak').value,
+    overlayTitleColor: $('#rkTitleColor').value,
     overlayBgColor: $('#rkBg').value,
     overlayBoardColor: $('#rkBoardColor').value,
     overlayBgOpacity: Number($('#rkBgOpacity').value),
+    overlayBoardOpacity: Number($('#rkBoardOpacity').value),
     showRank: $('#rkShowRank').checked,
     showAvatar: $('#rkShowAvatar').checked,
     showGift: $('#rkShowGift').checked,
@@ -7331,7 +7335,7 @@ function wireRankingTab() {
       await window.api.ranking.setConfig(collectRkCfg());
     }, 180);
   };
-  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkBg','rkBoardColor','rkBgOpacity','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale'].forEach(id => {
+  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkTitleColor','rkBg','rkBoardColor','rkBgOpacity','rkBoardOpacity','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener('input', updateRkRealtime);
     el.addEventListener('change', updateRkRealtime);

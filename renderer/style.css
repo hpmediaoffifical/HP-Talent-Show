@@ -598,9 +598,11 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .pkg-preview-row > div { position:relative; height:18px; overflow:hidden; border-radius:999px; background:#eef0f4; box-shadow:inset 0 0 0 1px rgba(22,24,35,.06); }
 .pkg-preview-row i { position:absolute; left:0; top:0; bottom:0; border-radius:inherit; transition:width .25s ease; }
 .pkg-preview-row b { position:absolute; inset:0; display:grid; place-items:center; font-size:12px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.7); }
-.range-inline { display:flex; align-items:center; gap:10px; }
-.range-inline input[type="range"] { flex:1; accent-color:var(--tt-pink); }
-.range-inline .prefix { min-width:54px; text-align:right; }
+.range-inline { display:flex; align-items:center; gap:10px; flex-wrap:nowrap; }
+/* min-width:0 để slider CO lại được trong cột hẹp; mặc định input[type=range] có min-width nội tại
+   (~129px) khiến flex không thu nhỏ → tràn cột, che/cắt mất số % bên phải (đọc không ra). */
+.range-inline input[type="range"] { flex:1 1 auto; min-width:0; accent-color:var(--tt-pink); }
+.range-inline .prefix { flex:0 0 auto; min-width:44px; text-align:right; white-space:nowrap; font-weight:800; color:var(--tt-ink); }
 .pkg-note-card { margin:14px 0; padding:14px; border:1px solid rgba(254,44,85,.14); border-radius:16px; background:linear-gradient(135deg,#fff7fb,#fff); box-shadow:0 8px 22px rgba(22,24,35,.06); }
 .pkg-note-head { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:12px; }
 .pkg-note-head h3 { margin:0; font-size:14px; color:var(--tt-ink); }
@@ -845,8 +847,14 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .rk-fields.three, .rk-fields.compact-three { grid-template-columns:repeat(3, minmax(0, 1fr)); }
 /* Hàng màu OBS: 3 ô màu ngắn lại + Độ đậm, xếp gọn 4 cột để chừa chỗ cho Màu nền */
 .rk-fields.four { grid-template-columns:repeat(4, minmax(0, 1fr)); }
-.rk-fields.four .rk-color-cell input[type="color"] { min-width:0; }
-.rk-fields.four + .rk-fields.three { margin-top:10px; }
+/* Hàng màu OBS gọn 1 dòng: Tiêu đề · Active · Card+độ đậm · Nền+độ đậm */
+.rk-fields.rk-obs-colors { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+.rk-fields.four .rk-color-cell input[type="color"], .rk-fields.rk-obs-colors .rk-color-cell input[type="color"] { min-width:0; }
+.rk-fields.four + .rk-fields.three, .rk-fields.rk-obs-colors + .rk-fields.three { margin-top:10px; }
+/* Ô màu ghép độ đậm: swatch co giãn + ô số % nhỏ bên phải, cùng 1 dòng */
+.rk-color-op .rk-co-inline { display:flex; align-items:stretch; gap:6px; }
+.rk-color-op .rk-co-inline input[type="color"] { flex:1 1 auto; min-width:0; }
+.rk-color-op .rk-co-inline input[type="number"] { flex:0 0 46px; width:46px; padding:8px 4px; text-align:center; }
 .rk-fields label { display:flex; flex-direction:column; gap:5px; color:var(--tt-ink-2); font-size:12px; font-weight:700; }
 .rk-fields input[type="text"], .rk-fields input[type="number"], .rk-fields input:not([type]), .rk-fields select { width:100%; padding:8px 10px; border:1px solid var(--tt-border); border-radius:10px; background:#fff; color:var(--tt-ink); font-size:13px; }
 .rk-fields input[type="color"] { width:100%; height:38px; padding:4px; border:1px solid var(--tt-border); border-radius:10px; background:#fff; }
@@ -1468,7 +1476,7 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
   .topbar { flex-direction:column; }
   .stats { justify-content:flex-start; }
   .audio-device-row, .audio-device-output { grid-template-columns:1fr; }
-  .rk-fields.two, .rk-fields.three, .rk-fields.four, .rk-fields.compact-three { grid-template-columns:1fr; }
+  .rk-fields.two, .rk-fields.three, .rk-fields.four, .rk-fields.rk-obs-colors, .rk-fields.compact-three { grid-template-columns:1fr; }
   .pk-live-preview, .pk-action-row { position:relative; top:auto; }
   .pk-match-setup { grid-template-columns:1fr; }
   .pk-content-row, .pkg-config-row { padding:10px; border-radius:15px; }
@@ -1921,7 +1929,7 @@ button.tiny { padding:4px 7px; font-size:12px; }
 .score-command-actions button { min-height:38px; }
 .score-ops-grid { grid-template-columns:1fr; gap:10px; }
 .score-config-card, .rk-config-section { padding:10px; border-radius:13px; }
-.score-config-card .form-grid.compact, .rk-fields.three, .rk-fields.four, .rk-fields.compact-three { gap:8px; }
+.score-config-card .form-grid.compact, .rk-fields.three, .rk-fields.four, .rk-fields.rk-obs-colors, .rk-fields.compact-three { gap:8px; }
 .rk-config-layout { grid-template-columns:1.25fr .95fr; gap:9px; }
 .rk-fields { gap:8px; }
 .rk-fields input[type="text"], .rk-fields input[type="number"], .rk-fields input:not([type]), .rk-fields select { padding:7px 9px; font-size:14px; }

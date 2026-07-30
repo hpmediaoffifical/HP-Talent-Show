@@ -126,7 +126,9 @@ function render(state = {}) {
   root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}${showSelect ? ` sel-on sel-${selFx}` : ''}" style="
     --ranking-card-bg-rgb:${hexToRgb(state.overlayBgColor || '#2a2d37')};
     --ranking-card-bg-opacity:${((Number(state.overlayBgOpacity ?? 74)) / 100).toFixed(2)};
-    --ranking-board-bg-rgb:${hexToRgb(state.overlayBoardColor || '#232633')};
+    --ranking-board-bg-rgb:${hexToRgb(state.overlayBoardColor || '#000000')};
+    --ranking-board-bg-opacity:${((Number(state.overlayBoardOpacity ?? 75)) / 100).toFixed(2)};
+    --ranking-title-color:${esc(state.overlayTitleColor || '#ffffff')};
     --ranking-streak-color:${esc(state.streakColor || '#67e8f9')};
     --ranking-streak-rgb:${hexToRgb(state.streakColor || '#67e8f9')};
     --rk-rows:${effRows};

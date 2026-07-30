@@ -814,11 +814,21 @@
                   <span class="cfg-adv__chev">▾</span>
                 </summary>
                 <div class="cfg-adv__body">
-                  <div class="rk-fields four">
-                    <label class="rk-color-cell">Màu active <input id="rkStreak" type="color" value="#67e8f9" /></label>
-                    <label class="rk-color-cell">Màu card <input id="rkBg" type="color" value="#2a2d37" /></label>
-                    <label class="rk-color-cell">Màu nền <input id="rkBoardColor" type="color" value="#232633" /></label>
-                    <label>Độ đậm <input id="rkBgOpacity" type="number" min="0" max="100" value="74" /></label>
+                  <div class="rk-fields rk-obs-colors">
+                    <label class="rk-color-cell">Tiêu đề <input id="rkTitleColor" type="color" value="#ffffff" /></label>
+                    <label class="rk-color-cell">Active <input id="rkStreak" type="color" value="#67e8f9" /></label>
+                    <label class="rk-color-cell rk-color-op">Card + độ đậm
+                      <span class="rk-co-inline">
+                        <input id="rkBg" type="color" value="#2a2d37" />
+                        <input id="rkBgOpacity" type="number" min="0" max="100" value="70" title="Độ đậm card (%)" />
+                      </span>
+                    </label>
+                    <label class="rk-color-cell rk-color-op">Nền + độ đậm
+                      <span class="rk-co-inline">
+                        <input id="rkBoardColor" type="color" value="#000000" />
+                        <input id="rkBoardOpacity" type="number" min="0" max="100" value="75" title="Độ đậm nền (%)" />
+                      </span>
+                    </label>
                   </div>
                   <div class="rk-fields three">
                     <label class="full">Scale Thi đấu nhóm OBS
