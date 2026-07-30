@@ -107,9 +107,10 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
   $$('.nav-btn').forEach(x => x.classList.toggle('active', x === b));
   const id = b.dataset.tab;
   $$('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === id));
-  // Giữ ngăn cha (NHIỆM VỤ…) mở khi đang xem một mục con của nó.
+  // Giữ ngăn cha (NHIỆM VỤ…) mở khi đang xem một mục con của nó — và đóng các ngăn khác
+  // để mỗi lúc chỉ 1 nhóm mở (tránh danh sách quá dài gây lỗi hiển thị).
   const grp = b.closest('.nav-group');
-  if (grp) { grp.classList.add('open'); grp.querySelector('.nav-parent')?.setAttribute('aria-expanded', 'true'); }
+  if (grp) { openNavGroupExclusive(grp); }
   if (id === 'set-overlay') refreshOverlayUrls();
   if (id === 'mvphonor') mvpRenderStage?.();
   if (id === 'luckywheel') { lwRefreshSpinners?.(); renderLwPreview?.(); }
@@ -119,11 +120,24 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
 }));
 
 // ===== Ngăn menu con (parent gập/mở) =====
+// Kiểu accordion: mở 1 nhóm thì đóng hết nhóm còn lại (chỉ 1 nhóm mở tại một thời điểm).
+function openNavGroupExclusive(grp) {
+  $$('.nav-group').forEach(g => {
+    const on = g === grp;
+    g.classList.toggle('open', on);
+    g.querySelector('.nav-parent')?.setAttribute('aria-expanded', on ? 'true' : 'false');
+  });
+}
 $$('.nav-parent').forEach(p => p.addEventListener('click', () => {
   const grp = p.closest('.nav-group');
   if (!grp) return;
-  const open = grp.classList.toggle('open');
-  p.setAttribute('aria-expanded', open ? 'true' : 'false');
+  // Đang mở thì bấm lại để gập; đang đóng thì mở và đóng các nhóm khác.
+  if (grp.classList.contains('open')) {
+    grp.classList.remove('open');
+    p.setAttribute('aria-expanded', 'false');
+  } else {
+    openNavGroupExclusive(grp);
+  }
 }));
 
 // ===== Thu gọn sidebar (bấm logo HP) =====
@@ -372,6 +386,15 @@ function avatarForCreatorId(id) {
 
 // Chuẩn hoá TikTok ID để so khớp (bỏ @, thường hoá).
 function normTiktokId(v) { return String(v || '').trim().replace(/^@/, '').toLowerCase(); }
+
+// Làm sạch Nick Name lấy từ TikTok: bỏ icon/emoji/ký hiệu, CHỈ giữ chữ (kể cả tiếng Việt)
+// và số; gộp khoảng trắng thừa. Dùng khi bấm Tải avatar / tự lấy Nick Name.
+function cleanNickname(name) {
+  return String(name || '')
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 // Tìm avatar/nickname ĐÃ BIẾT của một TikTok ID từ creator/nhóm khác đang có trong máy.
 // Dùng để TÁI SỬ DỤNG NGAY khi thêm/sửa một thành viên trùng ID đã tồn tại — không phụ thuộc
@@ -3047,9 +3070,8 @@ function wireMvpHonorTab() {
 // ============================================================
 const LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
 let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, slowSec: 3, sound: true, confetti: true, showResult: true, edgeStops: true, autoRemove: false, pushDrawnTop: false, selectedSpinner: null, segments: [], history: [] };
-// Ô vừa trúng CHỜ bị loại: giữ nguyên trên vòng quay (app + OBS) để người xem thấy kim dừng
-// ở ô đó, chỉ làm xám/bỏ khỏi vòng quay khi BẮT ĐẦU lượt quay kế tiếp.
-// { segId, member, avatar } — ghi lại người quay để gắn tên/avatar vào ô đã quay.
+// segId của ô đã trúng (đã xám danh sách) NHƯNG còn trên vòng quay app/OBS — sẽ bị loại khỏi
+// vòng quay khi BẮT ĐẦU lượt quay kế tiếp. null nếu không có ô nào đang chờ loại.
 let lwPendingDrawn = null;
 
 function lwNormalize(cfg) {
@@ -3074,7 +3096,8 @@ function lwNormalize(cfg) {
       color: /^#[0-9a-fA-F]{6}$/.test(s.color || '') ? s.color : LW_PALETTE[i % LW_PALETTE.length],
       weight: clampInt(s.weight, 10, 1, 100),
       jackpot: s.jackpot === true,
-      drawn: s.drawn === true,
+      won: s.won === true,     // ĐÃ trúng: xám trong danh sách + hiện tên/avatar (từ lúc ra kết quả)
+      drawn: s.drawn === true, // ĐÃ loại khỏi vòng quay app/OBS (từ lượt quay kế tiếp)
       wonBy: String(s.wonBy || ''), wonAvatar: String(s.wonAvatar || ''),
     })) : [],
     history: Array.isArray(c.history) ? c.history : [],
@@ -3105,14 +3128,26 @@ function lwScheduleSave() { _lwSaver.schedule(); }
 // Vòng quay chỉ hiện các ô CHƯA quay (drawn=false). Ô đã quay bị làm xám trong danh sách
 // nhưng biến mất khỏi vòng quay ở app + OBS. Chỉ số ô trúng (spin.index) tính theo tập này.
 function lwPool() { return lwCfg.segments.filter(s => !s.drawn); }
+// "Xám trong danh sách" = đã trúng (won) hoặc đã loại khỏi vòng quay (drawn).
+function lwIsGrayed(s) { return !!(s && (s.won || s.drawn)); }
 // Đẩy các ô đã quay (xám) lên đầu danh sách để dễ kiểm soát — sắp xếp ỔN ĐỊNH nên thứ tự
 // tương đối của nhóm chưa quay giữ nguyên → vòng quay (lwPool) KHÔNG đổi hình.
 function lwSortDrawn() {
   if (!lwCfg.pushDrawnTop) return;
   lwCfg.segments = lwCfg.segments
     .map((s, i) => ({ s, i }))
-    .sort((a, b) => (b.s.drawn ? 1 : 0) - (a.s.drawn ? 1 : 0) || a.i - b.i)
+    .sort((a, b) => (lwIsGrayed(b.s) ? 1 : 0) - (lwIsGrayed(a.s) ? 1 : 0) || a.i - b.i)
     .map(x => x.s);
+}
+// Xáo trộn NGẪU NHIÊN thứ tự các ô (Fisher–Yates) → vòng quay app + OBS đảo vị trí số,
+// tránh cảm giác chạy tuần tự 1→N. Không đổi nội dung/kết quả, chỉ đổi vị trí trên vòng.
+function lwShuffleSegments() {
+  if (lwPreviewSpinning) { toast('Đang quay, thử lại sau', 'error'); return; }
+  if (lwCfg.segments.length < 2) { toast('Cần ít nhất 2 ô để xáo trộn', 'error'); return; }
+  const a = lwCfg.segments;
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  renderLwSegList(); renderLwPreview(); lwPush();
+  toast('Đã xáo trộn thứ tự vòng quay', 'success');
 }
 function lwNewSeg() {
   const i = lwCfg.segments.length;
@@ -3134,15 +3169,15 @@ function renderLwSegList() {
   const box = $('#lwSegList'); if (!box) return;
   lwSortDrawn();
   if (!lwCfg.segments.length) { box.innerHTML = '<div class="lw-empty">Chưa có ô nào. Nhấn <b>＋ Thêm ô</b>.</div>'; return; }
-  box.innerHTML = lwCfg.segments.map((s, i) => `
-    <div class="lw-seg${s.drawn ? ' lw-seg-drawn' : ''}" data-i="${i}">
+  box.innerHTML = lwCfg.segments.map((s, i) => { const g = lwIsGrayed(s); return `
+    <div class="lw-seg${g ? ' lw-seg-drawn' : ''}" data-i="${i}">
       <div class="lw-seg-row" data-i="${i}">
         <input type="color" class="lw-seg-color" data-i="${i}" value="${s.color}" title="Màu ô" />
         <input type="text" class="lw-seg-text" data-i="${i}" value="${escAttr(s.text)}" placeholder="Nội dung ô" />
-        ${s.drawn ? (s.wonBy
+        ${g ? (s.wonBy
           ? `<span class="lw-seg-wonby" data-i="${i}" title="Người quay: ${escAttr(s.wonBy)} — bấm để chọn lại"><img class="lw-won-av js-avatar" src="${escAttr(safeAvatarUrl(s.wonAvatar))}" alt="" /><span class="lw-won-name">${escAttr(s.wonBy)}</span></span>`
           : `<span class="lw-seg-wonby lw-won-none" data-i="${i}" title="Bấm để chọn người quay">＋ tên</span>`) : ''}
-        ${s.drawn ? `<button class="lw-seg-restore" data-i="${i}" type="button" title="Khôi phục ô đã quay (đưa lại vào vòng quay)">↩️</button>` : ''}
+        ${g ? `<button class="lw-seg-restore" data-i="${i}" type="button" title="Khôi phục ô đã quay (đưa lại vào vòng quay)">↩️</button>` : ''}
         <button class="lw-seg-gear" data-i="${i}" type="button" title="Cài đặt: loại kết quả · tỷ lệ · quà lớn">⚙️</button>
         <button class="lw-seg-del" data-i="${i}" type="button" title="Xoá ô">🗑</button>
       </div>
@@ -3155,7 +3190,7 @@ function renderLwSegList() {
         <label class="lw-seg-weight" title="Tỷ lệ tương đối"><span>×</span><input type="number" class="lw-seg-weight-input" data-i="${i}" min="1" max="100" value="${s.weight}" /></label>
         <label class="lw-seg-jackpot" title="Quà lớn: hiệu ứng ánh sáng và âm thanh riêng"><input type="checkbox" data-i="${i}"${s.jackpot ? ' checked' : ''} /><span>⭐ Quà lớn</span></label>
       </div>
-    </div>`).join('');
+    </div>`; }).join('');
   box.querySelectorAll('.lw-seg-gear').forEach(el => el.addEventListener('click', () => {
     const adv = box.querySelector('.lw-seg-adv[data-i="' + el.dataset.i + '"]');
     if (adv) { adv.hidden = !adv.hidden; el.classList.toggle('open', !adv.hidden); }
@@ -3166,7 +3201,7 @@ function renderLwSegList() {
   box.querySelectorAll('.lw-seg-weight-input').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].weight = clampInt(el.value, 10, 1, 100); lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-jackpot input').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].jackpot = el.checked; lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-wonby').forEach(el => el.addEventListener('click', () => lwOpenWonEditor(+el.dataset.i, el)));
-  box.querySelectorAll('.lw-seg-restore').forEach(el => el.addEventListener('click', () => { const s = lwCfg.segments[+el.dataset.i]; s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; renderLwSegList(); renderLwPreview(); lwPush(); }));
+  box.querySelectorAll('.lw-seg-restore').forEach(el => el.addEventListener('click', () => { const s = lwCfg.segments[+el.dataset.i]; if (lwPendingDrawn === s.id) lwPendingDrawn = null; s.won = false; s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; renderLwSegList(); renderLwPreview(); lwPush(); }));
   box.querySelectorAll('.lw-seg-del').forEach(el => el.addEventListener('click', () => { lwCfg.segments.splice(+el.dataset.i, 1); renderLwSegList(); renderLwPreview(); lwScheduleSave(); }));
 }
 
@@ -3429,11 +3464,9 @@ async function lwDoSpin() {
   // Đồng bộ sang engine TRƯỚC khi quay để lượt mới không trúng lại ô đó và hình vòng quay khớp.
   if (lwPendingDrawn) {
     if (lwCfg.autoRemove) {
-      const prev = lwCfg.segments.find(s => s.id === lwPendingDrawn.segId);
+      const prev = lwCfg.segments.find(s => s.id === lwPendingDrawn);
       if (prev && !prev.drawn) {
-        prev.drawn = true;
-        prev.wonBy = lwPendingDrawn.member || '';
-        prev.wonAvatar = lwPendingDrawn.avatar || '';
+        prev.drawn = true; // giờ mới BỎ khỏi vòng quay (app + OBS); vẫn xám trong danh sách
         renderLwSegList(); renderLwPreview(); await window.api.luckywheel.setConfig(lwCfg).catch(() => {});
       }
     }
@@ -3462,9 +3495,18 @@ async function lwDoSpin() {
           + (rec.note ? `<div class="lw-rc-note">${escAttr(rec.note)}</div>` : '')
           + (rec.member ? `<div class="lw-rc-who">🎯 ${escAttr(rec.member)}</div>` : '');
       }
-      // KHÔNG loại ngay: chỉ ghi nhớ ô vừa trúng + người quay (tên/avatar). Ô vẫn nằm trên vòng
-      // quay để người xem thấy kim dừng đúng vùng ô đó; sẽ làm xám khi bấm QUAY lượt kế tiếp.
-      if (lwCfg.autoRemove && rec.segId) lwPendingDrawn = { segId: rec.segId, member: (spinner && spinner.name) || rec.member || '', avatar: (spinner && spinner.avatar) || '' };
+      // Ra kết quả → XÁM LIỀN trong danh sách + gắn tên/avatar người quay (won=true).
+      // NHƯNG chưa loại khỏi vòng quay (chưa set drawn) → app + OBS vẫn còn ô đó tới lượt kế.
+      if (lwCfg.autoRemove && rec.segId) {
+        const seg = lwCfg.segments.find(s => s.id === rec.segId);
+        if (seg) {
+          seg.won = true;
+          seg.wonBy = (spinner && spinner.name) || rec.member || '';
+          seg.wonAvatar = (spinner && spinner.avatar) || '';
+          lwPendingDrawn = rec.segId; // đánh dấu để LƯỢT KẾ loại khỏi vòng quay
+          renderLwSegList(); renderLwPreview(); lwPush();
+        }
+      }
     }, secs * 1000 + 150);
   }
   setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY'; } }, secs * 1000 + 300);
@@ -3473,6 +3515,7 @@ async function lwDoSpin() {
 function lwCloseTools() { const p = $('#lwToolsPop'); if (p) p.hidden = true; }
 function wireLuckyWheelTab() {
   $('#lwAddSeg')?.addEventListener('click', () => { lwCfg.segments.push(lwNewSeg()); renderLwSegList(); renderLwPreview(); lwScheduleSave(); });
+  $('#lwShuffle')?.addEventListener('click', lwShuffleSegments);
   // Nút ⚙️ Công cụ: mở/đóng popup (Tạo dãy · Khôi phục · Xoá tất cả); bấm ra ngoài thì đóng.
   $('#lwToolsBtn')?.addEventListener('click', (e) => { e.stopPropagation(); const p = $('#lwToolsPop'); if (p) p.hidden = !p.hidden; });
   document.addEventListener('click', (e) => {
@@ -3491,9 +3534,10 @@ function wireLuckyWheelTab() {
     toast(`Đã tạo dãy Số 1 → Số ${n}`, 'success');
   });
   $('#lwRestoreAll')?.addEventListener('click', () => {
-    const grayed = lwCfg.segments.filter(s => s.drawn).length;
+    const grayed = lwCfg.segments.filter(lwIsGrayed).length;
     if (!grayed) { toast('Không có ô xám nào', 'error'); return; }
-    lwCfg.segments.forEach(s => { s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; });
+    lwPendingDrawn = null;
+    lwCfg.segments.forEach(s => { s.won = false; s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; });
     renderLwSegList(); renderLwPreview(); lwPush();
     lwCloseTools();
     toast(`Đã khôi phục ${grayed} ô đã quay`, 'success');
@@ -5477,7 +5521,7 @@ function wireCreatorTab() {
       // Mạng có thể trả rỗng (tikwm giới hạn tần suất, oembed đã bỏ avatar). Bù bằng dữ liệu
       // đã lưu của cùng TikTok ID để "bấm Tải" luôn ra avatar/nickname nếu ID này từng có.
       const known = knownProfileForTiktokId(u, currentEditingCreator?.id);
-      const nickname = p.nickname || known?.nickname || '';
+      const nickname = cleanNickname(p.nickname || known?.nickname || '');
       const avatar = p.avatar || known?.avatar || '';
       if (nickname) {
         if (!$('#crNickname').value || !currentEditingCreator) $('#crNickname').value = nickname;
@@ -5515,8 +5559,8 @@ function wireCreatorTab() {
       $('#crAvatarPreview').src = known.avatar;
     }
     if (!$('#crNickname').value.trim() && known.nickname) {
-      $('#crNickname').value = known.nickname;
-      $('#crChannel').textContent = known.nickname;
+      $('#crNickname').value = cleanNickname(known.nickname);
+      $('#crChannel').textContent = $('#crNickname').value;
     }
   });
   $('#btnLoadCreator').addEventListener('click', () => autoFetchCreator(true));

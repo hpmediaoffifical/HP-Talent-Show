@@ -2610,6 +2610,9 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 .lw-seg-restore:hover { background: #eafff2; border-color: #38d67a; }
 .lw-add { font-size: 12px; padding: 4px 10px; }
 .lw-add-grp { display: flex; align-items: center; gap: 6px; }
+.lw-dice { font-size: 15px; padding: 4px 9px; line-height: 1; }
+.lw-dice:hover { background: #eef1ff; border-color: var(--tt-blue, #6a7dff); transform: rotate(-12deg); }
+.lw-dice:active { transform: rotate(8deg) scale(.94); }
 .lw-batch-qty { width: 54px; padding: 5px 7px; border: 1px solid var(--tt-border); border-radius: 8px; font-size: 12px; background: #fff; color: var(--tt-ink); }
 /* Công cụ danh sách gom vào 1 nút ⚙️ mở popup cho gọn header */
 .lw-tools-wrap { position: relative; }
@@ -2653,12 +2656,27 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 }
 .nav-parent:hover { background: var(--tt-bg-2); color: var(--tt-ink); }
 .nav-parent .nav-caret { margin-left: auto; font-size: 10px; color: var(--tt-ink-3); transition: transform .18s, max-width .2s ease, opacity .14s ease; }
-.nav-group.open > .nav-parent { color: var(--tt-ink); }
+/* Nhóm đang mở = 1 KHỐI: nền màu nhạt bọc cả menu chính + menu con, đường gạch dọc cùng tông */
+.nav-group.open {
+  background: rgba(254, 44, 85, .055);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px rgba(254, 44, 85, .10);
+}
+.nav-group.open > .nav-parent {
+  color: var(--tt-pink);
+  background: rgba(254, 44, 85, .09);
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+}
+.nav-group.open > .nav-parent:hover { background: rgba(254, 44, 85, .14); color: var(--tt-pink); }
+.nav-group.open > .nav-parent .nav-caret { color: var(--tt-pink); }
 .nav-group.open > .nav-parent .nav-caret { transform: rotate(180deg); }
 .nav-sub { display: none; flex-direction: column; gap: 2px; margin: 1px 0 2px 12px; padding-left: 9px; border-left: 2px solid var(--tt-border); }
-.nav-group.open > .nav-sub { display: flex; }
+.nav-group.open > .nav-sub { display: flex; border-left-color: rgba(254, 44, 85, .38); }
 .nav-sub .nav-btn { padding: 8px 10px; font-size: 13px; }
 /* Menu thu gọn: icon cha căn giữa, ẩn chữ + caret mượt; menu con thành FLYOUT nổi khi rê chuột */
+/* Khi thu gọn chỉ còn icon → bỏ nền khối màu, tránh loang màu quanh icon đơn lẻ */
+.sidebar.collapsed .nav-group.open { background: transparent; box-shadow: none; }
+.sidebar.collapsed .nav-group.open > .nav-parent { background: transparent; border-radius: var(--r-sm); }
 .sidebar.collapsed .nav-parent { justify-content: center; gap: 0; padding: 10px 0; }
 .sidebar.collapsed .nav-parent .nav-txt { max-width: 0; opacity: 0; margin: 0; }
 .sidebar.collapsed .nav-parent .nav-caret { max-width: 0; opacity: 0; overflow: hidden; margin: 0; }

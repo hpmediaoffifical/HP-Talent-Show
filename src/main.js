@@ -2257,7 +2257,8 @@ class LuckyWheelEngine {
       ...s,
       weight: _lwNum(s?.weight, 10, 1, 100),
       jackpot: s?.jackpot === true,
-      drawn: s?.drawn === true,
+      won: s?.won === true,     // xám trong danh sách app (không ảnh hưởng OBS)
+      drawn: s?.drawn === true, // đã loại khỏi vòng quay (OBS lọc theo cờ này)
       color: _lwHex(s?.color, _LW_PALETTE[i % _LW_PALETTE.length]),
     }));
     const selected = this.config.selectedSpinner;

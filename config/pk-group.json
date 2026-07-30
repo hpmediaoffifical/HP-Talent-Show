@@ -20,92 +20,74 @@
   "nameSize": 150,
   "giftSize": 60,
   "overlayScale": 185,
-  "selectFx": "random",
+  "selectFx": "versus",
   "participants": [
-    {
-      "id": "c_mrtg2crd6d27p",
-      "creatorId": "c_mrtg2crd6d27p",
-      "tiktokId": "manhhao2309",
-      "name": "Im Xuhào☘️",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=ea9fabcb&x-expires=1785330000&x-signature=UZLUPmzW7SRpVd20gKZ%2BDioJJRs%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#3c7cdd",
-      "giftOverride": true,
-      "gifts": [
-        {
-          "giftName": "Love you so much",
-          "giftId": "15231",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/fc549cf1bc61f9c8a1c97ebab68dced7.png~tplv-obj.webp",
-          "diamond": 1
-        }
-      ],
-      "streak": 0,
-      "nameOverride": false,
-      "score": 0
-    },
     {
       "id": "c_mrtg28mrb1ni1",
       "creatorId": "c_mrtg28mrb1ni1",
       "tiktokId": "raidenhyun",
       "name": "Raiden",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=061ec41a&x-expires=1785330000&x-signature=HUTlMDgIDRb8o2QJqHo1Z8ejUaA%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=a7512b74&x-expires=1785495600&x-signature=G9pvwC7%2F8CkPQmLD%2FHcIsRKBHWA%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#bc3cdd",
       "giftOverride": false,
-      "gifts": [
-        {
-          "giftName": "Rose",
-          "giftId": "5655",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
-          "diamond": 1
-        }
-      ],
+      "gifts": [],
       "streak": 0,
       "score": 0,
       "nameOverride": false
     },
     {
-      "id": "c_mrtg396ra59ws",
-      "creatorId": "c_mrtg396ra59ws",
-      "tiktokId": "d.one_2607",
-      "name": "D-ONE",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/412869dc3e6fe48871a2754d67b12aae~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=ecfb7b7d&x-expires=1785330000&x-signature=Jdzb2SZx42mKReBZ4n1jXasaefk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#dd3c3c",
-      "giftOverride": true,
-      "gifts": [
-        {
-          "giftName": "Glow Stick",
-          "giftId": "6788",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/8e1a5d66370c5586545e358e37c10d25~tplv-obj.webp",
-          "diamond": 1
-        }
-      ],
+      "id": "c_mrtg2crd6d27p",
+      "creatorId": "c_mrtg2crd6d27p",
+      "tiktokId": "manhhao2309",
+      "name": "Im Xuhào",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=96437b14&x-expires=1785495600&x-signature=HR6h7%2B1SzfTeCiPGLRKaYGoTNWk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#3c7cdd",
+      "giftOverride": false,
+      "gifts": [],
       "streak": 0,
-      "nameOverride": false,
-      "score": 0
+      "score": 0,
+      "nameOverride": true
+    },
+    {
+      "id": "c_mrtg2obyczu0h",
+      "creatorId": "c_mrtg2obyczu0h",
+      "tiktokId": "callme.ice23",
+      "name": "I.CE",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/ceab283203632412f0469537c948036e~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=cd27b950&x-expires=1785495600&x-signature=7aE8nluKxcS%2BYmnjDHwA%2FPStzW0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#3cdd7c",
+      "giftOverride": false,
+      "gifts": [],
+      "streak": 0,
+      "score": 0,
+      "nameOverride": true
     },
     {
       "id": "c_mrtg2s085v57p",
       "creatorId": "c_mrtg2s085v57p",
       "tiktokId": "gin.2264",
       "name": "GIN",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/8ad8152cd28abca9114653858cf057c9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=06b61245&x-expires=1785330000&x-signature=wOQZ4IEmj8a8ZI3vvQ3LKtJIEag%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/8ad8152cd28abca9114653858cf057c9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=0944bc69&x-expires=1785495600&x-signature=WiU%2BlekzuTW1peuM%2F8cNg9APhDs%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#bcdd3c",
-      "giftOverride": true,
-      "gifts": [
-        {
-          "giftName": "You're awesome",
-          "giftId": "15232",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.webp",
-          "diamond": 1
-        }
-      ],
+      "giftOverride": false,
+      "gifts": [],
+      "streak": 1,
+      "score": 0,
+      "nameOverride": true
+    },
+    {
+      "id": "c_mrtg396ra59ws",
+      "creatorId": "c_mrtg396ra59ws",
+      "tiktokId": "d.one_2607",
+      "name": "D-ONE",
+      "avatar": "https://p16-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/412869dc3e6fe48871a2754d67b12aae~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=fe3ad74d&x-expires=1785495600&x-signature=8NrFrHOc8o%2F6GsScPGPhevJ8EK0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#dd3c3c",
+      "giftOverride": false,
+      "gifts": [],
       "streak": 0,
-      "nameOverride": false,
-      "score": 0
+      "score": 0,
+      "nameOverride": true
     }
   ],
-  "bgColor": "#e10909",
-  "bgOpacity": 100,
-  "separatedScale": 100,
   "creatorColors": {
     "c_mrtg396ra59ws": "#dd3c3c",
     "c_mrtg2s085v57p": "#bcdd3c",
@@ -122,7 +104,8 @@
     "c_mrtg3m6gzufnt": "#bcdd3c",
     "c_mrtg5hryfktyi": "#3cdd7c",
     "c_mrtg3hpifvot2": "#3c7cdd",
-    "c_mrtg3p5lx8k8q": "#bc3cdd"
+    "c_mrtg3p5lx8k8q": "#bc3cdd",
+    "c_ms71nvzoicoaa": "#dd3cdd"
   },
   "smartColor": true
 }
