@@ -3046,9 +3046,10 @@ function wireMvpHonorTab() {
 // VÒNG QUAY MAY MẮN (Lucky Wheel)
 // ============================================================
 const LW_PALETTE = ['#ff3d71', '#00e0c7', '#7a5cff', '#ff9f1c', '#2ec4ff', '#ff5db1', '#38d67a', '#ffd23f', '#c86bff', '#4c8dff'];
-let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, slowSec: 3, sound: true, confetti: true, showResult: true, edgeStops: true, autoRemove: false, selectedSpinner: null, segments: [], history: [] };
+let lwCfg = { title: 'VÒNG QUAY MAY MẮN', showTitle: true, style: 'neon', spinSeconds: 5, slowSec: 3, sound: true, confetti: true, showResult: true, edgeStops: true, autoRemove: false, pushDrawnTop: false, selectedSpinner: null, segments: [], history: [] };
 // Ô vừa trúng CHỜ bị loại: giữ nguyên trên vòng quay (app + OBS) để người xem thấy kim dừng
 // ở ô đó, chỉ làm xám/bỏ khỏi vòng quay khi BẮT ĐẦU lượt quay kế tiếp.
+// { segId, member, avatar } — ghi lại người quay để gắn tên/avatar vào ô đã quay.
 let lwPendingDrawn = null;
 
 function lwNormalize(cfg) {
@@ -3063,6 +3064,7 @@ function lwNormalize(cfg) {
     sound: c.sound !== false, confetti: c.confetti !== false, showResult: c.showResult !== false,
     edgeStops: c.edgeStops !== false,
     autoRemove: c.autoRemove === true,
+    pushDrawnTop: c.pushDrawnTop === true,
     showCount: c.showCount !== false, spinCount: Math.max(0, Math.round(Number(c.spinCount) || 0)),
     selectedSpinner: c.selectedSpinner?.name ? { id: String(c.selectedSpinner.id || ''), name: String(c.selectedSpinner.name), avatar: String(c.selectedSpinner.avatar || '') } : null,
     segments: Array.isArray(c.segments) ? c.segments.map((s, i) => ({
@@ -3073,6 +3075,7 @@ function lwNormalize(cfg) {
       weight: clampInt(s.weight, 10, 1, 100),
       jackpot: s.jackpot === true,
       drawn: s.drawn === true,
+      wonBy: String(s.wonBy || ''), wonAvatar: String(s.wonAvatar || ''),
     })) : [],
     history: Array.isArray(c.history) ? c.history : [],
   };
@@ -3102,6 +3105,15 @@ function lwScheduleSave() { _lwSaver.schedule(); }
 // Vòng quay chỉ hiện các ô CHƯA quay (drawn=false). Ô đã quay bị làm xám trong danh sách
 // nhưng biến mất khỏi vòng quay ở app + OBS. Chỉ số ô trúng (spin.index) tính theo tập này.
 function lwPool() { return lwCfg.segments.filter(s => !s.drawn); }
+// Đẩy các ô đã quay (xám) lên đầu danh sách để dễ kiểm soát — sắp xếp ỔN ĐỊNH nên thứ tự
+// tương đối của nhóm chưa quay giữ nguyên → vòng quay (lwPool) KHÔNG đổi hình.
+function lwSortDrawn() {
+  if (!lwCfg.pushDrawnTop) return;
+  lwCfg.segments = lwCfg.segments
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => (b.s.drawn ? 1 : 0) - (a.s.drawn ? 1 : 0) || a.i - b.i)
+    .map(x => x.s);
+}
 function lwNewSeg() {
   const i = lwCfg.segments.length;
   return { id: 'lw_' + Math.random().toString(36).slice(2, 9), text: 'Số ' + (i + 1), note: '', type: 'info', color: LW_PALETTE[i % LW_PALETTE.length], weight: 10, jackpot: false, drawn: false };
@@ -3120,12 +3132,16 @@ function lwGenerateNumbers(n) {
 
 function renderLwSegList() {
   const box = $('#lwSegList'); if (!box) return;
+  lwSortDrawn();
   if (!lwCfg.segments.length) { box.innerHTML = '<div class="lw-empty">Chưa có ô nào. Nhấn <b>＋ Thêm ô</b>.</div>'; return; }
   box.innerHTML = lwCfg.segments.map((s, i) => `
     <div class="lw-seg${s.drawn ? ' lw-seg-drawn' : ''}" data-i="${i}">
       <div class="lw-seg-row" data-i="${i}">
         <input type="color" class="lw-seg-color" data-i="${i}" value="${s.color}" title="Màu ô" />
         <input type="text" class="lw-seg-text" data-i="${i}" value="${escAttr(s.text)}" placeholder="Nội dung ô" />
+        ${s.drawn ? (s.wonBy
+          ? `<span class="lw-seg-wonby" data-i="${i}" title="Người quay: ${escAttr(s.wonBy)} — bấm để chọn lại"><img class="lw-won-av js-avatar" src="${escAttr(safeAvatarUrl(s.wonAvatar))}" alt="" /><span class="lw-won-name">${escAttr(s.wonBy)}</span></span>`
+          : `<span class="lw-seg-wonby lw-won-none" data-i="${i}" title="Bấm để chọn người quay">＋ tên</span>`) : ''}
         ${s.drawn ? `<button class="lw-seg-restore" data-i="${i}" type="button" title="Khôi phục ô đã quay (đưa lại vào vòng quay)">↩️</button>` : ''}
         <button class="lw-seg-gear" data-i="${i}" type="button" title="Cài đặt: loại kết quả · tỷ lệ · quà lớn">⚙️</button>
         <button class="lw-seg-del" data-i="${i}" type="button" title="Xoá ô">🗑</button>
@@ -3149,11 +3165,61 @@ function renderLwSegList() {
   box.querySelectorAll('.lw-seg-type').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].type = el.value; lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-weight-input').forEach(el => el.addEventListener('input', () => { lwCfg.segments[+el.dataset.i].weight = clampInt(el.value, 10, 1, 100); lwScheduleSave(); }));
   box.querySelectorAll('.lw-seg-jackpot input').forEach(el => el.addEventListener('change', () => { lwCfg.segments[+el.dataset.i].jackpot = el.checked; lwScheduleSave(); }));
-  box.querySelectorAll('.lw-seg-restore').forEach(el => el.addEventListener('click', () => { lwCfg.segments[+el.dataset.i].drawn = false; renderLwSegList(); renderLwPreview(); lwPush(); }));
+  box.querySelectorAll('.lw-seg-wonby').forEach(el => el.addEventListener('click', () => lwOpenWonEditor(+el.dataset.i, el)));
+  box.querySelectorAll('.lw-seg-restore').forEach(el => el.addEventListener('click', () => { const s = lwCfg.segments[+el.dataset.i]; s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; renderLwSegList(); renderLwPreview(); lwPush(); }));
   box.querySelectorAll('.lw-seg-del').forEach(el => el.addEventListener('click', () => { lwCfg.segments.splice(+el.dataset.i, 1); renderLwSegList(); renderLwPreview(); lwScheduleSave(); }));
 }
 
 function escAttr(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+// Sửa lại người quay trúng cho 1 ô đã xám (chọn nhầm người thì đổi lại) — popup gắn dưới chip.
+function lwCloseWonEditor() {
+  document.getElementById('lwWonPop')?.remove();
+  if (lwWonEditorCleanup) { lwWonEditorCleanup(); lwWonEditorCleanup = null; }
+}
+let lwWonEditorCleanup = null;
+function lwOpenWonEditor(i, anchorEl) {
+  lwCloseWonEditor();
+  const seg = lwCfg.segments[i]; if (!seg || !anchorEl) return;
+  const list = visibleCreators();
+  const pop = document.createElement('div');
+  pop.id = 'lwWonPop';
+  pop.className = 'lw-won-pop';
+  pop.innerHTML = `
+    <div class="lw-won-pop-title">Người quay trúng "${escAttr(seg.text) || 'ô này'}"</div>
+    <select class="lw-won-pop-sel">
+      <option value="">— Chọn thành viên —</option>
+      ${list.map(cr => { const nm = cr.nickname || cr.tiktokId || cr.id; return `<option value="${escAttr(cr.id)}"${nm === seg.wonBy ? ' selected' : ''}>${escAttr(nm)}</option>`; }).join('')}
+    </select>
+    <input class="lw-won-pop-name" type="text" placeholder="hoặc gõ tên tự do…" value="${escAttr(seg.wonBy)}" />
+    <div class="lw-won-pop-actions">
+      <button class="lw-won-pop-clear" type="button">🗑️ Xoá tên</button>
+      <button class="lw-won-pop-apply" type="button">✔ Áp dụng</button>
+    </div>`;
+  document.body.appendChild(pop);
+  const r = anchorEl.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 266)) + 'px';
+  pop.style.top = Math.min(r.bottom + 6, window.innerHeight - pop.offsetHeight - 8) + 'px';
+  const sel = pop.querySelector('.lw-won-pop-sel');
+  const name = pop.querySelector('.lw-won-pop-name');
+  sel.addEventListener('change', () => { if (sel.value) { const cr = list.find(c => c.id === sel.value); if (cr) name.value = cr.nickname || cr.tiktokId || cr.id; } });
+  const apply = () => {
+    let wonBy = name.value.trim(), wonAvatar = '';
+    if (sel.value) { const cr = list.find(c => c.id === sel.value); if (cr) { wonBy = cr.nickname || cr.tiktokId || cr.id; wonAvatar = cr.avatar || ''; } }
+    seg.wonBy = wonBy; seg.wonAvatar = wonAvatar;
+    lwCloseWonEditor(); renderLwSegList(); renderLwPreview(); lwPush();
+  };
+  pop.querySelector('.lw-won-pop-apply').addEventListener('click', apply);
+  pop.querySelector('.lw-won-pop-clear').addEventListener('click', () => { seg.wonBy = ''; seg.wonAvatar = ''; lwCloseWonEditor(); renderLwSegList(); renderLwPreview(); lwPush(); });
+  name.addEventListener('keydown', (e) => { if (e.key === 'Enter') apply(); if (e.key === 'Escape') lwCloseWonEditor(); });
+  // Đóng khi bấm ra ngoài hoặc cuộn danh sách (popup gắn theo toạ độ chip).
+  const onDoc = (e) => { if (!pop.contains(e.target) && !(e.target instanceof Node && e.target.closest?.('.lw-seg-wonby'))) lwCloseWonEditor(); };
+  const onScroll = () => lwCloseWonEditor();
+  setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
+  document.getElementById('lwSegList')?.addEventListener('scroll', onScroll, { passive: true });
+  lwWonEditorCleanup = () => { document.removeEventListener('mousedown', onDoc); document.getElementById('lwSegList')?.removeEventListener('scroll', onScroll); };
+  setTimeout(() => name.focus(), 0);
+}
 
 let lwPreviewRot = null;    // góc quay hiện tại của preview (radian); null = vị trí nghỉ
 let lwPreviewSpinning = false;
@@ -3363,8 +3429,13 @@ async function lwDoSpin() {
   // Đồng bộ sang engine TRƯỚC khi quay để lượt mới không trúng lại ô đó và hình vòng quay khớp.
   if (lwPendingDrawn) {
     if (lwCfg.autoRemove) {
-      const prev = lwCfg.segments.find(s => s.id === lwPendingDrawn);
-      if (prev && !prev.drawn) { prev.drawn = true; renderLwSegList(); renderLwPreview(); await window.api.luckywheel.setConfig(lwCfg).catch(() => {}); }
+      const prev = lwCfg.segments.find(s => s.id === lwPendingDrawn.segId);
+      if (prev && !prev.drawn) {
+        prev.drawn = true;
+        prev.wonBy = lwPendingDrawn.member || '';
+        prev.wonAvatar = lwPendingDrawn.avatar || '';
+        renderLwSegList(); renderLwPreview(); await window.api.luckywheel.setConfig(lwCfg).catch(() => {});
+      }
     }
     lwPendingDrawn = null;
   }
@@ -3391,9 +3462,9 @@ async function lwDoSpin() {
           + (rec.note ? `<div class="lw-rc-note">${escAttr(rec.note)}</div>` : '')
           + (rec.member ? `<div class="lw-rc-who">🎯 ${escAttr(rec.member)}</div>` : '');
       }
-      // KHÔNG loại ngay: chỉ ghi nhớ ô vừa trúng. Ô vẫn nằm trên vòng quay để người xem thấy
-      // kim dừng đúng vùng ô đó (cảm giác thật hơn); sẽ bị làm xám khi bấm QUAY lượt kế tiếp.
-      if (lwCfg.autoRemove && rec.segId) lwPendingDrawn = rec.segId;
+      // KHÔNG loại ngay: chỉ ghi nhớ ô vừa trúng + người quay (tên/avatar). Ô vẫn nằm trên vòng
+      // quay để người xem thấy kim dừng đúng vùng ô đó; sẽ làm xám khi bấm QUAY lượt kế tiếp.
+      if (lwCfg.autoRemove && rec.segId) lwPendingDrawn = { segId: rec.segId, member: (spinner && spinner.name) || rec.member || '', avatar: (spinner && spinner.avatar) || '' };
     }, secs * 1000 + 150);
   }
   setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🎯 QUAY NGAY'; } }, secs * 1000 + 300);
@@ -3422,7 +3493,7 @@ function wireLuckyWheelTab() {
   $('#lwRestoreAll')?.addEventListener('click', () => {
     const grayed = lwCfg.segments.filter(s => s.drawn).length;
     if (!grayed) { toast('Không có ô xám nào', 'error'); return; }
-    lwCfg.segments.forEach(s => { s.drawn = false; });
+    lwCfg.segments.forEach(s => { s.drawn = false; s.wonBy = ''; s.wonAvatar = ''; });
     renderLwSegList(); renderLwPreview(); lwPush();
     lwCloseTools();
     toast(`Đã khôi phục ${grayed} ô đã quay`, 'success');
@@ -3437,6 +3508,7 @@ function wireLuckyWheelTab() {
     toast('Đã xoá tất cả ô', 'success');
   });
   $('#lwAutoRemove')?.addEventListener('change', () => { lwCfg.autoRemove = $('#lwAutoRemove').checked; lwScheduleSave(); });
+  $('#lwPushDrawnTop')?.addEventListener('change', () => { lwCfg.pushDrawnTop = $('#lwPushDrawnTop').checked; renderLwSegList(); lwPush(); });
   $('#lwTitleInput')?.addEventListener('input', () => { lwCfg.title = $('#lwTitleInput').value; lwScheduleSave(); });
   $('#lwShowTitle')?.addEventListener('change', () => { lwCfg.showTitle = $('#lwShowTitle').checked; lwPush(); });
   $('#lwStyle')?.addEventListener('change', () => { lwCfg.style = $('#lwStyle').value; renderLwPreview(); lwScheduleSave(); });
@@ -3503,6 +3575,7 @@ function wireLuckyWheelTab() {
   if ($('#lwShowCount')) $('#lwShowCount').checked = lwCfg.showCount;
   if ($('#lwEdgeStops')) $('#lwEdgeStops').checked = lwCfg.edgeStops;
   if ($('#lwAutoRemove')) $('#lwAutoRemove').checked = lwCfg.autoRemove;
+  if ($('#lwPushDrawnTop')) $('#lwPushDrawnTop').checked = lwCfg.pushDrawnTop;
   if ($('#lwSpinCount')) $('#lwSpinCount').value = lwCfg.spinCount || 0;
   lwRefreshSpinners();
   if ($('#lwSpinnerName') && !lwCfg.selectedSpinner?.id) $('#lwSpinnerName').value = lwCfg.selectedSpinner?.name || '';

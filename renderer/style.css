@@ -1622,7 +1622,7 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 }
 .quit-icon svg { width: 32px; height: 32px; }
 
-.quit-title { margin: 0 0 6px; font-size: 19px; font-weight: 800; color: var(--tt-ink); letter-spacing: .01em; }
+.quit-title { margin: 0 0 20px; font-size: 19px; font-weight: 800; color: var(--tt-ink); letter-spacing: .01em; }
 .quit-sub { margin: 0 0 18px; font-size: 13.5px; color: var(--tt-ink-2); }
 
 /* Bảng cảnh báo — nền hồng nhạt + chữ đỏ đậm để KHÔNG trùng màu nền thẻ */
@@ -2585,10 +2585,27 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 .lw-seg-adv .lw-seg-jackpot span { font-size: 12px; font-weight: 700; line-height: 1; }
 .lw-seg-del { border: 1px solid var(--tt-border); background: #fff; border-radius: 8px; cursor: pointer; height: 32px; font-size: 14px; }
 .lw-seg-del:hover { background: #fff0f2; border-color: var(--tt-pink); }
-/* Ô đã quay: làm xám trong danh sách nhưng giữ lại để khôi phục (đã biến mất khỏi vòng quay) */
-.lw-seg-drawn .lw-seg-row { grid-template-columns: 34px minmax(100px, 1fr) 32px 34px 32px; }
+/* Ô đã quay: làm xám trong danh sách nhưng giữ lại để khôi phục (đã biến mất khỏi vòng quay).
+   Thêm cột "người quay trúng" (avatar + tên) để tra cứu khi có nhiều thành viên. */
+.lw-seg-drawn .lw-seg-row { grid-template-columns: 34px minmax(52px, .7fr) minmax(88px, 1.3fr) 32px 34px 32px; }
 .lw-seg-drawn .lw-seg-text { opacity: .5; text-decoration: line-through; color: var(--tt-ink-2); }
 .lw-seg-drawn .lw-seg-color { opacity: .4; filter: grayscale(.6); }
+.lw-seg-wonby { display: inline-flex; align-items: center; gap: 6px; min-width: 0; height: 32px; padding: 0 9px; border: 1px solid var(--tt-border); border-radius: 999px; background: linear-gradient(180deg,#f0fff6,#e7fbef); }
+.lw-seg-wonby .lw-won-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; border: 1px solid #b7ecc9; background: #fff; }
+.lw-seg-wonby .lw-won-name { font-size: 12px; font-weight: 800; color: #157a45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.lw-seg-wonby.lw-won-none { color: var(--tt-ink-3); font-weight: 700; justify-content: center; background: #f5f6fb; }
+.lw-seg-wonby { cursor: pointer; transition: box-shadow .12s, border-color .12s; }
+.lw-seg-wonby:hover { border-color: #38d67a; box-shadow: 0 0 0 2px rgba(56,214,122,.18); }
+/* Popup đổi người quay trúng cho ô đã xám */
+.lw-won-pop { position: fixed; z-index: 60; width: 250px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #fff; border: 1px solid var(--tt-border); border-radius: 12px; box-shadow: 0 14px 36px rgba(22,24,35,.22); }
+.lw-won-pop-title { font-size: 11px; font-weight: 800; color: var(--tt-ink-3); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lw-won-pop select, .lw-won-pop input { padding: 7px 9px; border: 1px solid var(--tt-border); border-radius: 8px; font-size: 12.5px; background: #fff; color: var(--tt-ink); }
+.lw-won-pop-actions { display: flex; gap: 6px; }
+.lw-won-pop-actions button { flex: 1; font-size: 12px; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-weight: 700; }
+.lw-won-pop-clear { border: 1px solid var(--tt-border); background: #fff; color: var(--tt-ink); }
+.lw-won-pop-clear:hover { background: #fff0f2; border-color: var(--tt-pink); }
+.lw-won-pop-apply { border: 0; background: var(--tt-pink, #fe2c55); color: #fff; }
+.lw-won-pop-apply:hover { filter: brightness(1.05); }
 .lw-seg-restore { border: 1px solid var(--tt-border); background: #fff; border-radius: 8px; cursor: pointer; height: 32px; font-size: 13px; }
 .lw-seg-restore:hover { background: #eafff2; border-color: #38d67a; }
 .lw-add { font-size: 12px; padding: 4px 10px; }

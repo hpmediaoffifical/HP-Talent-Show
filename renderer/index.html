@@ -119,7 +119,7 @@
 
   <!-- ===== Popup thoát ứng dụng (thay dialog gốc, đồng bộ giao diện app) ===== -->
   <div id="quitOverlay" class="quit-overlay" hidden>
-    <div class="quit-card" role="dialog" aria-modal="true" aria-labelledby="quitTitle" aria-describedby="quitSub">
+    <div class="quit-card" role="dialog" aria-modal="true" aria-labelledby="quitTitle">
       <button id="quitClose" class="quit-x" type="button" aria-label="Đóng">✕</button>
       <div class="quit-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -128,11 +128,6 @@
         </svg>
       </div>
       <h3 id="quitTitle" class="quit-title">Thoát HP GROUP LIVE?</h3>
-      <p id="quitSub" class="quit-sub">Bạn có chắc muốn thoát ứng dụng?</p>
-      <div class="quit-note">
-        <span class="quit-note-ico" aria-hidden="true">⚠️</span>
-        <span>Khi thoát, <b>overlay OBS</b> và các cửa sổ <b>popup Review</b> sẽ <b class="quit-danger-text">NGƯNG hoạt động</b>.</span>
-      </div>
       <div class="quit-actions">
         <button id="quitCancel" class="quit-btn quit-btn-cancel" type="button">Ở lại</button>
         <button id="quitConfirm" class="quit-btn quit-btn-danger" type="button">Thoát hẳn</button>
@@ -1865,6 +1860,7 @@
               <label class="lw-chk"><input type="checkbox" id="lwShowCount" checked /> 🔢 Hiện lượt quay trên OBS</label>
               <label class="lw-chk" title="32% lượt quay sẽ dừng sát vạch ngăn ô, nhưng kết quả vẫn thuộc đúng ô đã chọn."><input type="checkbox" id="lwEdgeStops" checked /> 🎭 Dừng sát mép</label>
               <label class="lw-chk" title="Sau khi quay trúng 1 ô: làm xám ô đó trong danh sách và bỏ khỏi vòng quay (app + OBS). Bấm ↩️ hoặc ♻️ Khôi phục để đưa lại."><input type="checkbox" id="lwAutoRemove" /> 🗑️ Tự loại ô đã quay</label>
+              <label class="lw-chk" title="Đẩy các ô đã quay (xám) lên đầu danh sách cho dễ kiểm soát. Không ảnh hưởng thứ tự/hình vòng quay."><input type="checkbox" id="lwPushDrawnTop" /> ⬆️ Ô đã quay lên đầu</label>
               <label class="lw-row"><span>Đã quay</span>
                 <div class="lw-count-ctl">
                   <input type="number" id="lwSpinCount" min="0" value="0" />
