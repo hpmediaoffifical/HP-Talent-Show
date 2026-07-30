@@ -370,6 +370,30 @@ function avatarForCreatorId(id) {
   return c?.avatar || '';
 }
 
+// Chuẩn hoá TikTok ID để so khớp (bỏ @, thường hoá).
+function normTiktokId(v) { return String(v || '').trim().replace(/^@/, '').toLowerCase(); }
+
+// Tìm avatar/nickname ĐÃ BIẾT của một TikTok ID từ creator/nhóm khác đang có trong máy.
+// Dùng để TÁI SỬ DỤNG NGAY khi thêm/sửa một thành viên trùng ID đã tồn tại — không phụ thuộc
+// mạng (oembed nay bỏ avatar, tikwm hay bị giới hạn tần suất) nên "bấm Tải"/lưu vẫn ra avatar.
+// Ưu tiên bản còn hạn (avatarNeedsRefetch=false); nếu không có thì lấy tạm bản bất kỳ có avatar.
+function knownProfileForTiktokId(tiktokId, exceptCreatorId = '') {
+  const id = normTiktokId(tiktokId);
+  if (!id) return null;
+  const cs = (typeof creators !== 'undefined' ? creators : []);
+  const gs = (typeof groups !== 'undefined' ? groups : []);
+  const fresh = (av) => av && !avatarNeedsRefetch(av);
+  const cFresh = cs.find(x => (x.id || '') !== exceptCreatorId && normTiktokId(x.tiktokId) === id && fresh(x.avatar));
+  if (cFresh) return { avatar: cFresh.avatar, nickname: cFresh.nickname || cFresh.channelName || '' };
+  const gFresh = gs.find(x => normTiktokId(x.tiktokId) === id && fresh(x.avatar));
+  if (gFresh) return { avatar: gFresh.avatar, nickname: gFresh.name || '' };
+  const cAny = cs.find(x => (x.id || '') !== exceptCreatorId && normTiktokId(x.tiktokId) === id && x.avatar);
+  if (cAny) return { avatar: cAny.avatar, nickname: cAny.nickname || cAny.channelName || '' };
+  const gAny = gs.find(x => normTiktokId(x.tiktokId) === id && x.avatar);
+  if (gAny) return { avatar: gAny.avatar, nickname: gAny.name || '' };
+  return null;
+}
+
 function closeAllAvatarSelects(except) {
   document.querySelectorAll('.av-select.is-open').forEach(w => {
     if (w === except) return;
@@ -5304,21 +5328,25 @@ function wireCreatorTab() {
     $('#crSpinner').hidden = false;
     $('#btnLoadCreator').disabled = true;
     try {
-      const p = await window.api.tt.fetchProfile(u);
-      if (p.found) {
-        if (p.nickname) {
-          // Auto-fill cả Nick name nếu user chưa edit, và channel name
-          if (!$('#crNickname').value || !currentEditingCreator) $('#crNickname').value = p.nickname;
-          $('#crChannel').textContent = p.nickname;
-        }
-        if (p.avatar) {
-          $('#crAvatarUrl').value = p.avatar;
-          $('#crAvatarPreview').src = p.avatar;
-        } else {
-          $('#crAvatarUrl').value = '';
-          $('#crAvatarPreview').src = '../logo/hp-logo.png';
-        }
-        toast('Đã tải Nick Name và Avatar', 'success');
+      const p = await window.api.tt.fetchProfile(u).catch(() => ({ found: false }));
+      // Mạng có thể trả rỗng (tikwm giới hạn tần suất, oembed đã bỏ avatar). Bù bằng dữ liệu
+      // đã lưu của cùng TikTok ID để "bấm Tải" luôn ra avatar/nickname nếu ID này từng có.
+      const known = knownProfileForTiktokId(u, currentEditingCreator?.id);
+      const nickname = p.nickname || known?.nickname || '';
+      const avatar = p.avatar || known?.avatar || '';
+      if (nickname) {
+        if (!$('#crNickname').value || !currentEditingCreator) $('#crNickname').value = nickname;
+        $('#crChannel').textContent = nickname;
+      }
+      if (avatar) {
+        $('#crAvatarUrl').value = avatar;
+        $('#crAvatarPreview').src = avatar;
+      } else {
+        $('#crAvatarUrl').value = '';
+        $('#crAvatarPreview').src = '../logo/hp-logo.png';
+      }
+      if (avatar || nickname) {
+        toast(p.avatar ? 'Đã tải Nick Name và Avatar' : (avatar ? 'Đã dùng lại avatar đã lưu của ID này' : 'Đã tải Nick Name'), 'success');
       } else {
         toast('Không tìm thấy profile, vẫn có thể lưu thủ công.', 'error');
       }
@@ -5330,6 +5358,21 @@ function wireCreatorTab() {
   }
   $('#crTiktokId').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); autoFetchCreator(true); }
+  });
+  // Gõ đúng TikTok ID đã có trong máy → tự điền avatar/nickname NGAY (offline), khỏi bấm Tải.
+  // Chỉ điền vào ô đang trống và khi THÊM MỚI (không đè khi đang sửa thành viên có sẵn).
+  $('#crTiktokId').addEventListener('input', () => {
+    if (currentEditingCreator) return;
+    const known = knownProfileForTiktokId($('#crTiktokId').value);
+    if (!known) return;
+    if (!$('#crAvatarUrl').value.trim() && known.avatar) {
+      $('#crAvatarUrl').value = known.avatar;
+      $('#crAvatarPreview').src = known.avatar;
+    }
+    if (!$('#crNickname').value.trim() && known.nickname) {
+      $('#crNickname').value = known.nickname;
+      $('#crChannel').textContent = known.nickname;
+    }
   });
   $('#btnLoadCreator').addEventListener('click', () => autoFetchCreator(true));
 
@@ -5352,13 +5395,22 @@ function wireCreatorTab() {
       toast(`Quà này đã được chọn bởi ${owner.nickname || owner.tiktokId || 'Creator khác'} trong nhóm này`, 'error');
       return;
     }
+    // TỰ ĐỘNG CẬP NHẬT AVATAR: nếu chưa có avatar (user không bấm Tải, hoặc mạng lỗi) mà TikTok ID
+    // này đã từng lưu ở creator/nhóm khác → dùng lại avatar đã biết ngay, khỏi để trơ logo HP.
+    let avatarVal = $('#crAvatarUrl').value.trim();
+    let nickVal = $('#crNickname').value.trim();
+    if (!avatarVal || !nickVal) {
+      const known = knownProfileForTiktokId(tiktokId, currentEditingCreator?.id);
+      if (!avatarVal && known?.avatar) avatarVal = known.avatar;
+      if (!nickVal && known?.nickname) nickVal = known.nickname;
+    }
     const payload = {
       id: currentEditingCreator?.id,
       tiktokId,
-      nickname: $('#crNickname').value.trim() || tiktokId,
+      nickname: nickVal || tiktokId,
       channelName: $('#crChannel').textContent || '',
       groupId: $('#crGroup').value,
-      avatar: $('#crAvatarUrl').value.trim(),
+      avatar: avatarVal,
       defaultGiftName: $('#crGiftName').value.trim(),
       defaultGiftId: giftId,
       defaultGiftIcon: $('#crGiftIcon').value.trim(),
@@ -5369,6 +5421,8 @@ function wireCreatorTab() {
     clearCreatorForm();
     lastFetchedId = '';
     toast(wasEditing ? '✅ Đã cập nhật Creator' : '💾 Đã thêm Creator', 'success');
+    // Còn thiếu avatar (ID hoàn toàn mới, chưa ai lưu) → tự lấy nền theo ID, khỏi cần bấm Tải.
+    if (!avatarVal) autoRefetchStaleAvatars();
   });
 }
 
@@ -5406,26 +5460,38 @@ async function autoRefetchStaleAvatars() {
   try {
     const staleGroups = groups.filter(g => g.tiktokId && avatarNeedsRefetch(g.avatar));
     const staleCreators = creators.filter(c => c.tiktokId && avatarNeedsRefetch(c.avatar));
+    // Gom theo TikTok ID: mỗi ID chỉ lấy MẠNG 1 lần rồi áp cho MỌI bản trùng ID (nhiều thành
+    // viên cùng 1 ID, hoặc creator trùng ID với nhóm). Giảm số request → tránh tikwm giới hạn
+    // tần suất (nguyên nhân "bấm Tải/tự cập nhật không ra avatar" khi có nhiều thành viên).
+    const ids = new Map(); // normId -> raw tiktokId
+    for (const x of [...staleGroups, ...staleCreators]) {
+      const key = normTiktokId(x.tiktokId);
+      if (key && !ids.has(key)) ids.set(key, x.tiktokId);
+    }
     let groupsChanged = false, creatorsChanged = false;
-    for (const g of staleGroups) {
-      try {
-        const p = await window.api.tt.fetchProfile(g.tiktokId);
-        if (p?.found && p.avatar && p.avatar !== g.avatar) {
-          await window.api.groups.upsert({ id: g.id, avatar: p.avatar });
+    for (const [key, raw] of ids) {
+      // Ưu tiên avatar CÒN HẠN đã có sẵn của cùng ID (offline, không tốn mạng).
+      let avatar = knownProfileForTiktokId(raw)?.avatar || '';
+      if (!avatar || avatarNeedsRefetch(avatar)) {
+        try {
+          const p = await window.api.tt.fetchProfile(raw);
+          if (p?.found && p.avatar) avatar = p.avatar;
+        } catch {}
+        await new Promise(r => setTimeout(r, 150));
+      }
+      if (!avatar) continue;
+      for (const g of staleGroups) {
+        if (normTiktokId(g.tiktokId) === key && g.avatar !== avatar) {
+          await window.api.groups.upsert({ id: g.id, avatar });
           groupsChanged = true;
         }
-      } catch {}
-      await new Promise(r => setTimeout(r, 150));
-    }
-    for (const c of staleCreators) {
-      try {
-        const p = await window.api.tt.fetchProfile(c.tiktokId);
-        if (p?.found && p.avatar && p.avatar !== c.avatar) {
-          await window.api.creators.upsert({ id: c.id, avatar: p.avatar });
+      }
+      for (const c of staleCreators) {
+        if (normTiktokId(c.tiktokId) === key && c.avatar !== avatar) {
+          await window.api.creators.upsert({ id: c.id, avatar });
           creatorsChanged = true;
         }
-      } catch {}
-      await new Promise(r => setTimeout(r, 150));
+      }
     }
     if (groupsChanged) await refreshGroups();
     if (creatorsChanged) await refreshCreators();
