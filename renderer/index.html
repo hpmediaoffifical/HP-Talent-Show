@@ -190,6 +190,37 @@
     </div>
   </div>
 
+  <!-- ===== Lịch sử 🎯 Tính điểm modal ===== -->
+  <div id="scoreHistModal" class="gp-overlay">
+    <div class="gp-modal hist-modal" role="dialog" aria-labelledby="scoreHistTitle">
+      <header class="gp-head">
+        <h3 id="scoreHistTitle">📊 Lịch sử Tính điểm</h3>
+        <span class="gp-count" id="scoreHistCount"></span>
+        <button id="scoreHistExport" class="primary tiny" type="button" title="Xuất CSV: Tên idol · TikTok ID · Điểm">⬇ Xuất CSV</button>
+        <button id="scoreHistClear" class="ghost tiny" type="button">🗑 Xóa hết</button>
+        <button id="scoreHistClose" class="gp-close-btn" type="button" aria-label="Đóng" title="Đóng (Esc)">✕</button>
+      </header>
+      <div class="hist-body" id="scoreHistBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== Lịch sử 🏆 THI ĐẤU NHÓM modal ===== -->
+  <div id="rankHistModal" class="gp-overlay">
+    <div class="gp-modal hist-modal" role="dialog" aria-labelledby="rankHistTitle">
+      <header class="gp-head">
+        <h3 id="rankHistTitle">📊 Lịch sử THI ĐẤU NHÓM</h3>
+        <span class="gp-count" id="rankHistCount"></span>
+        <label class="rhist-heso" title="KIM CƯƠNG TƯƠI = Điểm sàn + (Điểm − Điểm sàn) × hệ số">Hệ số KC Tươi
+          <select id="rankHistHeSo"><option value="2">×2</option><option value="3">×3</option><option value="5">×5</option></select>
+        </label>
+        <button id="rankHistExport" class="primary tiny" type="button" title="Xuất CSV: Điểm · Điểm sàn · Điểm dư · KIM CƯƠNG TƯƠI">⬇ Xuất CSV</button>
+        <button id="rankHistClear" class="ghost tiny" type="button">🗑 Xóa hết</button>
+        <button id="rankHistClose" class="gp-close-btn" type="button" aria-label="Đóng" title="Đóng (Esc)">✕</button>
+      </header>
+      <div class="hist-body" id="rankHistBody"></div>
+    </div>
+  </div>
+
   <div class="app">
     <aside class="sidebar" aria-label="Điều hướng">
       <div class="brand" title="HP GROUP LIVE">
@@ -274,6 +305,11 @@
         <div class="creator-sticky-head">
           <h1>👤 Thành Viên</h1>
 
+          <div class="auto-recip-toggle">
+            <span>📡 Chế độ <b>TikTok</b> (PK Đôi/Nhóm): ở 🎮 Chế độ chọn mode này là tự cộng điểm theo <b>người nhận quà</b> — khớp theo tên, khỏi chọn phe/chọn quà. Bấm nút để quét sẵn <b>UID</b> cho khớp chính xác hơn.</span>
+            <button id="btnLearnAllIds" class="ghost tiny" type="button" title="Tự lấy ID nhận quà cho mọi thành viên (qua @TikTok ID)">🎯 Học tất cả ID</button>
+          </div>
+
           <div class="card row-form creator-form">
             <div class="rf-avatar">
               <img id="crAvatarPreview" src="../logo/hp-logo.png" alt="" />
@@ -288,9 +324,16 @@
                 <span class="rf-spinner" id="crSpinner" hidden>⏳</span>
               </div>
             </label>
-            <label class="rf-cell">
+            <label class="rf-cell rf-nick">
               <span>Nick Name</span>
               <input id="crNickname" placeholder="Tên hiển thị" />
+            </label>
+            <label class="rf-cell rf-uid">
+              <span>UID TỰ NHẬN QUÀ</span>
+              <div class="inline tight with-load">
+                <input id="crUserId" placeholder="tự điền khi Tải / Học" autocomplete="off" inputmode="numeric" />
+                <button id="btnLearnRecipient" class="ghost tiny" type="button" title="Bấm rồi tặng thử 1 quà cho thành viên này trong LIVE — app sẽ tự chộp ID người nhận">🎯 Học ID</button>
+              </div>
             </label>
             <label class="rf-cell">
               <span>Nhóm</span>
@@ -396,6 +439,7 @@
               <select id="pkJoinMode">
                 <option value="false" title="Quà rơi vào đội đã gán sẵn">Cố Định</option>
                 <option value="true" title="Quà kích hoạt để người xem chọn phe">Chọn Phe</option>
+                <option value="creator" title="Tự cộng theo người nhận thật trong LIVE nhóm — khỏi chọn quà. Chọn đúng Creator khi tặng trên TikTok là điểm tự vào đúng phe.">TikTok</option>
               </select>
             </label>
             <select id="pkPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
@@ -607,6 +651,7 @@
               <select id="pkgPlayMode">
                 <option value="fixed">Cố định</option>
                 <option value="join">Chọn phe</option>
+                <option value="creator" title="Tự cộng theo người nhận thật trong LIVE nhóm — khỏi chọn quà. Chọn đúng Creator khi tặng trên TikTok.">TikTok</option>
               </select>
             </label>
             <select id="pkgPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
@@ -891,6 +936,8 @@
             <button id="rkReset" class="warn" type="button">↺ RESET ĐIỂM</button>
             <button id="rkClearPerfOrder" class="ghost" type="button" title="Xoá toàn bộ Số thứ tự thi đấu (STT) — gán từ 🎡 VÒNG QUAY — để bắt đầu lượt thi mới">🔄 XOÁ STT</button>
             <button id="rkClearAllHistory" class="ghost" type="button" title="Xóa toàn bộ lịch sử gameplay của mọi Creator trong THI ĐẤU NHÓM">🧹 XÓA LỊCH SỬ</button>
+            <button id="rkSnapshot" class="ghost" type="button" title="Chụp bảng điểm hiện tại thành 1 mốc lịch sử (có Điểm sàn + KIM CƯƠNG TƯƠI)">📸 CHỤP BẢNG</button>
+            <button id="rkHistoryBtn" class="ghost" type="button" title="Xem/tải lịch sử THI ĐẤU NHÓM (thống kê Điểm sàn + KIM CƯƠNG TƯƠI)">📊 LỊCH SỬ</button>
           </div>
           <div class="rk-score-bridge" id="rkScoreBridge" hidden>
             <div><b>🎯 Tính điểm liên kết</b><span id="rkScoreBridgeName">Chưa chọn VOTE</span></div>
@@ -943,6 +990,8 @@
             <button id="scStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="scReset" class="ghost" type="button">↺ Reset</button>
             <button id="scSaveCfg" class="ghost" type="button">💾 LƯU</button>
+            <button id="scSnapshot" class="ghost" type="button" title="Chụp điểm hiện tại của idol đang chọn thành 1 lượt lịch sử">📸 Chụp</button>
+            <button id="scHistoryBtn" class="ghost" type="button" title="Xem/tải lịch sử điểm (CSV: Tên idol · TikTok ID · Điểm)">📊 Lịch sử</button>
             <div class="sc-tools">
               <button id="scToolsBtn" class="ghost sc-tools-btn" type="button" title="Công cụ: COPY OBS · TEST cộng/trừ điểm" aria-expanded="false">⚙️</button>
               <div class="sc-tools-pop" id="scToolsPop" hidden>

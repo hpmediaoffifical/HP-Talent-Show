@@ -1,6 +1,6 @@
 {
   "teamA": {
-    "name": "TEAM A",
+    "name": "Raiden",
     "color": "#fe2c55",
     "gifts": [
       {
@@ -10,8 +10,8 @@
         "diamond": 1
       }
     ],
-    "creatorAvatar": "../logo/hp-logo.png",
-    "creatorAvatarKey": "",
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=32669c64&x-expires=1785686400&x-signature=Fyq3iEX7XkA7l9huLswPQJyyTLQ%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+    "creatorAvatarKey": "d2f7a0ed10441222facb47f2e8bc147a6ab175f2",
     "fixedGifts": [
       {
         "giftName": "Blow a kiss",
@@ -21,13 +21,15 @@
       }
     ],
     "joinGifts": [],
-    "groupId": "",
-    "groupName": "",
-    "creatorId": "",
-    "creatorName": ""
+    "groupId": "g_mrtg107e1aqmz",
+    "groupName": "HP•VITAMIN B",
+    "creatorId": "c_mrtg28mrb1ni1",
+    "creatorName": "Raiden",
+    "winStreak": 0,
+    "nameOverride": false
   },
   "teamB": {
-    "name": "TEAM B",
+    "name": "Xuhao",
     "color": "#25f4ee",
     "gifts": [
       {
@@ -37,8 +39,8 @@
         "diamond": 1
       }
     ],
-    "creatorAvatar": "../logo/hp-logo.png",
-    "creatorAvatarKey": "",
+    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=bc81fdc0&x-expires=1785686400&x-signature=YVSs2YxpgKfxxh48DJMiS66wyIU%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+    "creatorAvatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b",
     "fixedGifts": [
       {
         "giftName": "Cake Slice",
@@ -48,15 +50,19 @@
       }
     ],
     "joinGifts": [],
-    "groupId": "",
-    "groupName": "",
-    "creatorId": "",
-    "creatorName": ""
+    "groupId": "g_mrtg107e1aqmz",
+    "groupName": "HP•VITAMIN B",
+    "creatorId": "c_mrtg2crd6d27p",
+    "creatorName": "Xuhao",
+    "winStreak": 1,
+    "nameOverride": false
   },
   "durationSec": 90,
   "prepSec": 3,
   "delaySec": 5,
   "joinMode": false,
+  "creatorLive": true,
+  "linkRanking": true,
   "pointsBy": "diamond",
   "content": "PK ĐÔI",
   "bgColor": "#000000",
@@ -76,5 +82,8 @@
   "fxThreshold": 8,
   "fxMaxGap": 30,
   "fxIntensityCap": 100,
-  "championsEnabled": true
+  "championsEnabled": true,
+  "championNames": false,
+  "arrowStyle": "random",
+  "selectFx": "random"
 }

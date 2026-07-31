@@ -9,7 +9,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 
 .ranking-board {
   display:inline-grid; grid-template-columns:minmax(0,var(--rk-width, 116px)); width:var(--rk-width, 116px); min-width:0;
-  padding:6px; border-radius:15px; overflow:visible; color:#fff;
+  padding:6px; border-radius:10px; overflow:visible; color:#fff;
   /* Màu nền board tuỳ chỉnh — OBS-safe: phủ lớp trắng(đỉnh)→đen(đáy) lên màu đặc thay color-mix
      (CEF cũ của OBS không hiểu color-mix → nền board biến mất/đen).
      Độ đậm nền (--ranking-board-bg-opacity, 0..1) nhân đều màu nền + lớp gloss + đổ bóng để
@@ -28,15 +28,20 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board:not(.hide-avatar) { --rk-width:142px; }
 .ranking-board:not(.hide-avatar):not(.hide-gift), .ranking-board:not(.hide-avatar):not(.hide-round) { --rk-width:152px; }
 .ranking-board.layout-grid { width:max-content; grid-template-columns:minmax(0,max-content); }
+/* Bản DỌC: thu hẹp đệm 2 bên (6px→4px) để card ôm sát viền ngoài hơn, thoáng mắt hơn.
+   Header/Footer bù margin ngang -4px để vẫn chạm đúng mép ngoài board. NGANG (grid) giữ nguyên. */
+.ranking-board:not(.layout-grid) { padding-left:4px; padding-right:4px; }
+.ranking-board:not(.layout-grid) .ranking-title { margin-left:-4px; margin-right:-4px; }
+.ranking-board:not(.layout-grid) .ranking-active-name { margin-left:-4px; margin-right:-4px; }
 
 /* Tiêu đề = HEADER ôm sát mép TRÊN board (đối xứng với footer Thanh dưới).
-   margin âm -6px = padding board → chạm mép ngoài; ĐỈNH bo 15px khớp board, ĐÁY vuông.
+   margin âm -6px = padding board → chạm mép ngoài; ĐỈNH bo 10px khớp board, ĐÁY vuông.
    Header + footer cùng bo về 2 mép → kẹp "ôm" phần thông tin ở giữa. */
 .ranking-title {
   position:relative;
   box-sizing:border-box;
   padding:7px 9px 9px; margin:-6px -6px 6px;
-  border-radius:15px 15px 0 0;
+  border-radius:10px 10px 0 0;
   font-size:15px; font-weight:950; letter-spacing:.03em;
   color:var(--ranking-title-color, #fff);
   text-align:center; white-space:normal; line-height:1.1;
@@ -56,7 +61,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 
 .ranking-row {
   position:relative; display:grid; grid-template-columns:24px minmax(0,1fr); column-gap:4px; align-items:center; min-height:38px;
-  padding:4px 6px 4px 5px; border-radius:9px;
+  padding:4px 6px 4px 5px; border-radius:6px;
   transition:transform .2s cubic-bezier(.22,1,.36,1), box-shadow .2s, background .2s, filter .2s, opacity .2s;
   background:rgba(var(--ranking-card-bg-rgb, 42,45,55), var(--ranking-card-bg-opacity, .74));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.2);
@@ -92,7 +97,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
    nổi bật hẳn khi bấm VOTE, KHÔNG bị viền cắt. Nền hàng cũng nhuộm theo Màu active. */
 .ranking-row.active {
   z-index:6; transform:scale(1.05); transform-origin:center;
-  border-radius:10px;
+  border-radius:7px;
   background:linear-gradient(90deg,
     rgba(var(--ranking-streak-rgb, 103,232,249),.26),
     rgba(var(--ranking-streak-rgb, 103,232,249),.07)),
@@ -152,7 +157,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board.af-gold  .ranking-row.active:not(.loser)::after,
 .ranking-board.af-rainbow .ranking-row.active:not(.loser)::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 10px); will-change:transform;
+  clip-path:inset(0 round 7px); will-change:transform;
   background:linear-gradient(105deg, transparent 40%, rgba(255,255,255,.5) 50%, transparent 60%);
   animation:rankingActiveShine 2.4s ease-in-out infinite;
 }
@@ -163,7 +168,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 /* -- Đèn quét: vầng sáng trắng lia ngang + thở -- */
 .ranking-board.af-spotlight .ranking-row.active:not(.loser)::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 10px);
+  clip-path:inset(0 round 7px);
   background:radial-gradient(90% 150% at 22% 50%, rgba(255,255,255,.55), rgba(255,255,255,.12) 40%, transparent 66%);
   animation:rankingActiveSpot 2.6s ease-in-out infinite;
 }
@@ -171,7 +176,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 /* -- Lấp lánh: nhiều đốm sáng trắng nhấp nháy (gộp trong 1 background, luôn trong khung) -- */
 .ranking-board.af-sparkle .ranking-row.active:not(.loser)::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 10px);
+  clip-path:inset(0 round 7px);
   background:
     radial-gradient(circle at 18% 32%, rgba(255,255,255,.95) 0, transparent 9%),
     radial-gradient(circle at 63% 70%, rgba(255,255,255,.9) 0, transparent 8%),
@@ -193,7 +198,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 /* -- Nhịp sáng: cả thẻ sáng-tối thở bằng lớp phủ trắng mỏng -- */
 .ranking-board.af-pulse .ranking-row.active:not(.loser)::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 10px);
+  clip-path:inset(0 round 7px);
   background:rgba(255,255,255,.34);
   animation:rankingActivePulse 1.4s ease-in-out infinite;
 }
@@ -255,7 +260,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board.bar-sync.af-gold .ranking-active-name::after,
 .ranking-board.bar-sync.af-rainbow .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 0 0 15px 15px); will-change:transform;
+  clip-path:inset(0 round 0 0 10px 10px); will-change:transform;
   background:linear-gradient(105deg, transparent 40%, rgba(255,255,255,.5) 50%, transparent 60%);
   animation:rankingActiveShine 2.4s ease-in-out infinite;
 }
@@ -264,13 +269,13 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 }
 .ranking-board.bar-sync.af-spotlight .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 0 0 15px 15px);
+  clip-path:inset(0 round 0 0 10px 10px);
   background:radial-gradient(90% 150% at 22% 50%, rgba(255,255,255,.55), rgba(255,255,255,.12) 40%, transparent 66%);
   animation:rankingActiveSpot 2.6s ease-in-out infinite;
 }
 .ranking-board.bar-sync.af-sparkle .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 0 0 15px 15px);
+  clip-path:inset(0 round 0 0 10px 10px);
   background:
     radial-gradient(circle at 18% 32%, rgba(255,255,255,.95) 0, transparent 9%),
     radial-gradient(circle at 63% 70%, rgba(255,255,255,.9) 0, transparent 8%),
@@ -285,14 +290,29 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 }
 .ranking-board.bar-sync.af-pulse .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 0 0 15px 15px);
+  clip-path:inset(0 round 0 0 10px 10px);
   background:rgba(255,255,255,.34);
   animation:rankingActivePulse 1.4s ease-in-out infinite;
 }
 
-.ranking-rank { position:relative; width:24px; min-width:0; display:grid; place-items:center; font-size:13px; font-weight:950; text-align:center; color:#f8fafc; }
+.ranking-rank { position:relative; z-index:0; align-self:stretch; width:24px; min-width:0; display:grid; place-items:center; font-size:13px; font-weight:950; text-align:center; color:#f8fafc; }
+/* Lớp nền STT tối hơn — thanh dọc GỌN ôm vừa số thứ tự, KHÔNG chạm avatar, chừa khoảng cách đều 2 bên.
+   z-index:-1 để nằm TRÊN nền card nhưng DƯỚI số thứ tự; đối xứng left=right nên số cân giữa.
+   align-self:stretch cho cột cao suốt hàng → thanh phủ full chiều cao card.
+   2 ĐẦU (trên/dưới) mờ dần về trong suốt để không tạo mép cứng dính mép card → liền mạch, mềm mại. */
+.ranking-rank::before {
+  content:""; position:absolute; z-index:-1;
+  top:-4px; bottom:-4px; left:1px; right:1px;
+  background:linear-gradient(180deg,
+    rgba(0,0,0,0) 0%,
+    rgba(0,0,0,.58) 20%,
+    rgba(0,0,0,.62) 80%,
+    rgba(0,0,0,0) 100%);
+  border-radius:5px;
+}
+.ranking-board.layout-grid .ranking-rank::before { top:-3px; bottom:-3px; }
 .ranking-row.top-1 .ranking-rank, .ranking-row.top-2 .ranking-rank, .ranking-row.top-3 .ranking-rank {
-  z-index:2; font-size:19px; line-height:1; transform:translateX(-4px); filter:drop-shadow(0 2px 2px rgba(0,0,0,.52));
+  z-index:2; font-size:19px; line-height:1; filter:drop-shadow(0 2px 2px rgba(0,0,0,.52));
 }
 .ranking-row.top-1 .ranking-rank { filter:drop-shadow(0 0 5px rgba(255,218,95,.82)) drop-shadow(0 2px 2px rgba(0,0,0,.52)); }
 .ranking-row.top-2 .ranking-rank { filter:drop-shadow(0 0 5px rgba(198,216,248,.78)) drop-shadow(0 2px 2px rgba(0,0,0,.52)); }
@@ -343,12 +363,12 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 
 /* Panel người đang được chọn — thẻ nổi ở cuối */
 /* Thanh dưới = FOOTER ôm sát mép ngoài board (áp cho cả dọc & ngang).
-   Board có padding:6px + radius:15px + overflow:visible → margin âm -6px để thanh chạm
-   đúng mép ngoài (border-box). ĐỈNH vuông góc, ĐÁY bo 15px khớp nền board bên dưới. */
+   Board có padding:6px + radius:10px + overflow:visible → margin âm -6px để thanh chạm
+   đúng mép ngoài (border-box). ĐỈNH vuông góc, ĐÁY bo 10px khớp nền board bên dưới. */
 .ranking-active-name {
   box-sizing:border-box;
   margin:6px -6px -6px; display:flex; align-items:center; justify-content:flex-start; gap:8px;
-  min-height:40px; padding:6px 9px; border-radius:0 0 15px 15px;
+  min-height:40px; padding:6px 9px; border-radius:0 0 10px 10px;
   background:linear-gradient(90deg, rgba(38,183,185,.9), rgba(45,133,154,.94));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.12), 0 4px 14px rgba(26,140,150,.32);
   color:#eaffff; line-height:1.08;
@@ -369,11 +389,11 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   padding:1px;
 }
 .ranking-board.layout-grid.flow-column .ranking-list { grid-auto-flow:column; }
-.ranking-board.layout-grid .ranking-row { border-radius:10px; min-height:50px; padding:3px 5px; }
+.ranking-board.layout-grid .ranking-row { border-radius:6px; min-height:50px; padding:3px 5px; }
 .ranking-board.layout-grid .ranking-row.active { transform:scale(1.04); }
 .ranking-board.layout-grid .ranking-main { max-width:70px; }
 .ranking-board.layout-grid .ranking-name { max-width:9.5ch; }
-.ranking-board.layout-grid .ranking-active-name { margin:6px -6px -6px; border-radius:0 0 15px 15px; min-height:40px; }
+.ranking-board.layout-grid .ranking-active-name { margin:6px -6px -6px; border-radius:0 0 10px 10px; min-height:40px; }
 .ranking-board.hide-avatar .ranking-row { grid-template-columns:24px minmax(0,1fr); }
 .ranking-board.hide-avatar .ranking-main { max-width:104px; }
 .ranking-board:not(.hide-avatar) .ranking-row { grid-template-columns:24px 25px minmax(0,1fr); }

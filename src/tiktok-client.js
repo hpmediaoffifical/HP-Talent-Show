@@ -177,6 +177,11 @@ class TikTokClient extends EventEmitter {
     const username = String(rawUsername || '').trim().replace(/^@/, '');
     if (!username) throw new Error('Username trống.');
     let best = { uniqueId: username, nickname: username, avatar: '', found: false, source: 'fallback' };
+    // Lấy sẵn hồ sơ tikwm (user.id = toMemberId = ID nhận quà) để đính userId vào MỌI nhánh trả về,
+    // phục vụ tính năng tự tính điểm theo người nhận quà trong LIVE nhóm.
+    let apiProfile = {};
+    try { apiProfile = await fetchTikwmProfile(username); } catch {}
+    const userId = apiProfile.id ? String(apiProfile.id) : '';
     try {
       const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent('https://www.tiktok.com/@' + username)}`;
       const res = await fetchWithTimeout(oembedUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
@@ -187,6 +192,7 @@ class TikTokClient extends EventEmitter {
           nickname: data.author_name || username,
           avatar: data.thumbnail_url || '',
           title: data.title || '',
+          userId,
           found: true,
           source: 'oembed',
         };
@@ -194,15 +200,16 @@ class TikTokClient extends EventEmitter {
       }
     } catch {}
     try {
-      const api = await fetchTikwmProfile(username);
+      const api = apiProfile;
       if (api.nickname || api.avatar) {
         return {
           uniqueId: username,
           nickname: api.nickname || best.nickname || username,
           avatar: api.avatar || best.avatar || '',
           title: best.title || '',
+          userId,
           found: true,
-          source: api.source,
+          source: api.source || 'tikwm',
         };
       }
     } catch {}
@@ -214,11 +221,13 @@ class TikTokClient extends EventEmitter {
           nickname: page.nickname || best.nickname || username,
           avatar: page.avatar || best.avatar || '',
           title: page.title || best.title || '',
+          userId,
           found: true,
           source: page.source,
         };
       }
     } catch {}
+    best.userId = userId;
     return best;
   }
 
@@ -263,6 +272,7 @@ async function fetchTikwmProfile(username) {
   const user = data?.data?.user;
   if (!user) return {};
   return {
+    id: user.id || user.uid || '',
     nickname: user.nickname || '',
     avatar: user.avatarLarger || user.avatarMedium || user.avatarThumb || '',
     followerCount: user.followerCount ?? user.stats?.followerCount ?? 0,
@@ -399,8 +409,16 @@ function shapeGift(d) {
     ?? 1
   ) || 1;
   const repeatEnd = !!(d?.repeatEnd ?? d?.repeat_end ?? d?.gift?.repeat_end ?? d?.gift?.repeatEnd);
+  // NGƯỜI NHẬN quà trong LIVE nhóm = co-host được tặng, nằm ở toMemberId (ID số) + toMemberNickname (tên).
+  // CẢNH BÁO: toUserId / giftExtra.anchorId là ID HOST phòng (KHÔNG đổi theo người nhận) → KHÔNG dùng.
+  // toMemberId rỗng/"0" = quà chung cho host (không nhắm co-host cụ thể).
+  const memberIdRaw = d?.toMemberId ?? d?.toMemberIdInt ?? '';
+  const recipientMemberId = memberIdRaw && String(memberIdRaw) !== '0' ? String(memberIdRaw) : '';
+  const recipientMemberName = d?.toMemberNickname || '';
   return {
     ...u,
+    recipientMemberId,
+    recipientMemberName,
     giftId: String(d?.giftId ?? d?.gift_id ?? d?.gift?.id ?? d?.gift?.gift_id ?? d?.giftDetails?.giftId ?? ''),
     giftName: d?.giftName || d?.giftDetails?.giftName || d?.gift?.name || d?.gift?.giftName || '',
     giftIcon: giftImage,

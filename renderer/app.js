@@ -240,6 +240,8 @@ let scoreDurationSyncing = false;
 let scoreTargetSyncing = false;
 let scoreAutoRoundHandled = false;
 let scoreStoppedManually = false;
+let lastScoreHistRunKey = '';   // chống ghi trùng 1 lượt Tính điểm vào lịch sử
+let rankHistHeSo = 2;           // hệ số KIM CƯƠNG TƯƠI đang chọn ở modal lịch sử THI ĐẤU NHÓM
 // ==== TỰ LƯU: gom mọi bộ lưu có debounce → FLUSH ngay khi ẩn/đóng app, không mất chỉnh sửa CUỐI ====
 // Mỗi saver nhớ cờ "dirty": chỉ ghi khi thực sự có thay đổi chưa lưu → flush trên blur/hidden rất rẻ.
 const _autoSavers = [];
@@ -4397,6 +4399,7 @@ async function init() {
   wireRankingTab();
   initRankingLinks();
   wireScoreTab();
+  wireHistoryModals();
   wireMusicListTab();
   wireStickerDanceTab();
   wireMvpHonorTab();
@@ -5750,6 +5753,7 @@ function clearCreatorForm() {
   $('#crAvatarUrl').value = '';
   $('#crAvatarPreview').src = '../logo/hp-logo.png';
   $('#crChannel').textContent = '';
+  if ($('#crUserId')) $('#crUserId').value = '';
   setCreatorGiftDisplay(null);
 }
 
@@ -5773,6 +5777,7 @@ function editCreator(id) {
   $('#crAvatarUrl').value = c.avatar || '';
   $('#crAvatarPreview').src = c.avatar || '../logo/hp-logo.png';
   $('#crChannel').textContent = c.channelName || '';
+  if ($('#crUserId')) $('#crUserId').value = c.userId || '';
   if (c.defaultGiftId || c.defaultGiftName) {
     const m = giftMaster.find(g => String(g.id) === String(c.defaultGiftId)) || giftMaster.find(g => g.name.toLowerCase() === String(c.defaultGiftName || '').toLowerCase());
     setCreatorGiftDisplay(m || { id: c.defaultGiftId, name: c.defaultGiftName, icon: c.defaultGiftIcon, diamond: 0 });
@@ -5828,6 +5833,11 @@ function wireCreatorTab() {
       } else {
         $('#crAvatarUrl').value = '';
         $('#crAvatarPreview').src = '../logo/hp-logo.png';
+      }
+      // ID nhận quà (= toMemberId của gift). Đã kiểm chứng tikwm user.id KHỚP toMemberId,
+      // nên "Tải" tự điền ID đúng. Chỉ điền khi ô trống — không đè ID đã học/nhập tay.
+      if (p.userId && $('#crUserId') && !$('#crUserId').value.trim()) {
+        $('#crUserId').value = p.userId;
       }
       if (avatar || nickname) {
         toast(p.avatar ? 'Đã tải Nick Name và Avatar' : (avatar ? 'Đã dùng lại avatar đã lưu của ID này' : 'Đã tải Nick Name'), 'success');
@@ -5898,6 +5908,7 @@ function wireCreatorTab() {
       defaultGiftName: $('#crGiftName').value.trim(),
       defaultGiftId: giftId,
       defaultGiftIcon: $('#crGiftIcon').value.trim(),
+      userId: ($('#crUserId')?.value || '').trim(),
     };
     const wasEditing = !!currentEditingCreator;
     await window.api.creators.upsert(payload);
@@ -5907,6 +5918,54 @@ function wireCreatorTab() {
     toast(wasEditing ? '✅ Đã cập nhật Creator' : '💾 Đã thêm Creator', 'success');
     // Còn thiếu avatar (ID hoàn toàn mới, chưa ai lưu) → tự lấy nền theo ID, khỏi cần bấm Tải.
     if (!avatarVal) autoRefetchStaleAvatars();
+  });
+
+  // 🎯 Học tất cả ID: tự lấy ID nhận quà (toMemberId = tikwm user.id) cho mọi thành viên chưa có,
+  // để mode TikTok khớp chính xác ngay từ quà đầu (không phụ thuộc khớp tên).
+  $('#btnLearnAllIds')?.addEventListener('click', async () => {
+    const btn = $('#btnLearnAllIds');
+    const list = creators.filter(c => c.tiktokId && !c.userId);
+    if (!list.length) {
+      toast(creators.length ? '✓ Mọi thành viên đã có ID nhận quà' : 'Chưa có thành viên nào', creators.length ? 'success' : 'error');
+      return;
+    }
+    btn.disabled = true;
+    const orig = btn.textContent;
+    let ok = 0, fail = 0;
+    for (let i = 0; i < list.length; i++) {
+      btn.textContent = `⏳ ${i + 1}/${list.length}…`;
+      try {
+        const p = await window.api.tt.fetchProfile(list[i].tiktokId).catch(() => null);
+        if (p && p.userId) { await window.api.creators.upsert({ ...list[i], userId: String(p.userId) }); ok++; }
+        else fail++;
+      } catch { fail++; }
+    }
+    await refreshCreators();
+    btn.disabled = false;
+    btn.textContent = orig;
+    toast(`🎯 Học ID: ${ok} thành viên OK${fail ? ` · ${fail} chưa lấy được (tặng thử để Học ID riêng)` : ''}`, ok ? 'success' : 'error');
+  });
+
+  // 🎯 Học ID: bật chế độ chộp ID người nhận từ quà KẾ TIẾP trong LIVE nhóm.
+  // Bấm → tặng thử 1 quà cho đúng thành viên này trên TikTok → app tự điền ID.
+  let _learningRecipient = false;
+  const learnBtn = $('#btnLearnRecipient');
+  learnBtn?.addEventListener('click', async () => {
+    _learningRecipient = !_learningRecipient;
+    try { await window.api.creators.armLearnRecipient(_learningRecipient); } catch {}
+    learnBtn.classList.toggle('learning', _learningRecipient);
+    learnBtn.textContent = _learningRecipient ? '👂 Đang nghe…' : '🎯 Học ID';
+    toast(_learningRecipient
+      ? '👂 Hãy tặng thử 1 quà cho thành viên này trong LIVE — app sẽ chộp ID người nhận'
+      : 'Đã tắt Học ID');
+  });
+  window.api.on('tt:recipientLearned', (d) => {
+    if (!_learningRecipient) return;
+    _learningRecipient = false;
+    if (learnBtn) { learnBtn.classList.remove('learning'); learnBtn.textContent = '🎯 Học ID'; }
+    if ($('#crUserId') && d?.userId) $('#crUserId').value = String(d.userId);
+    const who = d?.name ? ` (${d.name})` : '';
+    toast(`✅ Đã bắt ID người nhận${who}: ${d?.userId || '?'} — nhớ bấm 💾 Lưu`, 'success');
   });
 }
 
@@ -6358,7 +6417,7 @@ function groupDefaultGift(groupId) {
 }
 
 // ===== PK Nhóm: chụp / nạp thông số theo nhóm =====
-const PKG_PROFILE_FIELDS = ['content', 'layoutMode', 'playMode', 'pointsBy', 'noteEnabled', 'noteText', 'noteBgColor', 'noteTextColor', 'noteSpeedSec', 'noteEffect', 'separatedGap', 'autoTextContrast', 'durationSec', 'prepSec', 'delaySec', 'textSize', 'nameSize', 'giftSize', 'overlayScale', 'smartColor', 'creatorColors', 'participants'];
+const PKG_PROFILE_FIELDS = ['content', 'layoutMode', 'playMode', 'creatorLive', 'pointsBy', 'noteEnabled', 'noteText', 'noteBgColor', 'noteTextColor', 'noteSpeedSec', 'noteEffect', 'separatedGap', 'autoTextContrast', 'durationSec', 'prepSec', 'delaySec', 'textSize', 'nameSize', 'giftSize', 'overlayScale', 'smartColor', 'creatorColors', 'participants'];
 
 // Chụp thông số PK Nhóm hiện tại thành object (KHÔNG đọc DOM — caller tự sync trước).
 function pkGroupProfileSnapshot() {
@@ -6419,7 +6478,7 @@ async function loadPkConfig() {
     teamA: normalizePkTeam(st.teamA, { name: 'TEAM A', color: '#FE2C55' }),
     teamB: normalizePkTeam(st.teamB, { name: 'TEAM B', color: '#25F4EE' }),
     durationSec: st.durationSec || 90, prepSec: st.prepSec ?? 3, delaySec: st.delaySec ?? 5,
-    joinMode: !!st.joinMode, pointsBy: st.pointsBy || 'diamond',
+    joinMode: !!st.joinMode, creatorLive: !!st.creatorLive, pointsBy: st.pointsBy || 'diamond',
     bgColor: st.bgColor || '#000000', bgOpacity: st.bgOpacity ?? 88,
     giftSize: st.giftSize || 46, textSize: st.textSize || 21,
     overlayScale: st.overlayScale || 200,
@@ -6455,7 +6514,7 @@ async function loadPkConfig() {
   $('#pkDurS').value = d % 60;
   $('#pkPrep').value = pkCfg.prepSec;
   $('#pkDelay').value = pkCfg.delaySec;
-  $('#pkJoinMode').value = String(pkCfg.joinMode);
+  $('#pkJoinMode').value = pkCfg.creatorLive ? 'creator' : String(pkCfg.joinMode);
   $('#pkPointsBy').value = pkCfg.pointsBy;
   $('#pkBg').value = pkCfg.bgColor;
   $('#pkBgOpacity').value = pkCfg.bgOpacity;
@@ -6723,8 +6782,16 @@ function schedulePkAutoSave() { _pkSaver.schedule(); }
 function wirePkDuoTab() {
   $('#pkJoinMode').addEventListener('change', () => {
     savePkActiveGifts();
-    pkCfg.joinMode = $('#pkJoinMode').value === 'true';
+    const mode = $('#pkJoinMode').value;
+    pkCfg.creatorLive = mode === 'creator';
+    pkCfg.joinMode = mode === 'true';
     syncPkActiveGifts();
+    if (pkCfg.creatorLive) {
+      renderPkGifts();
+      schedulePkAutoSave();
+      toast('📡 Chế độ TikTok: tự cộng theo người nhận quà — khỏi chọn quà. Chọn đúng Creator khi tặng trên TikTok.', 'success');
+      return;
+    }
     if (pkCfg.joinMode) {
       applyPkCreator('A', { applyDefaultGift: !(pkCfg.teamA.joinGifts || []).length });
       applyPkCreator('B', { applyDefaultGift: !(pkCfg.teamB.joinGifts || []).length });
@@ -6902,6 +6969,7 @@ function collectPkCfg() {
     prepSec: Number($('#pkPrep').value) || 0,
     delaySec: Number($('#pkDelay').value) || 0,
     joinMode: $('#pkJoinMode').value === 'true',
+    creatorLive: $('#pkJoinMode').value === 'creator',
     pointsBy: $('#pkPointsBy').value,
     bgColor: $('#pkBg').value,
     bgOpacity: Number($('#pkBgOpacity').value),
@@ -6991,6 +7059,7 @@ async function loadPkGroupConfig() {
     groupId: st.groupId || '',
     layoutMode: st.layoutMode || 'joined',
     playMode: st.playMode || 'fixed',
+    creatorLive: !!st.creatorLive,
     pointsBy: st.pointsBy || 'diamond',
     noteEnabled: !!st.noteEnabled,
     noteText: st.noteText || 'Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy',
@@ -7028,7 +7097,7 @@ function applyPkGroupCfgToInputs() {
   $('#pkgContent').value = pkGroupCfg.content;
   $('#pkgGroup').value = pkGroupCfg.groupId;
   $('#pkgLayoutMode').value = pkGroupCfg.layoutMode;
-  $('#pkgPlayMode').value = pkGroupCfg.playMode;
+  $('#pkgPlayMode').value = pkGroupCfg.creatorLive ? 'creator' : pkGroupCfg.playMode;
   $('#pkgPointsBy').value = pkGroupCfg.pointsBy;
   $('#pkgNoteEnabled').checked = !!pkGroupCfg.noteEnabled;
   $('#pkgNoteText').value = pkGroupCfg.noteText || '';
@@ -7440,7 +7509,8 @@ function collectPkGroupCfg() {
     content: $('#pkgContent').value.trim() || 'PK NHÓM',
     groupId: $('#pkgGroup').value,
     layoutMode: $('#pkgLayoutMode').value,
-    playMode: $('#pkgPlayMode').value,
+    playMode: $('#pkgPlayMode').value === 'creator' ? 'fixed' : $('#pkgPlayMode').value,
+    creatorLive: $('#pkgPlayMode').value === 'creator',
     pointsBy: $('#pkgPointsBy').value || 'diamond',
     noteEnabled: $('#pkgNoteEnabled').checked,
     noteText: $('#pkgNoteText').value.trim(),
@@ -7650,6 +7720,8 @@ function wireRankingTab() {
     toast('Đã cập nhật Thi đấu nhóm', 'success');
   });
   $('#rkStartRound').addEventListener('click', async () => {
+    // Chụp bảng của vòng ĐANG kết thúc trước khi NEW ROUND reset điểm về 0.
+    await recordRankingSnapshot(`Vòng (trước NEW ROUND)`);
     const round = await window.api.ranking.startRound();
     await refreshCreators();
     const st = await window.api.ranking.getState();
@@ -7700,6 +7772,7 @@ function wireRankingTab() {
       lastCommitBatchId = res.batch?.id || null;
       toast(`🔒 Đã chốt vòng: gộp điểm live cho ${n} creator`, 'success');
       await refreshCreators();
+      await recordRankingSnapshot('🔒 Chốt vòng');
     } else if (res?.reason === 'empty') {
       toast('Vòng này chưa có điểm live để chốt', 'error');
     } else if (res?.reason === 'not-creator-mode') {
@@ -7911,6 +7984,144 @@ function renderScoreApply(votedCreator) {
 
 function isLinkedScoreRunning() {
   return scoreLinkRanking && scoreLinkVoteLock && ['prestart', 'running', 'grace'].includes(latestScoreState?.status);
+}
+
+// ===================== LỊCH SỬ 🎯 Tính điểm + 🏆 THI ĐẤU NHÓM =====================
+function fmtHistTime(ms) {
+  const d = new Date(Number(ms) || 0);
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+// Idol đang gắn với phiên Tính điểm: ưu tiên VOTE, rồi dropdown CREATOR, cuối cùng theo tên trong config.
+function currentScoreCreatorInfo() {
+  const voted = getVotedCreator();
+  const selId = $('#scCreatorSelect')?.value;
+  let c = voted || (selId ? creators.find(x => x.id === selId) : null);
+  if (!c) {
+    const nm = ($('#scCreatorName')?.value || latestScoreState?.creatorName || '').trim();
+    if (nm) c = creators.find(x => (x.nickname || x.tiktokId) === nm);
+  }
+  return {
+    name: c?.nickname || c?.tiktokId || latestScoreState?.creatorName || $('#scCreatorName')?.value || 'Không tên',
+    tiktokId: c?.tiktokId || '',
+  };
+}
+// Chụp bảng THI ĐẤU NHÓM hiện tại thành 1 mốc (kèm Điểm sàn để tính KIM CƯƠNG TƯƠI về sau).
+async function recordRankingSnapshot(label) {
+  try {
+    const floor = Math.max(0, parseNumberInput($('#rkScoreFloor')?.value) || 0);
+    const groupsById = new Map(groups.map(g => [g.id, g]));
+    const rows = visibleCreators().map(c => ({
+      name: c.nickname || c.tiktokId || '',
+      tiktokId: c.tiktokId || '',
+      groupName: groupsById.get(c.groupId)?.name || '',
+      points: Number(c.contestPoints) || 0,
+      round: Number(c.voteRound) || 0,
+    })).sort((a, b) => b.points - a.points);
+    if (!rows.length) return null;
+    const res = await window.api.rankingHistory.add({ label: label || 'Chụp bảng', floor, mode: 'creator', rows });
+    if ($('#rankHistModal')?.classList.contains('is-open')) renderRankHist();
+    return res;
+  } catch { return null; }
+}
+function kcTuoi(points, floor, heSo) {
+  const pts = Number(points) || 0, f = Number(floor) || 0, k = Math.max(1, Number(heSo) || 2);
+  const du = pts - f;
+  return du >= 0 ? f + du * k : pts;
+}
+
+async function openScoreHist() { $('#scoreHistModal').classList.add('is-open'); await renderScoreHist(); }
+function closeScoreHist() { $('#scoreHistModal').classList.remove('is-open'); }
+async function renderScoreHist() {
+  const body = $('#scoreHistBody');
+  if (!body) return;
+  const list = await window.api.scoreHistory.list();
+  $('#scoreHistCount').textContent = `${list.length} lượt`;
+  if (!list.length) { body.innerHTML = '<div class="hint">Chưa có lịch sử. Chạy 🎯 Tính điểm đến khi kết thúc, hoặc bấm 📸 Chụp để lưu.</div>'; return; }
+  body.innerHTML = list.map(e => `
+    <div class="shist-row">
+      <div class="shist-main"><b>${escapeHtml(e.name || '?')}</b> <span class="shist-tid">${escapeHtml(e.tiktokId || '—')}</span></div>
+      <div class="shist-pts">${formatNumber(e.points || 0)}${e.target ? ` / ${formatNumber(e.target)}` : ''} ${e.status === 'success' ? '🏆' : e.status === 'failed' ? '❌' : ''}</div>
+      <div class="shist-time">${fmtHistTime(e.at)}</div>
+      <button class="ghost tiny" data-sh-del="${e.id}" type="button" title="Xóa lượt này">🗑</button>
+    </div>`).join('');
+  body.querySelectorAll('[data-sh-del]').forEach(b => b.addEventListener('click', async () => {
+    await window.api.scoreHistory.remove(b.dataset.shDel); renderScoreHist();
+  }));
+}
+
+async function openRankHist() { $('#rankHistModal').classList.add('is-open'); await renderRankHist(); }
+function closeRankHist() { $('#rankHistModal').classList.remove('is-open'); }
+async function renderRankHist() {
+  const body = $('#rankHistBody');
+  if (!body) return;
+  const list = await window.api.rankingHistory.list();
+  $('#rankHistCount').textContent = `${list.length} mốc`;
+  if (!list.length) { body.innerHTML = '<div class="hint">Chưa có mốc nào. Bấm 📸 CHỤP BẢNG, hoặc CHỐT VÒNG / NEW ROUND sẽ tự lưu.</div>'; return; }
+  body.innerHTML = list.map(snap => {
+    const floor = Number(snap.floor) || 0;
+    const rows = (snap.rows || []).slice().sort((a, b) => (b.points || 0) - (a.points || 0)).map((r, i) => {
+      const du = Math.max(0, (Number(r.points) || 0) - floor);
+      const kc = Math.round(kcTuoi(r.points, floor, rankHistHeSo));
+      return `<tr><td>${i + 1}</td><td>${escapeHtml(r.name || '')}</td><td>${escapeHtml(r.groupName || '')}</td><td class="num">${formatNumber(Number(r.points) || 0)}</td><td class="num">${formatNumber(du)}</td><td class="num kc">${formatNumber(kc)}</td></tr>`;
+    }).join('');
+    return `<details class="rhist-snap">
+      <summary><b>${escapeHtml(snap.label || 'Mốc')}</b> · ${fmtHistTime(snap.at)} · sàn ${formatNumber(floor)} · ${(snap.rows || []).length} người
+        <button class="ghost tiny" data-rh-del="${snap.id}" type="button" title="Xóa mốc này">🗑</button></summary>
+      <table class="rhist-table"><thead><tr><th>#</th><th>Tên idol</th><th>Nhóm</th><th>Điểm</th><th>Điểm dư</th><th>KC Tươi ×${rankHistHeSo}</th></tr></thead><tbody>${rows}</tbody></table>
+    </details>`;
+  }).join('');
+  body.querySelectorAll('[data-rh-del]').forEach(b => b.addEventListener('click', async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    await window.api.rankingHistory.remove(b.dataset.rhDel); renderRankHist();
+  }));
+}
+function wireHistoryModals() {
+  $('#scHistoryBtn')?.addEventListener('click', () => openScoreHist());
+  $('#scSnapshot')?.addEventListener('click', async () => {
+    const info = currentScoreCreatorInfo();
+    const score = Math.max(0, Number(latestScoreState?.score) || 0);
+    await window.api.scoreHistory.add({ name: info.name, tiktokId: info.tiktokId, points: score, target: Math.max(0, Number(latestScoreState?.target) || 0), status: 'snapshot' });
+    toast(`📸 Đã lưu ${formatNumber(score)} điểm cho ${info.name}`, 'success');
+    if ($('#scoreHistModal')?.classList.contains('is-open')) renderScoreHist();
+  });
+  $('#scoreHistClose')?.addEventListener('click', closeScoreHist);
+  $('#scoreHistModal')?.addEventListener('click', (e) => { if (e.target === $('#scoreHistModal')) closeScoreHist(); });
+  $('#scoreHistExport')?.addEventListener('click', async () => {
+    const res = await window.api.scoreHistory.export();
+    if (res?.ok) toast(`Đã xuất ${res.count} lượt ra CSV`, 'success');
+    else if (res?.reason === 'empty') toast('Chưa có lịch sử để xuất', 'error');
+    else if (res?.reason !== 'canceled') toast('Xuất CSV thất bại', 'error');
+  });
+  $('#scoreHistClear')?.addEventListener('click', async () => {
+    if (!await askConfirm('Xóa toàn bộ lịch sử Tính điểm?', 'Xóa lịch sử')) return;
+    await window.api.scoreHistory.clear(); renderScoreHist();
+  });
+
+  $('#rkHistoryBtn')?.addEventListener('click', () => openRankHist());
+  $('#rkSnapshot')?.addEventListener('click', async () => {
+    const res = await recordRankingSnapshot('📸 Chụp tay');
+    if (res?.ok || res?.entry) toast('📸 Đã chụp bảng vào lịch sử', 'success');
+    else toast('Chưa có dữ liệu để chụp', 'error');
+  });
+  $('#rankHistClose')?.addEventListener('click', closeRankHist);
+  $('#rankHistModal')?.addEventListener('click', (e) => { if (e.target === $('#rankHistModal')) closeRankHist(); });
+  $('#rankHistHeSo')?.addEventListener('change', () => { rankHistHeSo = Number($('#rankHistHeSo').value) || 2; renderRankHist(); });
+  $('#rankHistExport')?.addEventListener('click', async () => {
+    const res = await window.api.rankingHistory.export(rankHistHeSo);
+    if (res?.ok) toast(`Đã xuất ${res.count} mốc ra CSV`, 'success');
+    else if (res?.reason === 'empty') toast('Chưa có mốc để xuất', 'error');
+    else if (res?.reason !== 'canceled') toast('Xuất CSV thất bại', 'error');
+  });
+  $('#rankHistClear')?.addEventListener('click', async () => {
+    if (!await askConfirm('Xóa toàn bộ lịch sử THI ĐẤU NHÓM?', 'Xóa lịch sử')) return;
+    await window.api.rankingHistory.clear(); renderRankHist();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if ($('#scoreHistModal')?.classList.contains('is-open')) closeScoreHist();
+    if ($('#rankHistModal')?.classList.contains('is-open')) closeRankHist();
+  });
 }
 
 function applyVoteLockState() {
@@ -8272,6 +8483,7 @@ function collectScoreCfg() {
     content: $('#scContent').value.trim(),
     creatorName: $('#scCreatorName').value.trim(),
     creatorAvatar: $('#scCreatorAvatar').value.trim(),
+    creatorId: $('#scCreatorSelect')?.value || '',
     themePreset: $('#scTheme').value,
     overlaySize: $('#scSize').value,
     barStyle: $('#scBarStyle').value,
@@ -8538,6 +8750,20 @@ function renderScPreview(st) {
   const prevStatus = latestScoreState?.status;
   latestScoreState = st;
   handleScoreGameplaySound(st, prevStatus);
+  // TỰ GHI LỊCH SỬ Tính điểm khi kết thúc 1 lượt (độc lập với Liên kết BXH) — 1 lượt chỉ ghi 1 lần.
+  if (['running', 'grace'].includes(prevStatus) && ['success', 'failed'].includes(st.status)) {
+    const runKey = String(st.runStartedAt || st.resultAt || '');
+    if (runKey && runKey !== lastScoreHistRunKey) {
+      lastScoreHistRunKey = runKey;
+      const info = currentScoreCreatorInfo();
+      window.api.scoreHistory.add({
+        name: info.name, tiktokId: info.tiktokId,
+        points: Math.max(0, Number(st.score) || 0),
+        target: Math.max(0, Number(st.target) || 0),
+        status: st.status,
+      }).then(() => { if ($('#scoreHistModal')?.classList.contains('is-open')) renderScoreHist(); }).catch(() => {});
+    }
+  }
   if (scoreLinkRanking && !scoreStoppedManually && !scoreAutoRoundHandled && ['running', 'grace'].includes(prevStatus) && ['success', 'failed'].includes(st.status)) {
     scoreAutoRoundHandled = true;
     (async () => {

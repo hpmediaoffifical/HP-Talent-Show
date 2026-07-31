@@ -46,6 +46,8 @@ const INTERACT_PATH = path.join(CONFIG_DIR, 'interact-feed.json');
 const DANCE_VIDEO_PATH = path.join(CONFIG_DIR, 'dance-video.json');
 const GROUP_PROFILES_PATH = path.join(CONFIG_DIR, 'group-profiles.json');
 const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
+const SCORE_HISTORY_PATH = path.join(CONFIG_DIR, 'score-history.json');
+const RANKING_HISTORY_PATH = path.join(CONFIG_DIR, 'ranking-history.json');
 const RANKING_APPLY_LOG_PATH = path.join(CONFIG_DIR, 'ranking-apply-log.json');
 const KC_DATA_PATH = path.join(CONFIG_DIR, 'kc-data.json');
 const KC_MONTHS_PATH = path.join(CONFIG_DIR, 'kc-months.json');
@@ -189,6 +191,8 @@ function loadSettings() {
     score: null,
     scoreLinkRanking: false,
     scoreLinkVoteLock: false,
+    // Tự nhận diện Creator NHẬN quà trong LIVE nhóm (theo toUserId) → tự cộng điểm, khỏi chọn phe.
+    autoRecognizeRecipient: true,
     missionTrio: null,
     cardFlip: null,
     audio: {
@@ -660,7 +664,63 @@ function loadCreators() {
   if (changed) saveCreators(list);
   return list;
 }
-function saveCreators(list) { saveJson(CREATORS_PATH, list); }
+function saveCreators(list) { saveJson(CREATORS_PATH, list); _creatorUserIdMap = null; _creatorNameIndex = null; }
+
+// Nhận diện Creator NHẬN quà trong LIVE nhóm từ gift event (toMemberId + toMemberNickname).
+// Cache lười, tự huỷ khi creators đổi (saveCreators).
+let _creatorUserIdMap = null;   // userId(số) → creatorId
+let _creatorNameIndex = null;   // [{ id, userId, keys:[tên chuẩn hoá...] }]
+let _learnRecipientArmed = false; // "Học ID": true = chộp recipientMemberId của quà kế tiếp
+
+// Chuẩn hoá tên để khớp mềm: bỏ dấu tiếng Việt, emoji, khoảng trắng/ký tự lạ, thường hoá.
+function normRecipientName(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]/g, '');
+}
+function buildCreatorIndex() {
+  if (_creatorUserIdMap && _creatorNameIndex) return;
+  _creatorUserIdMap = new Map();
+  _creatorNameIndex = [];
+  for (const c of loadCreators()) {
+    if (!c || !c.id) continue;
+    if (c.userId) _creatorUserIdMap.set(String(c.userId), c.id);
+    const keys = [...new Set([normRecipientName(c.nickname), normRecipientName(c.channelName), normRecipientName(c.tiktokId)].filter(k => k && k.length >= 2))];
+    _creatorNameIndex.push({ id: c.id, userId: c.userId ? String(c.userId) : '', keys });
+  }
+}
+// Ghi userId (đã học từ luồng gift) vào Creator để lần sau khớp CHÍNH XÁC theo ID.
+function learnCreatorUserId(creatorId, userId) {
+  try {
+    const list = loadCreators();
+    const idx = list.findIndex(c => c.id === creatorId);
+    if (idx < 0 || String(list[idx].userId || '') === String(userId)) return;
+    list[idx].userId = String(userId);
+    saveCreators(list);
+  } catch {}
+}
+// Trả creatorId của người nhận quà: ưu tiên ID số (toMemberId), fallback khớp TÊN co-host (tự học ID).
+function resolveRecipientCreatorId(ev) {
+  const mid = ev.recipientMemberId;
+  const mname = ev.recipientMemberName;
+  if (!mid && !mname) return '';
+  buildCreatorIndex();
+  if (mid && _creatorUserIdMap.has(String(mid))) return _creatorUserIdMap.get(String(mid));
+  if (mname) {
+    const n = normRecipientName(mname);
+    if (n.length >= 2) {
+      for (const c of _creatorNameIndex) {
+        if (c.keys.some(k => n === k || n.includes(k) || k.includes(n))) {
+          if (mid && c.userId !== String(mid)) learnCreatorUserId(c.id, String(mid)); // tự học
+          return c.id;
+        }
+      }
+    }
+  }
+  return '';
+}
 function loadGroups() {
   const list = loadJson(GROUPS_PATH, []) || [];
   let changed = false;
@@ -997,6 +1057,68 @@ function buildHistoryCsv(list) {
 }
 
 // =================================================================
+// Lịch sử 🎯 Tính điểm (mỗi lượt 1 idol) + 🏆 THI ĐẤU NHÓM (mốc chụp cả bảng)
+// =================================================================
+const SCORE_HISTORY_MAX = 1000;
+const RANKING_HISTORY_MAX = 500;
+function loadScoreHistory() { const l = loadJson(SCORE_HISTORY_PATH, []); return Array.isArray(l) ? l : []; }
+function saveScoreHistory(l) { saveJson(SCORE_HISTORY_PATH, (Array.isArray(l) ? l : []).slice(-SCORE_HISTORY_MAX)); }
+function loadRankingHistory() { const l = loadJson(RANKING_HISTORY_PATH, []); return Array.isArray(l) ? l : []; }
+function saveRankingHistory(l) { saveJson(RANKING_HISTORY_PATH, (Array.isArray(l) ? l : []).slice(-RANKING_HISTORY_MAX)); }
+
+// CSV Lịch sử Tính điểm — cột chính: Tên idol, TikTok ID, Điểm (+ thống kê phụ)
+function buildScoreHistoryCsv(list) {
+  const now = Date.now();
+  const lines = [];
+  lines.push(csvCell('HP GROUP LIVE — Lịch sử 🎯 Tính điểm'));
+  lines.push([csvCell('Thời gian xuất'), csvCell(`${fmtDate(now)} ${fmtTime(now)}`)].join(','));
+  lines.push([csvCell('Số lượt'), csvCell(list.length)].join(','));
+  lines.push('');
+  const header = ['Tên idol', 'TikTok ID', 'Điểm', 'Mục tiêu', 'Kết quả', 'Ngày', 'Giờ'];
+  lines.push(header.map(csvCell).join(','));
+  const ordered = list.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+  for (const e of ordered) {
+    const kq = e.status === 'success' ? 'Đạt' : e.status === 'failed' ? 'Chưa đạt' : (e.status || '');
+    lines.push([
+      e.name || '', e.tiktokId || '', Number(e.points) || 0, e.target || '', kq, fmtDate(e.at), fmtTime(e.at),
+    ].map(csvCell).join(','));
+  }
+  return '﻿' + lines.join('\r\n');
+}
+
+// CSV Lịch sử THI ĐẤU NHÓM — mỗi mốc: 1 dòng/người, có Điểm sàn + Điểm dư + KIM CƯƠNG TƯƠI.
+// KC Tươi = Điểm sàn + (Điểm − Điểm sàn) × hệ số. Dưới sàn (Điểm < sàn) → giữ nguyên Điểm.
+function buildRankingHistoryCsv(list, heSo) {
+  const k = Math.max(1, Number(heSo) || 2);
+  const now = Date.now();
+  const lines = [];
+  lines.push(csvCell('HP GROUP LIVE — Lịch sử 🏆 THI ĐẤU NHÓM'));
+  lines.push([csvCell('Thời gian xuất'), csvCell(`${fmtDate(now)} ${fmtTime(now)}`)].join(','));
+  lines.push([csvCell('Số mốc'), csvCell(list.length)].join(','));
+  lines.push([csvCell('Hệ số KC Tươi'), csvCell(`x${k}`)].join(','));
+  lines.push([csvCell('Công thức'), csvCell('KIM CƯƠNG TƯƠI = Điểm sàn + (Điểm − Điểm sàn) × hệ số; dưới sàn = giữ nguyên Điểm')].join(','));
+  lines.push('');
+  const header = ['Ngày', 'Giờ', 'Mốc', 'Điểm sàn', 'Hạng', 'Tên idol', 'TikTok ID', 'Nhóm', 'Round', 'Điểm', 'Điểm dư', 'Hệ số', 'KIM CƯƠNG TƯƠI'];
+  lines.push(header.map(csvCell).join(','));
+  const ordered = list.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+  for (const snap of ordered) {
+    const floor = Number(snap.floor) || 0;
+    const rows = (snap.rows || []).slice().sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0));
+    rows.forEach((r, i) => {
+      const pts = Number(r.points) || 0;
+      const du = Math.max(0, pts - floor);
+      const kc = pts >= floor ? floor + du * k : pts;
+      lines.push([
+        fmtDate(snap.at), fmtTime(snap.at), snap.label || '', floor, i + 1,
+        r.name || '', r.tiktokId || '', r.groupName || '', Number(r.round) || 0,
+        pts, du, `x${k}`, Math.round(kc),
+      ].map(csvCell).join(','));
+    });
+  }
+  return '﻿' + lines.join('\r\n');
+}
+
+// =================================================================
 // Gift master store — danh sách quà TikTok (id, name, icon, webm, diamond)
 // Bundled trong app, có thể refresh từ Google Sheet bằng IPC.
 // =================================================================
@@ -1262,6 +1384,7 @@ class PkDuoEngine {
       prepSec: 3,
       delaySec: 5,
       joinMode: false, // false = fixed by gift, true = chosen by first gift sent
+      creatorLive: false, // 🔴 Creator LIVE: cộng theo người nhận thật (toMemberId/tên), khỏi chọn quà
       linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm phe cho Creator
       pointsBy: 'diamond',
       content: 'PK ĐÔI',
@@ -1501,18 +1624,22 @@ class PkDuoEngine {
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1)
       : Math.max(1, Number(ev.repeatCount) || 1);
-    const inA = (this.config.teamA.gifts || []).some(g => giftMatches(g, ev));
-    const inB = (this.config.teamB.gifts || []).some(g => giftMatches(g, ev));
-    let side = inA && !inB ? 'A' : (inB && !inA ? 'B' : null);
-
-    if (this.config.joinMode) {
-      const user = ev.uniqueId || ev.userId;
-      if (user) {
-        if (side) {
-          // Quà kích hoạt: (re)gán phe rồi vẫn tính điểm full cho phe đó
-          this.state.userTeams[user] = side;
-        } else {
-          side = this.state.userTeams[user] || null;
+    let side;
+    if (this.config.creatorLive) {
+      // 🔴 Creator LIVE: cộng theo NGƯỜI NHẬN thật (recipientCreatorId từ toMemberId/tên),
+      // KHÔNG dùng bảng quà/chọn phe. Quà không nhắm đúng Creator của phe nào → bỏ.
+      const rc = ev.recipientCreatorId;
+      side = rc ? (this.config.teamA?.creatorId === rc ? 'A' : (this.config.teamB?.creatorId === rc ? 'B' : null)) : null;
+    } else {
+      // Cố Định / Chọn Phe: khớp bảng quà như cũ.
+      const inA = (this.config.teamA.gifts || []).some(g => giftMatches(g, ev));
+      const inB = (this.config.teamB.gifts || []).some(g => giftMatches(g, ev));
+      side = inA && !inB ? 'A' : (inB && !inA ? 'B' : null);
+      if (this.config.joinMode) {
+        const user = ev.uniqueId || ev.userId;
+        if (user) {
+          if (side) this.state.userTeams[user] = side; // Quà kích hoạt: (re)gán phe
+          else side = this.state.userTeams[user] || null;
         }
       }
     }
@@ -1582,6 +1709,7 @@ class PkGroupEngine {
       groupId: '',
       layoutMode: 'joined', // joined | separated
       playMode: 'fixed', // fixed | join
+      creatorLive: false, // 🔴 Creator LIVE: cộng theo người nhận thật (toMemberId/tên), khỏi chọn quà
       linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm participant cho Creator
       pointsBy: 'diamond',
       noteEnabled: false,
@@ -1834,15 +1962,18 @@ class PkGroupEngine {
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1)
       : Math.max(1, Number(ev.repeatCount) || 1);
-    let target = participants.find(p => (p.gifts || []).some(g => giftMatches(g, ev))) || null;
-    if (this.config.playMode === 'join') {
-      const user = ev.uniqueId || ev.userId;
-      if (user) {
-        if (target) {
-          // Quà kích hoạt: (re)gán Creator rồi vẫn tính điểm full cho Creator đó
-          this.state.userTeams[user] = target.id;
-        } else {
-          target = participants.find(p => p.id === this.state.userTeams[user]) || null;
+    let target;
+    if (this.config.creatorLive) {
+      // 🔴 Creator LIVE: cộng theo NGƯỜI NHẬN thật (recipientCreatorId), KHÔNG dùng bảng quà.
+      const rc = ev.recipientCreatorId;
+      target = rc ? (participants.find(p => (p.creatorId || p.id) === rc) || null) : null;
+    } else {
+      target = participants.find(p => (p.gifts || []).some(g => giftMatches(g, ev))) || null;
+      if (this.config.playMode === 'join') {
+        const user = ev.uniqueId || ev.userId;
+        if (user) {
+          if (target) this.state.userTeams[user] = target.id; // Quà kích hoạt: (re)gán Creator
+          else target = participants.find(p => p.id === this.state.userTeams[user]) || null;
         }
       }
     }
@@ -2640,6 +2771,7 @@ class ScoreEngine {
       delayMs: 5000,
       creatorName: '',
       creatorAvatar: '',
+      creatorId: '', // id Creator đang tính điểm — để lọc quà theo người nhận (LIVE nhóm)
       content: '',
       themePreset: 'douyin',
       overlaySize: 'medium',
@@ -3462,6 +3594,14 @@ function bootstrapTikTok() {
     _cacheAvatar(d);   // gift có avatar thì lưu lại
     _fillAvatar(d);    // gift thiếu avatar thì bù từ cache
     if (d.avatar) overlayServer?.primeAvatar(d.avatar); // lưu đĩa avatar người tặng (champion PK) ngay
+    // "Học ID": nếu đang bắt ID người nhận cho 1 Creator → chộp recipientMemberId của quà kế tiếp.
+    if (_learnRecipientArmed && d.recipientMemberId) {
+      broadcast('tt:recipientLearned', { userId: d.recipientMemberId, name: d.recipientMemberName || '', giftName: d.giftName || '', from: d.nickname || d.uniqueId || '' });
+      _learnRecipientArmed = false;
+    }
+    // Nhận diện Creator NHẬN quà (LIVE nhóm) → gắn recipientCreatorId. Luôn resolve (rẻ, có cache);
+    // chỉ engine ở mode 🔴 Creator LIVE mới DÙNG tới. Trống = quà chung/không khớp.
+    d.recipientCreatorId = resolveRecipientCreatorId(d);
     broadcast('tt:gift', d);
     // Overlay TƯƠNG TÁC + QUÀ (cột quà trên) — mirror renderer: chỉ hiện khi shouldProcess (né spam combo).
     if (d.shouldProcess) {
@@ -3614,6 +3754,11 @@ function registerIpc() {
     syncBattleAvatarReferences(list);
     rankingEngine?._emit();
     return list;
+  });
+  // "Học ID": bật/tắt chế độ chộp ID người nhận từ quà kế tiếp (tự nhận diện Creator).
+  ipcMain.handle('creators:armLearnRecipient', (_e, on) => {
+    _learnRecipientArmed = !!on;
+    return _learnRecipientArmed;
   });
   ipcMain.handle('creators:remove', (_e, id) => {
     const key = String(id || '');
@@ -3925,6 +4070,60 @@ function registerIpc() {
     }
   });
 
+  // ===== Lịch sử 🎯 Tính điểm =====
+  ipcMain.handle('scoreHistory:list', () => loadScoreHistory().slice().reverse());
+  ipcMain.handle('scoreHistory:add', (_e, rec = {}) => {
+    const list = loadScoreHistory();
+    const entry = { id: uid('sh_'), at: Date.now(), ...rec };
+    list.push(entry);
+    saveScoreHistory(list);
+    broadcast('scoreHistory:changed', entry);
+    return entry;
+  });
+  ipcMain.handle('scoreHistory:remove', (_e, id) => { saveScoreHistory(loadScoreHistory().filter(x => x.id !== id)); return true; });
+  ipcMain.handle('scoreHistory:clear', () => { saveScoreHistory([]); return true; });
+  ipcMain.handle('scoreHistory:export', async () => {
+    const list = loadScoreHistory();
+    if (!list.length) return { ok: false, reason: 'empty' };
+    const stamp = fmtDate(Date.now()).replace(/\//g, '-');
+    const res = await dialog.showSaveDialog(win, {
+      title: 'Xuất lịch sử Tính điểm',
+      defaultPath: `Lich-su-Tinh-diem-${stamp}.csv`,
+      filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }],
+    });
+    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' };
+    try { fs.writeFileSync(res.filePath, buildScoreHistoryCsv(list), 'utf8'); return { ok: true, filePath: res.filePath, count: list.length }; }
+    catch (err) { return { ok: false, reason: String(err && err.message || err) }; }
+  });
+
+  // ===== Lịch sử 🏆 THI ĐẤU NHÓM =====
+  ipcMain.handle('rankingHistory:list', () => loadRankingHistory().slice().reverse());
+  ipcMain.handle('rankingHistory:add', (_e, rec = {}) => {
+    const rows = Array.isArray(rec.rows) ? rec.rows : [];
+    if (!rows.length) return { ok: false, reason: 'empty' };
+    const list = loadRankingHistory();
+    const entry = { id: uid('rh_'), at: Date.now(), label: rec.label || 'Chụp bảng', floor: Number(rec.floor) || 0, mode: rec.mode || 'creator', rows };
+    list.push(entry);
+    saveRankingHistory(list);
+    broadcast('rankingHistory:changed', entry);
+    return { ok: true, entry };
+  });
+  ipcMain.handle('rankingHistory:remove', (_e, id) => { saveRankingHistory(loadRankingHistory().filter(x => x.id !== id)); return true; });
+  ipcMain.handle('rankingHistory:clear', () => { saveRankingHistory([]); return true; });
+  ipcMain.handle('rankingHistory:export', async (_e, heSo) => {
+    const list = loadRankingHistory();
+    if (!list.length) return { ok: false, reason: 'empty' };
+    const stamp = fmtDate(Date.now()).replace(/\//g, '-');
+    const res = await dialog.showSaveDialog(win, {
+      title: 'Xuất lịch sử THI ĐẤU NHÓM',
+      defaultPath: `Lich-su-Thi-dau-nhom-${stamp}.csv`,
+      filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }],
+    });
+    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' };
+    try { fs.writeFileSync(res.filePath, buildRankingHistoryCsv(list, heSo), 'utf8'); return { ok: true, filePath: res.filePath, count: list.length }; }
+    catch (err) { return { ok: false, reason: String(err && err.message || err) }; }
+  });
+
   // Ranking
   ipcMain.handle('ranking:getState', () => {
     return rankingEngine.getStateForOverlay();
@@ -4123,6 +4322,7 @@ function registerIpc() {
     audio: { ...(settings.audio || {}) },
     scoreLinkRanking: !!settings.scoreLinkRanking,
     scoreLinkVoteLock: !!settings.scoreLinkVoteLock,
+    autoRecognizeRecipient: settings.autoRecognizeRecipient !== false,
     // Không trả mật khẩu OBS ra renderer — chỉ báo đã có hay chưa.
     obs: {
       wsPort: settings.obs?.wsPort ?? 4455,
@@ -4144,6 +4344,7 @@ function registerIpc() {
       if (typeof patch.autoConnect === 'boolean') settings.autoConnect = patch.autoConnect;
       if (typeof patch.scoreLinkRanking === 'boolean') settings.scoreLinkRanking = patch.scoreLinkRanking;
       if (typeof patch.scoreLinkVoteLock === 'boolean') settings.scoreLinkVoteLock = patch.scoreLinkVoteLock;
+      if (typeof patch.autoRecognizeRecipient === 'boolean') settings.autoRecognizeRecipient = patch.autoRecognizeRecipient;
       if (patch.obs && typeof patch.obs === 'object') {
         settings.obs = settings.obs || {};
         const o = patch.obs;

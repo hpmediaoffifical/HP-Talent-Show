@@ -1,6 +1,6 @@
 {
   "name": "hp-group-live",
-  "version": "0.1.47",
+  "version": "0.1.48",
   "description": "HP GROUP LIVE — phần mềm vận hành LIVE nhóm TikTok: PK đôi/nhóm, BXH, tính điểm, vinh danh, vòng quay, overlay OBS",
   "main": "src/main.js",
   "scripts": {

@@ -15,6 +15,7 @@ const api = {
     list: () => ipcRenderer.invoke('creators:list'),
     upsert: (creator) => ipcRenderer.invoke('creators:upsert', creator),
     remove: (id) => ipcRenderer.invoke('creators:remove', id),
+    armLearnRecipient: (on) => ipcRenderer.invoke('creators:armLearnRecipient', on),
   },
   groups: {
     list: () => ipcRenderer.invoke('groups:list'),
@@ -200,6 +201,24 @@ const api = {
     getCardUrl: () => ipcRenderer.invoke('score:getCardUrl'),
   },
 
+  // ===== Lịch sử 🎯 Tính điểm =====
+  scoreHistory: {
+    list: () => ipcRenderer.invoke('scoreHistory:list'),
+    add: (rec) => ipcRenderer.invoke('scoreHistory:add', rec),
+    remove: (id) => ipcRenderer.invoke('scoreHistory:remove', id),
+    clear: () => ipcRenderer.invoke('scoreHistory:clear'),
+    export: () => ipcRenderer.invoke('scoreHistory:export'),
+  },
+
+  // ===== Lịch sử 🏆 THI ĐẤU NHÓM =====
+  rankingHistory: {
+    list: () => ipcRenderer.invoke('rankingHistory:list'),
+    add: (rec) => ipcRenderer.invoke('rankingHistory:add', rec),
+    remove: (id) => ipcRenderer.invoke('rankingHistory:remove', id),
+    clear: () => ipcRenderer.invoke('rankingHistory:clear'),
+    export: (heSo) => ipcRenderer.invoke('rankingHistory:export', heSo),
+  },
+
   review: {
     open: (type) => ipcRenderer.invoke('review:open', type),
     close: (type) => ipcRenderer.invoke('review:close', type),
@@ -273,7 +292,8 @@ const api = {
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
       'pkduo:state', 'pkduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'cardflip:state', 'dancevideo:ended',
-      'history:changed', 'ranking:links',
+      'history:changed', 'scoreHistory:changed', 'rankingHistory:changed', 'ranking:links',
+      'tt:recipientLearned',
       'app:confirmQuit',
       'log',
     ]);
