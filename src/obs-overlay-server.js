@@ -150,6 +150,7 @@ class ObsOverlayServer {
   // nhưng mỗi link render CỐ ĐỊNH 1 phong cách để bật/tắt con mắt + đặt vị trí độc lập trong OBS.
   getScoreBarUrl() { return `${this.getScoreUrl()}&layout=bar`; }
   getScoreCardUrl() { return `${this.getScoreUrl()}&layout=card`; }
+  getScoreTimerUrl() { return `${this.getScoreUrl()}&layout=timer`; }
   getStickerUrl() { return `http://127.0.0.1:${this._portFor('sticker')}/sticker?token=${encodeURIComponent(this.token)}`; }
   getMvpHonorUrl() { return `http://127.0.0.1:${this._portFor('mvp-honor')}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
   getLuckyWheelUrl() { return `http://127.0.0.1:${this._portFor('lucky-wheel')}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=15`; }

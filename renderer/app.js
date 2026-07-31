@@ -8430,7 +8430,7 @@ async function loadScoreConfig() {
   $('#scTheme').value = ['douyin', 'vip', 'neon', 'battle', 'luxury', 'sunset', 'ocean', 'candy', 'custom'].includes(st.themePreset) ? st.themePreset : 'douyin';
   $('#scSize').value = st.overlaySize || 'medium';
   $('#scBarStyle').value = st.barStyle || 'pill';
-  if ($('#scLayout')) $('#scLayout').value = st.cardLayout ? 'card' : 'bar';
+  if ($('#scLayout')) $('#scLayout').value = ['bar', 'card', 'timer'].includes(st.scoreLayout) ? st.scoreLayout : (st.cardLayout ? 'card' : 'bar');
   $('#scCompact').checked = false;
   $('#scHideAvatar').checked = !!st.hideAvatar;
   $('#scHideCreator').checked = !!st.hideCreator;
@@ -8462,6 +8462,9 @@ async function loadScoreConfig() {
   if ($('#scFxLiquid')) $('#scFxLiquid').checked = !!st.fxLiquid;
   if ($('#scRunnerForcePink')) $('#scRunnerForcePink').checked = !!st.runnerForcePink;
   if ($('#scRunnerDust')) $('#scRunnerDust').checked = st.runnerDust !== false;
+  if ($('#scTimerTop5')) $('#scTimerTop5').checked = st.timerTop5 !== false;
+  if ($('#scTimerTail')) $('#scTimerTail').value = /^#[0-9a-f]{6}$/i.test(st.timerTailColor || '') ? st.timerTailColor : '#a15cf0';
+  if ($('#scTimerFinalTick')) $('#scTimerFinalTick').checked = st.timerFinalTick !== false;
   if ($('#scRunnerBadgeMode')) $('#scRunnerBadgeMode').value = ['points', 'gift'].includes(st.runnerBadgeMode) ? st.runnerBadgeMode : 'points';
   if ($('#scAvatarThreshold')) $('#scAvatarThreshold').value = Math.max(1, Number(st.avatarThreshold) || 1000);
   if ($('#scCardBgOpacity')) { const c = Number.isFinite(Number(st.cardBgOpacity)) ? Number(st.cardBgOpacity) : 88; $('#scCardBgOpacity').value = c; $('#scCardBgOpacityValue').textContent = `${c}%`; }
@@ -8510,7 +8513,8 @@ function collectScoreCfg() {
     themePreset: $('#scTheme').value,
     overlaySize: $('#scSize').value,
     barStyle: $('#scBarStyle').value,
-    cardLayout: $('#scLayout')?.value === 'card',
+    scoreLayout: ['bar', 'card', 'timer'].includes($('#scLayout')?.value) ? $('#scLayout').value : 'bar',
+    cardLayout: $('#scLayout')?.value === 'card', // giữ đồng bộ cho cấu hình/preview đời cũ
     compactMode: false,
     hideAvatar: $('#scHideAvatar').checked,
     hideCreator: $('#scHideCreator').checked,
@@ -8529,6 +8533,9 @@ function collectScoreCfg() {
     fxLiquid: $('#scFxLiquid')?.checked || false,
     runnerForcePink: $('#scRunnerForcePink')?.checked || false,
     runnerDust: $('#scRunnerDust') ? $('#scRunnerDust').checked : true,
+    timerTop5: $('#scTimerTop5') ? $('#scTimerTop5').checked : true,
+    timerTailColor: /^#[0-9a-f]{6}$/i.test($('#scTimerTail')?.value || '') ? $('#scTimerTail').value : '#a15cf0',
+    timerFinalTick: $('#scTimerFinalTick') ? $('#scTimerFinalTick').checked : true,
     runnerBadgeMode: ['points', 'gift'].includes($('#scRunnerBadgeMode')?.value) ? $('#scRunnerBadgeMode').value : 'points',
     avatarThreshold: Math.max(1, Number($('#scAvatarThreshold')?.value) || 1000),
     barBorderColor: $('#scBorderColor')?.value || '#ffffff',
@@ -8685,7 +8692,7 @@ function wireScoreTab() {
   $('#scBorderOpacity')?.addEventListener('input', () => { $('#scBorderOpacityValue').textContent = `${$('#scBorderOpacity').value}%`; scheduleScoreAutoSave(); });
   $('#scBorderWidth')?.addEventListener('input', () => { $('#scBorderWidthValue').textContent = `${$('#scBorderWidth').value}px`; scheduleScoreAutoSave(); });
   $('#scCardBgOpacity')?.addEventListener('input', () => { $('#scCardBgOpacityValue').textContent = `${$('#scCardBgOpacity').value}%`; scheduleScoreAutoSave(); });
-  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scLayout','scContent','scHideAvatar','scHideCreator','scColorByProgress','scKpiX2','scKpiMult','scShowRemaining','scFxGlowBorder','scFxGlass','scFxSparkle','scFxSpotlight','scFxAvatarAura','scFxScoreBounce','scFxFloatPoints','scFxCardBreathe','scFxLiquid','scBorderColor','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
+  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scLayout','scContent','scHideAvatar','scHideCreator','scColorByProgress','scKpiX2','scKpiMult','scShowRemaining','scFxGlowBorder','scFxGlass','scFxSparkle','scFxSpotlight','scFxAvatarAura','scFxScoreBounce','scFxFloatPoints','scFxCardBreathe','scFxLiquid','scRunnerForcePink','scRunnerDust','scTimerTop5','scTimerTail','scTimerFinalTick','scBorderColor','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', scheduleScoreAutoSave);
@@ -8694,6 +8701,15 @@ function wireScoreTab() {
   ['scBarColor1','scBarColor2','scWaveColor','scOverColor'].forEach(id => {
     $('#' + id)?.addEventListener('input', syncScoreThemeChips);
   });
+  // ⚡ Preset màu nhanh cho THỜI GIAN: 1 bấm đổi Màu 1 + Màu 2 + Màu lem cuối
+  $$('.sc-preset-chip').forEach(btn => btn.addEventListener('click', () => {
+    if ($('#scBarColor1')) $('#scBarColor1').value = btn.dataset.c1;
+    if ($('#scBarColor2')) $('#scBarColor2').value = btn.dataset.c2;
+    if ($('#scTimerTail')) $('#scTimerTail').value = btn.dataset.tail;
+    $$('.sc-preset-chip').forEach(b => b.classList.toggle('is-active', b === btn));
+    syncScoreThemeChips();
+    scheduleScoreAutoSave();
+  }));
   $('#scCreatorSelect').addEventListener('change', applyScoreCreatorSelect);
   $$('.score-sound-file').forEach(btn => btn.addEventListener('click', async () => {
     const file = await window.api.shell.pickAudio();
@@ -8757,6 +8773,10 @@ function wireScoreTab() {
   $('#scCopyUrlCard')?.addEventListener('click', async () => {
     const url = await window.api.score.getCardUrl(); await window.api.shell.copyText(url);
     toast('📋 Đã copy link KÊU GỌI', 'success');
+  });
+  $('#scCopyUrlTimer')?.addEventListener('click', async () => {
+    const url = await window.api.score.getTimerUrl(); await window.api.shell.copyText(url);
+    toast('📋 Đã copy link THỜI GIAN', 'success');
   });
   // ⚙️ Popover công cụ (COPY OBS + TEST) — gọn hàng điều khiển, bấm ngoài/Esc để đóng
   const scToolsBtn = $('#scToolsBtn');
@@ -8860,7 +8880,57 @@ function renderScPreview(st) {
   // TRÊN CÙNG: khối thông tin gọn (thời gian + thanh máu + creator + điểm + trạng thái).
   const scoreFont = Math.max(12, Math.min(48, Number(st.scoreFontSize) || 18));
   const over = noTarget ? 0 : Math.max(0, score - target);
-  if (st.cardLayout) {
+  const scLayoutMode = ['bar', 'card', 'timer'].includes(st.scoreLayout) ? st.scoreLayout : (st.cardLayout ? 'card' : 'bar');
+  if (scLayoutMode === 'timer') {
+    // Preview khớp THỜI GIAN: thanh đếm lùi (đầy→cạn, đầu hồng → đích tím) + đồng hồ vòng · avatar/tên · giai đoạn · Điểm.
+    const durMs = Math.max(1, Number(st.durationMs) || 1);
+    const remMs = Number(st.remainingMs) || 0;
+    // MÉP MÁU (fillP) bò đều tới số 9: đầu→9s = 5%→73% (tuyến tính), rồi 9→0s = 73%→100% (hết giờ rút sạch). Khớp overlay.
+    let fillP = 73;
+    if (['success', 'failed', 'grace'].includes(status)) fillP = 100;
+    else if (status === 'prestart') fillP = 5;
+    else if (remMs > 9000) { const frac = (remMs - 9000) / Math.max(1, durMs - 9000); fillP = 5 + (73 - 5) * (1 - frac); }
+    else { const tt = Math.max(0, Math.min(9, remMs / 1000)); fillP = 73 + (100 - 73) * (1 - tt / 9); }
+    const tPct = 100 - fillP; // bề rộng máu = 100−fillP
+    const secLeft = Math.ceil((Number(st.remainingMs) || 0) / 1000);
+    const finalCount = status === 'running' && secLeft >= 1 && secLeft <= 9;
+    // Chip chỉ hiện khi CHUẨN BỊ/ĐANG CHẠY; ẩn ở idle/grace/kết thúc (tránh chip "00" dư sau đồng hồ)
+    const hideClock = !(status === 'prestart' || status === 'running');
+    const clockText = finalCount ? String(secLeft) : status === 'prestart' ? 'SẴN SÀNG' : (st.timeText || '00:00');
+    const phase = status === 'prestart' ? 'CHUẨN BỊ' : status === 'grace' ? 'ĐỢI CHỐT ĐIỂM'
+      : (status === 'success' || status === 'failed') ? 'CHỐT ĐIỂM'
+      : status === 'running' ? 'ĐANG NƯỚC RÚT' : 'CHỜ BẮT ĐẦU';
+    const clockCls = `sc-rt-clock${finalCount ? ' is-final' : ''}${hideClock ? ' is-hidden' : ''}`;
+    // Chip = màu đầu thanh (barColor1) → đồng bộ tại điểm tiếp xúc; final/hidden thì không nền.
+    const chipBg = `;background:linear-gradient(180deg,rgba(255,255,255,.32) 0%,rgba(255,255,255,0) 48%,rgba(0,0,0,.24) 100%),${barColor1}`;
+    // Số 9→1 nổi ở vùng gần đồng hồ (73%→91%); chip pill bám mép máu (fillP).
+    const tNum = Math.max(0, Math.min(9, remMs / 1000));
+    const chipPos = finalCount ? (91 - (tNum / 9) * 18) : fillP;
+    const clockStyle = hideClock ? '' : finalCount ? `left:${chipPos.toFixed(2)}%` : `left:${chipPos.toFixed(2)}%${chipBg}`;
+    // Đầu thanh = barColor1 (đồng bộ chip) → lem sang barColor2 (Preset) → màu lem cuối trong suốt dần về đồng hồ.
+    const tailC = /^#[0-9a-f]{6}$/i.test(st.timerTailColor || '') ? st.timerTailColor : '#a15cf0';
+    const fillGrad = `linear-gradient(90deg, ${barColor1} 0%, ${barColor1} 13%, ${barColor2} 60%, ${tailC}b8 84%, ${tailC}24 100%)`;
+    const spin = status === 'running' || status === 'grace' ? ' is-spin' : '';
+    // TOP5: container LUÔN render khi bật (chừa chỗ) → avatar hiện lên không làm giật thanh (khớp overlay).
+    const t5on = st.timerTop5 !== false;
+    const t5 = t5on && Array.isArray(st.topUsers) ? st.topUsers.slice(0, 5) : [];
+    const t5html = t5on ? `<div class="sc-rt-top5">${t5.map((u, i) => `<span class="sc-rt-t5 r${i + 1}" style="z-index:${10 - i}" title="${escapeAttr(u.nickname || u.user || '')}">${i === 0 ? '<b>👑</b>' : ''}${u.avatar ? `<img src="${escapeAttr(u.avatar)}" onerror="this.onerror=null;this.style.visibility='hidden'" />` : '<img />'}<i>${i + 1}</i></span>`).join('')}</div>` : '';
+    $('#scPreview').innerHTML = `
+      <div class="sc-rev-timer status-${status}">
+        <div class="sc-rt-barwrap">
+          <div class="sc-rt-track"><i style="width:${tPct}%;background:${fillGrad}"></i></div>
+          <div class="${clockCls}" style="${clockStyle}">${escapeHtml(clockText)}</div>
+          <div class="sc-rt-dial${spin}"><span></span></div>
+        </div>
+        <div class="sc-rt-info">
+          <div class="sc-rt-person">${st.creatorAvatar ? `<img class="js-avatar" src="${escapeAttr(st.creatorAvatar)}" />` : '<span>HP</span>'}<strong>${escapeHtml(st.creatorName || 'Creator')}</strong></div>
+          <div class="sc-rt-phase">${escapeHtml(phase)}</div>
+          <div class="sc-rt-score"><small>ĐIỂM</small><b>${formatNumber(score)}</b></div>
+        </div>
+        ${t5html}
+      </div>
+    `;
+  } else if (scLayoutMode === 'card') {
     // Preview khớp Thẻ HUD góc GỌN: tên idol trên cùng · avatar to giữa-trái · đồng hồ/trạng thái giữa · thanh máu ôm đáy
     const isWord = ['success', 'failed', 'grace'].includes(status);
     const clockText = status === 'success' ? 'THÀNH CÔNG' : status === 'failed' ? 'KHÔNG HOÀN THÀNH' : status === 'grace' ? 'ĐANG TÍNH ĐIỂM' : (st.timeText || '00:00');
@@ -8975,12 +9045,12 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx, interact, giftMenu, dance1, dance2, dance3, scBar, scCard] = await Promise.all([
+  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx, interact, giftMenu, dance1, dance2, dance3, scBar, scCard, scTimer] = await Promise.all([
     window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(), window.api.interact.getUrl(),
     window.api.giftmenu.getUrl(), window.api.dancevideo.getUrl('webm1'), window.api.dancevideo.getUrl('webm2'), window.api.dancevideo.getUrl('webm3'),
-    window.api.score.getBarUrl(), window.api.score.getCardUrl(),
+    window.api.score.getBarUrl(), window.api.score.getCardUrl(), window.api.score.getTimerUrl(),
   ]);
-  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx, urlInteract: interact, urlGiftMenu: giftMenu, urlDance1: dance1, urlDance2: dance2, urlDance3: dance3, urlScBar: scBar, urlScCard: scCard };
+  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx, urlInteract: interact, urlGiftMenu: giftMenu, urlDance1: dance1, urlDance2: dance2, urlDance3: dance3, urlScBar: scBar, urlScCard: scCard, urlScTimer: scTimer };
   $$('[data-copy]').forEach(button => { button.dataset.url = urls[button.dataset.copy]; });
   await refreshReviewButtons();
 }

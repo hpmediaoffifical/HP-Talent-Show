@@ -466,6 +466,7 @@ const REVIEW_META = {
   score: { title: 'Review Tính điểm', getUrl: () => overlayServer?.getScoreUrl(), width: 900, height: 300 },
   scorebar: { title: 'Review Tính điểm · ĐƯỜNG ĐUA', getUrl: () => overlayServer?.getScoreBarUrl(), width: 900, height: 300 },
   scorecard: { title: 'Review Tính điểm · KÊU GỌI', getUrl: () => overlayServer?.getScoreCardUrl(), width: 520, height: 360 },
+  scoretimer: { title: 'Review Tính điểm · THỜI GIAN', getUrl: () => overlayServer?.getScoreTimerUrl(), width: 900, height: 260 },
   ranking: { title: 'Review Thi đấu', getUrl: () => overlayServer?.getRankingUrl(), width: 420, height: 900 },
   rankinggrid: { title: 'Review Thi đấu ngang', getUrl: () => overlayServer?.getRankingUrl() + '&grid=1', width: 1280, height: 520 },
   stickerdance: { title: 'Review Đập Trứng', getUrl: () => overlayServer?.getStickerUrl(), width: 900, height: 380 },
@@ -2780,7 +2781,11 @@ class ScoreEngine {
       themePreset: 'douyin',
       overlaySize: 'medium',
       barStyle: 'pill',
-      cardLayout: false, // false = Thanh ngang · true = Thẻ HUD góc
+      cardLayout: false, // (cũ, giữ tương thích) false = Thanh ngang · true = Thẻ HUD góc
+      scoreLayout: 'bar', // KIỂU: 'bar' ĐƯỜNG ĐUA · 'card' KÊU GỌI · 'timer' THỜI GIAN
+      timerTop5: true, // THỜI GIAN: hiện cụm TOP 5 người tặng (avatar nửa chồng nhau) ở góc trên
+      timerTailColor: '#a15cf0', // THỜI GIAN: màu lem cuối thanh (trong suốt dần về đồng hồ)
+      timerFinalTick: true, // THỜI GIAN: tiếng "tick" 10 giây cuối
       compactMode: false,
       timeColor: '#ffffff',
       scoreFontSize: 18,
@@ -4284,6 +4289,7 @@ function registerIpc() {
   ipcMain.handle('score:getUrl', () => overlayServer.getScoreUrl());
   ipcMain.handle('score:getBarUrl', () => overlayServer.getScoreBarUrl());
   ipcMain.handle('score:getCardUrl', () => overlayServer.getScoreCardUrl());
+  ipcMain.handle('score:getTimerUrl', () => overlayServer.getScoreTimerUrl());
 
   // NHIỆM VỤ · BỘ BA
   ipcMain.handle('missiontrio:getState', () => missionTrioEngine.getStateForOverlay());

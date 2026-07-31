@@ -199,6 +199,7 @@ const api = {
     getUrl: () => ipcRenderer.invoke('score:getUrl'),
     getBarUrl: () => ipcRenderer.invoke('score:getBarUrl'),
     getCardUrl: () => ipcRenderer.invoke('score:getCardUrl'),
+    getTimerUrl: () => ipcRenderer.invoke('score:getTimerUrl'),
   },
 
   // ===== Lịch sử 🎯 Tính điểm =====

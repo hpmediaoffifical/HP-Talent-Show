@@ -46,6 +46,21 @@ function scoreStatusText(status, timeText) {
   return timeText || '03:00';
 }
 
+// THỜI GIAN (timer): nhãn giai đoạn ở GIỮA — dịch từ 冲刺中 (Douyin). Chữ ngắn để không lấn cột.
+function timerPhaseText(status, urgent) {
+  if (status === 'prestart') return 'CHUẨN BỊ';
+  if (status === 'grace') return 'ĐỢI CHỐT ĐIỂM'; // delay chốt điểm: bỏ chip đồng hồ, báo chữ ở dưới
+  if (status === 'success' || status === 'failed') return 'CHỐT ĐIỂM';
+  if (status === 'running') return urgent ? 'NƯỚC RÚT' : 'ĐANG NƯỚC RÚT';
+  return 'CHỜ BẮT ĐẦU';
+}
+// THỜI GIAN: chip đồng hồ chỉ hiện MM:SS (ngắn), tránh chữ dài "THÀNH CÔNG/KHÔNG HOÀN THÀNH" tràn pill.
+function timerClockText(status, timeText) {
+  if (status === 'prestart') return 'SẴN SÀNG';
+  if (status === 'success' || status === 'failed') return '00:00';
+  return timeText || '00:00';
+}
+
 // Màu thanh biến đổi theo % tiến độ — hành trình sắc màu tím → lam → lục → vàng,
 // không hiện số %, tạo cảm giác "ảo diệu" khi thanh đầy dần.
 function progressFillGradient(pct) {
@@ -79,6 +94,30 @@ let lastClassName = '';
 let lastAddSig = '';
 let lastGoalMet = false;
 let lastRenderedScore = 0;
+let lastTop5Sig = '';
+let lastTop1Id = '';        // THỜI GIAN #2: theo dõi TOP1 để phát hiện đổi ngôi
+let lastResultKey = '';     // THỜI GIAN #5: chốt điểm hoành tráng chỉ bắn 1 lần/phiên
+let lastTickSec = -1;       // THỜI GIAN #4: tiếng "tick" 10s cuối, mỗi giây 1 lần
+
+// Tiếng "tick" 10s cuối bằng WebAudio (không cần file). secLeft ≤ 3 kêu gấp/cao hơn.
+let _actx = null;
+function playTick(urgentHigh) {
+  try {
+    _actx = _actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (_actx.state === 'suspended') _actx.resume();
+    const t = _actx.currentTime;
+    const o = _actx.createOscillator();
+    const g = _actx.createGain();
+    o.type = 'square';
+    o.frequency.value = urgentHigh ? 1320 : 880;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(urgentHigh ? 0.14 : 0.09, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+    o.connect(g).connect(_actx.destination);
+    o.start(t);
+    o.stop(t + 0.12);
+  } catch {}
+}
 let els = {};
 // Số trên huy hiệu "đếm cuộn" (roll-up) khi có cú tặng mới — mượt như Douyin thay vì nhảy cóc.
 let badgeRollRaf = 0;
@@ -156,7 +195,34 @@ function runnerHTML() {
 }
 
 function buildStructure(state, v) {
-  if (v.cardLayout) {
+  if (v.timerLayout) {
+    // THỜI GIAN (Douyin): thanh THỜI GIAN đếm lùi + đồng hồ VÒNG xoay (1 vòng ≈ 1 giây) ở mút phải;
+    // dưới thanh: avatar+tên idol (trái) · nhãn giai đoạn 冲刺中/ĐANG NƯỚC RÚT (giữa) · Điểm vòng (phải).
+    root.innerHTML = `
+    <div class="score-timer">
+      <div class="st-barwrap">
+        <div class="score-bar st-timebar">
+          <div class="st-stripes" aria-hidden="true"></div>
+          <div class="score-fill st-timefill"><i class="score-liquid"></i></div>
+          <div class="score-flash"></div>
+        </div>
+        <div class="st-clock"><span class="st-clock-text"></span></div>
+        <div class="st-dial" aria-hidden="true"><span class="st-dial-ticks"></span><span class="st-dial-hand"></span></div>
+      </div>
+      <div class="st-info">
+        <div class="score-person">
+          ${state.hideAvatar ? '' : `<div class="score-avatar"><img class="score-avatar-img" onerror="this.onerror=null;this.src='/logo.png'" /></div>`}
+          ${state.hideCreator ? '' : `<div class="score-creator"></div>`}
+        </div>
+        <div class="st-phase"><span class="st-phase-text"></span></div>
+        <div class="st-points"><small class="st-points-label">ĐIỂM</small><b class="score-points-cur"></b><span class="st-momentum" aria-hidden="true"></span></div>
+      </div>
+      ${v.showTop5 ? '<div class="st-top5"></div>' : ''}
+      <div class="sc-fx-floats" aria-hidden="true"></div>
+      <div class="st-result" aria-hidden="true"><div class="st-result-card"><span class="st-result-label"></span><b class="st-result-score"></b><span class="st-result-spark"></span></div></div>
+    </div>
+    `;
+  } else if (v.cardLayout) {
     // Thẻ HUD góc GỌN: tab TÊN IDOL ở đỉnh · avatar TO giữa-trái · đồng hồ/trạng thái ở giữa · thanh máu ôm đáy
     root.innerHTML = `
     <div class="score-card">
@@ -224,6 +290,15 @@ function buildStructure(state, v) {
     remainingText: root.querySelector('.score-remaining-text'),
     aura: root.querySelector('.sc-fx-aura'),
     floats: root.querySelector('.sc-fx-floats'),
+    // THỜI GIAN: chip đồng hồ (cưỡi mép máu thời gian) + chữ đồng hồ + nhãn giai đoạn giữa
+    timeChip: root.querySelector('.st-clock'),
+    timerClock: root.querySelector('.st-clock-text'),
+    phaseText: root.querySelector('.st-phase-text'),
+    top5: root.querySelector('.st-top5'),
+    momentum: root.querySelector('.st-momentum'),
+    result: root.querySelector('.st-result'),
+    resultScore: root.querySelector('.st-result-score'),
+    resultLabel: root.querySelector('.st-result-label'),
   };
   // Con số điểm để "nhảy nảy" — thẻ KÊU GỌI dùng .sc-score-chip-val, ĐƯỜNG ĐUA chỉ nảy SỐ TĂNG bên trái
   // (.score-points-cur), giữ nguyên "/mục tiêu điểm" đứng yên.
@@ -256,7 +331,15 @@ function render(state = {}) {
   const creator = state.creatorName || 'Creator';
   const shortCreator = shortText(creator, 28);
   const content = state.content || '';
-  const cardLayout = forcedLayout === 'card' ? true : forcedLayout === 'bar' ? false : !!state.cardLayout;
+  // 3 KIỂU: ĐƯỜNG ĐUA (bar) · KÊU GỌI (card) · THỜI GIAN (timer). ?layout= ép cứng cho nguồn OBS tách kiểu,
+  // ngoài ra theo state.scoreLayout (chuỗi mới), còn cardLayout cũ giữ để tương thích cấu hình đời trước.
+  const layoutMode = ['bar', 'card', 'timer'].includes(forcedLayout)
+    ? forcedLayout
+    : (['bar', 'card', 'timer'].includes(state.scoreLayout)
+        ? state.scoreLayout
+        : (state.cardLayout ? 'card' : 'bar'));
+  const cardLayout = layoutMode === 'card';
+  const timerLayout = layoutMode === 'timer';
   const hasContent = !!content.trim();
   const statusText = scoreStatusText(status, state.timeText);
   const activeRunner = ['running', 'grace'].includes(status) && !!state.lastAdd;
@@ -264,7 +347,8 @@ function render(state = {}) {
   // KÊU GỌI (card): giữ như cũ — chỉ hiện khi vừa có quà.
   // LƯU Ý: khi cán đích 100% CHỈ ẨN vòng tròn + hình người (qua .goal-met bằng CSS), NHƯNG GIỮ huy hiệu
   // "+N / quà lớn + avatar" để vẫn kích cầu người tặng tiếp vào phần dư (số dư/Over).
-  const showRunner = cardLayout ? activeRunner : ['prestart', 'running', 'grace'].includes(status);
+  // THỜI GIAN: không dùng người chạy (thanh biểu thị thời gian, không phải điểm) → phản hồi quà qua +N bay lên.
+  const showRunner = timerLayout ? false : (cardLayout ? activeRunner : ['prestart', 'running', 'grace'].includes(status));
   const runnerUser = state.showGiftUser !== false && state.lastAddUser ? `${state.lastAddUser} ` : '';
   const runnerAtStart = pct < 28;
   const big = Number(state.lastAdd) >= Number(state.bigGiftThreshold || 500);
@@ -281,6 +365,27 @@ function render(state = {}) {
   const showRunnerGift = !showRunnerAvatar && badgeMode === 'gift' && !!state.lastAddIcon;
   const runnerGiftIcon = mediaUrl(state.lastAddIcon || '');
   const remainingMs = Number(state.remainingMs) || 0;
+  const durMs = Math.max(1, Number(state.durationMs) || 1);
+  // THỜI GIAN — MÉP MÁU (fillP) bò ĐỀU (mỗi giây nhích = quãng đường ÷ thời gian), nối liền tới số 9, không nhảy:
+  //  • đầu → giây thứ 9: 5% → 73% TUYẾN TÍNH đều theo (durMs−9s) → pill nhích đều mỗi giây, hết "chậm ở giữa"
+  //  • 9 → 0 giây: 73% → 100% (rút cạn dần) → HẾT GIỜ máu RÚT SẠCH, không thừa sliver cạnh đồng hồ.
+  const FILL_HANDOFF = 73; // vị trí tại giây thứ 9 = nơi số 9 bắt đầu (khớp chipPos)
+  let fillP = FILL_HANDOFF;
+  if (['success', 'failed', 'grace'].includes(status)) fillP = 100; // hết giờ: rút sạch máu
+  else if (status === 'prestart') fillP = 5;
+  else if (remainingMs > 9000) {
+    const frac = (remainingMs - 9000) / Math.max(1, durMs - 9000); // 1 lúc đầu → 0 tại giây thứ 9
+    fillP = 5 + (FILL_HANDOFF - 5) * (1 - frac);
+  } else {
+    const tt = Math.max(0, Math.min(9, remainingMs / 1000));
+    fillP = FILL_HANDOFF + (100 - FILL_HANDOFF) * (1 - tt / 9); // 9s 73% → 0s 100% (cạn)
+  }
+  // Độ rộng fill: THỜI GIAN = 100−fillP; ĐƯỜNG ĐUA/KÊU GỌI dùng % điểm như cũ.
+  const barPct = timerLayout ? (100 - fillP) : pct;
+  // THỜI GIAN: cụm TOP 5 người tặng (avatar nửa chồng nhau, top 1 nổi bật) ở đầu overlay.
+  // showTop5 = theo CÔNG TẮC (không theo số user) → khung LUÔN chừa sẵn chỗ, avatar hiện lên KHÔNG làm giật thanh.
+  const showTop5 = timerLayout && state.timerTop5 !== false;
+  const top5 = (showTop5 && Array.isArray(state.topUsers)) ? state.topUsers.slice(0, 5) : [];
   const urgent = ['running', 'grace'].includes(status) && remainingMs <= 10000 && remainingMs > 0;
   const nearGoal = !noTarget && ['running', 'grace'].includes(status) && pct >= 80 && score < target;
   const goalMet = !noTarget && score >= target;
@@ -293,7 +398,7 @@ function render(state = {}) {
   // Còn bao nhiêu tới đích (kêu gọi tặng thêm) — không mục tiêu thì không hiện
   const showRemaining = !noTarget && !!state.showRemaining;
   const remainingPts = Math.max(0, target - score);
-  const className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${noTarget ? ' no-target' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}${state.colorByProgress ? ' color-progress' : ''}${kpiX2 ? ' has-kpi-x2' : ''}${inX2 ? ' x2-active' : ''}${cardLayout ? ' layout-card' : ' layout-bar'}${state.runnerDust === false ? ' runner-nodust' : ''}${state.fxGlowBorder ? ' fx-glowborder' : ''}${state.fxGlass ? ' fx-glass' : ''}${state.fxSparkle ? ' fx-sparkle' : ''}${state.fxSpotlight ? ' fx-spotlight' : ''}${state.fxAvatarAura ? ' fx-avataraura' : ''}${state.fxScoreBounce ? ' fx-scorebounce' : ''}${state.fxFloatPoints ? ' fx-floatpoints' : ''}${state.fxCardBreathe ? ' fx-cardbreathe' : ''}${state.fxLiquid ? ' fx-liquid' : ''}`;
+  const className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${noTarget ? ' no-target' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}${state.colorByProgress ? ' color-progress' : ''}${kpiX2 ? ' has-kpi-x2' : ''}${inX2 ? ' x2-active' : ''} layout-${layoutMode}${state.runnerDust === false ? ' runner-nodust' : ''}${state.fxGlowBorder ? ' fx-glowborder' : ''}${state.fxGlass ? ' fx-glass' : ''}${state.fxSparkle ? ' fx-sparkle' : ''}${state.fxSpotlight ? ' fx-spotlight' : ''}${state.fxAvatarAura ? ' fx-avataraura' : ''}${state.fxScoreBounce ? ' fx-scorebounce' : ''}${state.fxFloatPoints ? ' fx-floatpoints' : ''}${state.fxCardBreathe ? ' fx-cardbreathe' : ''}${state.fxLiquid ? ' fx-liquid' : ''}`;
   if (className !== lastClassName) { root.className = className; lastClassName = className; }
 
   root.style.setProperty('--score-time-color', state.timeColor || '#ffffff');
@@ -331,12 +436,19 @@ function render(state = {}) {
     state.colorByProgress
       ? progressFillGradient(pct)
       : `linear-gradient(90deg, ${alphaHex(c2, .08)} 0%, ${alphaHex(c2, .5)} 22%, ${c2} 56%, ${c1} 100%)`);
+  // THỜI GIAN: ĐẦU thanh (điểm tiếp xúc chip) = c1 → ĐỒNG BỘ MÀU với chip; sau đó mới LEM sang c2 (Preset)
+  // rồi TRONG SUỐT DẦN về phía đồng hồ. Màu lem cuối tuỳ chỉnh (mặc định tím), đồng hồ vẫn đục (không trong suốt).
+  const stTail = /^#[0-9a-f]{6}$/i.test(state.timerTailColor || '') ? state.timerTailColor : '#a15cf0';
+  root.style.setProperty('--score-timefill-gradient',
+    `linear-gradient(90deg, ${c1} 0%, ${c1} 13%, ${mixHex(c1, c2, 50)} 36%, ${c2} 60%, ${mixHexA(c2, stTail, 60, .72)} 84%, ${alphaHex(stTail, .14)} 100%)`);
+  // Chip đồng hồ ăn theo MÀU ĐẦU thanh (c1) — mặt BÓNG 3D (sáng trên → c1 giữa (khớp máu) → đậm dưới) để NỔI hẳn.
+  root.style.setProperty('--score-timechip-bg', `linear-gradient(180deg, ${mixHex(c1, '#ffffff', 26)} 0%, ${c1} 48%, ${mixHex(c1, '#000000', 22)} 100%)`);
 
   // Chỉ dựng lại khung khi khung xương đổi — thay vì mỗi 250ms (nguyên nhân restart animation → nhấp nháy).
-  const structKey = `${status}|${state.hideAvatar ? 1 : 0}|${state.hideCreator ? 1 : 0}|${over > 0 ? 1 : 0}|${showRunner ? 1 : 0}|${kpiX2 ? 1 : 0}|${showRemaining ? 1 : 0}|${cardLayout ? 1 : 0}|${hasContent ? 1 : 0}`;
+  const structKey = `${status}|${state.hideAvatar ? 1 : 0}|${state.hideCreator ? 1 : 0}|${over > 0 ? 1 : 0}|${showRunner ? 1 : 0}|${kpiX2 ? 1 : 0}|${showRemaining ? 1 : 0}|${layoutMode}|${hasContent ? 1 : 0}|${showTop5 ? 1 : 0}`;
   if (structKey !== lastStructKey) {
     lastStructKey = structKey;
-    buildStructure(state, { iconOff, over, activeRunner, showRunner, kpiX2, showRemaining, cardLayout, hasContent });
+    buildStructure(state, { iconOff, over, activeRunner, showRunner, kpiX2, showRemaining, cardLayout, timerLayout, hasContent, showTop5 });
   }
 
   // Cập nhật tại chỗ (không dựng lại DOM → animation chạy liền mạch)
@@ -353,9 +465,77 @@ function render(state = {}) {
     els.remaining.classList.toggle('is-hidden', !showLine);
     if (showLine && els.remainingText) els.remainingText.textContent = `🔥 Còn ${fmt(remainingPts)} điểm nữa!`;
   }
-  if (els.fill) els.fill.style.width = `${pct}%`;
-  if (els.sheen) els.sheen.style.width = `${pct}%`;
-  if (els.bar) els.bar.style.setProperty('--score-pct', `${pct}%`);
+  if (els.fill) els.fill.style.width = `${barPct}%`;
+  if (els.sheen) els.sheen.style.width = `${barPct}%`;
+  if (els.bar) els.bar.style.setProperty('--score-pct', `${barPct}%`);
+  // THỜI GIAN: cập nhật đồng hồ + nhãn giai đoạn; chip đồng hồ cưỡi mép máu (lùi dần về phải khi hết giờ).
+  if (timerLayout) {
+    // 10 giây cuối: từ giây 9 → 1 đổi sang SỐ TO gold sát đồng hồ (bỏ khung pill); hết giờ = mất số hoàn toàn.
+    const secLeft = Math.ceil((Number(state.remainingMs) || 0) / 1000);
+    const finalCount = status === 'running' && secLeft >= 1 && secLeft <= 9;
+    // Chip chỉ hiện khi CHUẨN BỊ hoặc ĐANG CHẠY; ẩn ở idle/grace/kết thúc (tránh chip "00" dư sau đồng hồ).
+    const hideClock = !['prestart', 'running'].includes(status) || (status === 'running' && secLeft <= 0);
+    if (els.timeChip) {
+      els.timeChip.classList.toggle('is-final', finalCount);
+      els.timeChip.classList.toggle('is-hidden', hideClock);
+      // Chip pill (>10s) bám MÉP MÁU (bò đều, không rush). Số 9→1 NỔI ở vùng GẦN ĐỒNG HỒ (73%→91% sát đích),
+      // tách khỏi mép máu để không bị xa đích như trước.
+      const t = Math.max(0, Math.min(9, remainingMs / 1000));
+      const chipPos = finalCount ? (91 - (t / 9) * 18) : fillP; // số: 9s→73% … 0s→91%; pill: ở mép máu
+      els.timeChip.style.left = hideClock ? '' : `${chipPos.toFixed(2)}%`;
+    }
+    if (els.timerClock) els.timerClock.textContent = finalCount ? String(secLeft) : timerClockText(status, state.timeText);
+    if (els.phaseText) els.phaseText.textContent = timerPhaseText(status, urgent);
+    // TOP 5 người tặng: chỉ dựng lại khi thứ hạng/điểm đổi (tránh reset animation avatar mỗi tick).
+    if (els.top5) {
+      const sig = top5.map(u => `${u.user || u.nickname}:${Math.floor(u.points || 0)}`).join('|');
+      if (sig !== lastTop5Sig) {
+        lastTop5Sig = sig;
+        els.top5.innerHTML = top5.map((u, i) => {
+          const av = mediaUrl(u.avatar || '');
+          const name = esc(shortText(u.nickname || u.user || '', 14));
+          return `<span class="st-top5-item r${i + 1}" style="z-index:${10 - i}" title="${name}">`
+            + `${i === 0 ? '<b class="st-top5-crown">👑</b>' : ''}`
+            + `<img src="${esc(av)}" onerror="this.onerror=null;this.src='/logo.png'" alt="" />`
+            + `<i class="st-top5-rank">${i + 1}</i></span>`;
+        }).join('');
+      }
+    }
+    // #2 ĐỔI NGÔI TOP 1: khi hạng 1 đổi người → loé sáng + nảy avatar hạng 1 (bỏ qua lần đầu tiên).
+    const top1Id = top5[0] ? (top5[0].user || top5[0].nickname || '') : '';
+    if (top1Id && top1Id !== lastTop1Id) {
+      if (lastTop1Id && els.top5) { const r1 = els.top5.querySelector('.st-top5-item.r1'); if (r1) fireOnce(r1, 'overtake'); }
+      lastTop1Id = top1Id;
+    }
+    // #3 NHỊP ĐỘ TẶNG: tổng điểm ~4 giây gần nhất → chip "🔥 +N" (ẩn khi lắng xuống).
+    if (els.momentum) {
+      let burst = 0; const nowMs = Date.now();
+      (state.recentGifts || []).forEach(g => { if (nowMs - (g.at || 0) <= 4000) burst += Number(g.points) || 0; });
+      const hot = status === 'running' && burst > 0;
+      els.momentum.classList.toggle('is-on', hot);
+      if (hot) els.momentum.textContent = `🔥 +${fmt(burst)}`;
+    }
+    // #4 TIẾNG TICK 10s cuối (mỗi giây 1 lần; ≤3s cao & gấp hơn). Tự re-arm khi ra khỏi vùng 10s.
+    if (state.timerFinalTick !== false && status === 'running' && secLeft <= 10 && secLeft >= 1) {
+      if (secLeft !== lastTickSec) { lastTickSec = secLeft; playTick(secLeft <= 3); }
+    } else if (status !== 'running' || secLeft > 10) { lastTickSec = -1; }
+    // #5 CHỐT ĐIỂM HOÀNH TRÁNG: hết giờ → banner "CHỐT: N ĐIỂM" + tia sáng (bắn 1 lần/phiên).
+    if (els.result) {
+      const ended = ['success', 'failed'].includes(status);
+      if (ended) {
+        els.result.classList.add('show');
+        const rkey = `${status}|${runKey(state)}`;
+        if (rkey !== lastResultKey) {
+          lastResultKey = rkey;
+          if (els.resultLabel) els.resultLabel.textContent = status === 'failed' ? 'HẾT GIỜ' : 'CHỐT ĐIỂM';
+          if (els.resultScore) els.resultScore.textContent = fmt(score);
+          fireOnce(els.result, 'pop');
+        }
+      } else {
+        els.result.classList.remove('show', 'pop');
+      }
+    }
+  }
   if (els.overVal) els.overVal.textContent = fmt(over);
   if (els.creator) { els.creator.textContent = shortCreator; els.creator.title = creator; }
   if (els.avatarImg && avatar && els.avatarImg.getAttribute('src') !== avatar) els.avatarImg.src = avatar;

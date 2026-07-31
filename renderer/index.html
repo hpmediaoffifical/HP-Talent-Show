@@ -981,10 +981,11 @@
               <input id="scCreatorName" type="hidden" />
               <input id="scCreatorAvatar" type="hidden" />
             </label>
-            <label class="score-command-layout" title="ĐƯỜNG ĐUA: thanh ngang cho vùng rộng · KÊU GỌI: gom thông tin thành một thẻ gọn ở góc màn hình.">🖼️
+            <label class="score-command-layout" title="ĐƯỜNG ĐUA: thanh ngang cho vùng rộng · KÊU GỌI: gom thông tin thành một thẻ gọn ở góc màn hình · THỜI GIAN: thanh đếm lùi + đồng hồ xoay, cộng điểm tự do không cần mục tiêu.">🖼️
               <select id="scLayout">
                 <option value="bar">ĐƯỜNG ĐUA</option>
                 <option value="card">KÊU GỌI</option>
+                <option value="timer">THỜI GIAN</option>
               </select>
             </label>
             <button id="scStart" class="primary" type="button">▶ BẮT ĐẦU</button>
@@ -999,6 +1000,7 @@
                 <div class="sc-copy-split">
                   <button id="scCopyUrlBar" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu ĐƯỜNG ĐUA — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · ĐƯỜNG ĐUA</button>
                   <button id="scCopyUrlCard" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu KÊU GỌI — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · KÊU GỌI</button>
+                  <button id="scCopyUrlTimer" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu THỜI GIAN — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · THỜI GIAN</button>
                 </div>
                 <div class="score-command-test">
                   <span>TEST</span>
@@ -1180,6 +1182,23 @@
                 <div class="option-pills">
                   <label title="Ép vòng tròn người chạy + viền huy hiệu về HỒNG TikTok. Tắt = ăn theo Màu thanh 1/2 (đồng bộ chủ đề)."><input id="scRunnerForcePink" type="checkbox" /> 🩷 Ép hồng TikTok</label>
                   <label title="Bụi trắng bắn ra sau lưng người chạy ('chờ tăng tốc'). Tắt cho nhẹ OBS máy yếu."><input id="scRunnerDust" type="checkbox" checked /> 💨 Bụi tăng tốc</label>
+                </div>
+                <div class="sc-fx-sub">⏱️ Riêng <b>THỜI GIAN</b></div>
+                <div class="option-pills">
+                  <label title="Hiện cụm TOP 5 người tặng nhiều điểm nhất dưới dòng trạng thái — avatar tròn nửa chồng nhau, TOP 1 to + vành vàng + 👑."><input id="scTimerTop5" type="checkbox" checked /> 🏆 TOP 5 người tặng</label>
+                </div>
+                <div class="option-inline">
+                  <label title="Màu LEM CUỐI của thanh máu (từ Màu thanh 2 chuyển sang màu này rồi trong suốt dần về đồng hồ). Mặc định tím.">🎨 Màu lem cuối (về đồng hồ)
+                    <input id="scTimerTail" type="color" value="#a15cf0" />
+                  </label>
+                  <label title="Phát tiếng 'tick' mỗi giây trong 10 giây cuối (3 giây cuối cao & gấp hơn) để kịch tính hơn."><input id="scTimerFinalTick" type="checkbox" checked /> 🔔 Tiếng tick 10s cuối</label>
+                </div>
+                <div class="sc-preset-row" title="Bấm 1 preset để đổi nhanh cả bộ màu THỜI GIAN (Màu 1 + Màu 2 + Màu lem cuối)">
+                  <span class="sc-preset-lbl">⚡ Preset màu nhanh</span>
+                  <button type="button" class="sc-preset-chip" data-c1="#ff2d78" data-c2="#ff8ed1" data-tail="#a15cf0" style="--pa:#ff2d78;--pb:#ff8ed1;--pc:#a15cf0">Hồng TikTok</button>
+                  <button type="button" class="sc-preset-chip" data-c1="#8a2be2" data-c2="#c77dff" data-tail="#37c0ff" style="--pa:#8a2be2;--pb:#c77dff;--pc:#37c0ff">Tím Galaxy</button>
+                  <button type="button" class="sc-preset-chip" data-c1="#1f8fff" data-c2="#7fd8ff" data-tail="#35ffd0" style="--pa:#1f8fff;--pb:#7fd8ff;--pc:#35ffd0">Lam Băng</button>
+                  <button type="button" class="sc-preset-chip" data-c1="#ff9a1f" data-c2="#ffd66b" data-tail="#ff5ea8" style="--pa:#ff9a1f;--pb:#ffd66b;--pc:#ff5ea8">Vàng Gold</button>
                 </div>
                 <div class="option-inline">
                   <label title="Huy hiệu người chạy luôn hiện GIÁ TRỊ THỰC cú tặng (kim cương/điểm, chính xác đến 1 xu).">🏷️ Huy hiệu hiện
@@ -2189,6 +2208,16 @@
             <input class="review-bg-picker" data-review-bg="scorecard" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="scorecard" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="scorecard" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🎯 THỜI GIAN</label>
+            <button class="primary" data-copy="urlScTimer" type="button">📋 OBS · THỜI GIAN</button>
+            <button class="ghost" data-review-toggle="scoretimer" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="scoretimer" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="scoretimer" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="scoretimer" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="scoretimer" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="scoretimer" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
             <label>🥚 ĐẬP TRỨNG</label>
