@@ -1475,25 +1475,41 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .rk-row { position:relative; display: grid; grid-template-columns:minmax(260px, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(255,255,255,.94); border:1px solid rgba(210,216,226,.9); border-radius: 12px; margin-bottom: 7px; box-shadow:0 4px 14px rgba(22,24,35,.04); }
 .rk-row:hover { border-color:rgba(254,44,85,.22); box-shadow:0 6px 20px rgba(22,24,35,.07); }
 .rk-row.is-active { border-color:#67e8f9; box-shadow: 0 0 0 2px rgba(103,232,249,.16), 0 8px 24px rgba(103,232,249,.14); }
+/* ===== THUA (bị loại) trong App — RUY BĂNG chéo góc "LOSE", đồng bộ với overlay OBS.
+   Bỏ chữ "X" thô cũ. Sash gọn trong góc trên-trái = tam giác nền (::before) + chữ chéo (::after),
+   KHÔNG cần overflow:hidden nên popup ⚙ (rk-more-pop) vẫn bung ra ngoài bình thường. ===== */
 .rk-row.is-lost,
 .rk-row.is-lost:hover,
 .rk-row.is-active.is-lost {
-  background:#d5d8de;
-  border-color:#aab1bd;
-  box-shadow:none;
+  background:linear-gradient(90deg, #e9ebf0, #dde0e7);
+  border-color:#c4c9d3;
+  box-shadow:inset 0 0 0 1px rgba(190,18,60,.14), 0 2px 8px rgba(22,24,35,.05);
 }
 .rk-row.is-lost > * { position:relative; z-index:2; }
 /* Làm mờ phần thông tin (rank/avatar/tên/điểm/quà) nhưng GIỮ RÕ các nút thao tác để luôn đọc được trạng thái bật/tắt */
 .rk-row.is-lost > .rk-left,
 .rk-row.is-lost > .rk-scorebox > .rk-gift-icon,
 .rk-row.is-lost > .rk-scorebox > .rk-mini-input,
-.rk-row.is-lost > .rk-scorebox > .rk-round-chip { filter:grayscale(1); opacity:.5; }
+.rk-row.is-lost > .rk-scorebox > .rk-round-chip { filter:grayscale(.85); opacity:.5; }
 .rk-row.is-lost .rk-actions,
 .rk-row.is-lost .rk-more { filter:none; opacity:1; z-index:4; }
-.rk-row.is-lost::before { content:''; position:absolute; inset:0; z-index:1; border-radius:inherit; background:rgba(102,110,122,.2); pointer-events:none; }
-.rk-row.is-lost::after { content:'X'; position:absolute; inset:0; z-index:3; display:grid; place-items:center; color:#dc2626; font-size:52px; font-weight:900; line-height:1; text-shadow:0 1px 2px rgba(255,255,255,.8); pointer-events:none; }
+/* Tam giác NỀN ruy băng (góc trên-trái) — gradient đỏ trầm + bo mép ngoài khớp card + đổ bóng theo hình */
+.rk-row.is-lost::before {
+  content:''; position:absolute; top:0; left:0; z-index:3; pointer-events:none;
+  width:42px; height:42px; clip-path:polygon(0 0, 100% 0, 0 100%);
+  background:linear-gradient(135deg, #f43f5e 0%, #be123c 55%, #881337 100%);
+  border-top-left-radius:11px;
+  filter:drop-shadow(1px 2px 3px rgba(120,10,30,.4));
+}
+/* Chữ "LOSE" chéo 45° nằm giữa đường huyền của tam giác */
+.rk-row.is-lost::after {
+  content:'LOSE'; position:absolute; top:21px; left:21px; z-index:4; pointer-events:none;
+  transform:translate(-50%,-50%) rotate(-45deg); transform-origin:center;
+  color:#fff; font-size:9px; font-weight:900; letter-spacing:1.5px; line-height:1; white-space:nowrap;
+  text-shadow:0 1px 1px rgba(90,0,20,.6);
+}
 .rk-row.is-hidden-obs { outline: 2px dashed #9ca3af; background: #f3f4f6; }
-.rk-row.is-lost.is-hidden-obs { background:#d5d8de; }
+.rk-row.is-lost.is-hidden-obs { background:linear-gradient(90deg,#e0e3e9,#d4d8e0); }
 .rk-left { display:flex; align-items:center; gap:10px; min-width:0; }
 .rk-row .rk-rank { display:grid; place-items:center; min-width:34px; height:30px; padding:0 7px; border-radius:10px; background:#f2f4f8; font-weight:900; font-size:13px; color: var(--tt-pink); }
 .rk-row img.rk-avatar, .rk-row .rk-initials { width: 34px; height: 34px; border-radius: 50%; background: var(--tt-bg-3); object-fit:cover; flex:0 0 auto; }
@@ -1613,6 +1629,14 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .score-review-card.kpi-met .score-review-progress { border-color:rgba(255,255,255,.9); box-shadow:0 0 0 2px rgba(255,255,255,.3), 0 0 24px rgba(255,107,177,.55), 0 0 38px rgba(139,182,255,.36), inset 0 2px 7px rgba(0,0,0,.08); }
 .score-review-card.kpi-met .score-review-progress i { background:linear-gradient(90deg,#ff4f9a,#ffe66d,#35ffcf,#7aa7ff); box-shadow:0 0 22px rgba(255,255,255,.42); }
 .score-review-progress b { position:absolute; right:6px; top:50%; transform:translateY(-50%); display:grid; place-items:center; width:24px; height:24px; border-radius:50%; background:#d94f9c; color:#fff; font-size:13px; }
+/* Người chạy Douyin trong preview — khớp overlay OBS (vòng theo màu chủ đề + huy hiệu +N/×N) */
+.sc-rev-run { position:absolute; z-index:3; top:50%; transform:translate(-50%,-50%); display:inline-flex; align-items:center; gap:4px; pointer-events:none; white-space:nowrap; }
+.sc-rev-run .sc-rev-badge { position:relative; font-size:11px; font-weight:900; color:#fff; background:var(--rd,#d94f9c); border:1px solid rgba(255,255,255,.7); border-radius:999px; padding:1px 6px; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+.sc-rev-run.has-ava .sc-rev-badge { padding-right:18px; }
+.sc-rev-run .sc-rev-ava { position:absolute; right:-6px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:50%; object-fit:cover; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+.sc-rev-run .sc-rev-fig { flex:0 0 auto; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; background:radial-gradient(circle at 38% 30%, var(--rl,#ff8cc6), var(--rd,#f0327f) 74%); border:1.5px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+.sc-rev-run.is-goal .sc-rev-fig { display:none; }
+.sc-rev-run .sc-rev-fig svg { width:64%; height:64%; fill:#fff; }
 .score-review-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .score-review-creator { flex:1 1 auto; display:flex; align-items:center; justify-content:flex-start; gap:9px; min-width:0; }
 .score-review-creator img, .score-review-creator span { flex:0 0 auto; width:34px; height:34px; border-radius:50%; object-fit:cover; display:grid; place-items:center; background:#f3f4f6; color:var(--tt-pink); font-size:11px; font-weight:950; }

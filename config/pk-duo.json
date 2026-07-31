@@ -61,7 +61,7 @@
   "prepSec": 3,
   "delaySec": 5,
   "joinMode": false,
-  "creatorLive": true,
+  "creatorLive": false,
   "linkRanking": true,
   "pointsBy": "diamond",
   "content": "PK ĐÔI",

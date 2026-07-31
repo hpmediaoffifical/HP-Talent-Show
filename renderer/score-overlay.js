@@ -25,6 +25,8 @@ function fmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString(
 function _hx(h) { h = String(h || '').trim(); const m3 = h.match(/^#([0-9a-f]{3})$/i); if (m3) h = '#' + m3[1].split('').map(c => c + c).join(''); const m = h.match(/^#([0-9a-f]{6})$/i); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 function alphaHex(hex, a) { const c = _hx(hex); return c ? `rgba(${c[0]},${c[1]},${c[2]},${a})` : hex; }
 function mixHex(hex, other, pct) { const a = _hx(hex), b = _hx(other); if (!a || !b) return hex; const t = Math.max(0, Math.min(1, pct / 100)); const c = a.map((v, i) => Math.round(v + (b[i] - v) * t)); return `rgb(${c[0]},${c[1]},${c[2]})`; }
+// Trộn màu RA rgba() (kèm alpha) — dùng cho "đường ray" bán trong suốt kiểu Douyin (thấy nền video qua phần chưa đầy).
+function mixHexA(hex, other, pct, a) { const A = _hx(hex), B = _hx(other); if (!A || !B) return hex; const t = Math.max(0, Math.min(1, pct / 100)); const c = A.map((v, i) => Math.round(v + (B[i] - v) * t)); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
 function shortText(s, max = 28) {
   const text = String(s || '').trim();
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -78,6 +80,29 @@ let lastAddSig = '';
 let lastGoalMet = false;
 let lastRenderedScore = 0;
 let els = {};
+// Số trên huy hiệu "đếm cuộn" (roll-up) khi có cú tặng mới — mượt như Douyin thay vì nhảy cóc.
+let badgeRollRaf = 0;
+let badgeShownVal = 0;
+
+// Cuộn số huy hiệu từ giá trị đang hiện → target. prefix gồm cả nickname (nếu bật) + dấu (+/x).
+function rollBadge(prefix, target) {
+  const el = els.popText;
+  if (!el) return;
+  const to = Math.max(0, Number(target) || 0);
+  const from = badgeShownVal;
+  if (badgeRollRaf) { cancelAnimationFrame(badgeRollRaf); badgeRollRaf = 0; }
+  if (from === to) { el.textContent = `${prefix}${fmt(to)}`; badgeShownVal = to; return; }
+  const t0 = Date.now();
+  const dur = 360;
+  const step = () => {
+    const p = Math.min(1, (Date.now() - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    el.textContent = `${prefix}${fmt(Math.round(from + (to - from) * e))}`;
+    if (p < 1) { badgeRollRaf = requestAnimationFrame(step); }
+    else { badgeRollRaf = 0; badgeShownVal = to; }
+  };
+  badgeRollRaf = requestAnimationFrame(step);
+}
 
 // Khởi động lại 1 animation "một lần" bằng cách gỡ→ép reflow→gắn lại class → chạy đúng 1 lượt mỗi lần gọi.
 function fireOnce(el, cls) {
@@ -101,7 +126,9 @@ function spawnFloatPoint(text, big) {
   host.appendChild(chip);
 }
 
-// Nội dung bên trong thanh máu (dùng chung cho cả 2 bố cục — dải ngang & thẻ HUD)
+// Nội dung bên trong thanh máu (dùng chung cho cả 2 bố cục — dải ngang & thẻ HUD).
+// LƯU Ý: người chạy (.score-pop) KHÔNG nằm trong này — nó được gắn NGOÀI thanh (thanh có overflow:hidden
+// sẽ cắt mất vòng tròn + huy hiệu nhô lên trên) qua runnerHTML() ở lớp bọc .score-barwrap / .sc-cardbar-wrap.
 function barInnerHTML(v, showOver = true) {
   return `
       <div class="score-fill"><i class="score-liquid"></i></div>
@@ -112,8 +139,20 @@ function barInnerHTML(v, showOver = true) {
       <div class="score-ripple"></div>
       <div class="score-wave"></div>
       ${showOver && v.over > 0 ? `<div class="score-over">+Over: <span class="score-over-val"></span></div>` : ''}
-      ${v.activeRunner ? `<div class="score-pop"><span class="score-pop-text"></span><b>🏃</b></div>` : ''}
       <div class="score-burst"></div>`;
+}
+
+// Người chạy kiểu Douyin: vòng tròn hồng + hình người TRẮNG chạy, đuôi bụi trắng bắn ra sau (chờ tăng tốc),
+// huy hiệu "+N" phía trên (nền mờ trong suốt + viền hồng TikTok), và avatar người tặng khi quà lớn (>1000đ).
+function runnerHTML() {
+  return `<div class="score-pop">
+      <span class="score-pop-badge"><img class="score-pop-gift" onerror="this.onerror=null;this.style.display='none'" alt="" /><span class="score-pop-text"></span><img class="score-pop-avatar" onerror="this.onerror=null;this.style.display='none'" alt="" /></span>
+      <span class="score-pop-runner">
+        <span class="score-pop-dash" aria-hidden="true"></span>
+        <span class="score-pop-dust"><i></i><i></i><i></i><i></i><i></i></span>
+        <svg class="score-pop-figure" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7z"/></svg>
+      </span>
+    </div>`;
 }
 
 function buildStructure(state, v) {
@@ -130,6 +169,7 @@ function buildStructure(state, v) {
       </div>
       <div class="sc-cardbar-wrap">
         <div class="score-bar sc-cardbar">${barInnerHTML(v, false)}</div>
+        ${v.showRunner ? runnerHTML() : ''}
         <div class="sc-cardbar-labels${v.over > 0 ? ' has-over' : ''}">
           ${v.over > 0 ? `<span class="sc-card-over">+OVER <b class="score-over-val"></b></span>` : ''}
           <span class="sc-score-chip"><span class="sc-score-chip-val"></span></span>
@@ -142,7 +182,7 @@ function buildStructure(state, v) {
     `;
   } else {
     root.innerHTML = `
-    <div class="score-barwrap"><div class="score-bar">${barInnerHTML(v)}</div><div class="score-flag">⚑</div></div>
+    <div class="score-barwrap"><div class="score-bar">${barInnerHTML(v)}</div><div class="score-flag">⚑</div>${v.showRunner ? runnerHTML() : ''}</div>
     <div class="score-meta">
       <div class="score-person">
         ${state.hideAvatar ? '' : `<div class="score-avatar"><img class="score-avatar-img" onerror="this.onerror=null;this.src='/logo.png'" /></div>`}
@@ -150,7 +190,7 @@ function buildStructure(state, v) {
       </div>
       <div class="score-time"><i class="score-time-icon ${v.iconOff ? 'off' : 'clock'}" aria-hidden="true"></i><span class="score-time-text"></span></div>
       <div class="score-points">
-        <span class="score-points-main"></span>
+        <span class="score-points-main"><b class="score-points-cur"></b><span class="score-points-rest"></span></span>
         ${v.kpiX2 ? `<span class="score-points-x2"></span>` : ''}
       </div>
     </div>
@@ -171,17 +211,25 @@ function buildStructure(state, v) {
     overVal: root.querySelector('.score-over-val'),
     pop: root.querySelector('.score-pop'),
     popText: root.querySelector('.score-pop-text'),
+    popAvatar: root.querySelector('.score-pop-avatar'),
+    popGift: root.querySelector('.score-pop-gift'),
+    popRunner: root.querySelector('.score-pop-runner'),
     avatarImg: root.querySelector('.score-avatar-img'),
     creator: root.querySelector('.score-creator'),
     pointsMain: root.querySelector('.score-points-main'),
+    pointsCur: root.querySelector('.score-points-cur'),
+    pointsRest: root.querySelector('.score-points-rest'),
     pointsX2: root.querySelector('.score-points-x2'),
     remaining: root.querySelector('.score-remaining'),
     remainingText: root.querySelector('.score-remaining-text'),
     aura: root.querySelector('.sc-fx-aura'),
     floats: root.querySelector('.sc-fx-floats'),
   };
-  // Con số điểm để "nhảy nảy" — thẻ KÊU GỌI dùng .sc-score-chip-val, thanh ngang dùng .score-points-main
-  els.scoreNum = els.scoreChipVal || els.pointsMain;
+  // Con số điểm để "nhảy nảy" — thẻ KÊU GỌI dùng .sc-score-chip-val, ĐƯỜNG ĐUA chỉ nảy SỐ TĂNG bên trái
+  // (.score-points-cur), giữ nguyên "/mục tiêu điểm" đứng yên.
+  els.scoreNum = els.scoreChipVal || els.pointsCur;
+  // DOM vừa dựng lại → huỷ roll đang chạy (element cũ đã tháo) để lượt sau set thẳng số vào element mới.
+  if (badgeRollRaf) { cancelAnimationFrame(badgeRollRaf); badgeRollRaf = 0; }
   // Sóng chảy đồng bộ theo đồng hồ toàn cục — chỉ đặt khi dựng lại (element mới) để không giật giữa chừng.
   root.style.setProperty('--score-flow-delay', `${(-(Date.now() % 1000) / 1000).toFixed(3)}s`);
 }
@@ -193,7 +241,8 @@ function render(state = {}) {
   const score = Math.max(0, Number(state.score) || 0);
   const over = noTarget ? 0 : Math.max(0, score - target);
   const pct = noTarget ? 100 : Math.max(0, Math.min(100, (score / target) * 100));
-  const popLeft = Math.max(11, Math.min(88, pct));
+  // Người chạy neo ngay mép máu đang tiến; kẹp trong [9,90] để vòng tròn + huy hiệu không bị mép/cờ đích cắt.
+  const popLeft = Math.max(9, Math.min(90, pct));
   const status = state.status || 'idle';
   const key = runKey(state);
   if (key !== lastRunKey) {
@@ -211,10 +260,26 @@ function render(state = {}) {
   const hasContent = !!content.trim();
   const statusText = scoreStatusText(status, state.timeText);
   const activeRunner = ['running', 'grace'].includes(status) && !!state.lastAdd;
+  // ĐƯỜNG ĐUA (bar): người chạy hiện SUỐT phiên (kể cả lúc chưa có điểm — "chờ tăng tốc" + bụi trắng).
+  // KÊU GỌI (card): giữ như cũ — chỉ hiện khi vừa có quà.
+  // LƯU Ý: khi cán đích 100% CHỈ ẨN vòng tròn + hình người (qua .goal-met bằng CSS), NHƯNG GIỮ huy hiệu
+  // "+N / quà lớn + avatar" để vẫn kích cầu người tặng tiếp vào phần dư (số dư/Over).
+  const showRunner = cardLayout ? activeRunner : ['prestart', 'running', 'grace'].includes(status);
   const runnerUser = state.showGiftUser !== false && state.lastAddUser ? `${state.lastAddUser} ` : '';
-  const runnerPoints = state.lastAdd ? `+${fmt(state.lastAdd)}` : '';
   const runnerAtStart = pct < 28;
   const big = Number(state.lastAdd) >= Number(state.bigGiftThreshold || 500);
+  // Quà lớn (≥ ngưỡng) → hiện avatar người tặng trong huy hiệu (điểm ảnh 4).
+  const runnerAvatar = mediaUrl(state.lastAddAvatar || '');
+  const avatarThreshold = Math.max(1, Number(state.avatarThreshold) || 1000);
+  const showRunnerAvatar = !!state.lastAdd && Number(state.lastAdd) >= avatarThreshold && !!state.lastAddAvatar;
+  // Huy hiệu LUÔN hiện GIÁ TRỊ THỰC của cú tặng (kim cương/điểm — chính xác đến 1 xu), KHÔNG dùng số combo
+  // (×N gây hiểu lầm: 1 quà 999 xu bị hiện ×1). Chế độ 'gift' chỉ thêm icon quà đứng trước con số.
+  // QUÀ LỚN (đạt ngưỡng avatar) → +giá trị + avatar bo tròn sát mép (tôn người tặng lớn, khớp Douyin ảnh 4).
+  const badgeMode = ['points', 'gift'].includes(state.runnerBadgeMode) ? state.runnerBadgeMode : 'points';
+  const badgeNum = Math.max(0, Number(state.lastAdd) || 0);
+  const badgePrefix = `${runnerUser}+`;
+  const showRunnerGift = !showRunnerAvatar && badgeMode === 'gift' && !!state.lastAddIcon;
+  const runnerGiftIcon = mediaUrl(state.lastAddIcon || '');
   const remainingMs = Number(state.remainingMs) || 0;
   const urgent = ['running', 'grace'].includes(status) && remainingMs <= 10000 && remainingMs > 0;
   const nearGoal = !noTarget && ['running', 'grace'].includes(status) && pct >= 80 && score < target;
@@ -228,7 +293,7 @@ function render(state = {}) {
   // Còn bao nhiêu tới đích (kêu gọi tặng thêm) — không mục tiêu thì không hiện
   const showRemaining = !noTarget && !!state.showRemaining;
   const remainingPts = Math.max(0, target - score);
-  const className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${noTarget ? ' no-target' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}${state.colorByProgress ? ' color-progress' : ''}${kpiX2 ? ' has-kpi-x2' : ''}${inX2 ? ' x2-active' : ''}${cardLayout ? ' layout-card' : ' layout-bar'}${state.fxGlowBorder ? ' fx-glowborder' : ''}${state.fxGlass ? ' fx-glass' : ''}${state.fxSparkle ? ' fx-sparkle' : ''}${state.fxSpotlight ? ' fx-spotlight' : ''}${state.fxAvatarAura ? ' fx-avataraura' : ''}${state.fxScoreBounce ? ' fx-scorebounce' : ''}${state.fxFloatPoints ? ' fx-floatpoints' : ''}${state.fxCardBreathe ? ' fx-cardbreathe' : ''}${state.fxLiquid ? ' fx-liquid' : ''}`;
+  const className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${noTarget ? ' no-target' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}${state.colorByProgress ? ' color-progress' : ''}${kpiX2 ? ' has-kpi-x2' : ''}${inX2 ? ' x2-active' : ''}${cardLayout ? ' layout-card' : ' layout-bar'}${state.runnerDust === false ? ' runner-nodust' : ''}${state.fxGlowBorder ? ' fx-glowborder' : ''}${state.fxGlass ? ' fx-glass' : ''}${state.fxSparkle ? ' fx-sparkle' : ''}${state.fxSpotlight ? ' fx-spotlight' : ''}${state.fxAvatarAura ? ' fx-avataraura' : ''}${state.fxScoreBounce ? ' fx-scorebounce' : ''}${state.fxFloatPoints ? ' fx-floatpoints' : ''}${state.fxCardBreathe ? ' fx-cardbreathe' : ''}${state.fxLiquid ? ' fx-liquid' : ''}`;
   if (className !== lastClassName) { root.className = className; lastClassName = className; }
 
   root.style.setProperty('--score-time-color', state.timeColor || '#ffffff');
@@ -251,19 +316,27 @@ function render(state = {}) {
   const c1 = state.barColor1 || '#b93678';
   const c2 = state.barColor2 || '#ff8ed1';
   root.style.setProperty('--score-bar-idle-gradient', `linear-gradient(90deg, ${mixHex(c2, '#172333', 58)} 0%, ${mixHex(c1, '#172333', 60)} 100%)`);
+  // Đường ray Douyin (chỉ ĐƯỜNG ĐUA/bar dùng qua CSS): bán trong suốt để thấy nền video ở phần chưa đầy.
+  root.style.setProperty('--score-bar-track', `linear-gradient(90deg, ${mixHexA(c2, '#0a0f18', 66, .34)} 0%, ${mixHexA(c1, '#0a0f18', 58, .5)} 100%)`);
   root.style.setProperty('--score-edge-glow', alphaHex(c1, .68));
   root.style.setProperty('--score-edge-soft', alphaHex(c1, .18));
-  // Đuôi mờ trong suốt → đầu (mép đang tiến) đậm/sáng nhất
+  // Người chạy ăn theo màu chủ đề (bar) — hoặc ép hồng TikTok nếu bật công tắc.
+  const forcePink = !!state.runnerForcePink;
+  root.style.setProperty('--score-runner-lite', forcePink ? '#ff8cc6' : c2);
+  root.style.setProperty('--score-runner-dark', forcePink ? '#f0327f' : c1);
+  root.style.setProperty('--score-runner-glow', alphaHex(forcePink ? '#f0327f' : c1, .6));
+  // Máu kiểu "vệt sao băng" Douyin: ĐẦU (mép trái, điểm gốc) mờ trong suốt → ĐẬM DẦN về mép đang tiến/đích;
+  // thêm chút trắng nhẹ ở đuôi cho nổi viền hồng (điểm ảnh 3). colorByProgress giữ hành trình sắc màu riêng.
   root.style.setProperty('--score-fill-gradient',
     state.colorByProgress
       ? progressFillGradient(pct)
-      : `linear-gradient(90deg, ${c2} 0%, ${c2} 38%, ${c1} 82%, ${c1} 100%)`);
+      : `linear-gradient(90deg, ${alphaHex(c2, .08)} 0%, ${alphaHex(c2, .5)} 22%, ${c2} 56%, ${c1} 100%)`);
 
   // Chỉ dựng lại khung khi khung xương đổi — thay vì mỗi 250ms (nguyên nhân restart animation → nhấp nháy).
-  const structKey = `${status}|${state.hideAvatar ? 1 : 0}|${state.hideCreator ? 1 : 0}|${over > 0 ? 1 : 0}|${activeRunner ? 1 : 0}|${kpiX2 ? 1 : 0}|${showRemaining ? 1 : 0}|${cardLayout ? 1 : 0}|${hasContent ? 1 : 0}`;
+  const structKey = `${status}|${state.hideAvatar ? 1 : 0}|${state.hideCreator ? 1 : 0}|${over > 0 ? 1 : 0}|${showRunner ? 1 : 0}|${kpiX2 ? 1 : 0}|${showRemaining ? 1 : 0}|${cardLayout ? 1 : 0}|${hasContent ? 1 : 0}`;
   if (structKey !== lastStructKey) {
     lastStructKey = structKey;
-    buildStructure(state, { iconOff, over, activeRunner, kpiX2, showRemaining, cardLayout, hasContent });
+    buildStructure(state, { iconOff, over, activeRunner, showRunner, kpiX2, showRemaining, cardLayout, hasContent });
   }
 
   // Cập nhật tại chỗ (không dựng lại DOM → animation chạy liền mạch)
@@ -272,7 +345,8 @@ function render(state = {}) {
   if (els.tabText) els.tabText.textContent = content.trim() ? content : creator;
   if (els.scoreChipVal) els.scoreChipVal.textContent = fmt(score);
   if (els.targetLabel) els.targetLabel.textContent = fmt(target);
-  if (els.pointsMain) els.pointsMain.textContent = noTarget ? `${fmt(score)} điểm` : `${fmt(score)}/${fmt(target)} điểm`;
+  if (els.pointsCur) els.pointsCur.textContent = fmt(score);
+  if (els.pointsRest) els.pointsRest.textContent = noTarget ? ' điểm' : `/${fmt(target)} điểm`;
   if (els.pointsX2) els.pointsX2.textContent = `x${kpiMult} → ${fmt(kpix2Total)} điểm`;
   if (els.remaining) {
     const showLine = showRemaining && ['prestart', 'running', 'grace'].includes(status) && remainingPts > 0;
@@ -286,9 +360,28 @@ function render(state = {}) {
   if (els.creator) { els.creator.textContent = shortCreator; els.creator.title = creator; }
   if (els.avatarImg && avatar && els.avatarImg.getAttribute('src') !== avatar) els.avatarImg.src = avatar;
   if (els.pop) {
-    els.pop.className = `score-pop${big ? ' big' : ''}${runnerAtStart ? ' at-start' : ''}`;
-    els.pop.style.left = runnerAtStart ? '6px' : `${popLeft}%`;
-    if (els.popText) els.popText.textContent = `${runnerUser}${runnerPoints}`;
+    const hasGift = !!state.lastAdd && ['running', 'grace'].includes(status);
+    els.pop.className = `score-pop${big ? ' big' : ''}${runnerAtStart ? ' at-start' : ''}${hasGift ? ' has-gift' : ' no-gift'}${showRunnerAvatar ? ' has-avatar' : ''}${showRunnerGift ? ' has-gifticon' : ''}`;
+    // Bar: luôn neo giữa mép máu (CSS tự căn giữa); Card: giữ nếp cũ (dạt về 6px khi ở vạch xuất phát).
+    els.pop.style.left = (cardLayout && runnerAtStart) ? '6px' : `${popLeft}%`;
+    if (els.popAvatar) {
+      if (showRunnerAvatar && runnerAvatar) {
+        if (els.popAvatar.getAttribute('src') !== runnerAvatar) els.popAvatar.src = runnerAvatar;
+        els.popAvatar.style.display = '';
+      } else els.popAvatar.style.display = 'none';
+    }
+    if (els.popGift) {
+      if (showRunnerGift && runnerGiftIcon) {
+        if (els.popGift.getAttribute('src') !== runnerGiftIcon) els.popGift.src = runnerGiftIcon;
+        els.popGift.style.display = '';
+      } else els.popGift.style.display = 'none';
+    }
+    // Số huy hiệu: cú tặng MỚI để rollBadge (khối addSig bên dưới) xử lý đếm cuộn; ngoài ra set thẳng.
+    const isNewGift = String(state.lastAddAt || 0) !== lastAddSig;
+    if (els.popText && !(isNewGift && hasGift) && !badgeRollRaf) {
+      els.popText.textContent = hasGift ? `${badgePrefix}${fmt(badgeNum)}` : '';
+      badgeShownVal = hasGift ? badgeNum : 0;
+    }
   }
 
   // Chỉ chớp sáng đầu thanh khi CÓ quà mới (theo dấu thời gian) — không chớp lại mỗi tick.
@@ -297,6 +390,10 @@ function render(state = {}) {
     lastAddSig = addSig;
     if (state.lastAddAt && ['running', 'grace'].includes(status)) {
       if (els.flash) { els.flash.style.animation = 'none'; void els.flash.offsetWidth; els.flash.style.animation = ''; }
+      // Huy hiệu đếm cuộn tới giá trị cú tặng mới (mượt như Douyin)
+      rollBadge(badgePrefix, badgeNum);
+      // Bứt tốc khi quà lớn: người chạy lao vọt + vệt tốc độ + tiếng "vút" (chỉ ĐƯỜNG ĐUA/bar)
+      if (big && !cardLayout) { fireOnce(els.popRunner, 'dash'); if (state.dashSound) playSound(state.dashSound); }
       // FX "Quà lớn tạo sóng": chỉ khi cú tặng ≥ ngưỡng
       if (big) fireOnce(els.ripple, 'go');
       // FX "Hào quang avatar": mỗi cú tặng bắn 1 vòng sáng nở quanh avatar

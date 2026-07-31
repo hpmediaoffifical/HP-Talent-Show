@@ -226,6 +226,9 @@ let currentEditingGroup = null;
 let stats = { gifts: 0, diamond: 0, donors: new Set(), viewers: 0 };
 let ttConnected = false;
 let liveUsername = '';
+// Bản DEV (chạy nguồn) = true → mở khoá mọi tính năng để test. Bản CÀI = false → cần LIVE.
+// Nạp 1 lần lúc khởi động (initLicenseGate); mặc định false để bản CÀI an toàn nếu chưa kịp nạp.
+let IS_DEV = false;
 let activeGroupId = ''; // '' = TALENT SHOW (mở tất cả); id = chỉ nhóm đó. KHÔNG lưu vào settings.
 const TALENT_SHOW_CONNECT_ID = 'hpmedia.official'; // ID TikTok đại diện của 🎤 TALENT SHOW (tự điền ô kết nối)
 let autoConnectPref = false; // Tự động kết nối khi mở app (popup Kết nối).
@@ -4064,6 +4067,7 @@ function wireMissionTrioTab() {
   });
 
   $('#mtStart')?.addEventListener('click', async () => {
+    if (!requireLive('BẮT ĐẦU NHIỆM VỤ · BỘ BA')) return;
     await window.api.missiontrio.start();
     mtRunning = true; mtValues = { donors: 0, likes: 0, points: 0 };
     mtRenderPreview(); mtUpdateRunUI();
@@ -4270,6 +4274,7 @@ function wireCardFlipTab() {
   $('#cfParticles')?.addEventListener('change', () => { cfCfg.particles = $('#cfParticles').checked; cfScheduleSave(); });
 
   $('#cfStart')?.addEventListener('click', async () => {
+    if (!requireLive('BẮT ĐẦU đếm tim THẺ BÀI')) return;
     await window.api.cardflip.startHearts();
     cfRunning = true; cfHearts = 0; if ($('#cfHearts')) $('#cfHearts').value = '0';
     cfRenderPreview(); cfUpdateRunUI();
@@ -4444,8 +4449,18 @@ async function init() {
   hideBootSplash();
 }
 
+// Cổng LIVE: bản CÀI chính thức bắt buộc kết nối TikTok LIVE mới cho chạy các tính năng
+// (Tính điểm, PK Đôi/Nhóm, NHIỆM VỤ, THẺ BÀI…). Bản DEV luôn mở để test thoải mái.
+// Trả true = được phép chạy; false = đã chặn + đã báo toast.
+function requireLive(featureName) {
+  if (IS_DEV || ttConnected) return true;
+  toast(`🔒 Cần kết nối TikTok LIVE trước khi ${featureName}`, 'error');
+  return false;
+}
+
 async function initLicenseGate() {
   wireLicenseUi();
+  IS_DEV = await window.api.app.isDev().catch(() => false);
   const version = await window.api.app.getVersion().catch(() => '0.1.0');
   $('#appVersionText').textContent = version;
   if ($('#updateCurrentVer')) $('#updateCurrentVer').textContent = 'v' + version;
@@ -6910,6 +6925,7 @@ function wirePkDuoTab() {
       await window.api.pkduo.stop();
       return;
     }
+    if (!requireLive('BẮT ĐẦU PK Đôi')) return;
     await window.api.pkduo.setConfig(collectPkCfg());
     await window.api.pkduo.start();
   });
@@ -7476,6 +7492,7 @@ function wirePkGroupTab() {
   // Cấu hình PK Nhóm tự lưu real-time (schedulePkGroupAutoSave) — không cần nút Cập nhật.
   $('#pkgStart').addEventListener('click', async () => {
     if ($('#pkgStart').dataset.running === 'true') { await window.api.pkgroup.stop(); return; }
+    if (!requireLive('BẮT ĐẦU PK Nhóm')) return;
     const cfg = collectPkGroupCfg();
     if (!cfg.participants.length) { toast('Cần tích ít nhất 1 creator', 'error'); return; }
     await window.api.pkgroup.setConfig(cfg);
@@ -7800,6 +7817,7 @@ function wireRankingTab() {
       await window.api.score.stop();
       toast('■ Đã dừng Tính điểm', 'success');
     } else {
+      if (!requireLive('BẮT ĐẦU Tính điểm')) return;
       await syncScoreDurationFromBridge();
       await syncScoreToCreator(c);
       scoreAutoRoundHandled = false;
@@ -8442,6 +8460,10 @@ async function loadScoreConfig() {
   if ($('#scFxFloatPoints')) $('#scFxFloatPoints').checked = !!st.fxFloatPoints;
   if ($('#scFxCardBreathe')) $('#scFxCardBreathe').checked = !!st.fxCardBreathe;
   if ($('#scFxLiquid')) $('#scFxLiquid').checked = !!st.fxLiquid;
+  if ($('#scRunnerForcePink')) $('#scRunnerForcePink').checked = !!st.runnerForcePink;
+  if ($('#scRunnerDust')) $('#scRunnerDust').checked = st.runnerDust !== false;
+  if ($('#scRunnerBadgeMode')) $('#scRunnerBadgeMode').value = ['points', 'gift'].includes(st.runnerBadgeMode) ? st.runnerBadgeMode : 'points';
+  if ($('#scAvatarThreshold')) $('#scAvatarThreshold').value = Math.max(1, Number(st.avatarThreshold) || 1000);
   if ($('#scCardBgOpacity')) { const c = Number.isFinite(Number(st.cardBgOpacity)) ? Number(st.cardBgOpacity) : 88; $('#scCardBgOpacity').value = c; $('#scCardBgOpacityValue').textContent = `${c}%`; }
   if ($('#scKpiMult')) $('#scKpiMult').value = String([2, 3, 5].includes(Number(st.kpiMult)) ? Number(st.kpiMult) : 2);
   syncScoreThemeChips();
@@ -8450,6 +8472,7 @@ async function loadScoreConfig() {
   $('#scOverlayScale').value = st.overlayScale || 200;
   $('#scOverlayScaleValue').textContent = `${$('#scOverlayScale').value}%`;
   setSoundInput('scSndStart', st.startSound || '');
+  setSoundInput('scSndDash', st.dashSound || '');
   setSoundInput('scSndWarn', st.warningSound || '');
   setSoundInput('scSndGoal', st.goalSound || '');
   setSoundInput('scSndX2', st.x2Sound || '');
@@ -8504,6 +8527,10 @@ function collectScoreCfg() {
     fxFloatPoints: $('#scFxFloatPoints')?.checked || false,
     fxCardBreathe: $('#scFxCardBreathe')?.checked || false,
     fxLiquid: $('#scFxLiquid')?.checked || false,
+    runnerForcePink: $('#scRunnerForcePink')?.checked || false,
+    runnerDust: $('#scRunnerDust') ? $('#scRunnerDust').checked : true,
+    runnerBadgeMode: ['points', 'gift'].includes($('#scRunnerBadgeMode')?.value) ? $('#scRunnerBadgeMode').value : 'points',
+    avatarThreshold: Math.max(1, Number($('#scAvatarThreshold')?.value) || 1000),
     barBorderColor: $('#scBorderColor')?.value || '#ffffff',
     barBorderOpacity: Math.max(0, Math.min(100, Number($('#scBorderOpacity')?.value) || 0)),
     barBorderWidth: Math.max(0, Math.min(6, Number($('#scBorderWidth')?.value) || 0)),
@@ -8522,6 +8549,7 @@ function collectScoreCfg() {
     pointsBy: $('#scPointsBy').value,
     overlayScale: Math.max(80, Math.min(300, Number($('#scOverlayScale').value) || 200)),
     startSound: gameplaySoundValue('scSndStart'),
+    dashSound: gameplaySoundValue('scSndDash'),
     warningSound: gameplaySoundValue('scSndWarn'),
     goalSound: gameplaySoundValue('scSndGoal'),
     x2Sound: gameplaySoundValue('scSndX2'),
@@ -8699,6 +8727,7 @@ function wireScoreTab() {
       await window.api.score.stop();
       toast('■ Đã dừng', 'success');
     } else {
+      if (!requireLive('BẮT ĐẦU Tính điểm')) return;
       await window.api.score.setConfig(collectScoreCfg());
       scoreAutoRoundHandled = false;
       scoreStoppedManually = false;
@@ -8859,6 +8888,20 @@ function renderScPreview(st) {
       </div>
     `;
   } else {
+  // Người chạy kiểu Douyin trong preview (ĐƯỜNG ĐUA) — khớp overlay OBS: vòng theo màu, ẩn khi cán đích, quà lớn +KC + avatar.
+  const scGoalReached = !noTarget && score >= target;
+  const scRunning = ['prestart', 'running', 'grace'].includes(status);
+  const scGift = !!st.lastAdd && ['running', 'grace'].includes(status);
+  const scAvaThr = Math.max(1, Number(st.avatarThreshold) || 1000);
+  const scBig = !!st.lastAdd && Number(st.lastAdd) >= scAvaThr && !!st.lastAddAvatar;
+  const scBadge = scGift ? `+${formatNumber(Math.max(0, Number(st.lastAdd) || 0))}` : '';
+  const scPop = Math.max(6, Math.min(93, pct));
+  const scRunLite = st.runnerForcePink ? '#ff8cc6' : barColor2;
+  const scRunDark = st.runnerForcePink ? '#f0327f' : barColor1;
+  const scRunFig = '<svg viewBox="0 0 24 24"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7z"/></svg>';
+  const scAvaHtml = (scGift && scBig) ? `<img class="sc-rev-ava" src="${escapeAttr(st.lastAddAvatar)}" onerror="this.style.display='none'" />` : '';
+  // Cán đích: ẩn hình người (is-goal) nhưng vẫn giữ huy hiệu quà để kích cầu phần dư — khớp overlay OBS.
+  const scRunner = scRunning ? `<span class="sc-rev-run${scGift ? ' has-gift' : ''}${scBig ? ' has-ava' : ''}${scGoalReached ? ' is-goal' : ''}" style="left:${scPop}%;--rl:${escapeAttr(scRunLite)};--rd:${escapeAttr(scRunDark)}">${scGift ? `<span class="sc-rev-badge">${escapeHtml(scBadge)}${scAvaHtml}</span>` : ''}<span class="sc-rev-fig">${scRunFig}</span></span>` : '';
   $('#scPreview').innerHTML = `
     <div class="score-review-card${!noTarget && score >= target ? ' kpi-met' : ''}">
       <div class="score-review-topline">
@@ -8866,7 +8909,7 @@ function renderScPreview(st) {
         <div class="score-review-time">${escapeHtml(st.timeText || '00:00')}</div>
         ${noTarget ? '<span class="score-review-chip score-review-chip--free">TỰ DO</span>' : `<span class="score-review-chip score-review-chip--pct">${pct}%</span>`}
       </div>
-      <div class="score-review-progress${noTarget ? ' is-free' : ''}" style="--score-review-fill:${escapeAttr(reviewFill)};--score-review-idle:${escapeAttr(reviewIdle)};--score-review-edge:${escapeAttr(reviewEdge)}"><i class="${score > 0 ? 'has-fill' : ''}" style="width:${pct}%"></i><span class="score-review-sheen" style="width:${pct}%"></span><b>⚑</b></div>
+      <div class="score-review-progress${noTarget ? ' is-free' : ''}" style="--score-review-fill:${escapeAttr(reviewFill)};--score-review-idle:${escapeAttr(reviewIdle)};--score-review-edge:${escapeAttr(reviewEdge)}"><i class="${score > 0 ? 'has-fill' : ''}" style="width:${pct}%"></i><span class="score-review-sheen" style="width:${pct}%"></span><b>⚑</b>${scRunner}</div>
       <div class="score-review-head">
         <div class="score-review-creator">
           ${st.creatorAvatar ? `<img class="js-avatar" src="${escapeAttr(st.creatorAvatar)}" />` : '<span>HP</span>'}

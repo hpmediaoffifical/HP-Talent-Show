@@ -1176,6 +1176,22 @@
                   <label title="Cả khung thẻ phập phồng nhẹ khi đang chạy, càng gần hết giờ thở càng gấp."><input id="scFxCardBreathe" type="checkbox" checked /> 💓 Viền thẻ thở</label>
                   <label title="Mặt trên phần máu gợn sóng như nước — sinh động hơn dải sheen phẳng."><input id="scFxLiquid" type="checkbox" checked /> 🌊 Thác chất lỏng</label>
                 </div>
+                <div class="sc-fx-sub">🏃 Riêng <b>ĐƯỜNG ĐUA</b> (người chạy)</div>
+                <div class="option-pills">
+                  <label title="Ép vòng tròn người chạy + viền huy hiệu về HỒNG TikTok. Tắt = ăn theo Màu thanh 1/2 (đồng bộ chủ đề)."><input id="scRunnerForcePink" type="checkbox" /> 🩷 Ép hồng TikTok</label>
+                  <label title="Bụi trắng bắn ra sau lưng người chạy ('chờ tăng tốc'). Tắt cho nhẹ OBS máy yếu."><input id="scRunnerDust" type="checkbox" checked /> 💨 Bụi tăng tốc</label>
+                </div>
+                <div class="option-inline">
+                  <label title="Huy hiệu người chạy luôn hiện GIÁ TRỊ THỰC cú tặng (kim cương/điểm, chính xác đến 1 xu).">🏷️ Huy hiệu hiện
+                    <select id="scRunnerBadgeMode">
+                      <option value="points">+ Giá trị (điểm)</option>
+                      <option value="gift">Icon quà + giá trị</option>
+                    </select>
+                  </label>
+                  <label title="Quà ≥ mức này (điểm) sẽ hiện avatar người tặng trong huy hiệu.">🖼️ Ngưỡng avatar
+                    <input id="scAvatarThreshold" type="number" min="1" step="100" value="1000" style="width:90px" />
+                  </label>
+                </div>
               </div>
             </details>
 
@@ -2421,6 +2437,7 @@
             <label>Warning 10s <span class="inline"><input id="scSndWarn" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndWarn" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndWarn" type="button">Nghe</button></span></label>
             <label>Goal đạt <span class="inline"><input id="scSndGoal" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndGoal" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndGoal" type="button">Nghe</button></span></label>
             <label>Vào vùng nhân bù <span class="inline"><input id="scSndX2" readonly placeholder="(trống = dùng Goal đạt)" /><button class="ghost score-sound-file" data-target="scSndX2" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndX2" type="button">Nghe</button></span></label>
+            <label>Bứt tốc (quà lớn) <span class="inline"><input id="scSndDash" readonly placeholder="(trống = không kêu 'vút')" /><button class="ghost score-sound-file" data-target="scSndDash" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndDash" type="button">Nghe</button></span></label>
             <label>Success/Thắng <span class="inline"><input id="scSndSuccess" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndSuccess" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndSuccess" type="button">Nghe</button></span></label>
             <label>Thua / bị loại tự động <span class="inline"><input id="scSndFail" readonly placeholder="Chưa chọn file" /><button class="ghost score-sound-file" data-target="scSndFail" type="button">Chọn</button><button class="ghost score-sound-test" data-target="scSndFail" type="button">Nghe</button></span></label>
           </div>

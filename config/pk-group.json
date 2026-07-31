@@ -41,7 +41,8 @@
       ],
       "streak": 0,
       "score": 0,
-      "nameOverride": false
+      "nameOverride": false,
+      "avatarKey": "d2f7a0ed10441222facb47f2e8bc147a6ab175f2"
     },
     {
       "id": "c_mrtg2crd6d27p",
@@ -61,7 +62,8 @@
       ],
       "streak": 0,
       "score": 0,
-      "nameOverride": true
+      "nameOverride": true,
+      "avatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b"
     },
     {
       "id": "c_mrtg2obyczu0h",
@@ -81,7 +83,8 @@
       ],
       "streak": 0,
       "score": 0,
-      "nameOverride": true
+      "nameOverride": true,
+      "avatarKey": "257e01bcb983d9242993df341399fb664d63f4ed"
     },
     {
       "id": "c_mrtg2s085v57p",
@@ -101,7 +104,8 @@
       ],
       "streak": 1,
       "score": 0,
-      "nameOverride": true
+      "nameOverride": true,
+      "avatarKey": "3dafaf85608b5ed478ea2c98dc543fb5db28bf2f"
     },
     {
       "id": "c_mrtg396ra59ws",
@@ -121,7 +125,8 @@
       ],
       "streak": 0,
       "score": 0,
-      "nameOverride": true
+      "nameOverride": true,
+      "avatarKey": "7a1835be3759ef22140264da0b92563b31d5f75e"
     }
   ],
   "creatorColors": {

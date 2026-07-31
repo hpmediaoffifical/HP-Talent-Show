@@ -276,6 +276,8 @@ const api = {
 
   app: {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),
+    // true = bản DEV (chạy nguồn) → mở khoá tính năng; false = bản CÀI → cần LIVE.
+    isDev: () => ipcRenderer.invoke('app:isDev'),
     // Phản hồi popup xác nhận thoát (true = Thoát hẳn, false = Ở lại) — thay dialog gốc bằng UI đẹp trong app.
     confirmQuitResult: (ok) => ipcRenderer.send('app:confirmQuitResult', !!ok),
   },

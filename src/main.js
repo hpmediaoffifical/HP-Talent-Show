@@ -2610,10 +2610,14 @@ class RankingEngine {
   }
 
   // suppressAuto=true: có trò chơi đang Liên kết → NGƯNG tự cộng theo quà mặc định (tránh cộng trùng).
-  // VOTE (chấm thủ công) vẫn hoạt động bình thường.
-  routeGift(ev, suppressAuto = false) {
+  // voteStarted=false: đã VOTE nhưng CHƯA có hiệu lệnh BẮT ĐẦU (Tính điểm chạy / trận Liên kết chạy)
+  //   → VOTE chỉ ĐÁNH DẤU hàng, TUYỆT ĐỐI không cộng điểm từ quà. Tránh vừa bấm VOTE là có người
+  //   tặng quà tự lên điểm trong khi chưa phát lệnh bắt đầu.
+  routeGift(ev, suppressAuto = false, voteStarted = true) {
     const creators = this.getCreators();
     const voted = this.config.mode === 'creator' ? creators.find(c => !!c.voteActive) : null;
+    // Có Creator đang VOTE nhưng chưa có hiệu lệnh bắt đầu → không nhận điểm (chỉ giữ highlight qua voteActive).
+    if (voted && !voteStarted) return;
     if (suppressAuto && !voted) return;
     // Tắt ô "Quà" = ngưng TỰ cộng điểm theo quà mặc định. Vẫn cho VOTE (chấm thủ công) hoạt động,
     // vì khi có Creator đang VOTE mọi điểm được điều khiển có chủ đích, không phải auto theo quà.
@@ -2816,6 +2820,12 @@ class ScoreEngine {
       failSound: '',
       pointsBy: 'diamond',
       overlayScale: 100,
+      // ĐƯỜNG ĐUA (Douyin): người chạy theo màu chủ đề (bar) — bật ép hồng TikTok nếu muốn giữ nguyên chất Douyin.
+      runnerForcePink: false,
+      runnerBadgeMode: 'points', // points | combo | gift  (điểm / số combo / icon quà + số)
+      avatarThreshold: 1000,     // quà ≥ ngưỡng này → hiện avatar người tặng trong huy hiệu
+      runnerDust: true,          // bụi trắng "chờ tăng tốc" (tắt cho nhẹ OBS máy yếu)
+      dashSound: '',             // tiếng "vút" khi quà lớn bứt tốc (tùy chọn)
     };
     this.state = {
       score: 0,
@@ -2994,6 +3004,9 @@ class ScoreEngine {
       runStartedAt: this.state.runStartedAt,
       lastAdd: this.state.lastAdd,
       lastAddUser: this.state.lastAddUser,
+      lastAddAvatar: this.state.recentGifts?.[0]?.avatar || '',
+      lastAddRepeat: this.state.recentGifts?.[0]?.repeat || 0,
+      lastAddIcon: this.state.recentGifts?.[0]?.giftIcon || '',
       lastAddAt: this.state.recentGifts?.[0]?.at || 0,
       recentGifts: this.state.recentGifts,
       topUsers: this.state.topUsers,
@@ -3406,6 +3419,12 @@ function anyLinkedGiftSourceActive() {
   const pkGroupRun = l.pkgroup && ['prestart', 'running', 'grace'].includes(pkGroupEngine?.state?.status);
   return !!(pkDuoRun || pkGroupRun || l.sticker);
 }
+// Đã có "hiệu lệnh BẮT ĐẦU" cho VOTE ở THI ĐẤU NHÓM chưa? = phiên 🎯 Tính điểm đang chạy
+// (đã bấm BẮT ĐẦU) HOẶC có trận Liên kết (PK Đôi/Nhóm) đang chạy. Chưa bắt đầu → VOTE không nhận điểm.
+function rankVoteStarted() {
+  const scoreRun = ['running', 'grace'].includes(scoreEngine?.state?.status);
+  return !!(scoreRun || anyLinkedGiftSourceActive());
+}
 // Ai đang thi đấu PK (Đôi/Nhóm) ĐÃ LIÊN KẾT + trận đang chạy → BXH THI ĐẤU NHÓM đánh dấu đúng
 // hàng Creator đó bằng FX chọn nhân vật. Trả { ids:Set<creatorId>, fx } hoặc null.
 // PK Đôi: luôn đánh dấu 2 phe. PK Nhóm: chỉ khi chọn subset (ít hơn full nhóm) — đủ full thì thôi.
@@ -3620,7 +3639,7 @@ function bootstrapTikTok() {
       pkDuoEngine?.routeGift(d);
       pkGroupEngine?.routeGift(d);
       // Khi có trò chơi đang Liên kết → BXH ngưng tự cộng quà mặc định (điểm đến từ trò chơi).
-      rankingEngine?.routeGift(d, anyLinkedGiftSourceActive());
+      rankingEngine?.routeGift(d, anyLinkedGiftSourceActive(), rankVoteStarted());
       stickerEngine?.routeGift(d);
       missionTrioEngine?.routeGift(d);
     }
@@ -4379,6 +4398,9 @@ function registerIpc() {
     return publicLicenseState({ ok: true, license: settings.license });
   });
   ipcMain.handle('app:getVersion', () => app.getVersion());
+  // Bản DEV (chạy nguồn, chưa đóng gói) = true → mở khoá mọi tính năng để test.
+  // Bản CÀI chính thức (app.isPackaged) = false → yêu cầu kết nối LIVE mới cho chạy.
+  ipcMain.handle('app:isDev', () => !app.isPackaged);
   ipcMain.handle('updates:check', async () => checkForUpdate());
   ipcMain.handle('updates:install', async (_e, info = {}) => downloadAndInstallUpdate(info.downloadUrl, info.assetName));
 
