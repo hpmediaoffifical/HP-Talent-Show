@@ -1656,6 +1656,21 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .sc-rt-score { justify-self:end; display:flex; align-items:baseline; gap:6px; white-space:nowrap; color:var(--tt-ink); }
 .sc-rt-score small { font-size:13px; font-weight:800; opacity:.7; }
 .sc-rt-score b { font-size:26px; font-weight:950; font-variant-numeric:tabular-nums; }
+/* ── Hàng dưới CHỈ TRONG APP (không lên OBS): TOP5 có tên đầy đủ (trái) · top5 mini OBS (giữa) · điểm MC (phải) ── */
+.sc-rt-bottom { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:14px; margin-top:12px; }
+.sc-rt-bottom .sc-rt-top5 { grid-column:2; margin:0; }
+.sc-rt-mc-top5 { grid-column:1; display:flex; flex-direction:column; gap:4px; min-width:0; }
+.sc-rt-mcrow { display:flex; align-items:center; gap:7px; min-width:0; font-size:12.5px; color:var(--tt-ink); }
+.sc-rt-mcrank { flex:0 0 auto; width:16px; height:16px; display:grid; place-items:center; border-radius:50%; background:#3a2140; color:#fff; font-size:9px; font-weight:900; font-style:normal; line-height:1; }
+.sc-rt-mcrow.r1 .sc-rt-mcrank { background:linear-gradient(180deg,#ffcf4d,#e0951f); color:#3a2500; }
+.sc-rt-mcrow img { flex:0 0 auto; width:22px; height:22px; border-radius:50%; object-fit:cover; border:1.5px solid rgba(255,140,200,.6); background:#2a2f3a; }
+.sc-rt-mcrow.r1 img { border-color:#ffd35a; }
+.sc-rt-mcname { flex:1 1 auto; min-width:0; font-weight:700; white-space:normal; word-break:break-word; line-height:1.15; color:#fff; }
+.sc-rt-mcpts { flex:0 0 auto; font-weight:900; font-variant-numeric:tabular-nums; color:#e0556b; }
+.sc-rt-mc-empty { font-size:12px; opacity:.55; font-style:italic; }
+.sc-rt-mc-score { grid-column:3; justify-self:end; display:flex; flex-direction:column; align-items:flex-end; gap:2px; text-align:right; }
+.sc-rt-mc-score small { font-size:11px; font-weight:800; opacity:.65; letter-spacing:.03em; }
+.sc-rt-mc-score b { font-size:30px; font-weight:950; line-height:1; font-variant-numeric:tabular-nums; color:#fff; }
 
 /* ===== Score preview ===== */
 .score-review-card { display:grid; align-content:start; gap:10px; width:100%; color:var(--tt-ink); }

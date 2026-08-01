@@ -50,7 +50,7 @@ function scoreStatusText(status, timeText) {
 function timerPhaseText(status, urgent) {
   if (status === 'prestart') return 'CHUẨN BỊ';
   if (status === 'grace') return 'ĐỢI CHỐT ĐIỂM'; // delay chốt điểm: bỏ chip đồng hồ, báo chữ ở dưới
-  if (status === 'success' || status === 'failed') return 'CHỐT ĐIỂM';
+  if (status === 'success' || status === 'failed') return ''; // hết giờ: đã có card HẾT GIỜ + số điểm → khỏi lặp
   if (status === 'running') return urgent ? 'NƯỚC RÚT' : 'ĐANG NƯỚC RÚT';
   return 'CHỜ BẮT ĐẦU';
 }
@@ -215,9 +215,11 @@ function buildStructure(state, v) {
           ${state.hideCreator ? '' : `<div class="score-creator"></div>`}
         </div>
         <div class="st-phase"><span class="st-phase-text"></span></div>
-        <div class="st-points"><small class="st-points-label">ĐIỂM</small><b class="score-points-cur"></b><span class="st-momentum" aria-hidden="true"></span></div>
+        ${v.ended && v.showTop5
+          ? '<div class="st-top5 st-top5-honor"></div>'
+          : '<div class="st-points"><small class="st-points-label">ĐIỂM</small><b class="score-points-cur"></b><span class="st-momentum" aria-hidden="true"></span></div>'}
       </div>
-      ${v.showTop5 ? '<div class="st-top5"></div>' : ''}
+      ${(!v.ended && v.showTop5) ? '<div class="st-top5"></div>' : ''}
       <div class="sc-fx-floats" aria-hidden="true"></div>
       <div class="st-result" aria-hidden="true"><div class="st-result-card"><span class="st-result-label"></span><b class="st-result-score"></b><span class="st-result-spark"></span></div></div>
     </div>
@@ -305,6 +307,8 @@ function buildStructure(state, v) {
   els.scoreNum = els.scoreChipVal || els.pointsCur;
   // DOM vừa dựng lại → huỷ roll đang chạy (element cũ đã tháo) để lượt sau set thẳng số vào element mới.
   if (badgeRollRaf) { cancelAnimationFrame(badgeRollRaf); badgeRollRaf = 0; }
+  // .st-top5 vừa dựng lại là element RỖNG → ép nạp lại danh sách (khỏi bị trống khi chạy→kết thúc do sig không đổi).
+  lastTop5Sig = '';
   // Sóng chảy đồng bộ theo đồng hồ toàn cục — chỉ đặt khi dựng lại (element mới) để không giật giữa chừng.
   root.style.setProperty('--score-flow-delay', `${(-(Date.now() % 1000) / 1000).toFixed(3)}s`);
 }
@@ -441,14 +445,17 @@ function render(state = {}) {
   const stTail = /^#[0-9a-f]{6}$/i.test(state.timerTailColor || '') ? state.timerTailColor : '#a15cf0';
   root.style.setProperty('--score-timefill-gradient',
     `linear-gradient(90deg, ${c1} 0%, ${c1} 13%, ${mixHex(c1, c2, 50)} 36%, ${c2} 60%, ${mixHexA(c2, stTail, 60, .72)} 84%, ${alphaHex(stTail, .14)} 100%)`);
-  // Chip đồng hồ ăn theo MÀU ĐẦU thanh (c1) — mặt BÓNG 3D (sáng trên → c1 giữa (khớp máu) → đậm dưới) để NỔI hẳn.
-  root.style.setProperty('--score-timechip-bg', `linear-gradient(180deg, ${mixHex(c1, '#ffffff', 26)} 0%, ${c1} 48%, ${mixHex(c1, '#000000', 22)} 100%)`);
+  // Chip đồng hồ ăn theo MÀU ĐẦU thanh (c1) — làm PHẲNG (đơn giản, không 3D): chỉ chút sáng nhẹ trên, KHÔNG tối đáy → liền mạch với thanh máu.
+  root.style.setProperty('--score-timechip-bg', `linear-gradient(180deg, ${mixHex(c1, '#ffffff', 14)} 0%, ${c1} 100%)`);
+  // Card CHỐT ĐIỂM/HẾT GIỜ: viền + hào quang ăn theo MÀU 🎨 PRESET (c1) thay vì vàng cứng.
+  root.style.setProperty('--score-result-border', alphaHex(c1, .92));
+  root.style.setProperty('--score-result-glow', alphaHex(c1, .5));
 
   // Chỉ dựng lại khung khi khung xương đổi — thay vì mỗi 250ms (nguyên nhân restart animation → nhấp nháy).
   const structKey = `${status}|${state.hideAvatar ? 1 : 0}|${state.hideCreator ? 1 : 0}|${over > 0 ? 1 : 0}|${showRunner ? 1 : 0}|${kpiX2 ? 1 : 0}|${showRemaining ? 1 : 0}|${layoutMode}|${hasContent ? 1 : 0}|${showTop5 ? 1 : 0}`;
   if (structKey !== lastStructKey) {
     lastStructKey = structKey;
-    buildStructure(state, { iconOff, over, activeRunner, showRunner, kpiX2, showRemaining, cardLayout, timerLayout, hasContent, showTop5 });
+    buildStructure(state, { iconOff, over, activeRunner, showRunner, kpiX2, showRemaining, cardLayout, timerLayout, hasContent, showTop5, ended: ['success', 'failed'].includes(status) });
   }
 
   // Cập nhật tại chỗ (không dựng lại DOM → animation chạy liền mạch)
@@ -527,7 +534,7 @@ function render(state = {}) {
         const rkey = `${status}|${runKey(state)}`;
         if (rkey !== lastResultKey) {
           lastResultKey = rkey;
-          if (els.resultLabel) els.resultLabel.textContent = status === 'failed' ? 'HẾT GIỜ' : 'CHỐT ĐIỂM';
+          if (els.resultLabel) els.resultLabel.textContent = status === 'failed' ? 'HẾT GIỜ' : 'ĐIỂM';
           if (els.resultScore) els.resultScore.textContent = fmt(score);
           fireOnce(els.result, 'pop');
         }

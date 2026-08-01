@@ -8915,6 +8915,12 @@ function renderScPreview(st) {
     const t5on = st.timerTop5 !== false;
     const t5 = t5on && Array.isArray(st.topUsers) ? st.topUsers.slice(0, 5) : [];
     const t5html = t5on ? `<div class="sc-rt-top5">${t5.map((u, i) => `<span class="sc-rt-t5 r${i + 1}" style="z-index:${10 - i}" title="${escapeAttr(u.nickname || u.user || '')}">${i === 0 ? '<b>👑</b>' : ''}${u.avatar ? `<img src="${escapeAttr(u.avatar)}" onerror="this.onerror=null;this.style.visibility='hidden'" />` : '<img />'}<i>${i + 1}</i></span>`).join('')}</div>` : '';
+    // ── CHỈ TRONG APP (không ra OBS): danh sách TOP 5 người tặng có TÊN ĐẦY ĐỦ (trái) + số điểm TO cho MC (phải) ──
+    const mcTop5 = t5.length
+      ? `<div class="sc-rt-mc-top5">${t5.map((u, i) => `<div class="sc-rt-mcrow r${i + 1}"><i class="sc-rt-mcrank">${i + 1}</i>${u.avatar ? `<img src="${escapeAttr(u.avatar)}" onerror="this.onerror=null;this.style.visibility='hidden'" />` : '<img />'}<span class="sc-rt-mcname">${escapeHtml(u.nickname || u.user || '—')}</span><b class="sc-rt-mcpts">${formatNumber(Math.floor(u.points || 0))}</b></div>`).join('')}</div>`
+      : `<div class="sc-rt-mc-top5"><div class="sc-rt-mc-empty">Chưa có người tặng</div></div>`;
+    const mcScore = `<div class="sc-rt-mc-score"><small>ĐIỂM</small><b>${formatNumber(score)}</b></div>`;
+    const mcBottom = `<div class="sc-rt-bottom">${mcTop5}${t5html}${mcScore}</div>`;
     $('#scPreview').innerHTML = `
       <div class="sc-rev-timer status-${status}">
         <div class="sc-rt-barwrap">
@@ -8927,7 +8933,7 @@ function renderScPreview(st) {
           <div class="sc-rt-phase">${escapeHtml(phase)}</div>
           <div class="sc-rt-score"><small>ĐIỂM</small><b>${formatNumber(score)}</b></div>
         </div>
-        ${t5html}
+        ${mcBottom}
       </div>
     `;
   } else if (scLayoutMode === 'card') {
