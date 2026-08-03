@@ -227,6 +227,20 @@ function render(state = {}) {
   };
 
   const NARROW_W = 12; // % — dưới ngưỡng này thì ẩn chữ tên / phần trăm để khỏi chèn chữ
+  // (Ý 1) Cụm avatar TOP người tặng CHỈ hiện khi cột đủ RỘNG cho icon quà + avatar (+ đệm).
+  // Cột thấp điểm → chỉ vừa icon → ẩn avatar; user phải đẩy máu thêm một đoạn (buffer) mới hiện lại.
+  // Tính theo % bề ngang overlay (inner ≈ 1440 − padding·2 = 1424px; hệ số scale tự triệt tiêu).
+  const BOARD_W = 1424;
+  const giftPx = Math.max(28, Math.min(120, parseInt(state.giftSize, 10) || 60));
+  const donorFitPct = (list) => {
+    const n = Math.min(3, (Array.isArray(list) ? list : []).length);
+    if (!n) return 0; // không có donor → không cần xét (donorsHtml trả rỗng)
+    const iconPx = giftPx * 1.1 + 8;                          // icon quà + đệm trái cột
+    const donorPx = giftPx * 0.74;                            // 1 avatar
+    const clusterPx = donorPx * 1.14 + donorPx * 0.5 * (n - 1); // d1 to hơn + mỗi cái sau chồng nửa
+    const buffer = donorPx * 0.8;                             // đệm: phải đẩy thêm ~1 avatar mới hiện lại
+    return (iconPx + 4 + clusterPx + buffer) / BOARD_W * 100;
+  };
   const pctOf = (p) => total > 0
     ? Math.round((Number(p.score) || 0) / total * 100)
     : Math.round(100 / Math.max(1, participants.length));
@@ -250,7 +264,10 @@ function render(state = {}) {
           const crowned = isLeader && leaderChanged;
           return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `Hạng 1 (${num})` : num}</em>${narrow ? '' : `<small>${pct}%</small>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
         }).join('')}<div class="pkg-joined-ticks" aria-hidden="true"></div></div>
-        <div class="pkg-joined-gifts">${participants.map(p => `<div style="--c:${esc(p.color || '#FE2C55')}">${donorsHtml(p.topDonors)}${(p.gifts || []).map(giftHtml).join('')}</div>`).join('')}</div>
+        <div class="pkg-joined-gifts">${participants.map(p => {
+          const showDonors = widthOf(p) >= donorFitPct(p.topDonors);
+          return `<div class="${showDonors ? '' : 'donors-hidden'}" style="--c:${esc(p.color || '#FE2C55')}">${showDonors ? donorsHtml(p.topDonors) : ''}${(p.gifts || []).map(giftHtml).join('')}</div>`;
+        }).join('')}</div>
       </div>`
     : `<div class="pkg-separated-list">${participants.map(p => {
         const score = Number(p.score) || 0;
