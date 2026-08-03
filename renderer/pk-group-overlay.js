@@ -15,6 +15,14 @@ const prevRealScore = new Map(); // điểm THẬT lần trước theo id → ph
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('vi-VN'); }
 function mmss(s) { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+// Đo bề rộng chữ THẬT (canvas) — quyết định thanh máu có đủ chỗ chứa Hạng + Điểm + % không.
+// Nhẹ & ổn định (font khớp CSS overlay: Inter/Segoe UI). Đo ở đơn vị pixel gốc (scale 1) → so với
+// bề ngang segment gốc (BOARD_W) nên hệ số --pkg-scale tự triệt tiêu, giống donorFitPct.
+const _measCtx = document.createElement('canvas').getContext('2d');
+function textPx(text, fontPx, weight = 900) {
+  _measCtx.font = `${weight} ${Math.max(1, fontPx)}px Inter, "Segoe UI", Arial, sans-serif`;
+  return _measCtx.measureText(String(text)).width;
+}
 // Avatar TikTok CDN load trực tiếp bị chặn trong OBS Browser Source (403/CORS) → phải qua proxy /avatar.
 // Đường dẫn logo mặc định của app (../logo/hp-logo.png) không tồn tại trên server overlay → map về /logo.png.
 function mediaUrl(value, key = '') {
@@ -47,14 +55,14 @@ function hexToRgb(hex, fb = '0,0,0') {
 function giftHtml(gift) {
   return `<span class="pkg-gift" title="${esc(gift.giftName || gift.name || '')}">${gift.icon ? `<img src="${esc(gift.icon)}" />` : '🎁'}</span>`;
 }
-// TOP 3 người tặng quà nhiều nhất cho Creator: xếp avatar chồng NỬA lên nhau cho gọn.
-// DOM đảo top3→top1 để TOP1 là phần tử CUỐI → nằm sát icon quà, luôn nổi lên trên (z-index cao)
-// đè lên nửa avatar TOP2, TOP2 đè lên TOP3 nằm dưới cùng. Bo góc trực tiếp trên <img> (OBS-safe).
+// TOP 3 người tặng quà nhiều nhất cho Creator: xếp avatar chồng NỬA lên nhau cho gọn, nằm BÊN PHẢI
+// icon quà. Thứ tự DOM top1→top3: TOP1 là phần tử ĐẦU → nằm sát icon quà (bên trái cụm), luôn nổi
+// lên trên (z-index cao nhất), đè nửa TOP2, TOP2 đè TOP3. Bo góc trực tiếp trên <img> (OBS-safe).
 function donorsHtml(list) {
   const top = (Array.isArray(list) ? list : []).slice(0, 3);
   if (!top.length) return '';
-  return `<span class="pkg-donors" aria-hidden="true">${top.map((g, i) => ({ rank: i + 1, g })).reverse().map(({ rank, g }) =>
-    `<span class="pkg-donor d${rank}" title="${esc(g.nickname || '')}${g.total ? ' • ' + fmt(g.total) : ''}"><span class="pkg-donor-ava"><img src="${esc(mediaUrl(g.avatar, g.avatarKey))}" onerror="avRetry(this)" /></span></span>`
+  return `<span class="pkg-donors" aria-hidden="true">${top.map((g, i) =>
+    `<span class="pkg-donor d${i + 1}" title="${esc(g.nickname || '')}${g.total ? ' • ' + fmt(g.total) : ''}"><span class="pkg-donor-ava"><img src="${esc(mediaUrl(g.avatar, g.avatarKey))}" onerror="avRetry(this)" /></span></span>`
   ).join('')}</span>`;
 }
 function shortName(value) {
@@ -183,6 +191,50 @@ function pushScores(targets, structChanged) {
   if (!scoreRaf) scoreRaf = requestAnimationFrame(stepScores);
 }
 
+// ================== SKIN MÙA LỄ ==================
+// Skin CHỈ là lớp trang trí (khung/hạt/màu/marker) phủ lên thanh máu — KHÔNG đụng chiều rộng máu,
+// --pkg-cols, count-up hay bất kỳ logic tính điểm nào. 'auto' → tự chọn theo ngày.
+// Lịch skin (auto theo tháng/sự kiện) dùng CHUNG ở overlay-skin.js (window.OverlaySkin) — 1 nguồn
+// cho cả 4 overlay, tránh lệch. Fallback tối giản nếu module chưa nạp (overlay-skin.js nạp TRƯỚC file này).
+function resolveSkin(skin) {
+  if (window.OverlaySkin) return OverlaySkin.resolveSkin(skin);
+  const s = String(skin || 'auto').toLowerCase();
+  return (s !== 'auto' && ['noel', 'halloween', 'newyear', 'tet', 'valentine', 'trungthu', 'birthday'].includes(s)) ? s : 'none';
+}
+// Markup hạt/khung cho từng skin — vẽ MỘT LẦN vào .pkg-skin-fx (bền qua các render). Vị trí/độ trễ/
+// tốc độ biến thiên bằng :nth-child trong CSS nên JS chỉ cần lặp phần tử. Chỉ tạo lại khi ĐỔI skin.
+function skinFxHtml(skin) {
+  const rep = (cls, n) => Array.from({ length: n }, () => `<span class="${cls}"></span>`).join('');
+  const garland = '<span class="fx-garland">' + Array.from({ length: 12 }, () => '<i></i>').join('') + '</span>';
+  switch (skin) {
+    case 'tet':
+      return '<span class="fx-lantern l1"></span><span class="fx-lantern l2"></span>' + rep('fx-petal', 14) + rep('fx-spark', 8);
+    case 'noel':
+      return '<span class="fx-tree"></span><span class="fx-santa"></span>' + garland + rep('fx-snow', 18);
+    case 'halloween':
+      return '<span class="fx-moon2"></span>' + rep('fx-bat', 6) + rep('fx-ghost', 4);
+    case 'newyear':
+      return rep('fx-firework', 5) + rep('fx-spark', 10) + rep('fx-confetti', 10);
+    case 'valentine':
+      return rep('fx-heart', 16);
+    case 'trungthu':
+      return '<span class="fx-moon"></span><span class="fx-lantern l1"></span><span class="fx-lantern l2"></span>' + rep('fx-firefly', 12);
+    case 'birthday':
+      return rep('fx-confetti', 16) + rep('fx-balloon', 6);
+    default:
+      return '';
+  }
+}
+let lastSkin = '__init__';
+function applySkin(state) {
+  const skin = resolveSkin(state.skin);
+  if (skin === lastSkin) return; // đổi skin mới tạo lại hạt → tránh restart animation mỗi emit
+  lastSkin = skin;
+  if (skin && skin !== 'none') root.dataset.skin = skin; else delete root.dataset.skin;
+  const fx = root.querySelector('.pkg-skin-fx');
+  if (fx) fx.innerHTML = skinFxHtml(skin);
+}
+
 function render(state = {}) {
   const participants = Array.isArray(state.participants) ? state.participants : [];
   const sec = Math.ceil((state.remainingMs || 0) / 1000);
@@ -227,15 +279,31 @@ function render(state = {}) {
   };
 
   const NARROW_W = 12; // % — dưới ngưỡng này thì ẩn chữ tên / phần trăm để khỏi chèn chữ
-  // (Ý 1) Cụm avatar TOP người tặng CHỈ hiện khi cột đủ RỘNG cho icon quà + avatar (+ đệm).
+  // 🎮 Chế độ TikTok (creatorLive): điểm cộng theo NGƯỜI NHẬN thật, không theo quà chỉ định →
+  // icon quà vô nghĩa. Ẩn icon quà, CHỈ hiện avatar TOP người tặng cho gọn & đúng ý nghĩa.
+  const tiktokMode = !!state.creatorLive;
+  // (Ý 1) Cụm avatar TOP người tặng CHỈ hiện khi cột đủ RỘNG cho (icon quà nếu có) + avatar (+ đệm).
   // Cột thấp điểm → chỉ vừa icon → ẩn avatar; user phải đẩy máu thêm một đoạn (buffer) mới hiện lại.
   // Tính theo % bề ngang overlay (inner ≈ 1440 − padding·2 = 1424px; hệ số scale tự triệt tiêu).
   const BOARD_W = 1424;
+  const pkgText = Math.max(14, Math.min(60, parseInt(state.textSize, 10) || 30)); // = --pkg-text (px, scale 1)
+  // Thanh có đủ chỗ cho cả % không? Ước bề rộng chữ (Hạng + Điểm + %) theo cỡ chữ thật rồi so với
+  // bề ngang segment. Không đủ → BỎ % cho gọn (điểm + hạng vẫn giữ). Font-size khớp CSS .pkg-segment.
+  const pctFitsIn = (p, isLeader, score, pct) => {
+    const numFont = pkgText * (isLeader ? 1.5 : 1.08);
+    const rankFont = pkgText * (isLeader ? 0.74 : 0.56);
+    const pctFont = pkgText * (isLeader ? 0.58 : 0.52);
+    const need = 16 /* padding 8+8 */
+      + (isLeader ? textPx('Hạng 1', rankFont, 900) + 4 /* gap em */ : 0)
+      + textPx(fmt(score), numFont, 950)
+      + 5 /* gap b */ + textPx(pct + '%', pctFont, 850);
+    return need <= widthOf(p) / 100 * BOARD_W;
+  };
   const giftPx = Math.max(28, Math.min(120, parseInt(state.giftSize, 10) || 60));
   const donorFitPct = (list) => {
     const n = Math.min(3, (Array.isArray(list) ? list : []).length);
     if (!n) return 0; // không có donor → không cần xét (donorsHtml trả rỗng)
-    const iconPx = giftPx * 1.1 + 8;                          // icon quà + đệm trái cột
+    const iconPx = tiktokMode ? 0 : giftPx * 1.1 + 8 + 4;    // icon quà + đệm trái + gap (ẩn ở TikTok mode)
     const donorPx = giftPx * 0.74;                            // 1 avatar
     const clusterPx = donorPx * 1.14 + donorPx * 0.5 * (n - 1); // d1 to hơn + mỗi cái sau chồng nửa
     const buffer = donorPx * 0.8;                             // đệm: phải đẩy thêm ~1 avatar mới hiện lại
@@ -244,13 +312,22 @@ function render(state = {}) {
   const pctOf = (p) => total > 0
     ? Math.round((Number(p.score) || 0) / total * 100)
     : Math.round(100 / Math.max(1, participants.length));
+  // Cỡ chữ tên (đồng bộ board style) để ĐO bề rộng tên → nền pill dài ĐÚNG theo tên (fit-content thông
+  // minh): cột đủ rộng thì tên hiện đầy đủ và nền chỉ dài thêm, cột hẹp thì nền kẹp 100% cột + tên cắt gọn.
+  const nameScaleM = Math.max(.9, Math.min(3, ((parseInt(state.nameSize, 10) || 100) / 100) * 1.5));
+  const platePx = (dispName, isLeader) => {
+    const nameFont = pkgText * (isLeader ? 0.72 : 0.58) * nameScaleM;
+    const avaW = (isLeader ? 46 : 36) * nameScaleM;
+    return Math.round(avaW + 6 * nameScaleM + textPx(dispName, nameFont, 950) + 16); // avatar + lề + tên + đệm phải
+  };
   const body = layout === 'joined'
     ? `<div class="pkg-joined-stage">
         <div class="pkg-joined-names">${participants.map(p => {
           const isLeader = p.id === leaderId;
           const narrow = widthOf(p) < NARROW_W;
           const tc = textColorFor(p.color);
-          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? `<span class="pkg-crown${leaderChanged ? ' shake' : ''}" aria-hidden="true">👑</span>` : ''}${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>`;
+          const dispName = shortName(p.name || p.tiktokId || 'Creator');
+          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" data-rank="${rankMap.get(p.id) || ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)};--pw:${platePx(dispName, isLeader)}px">${isLeader ? `<span class="pkg-crown${leaderChanged ? ' shake' : ''}" aria-hidden="true">👑</span>` : ''}${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(dispName)}</b></div>`;
         }).join('')}</div>
         <div class="pkg-joined-bar">${participants.map((p, i) => {
           const isLeader = p.id === leaderId;
@@ -262,11 +339,15 @@ function render(state = {}) {
           const edge = `${i === 0 ? ' is-first' : ''}${i === participants.length - 1 ? ' is-last' : ''}`;
           const num = `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`;
           const crowned = isLeader && leaderChanged;
-          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `Hạng 1 (${num})` : num}</em>${narrow ? '' : `<small>${pct}%</small>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
-        }).join('')}<div class="pkg-joined-ticks" aria-hidden="true"></div></div>
+          const showPct = !narrow && pctFitsIn(p, isLeader, score, pct); // thanh chật → lọc bỏ % cho gọn
+          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i>${num}` : num}</em>${showPct ? `<small class="pkg-pct">${pct}%</small>` : ''}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
+        }).join('')}</div>
         <div class="pkg-joined-gifts">${participants.map(p => {
           const showDonors = widthOf(p) >= donorFitPct(p.topDonors);
-          return `<div class="${showDonors ? '' : 'donors-hidden'}" style="--c:${esc(p.color || '#FE2C55')}">${showDonors ? donorsHtml(p.topDonors) : ''}${(p.gifts || []).map(giftHtml).join('')}</div>`;
+          const giftsHtml = tiktokMode ? '' : (p.gifts || []).map(giftHtml).join('');
+          const hasMvp = Number(p.streak) > 0; // có huy hiệu MVP → chừa chỗ bên trái để KHÔNG che icon/avatar
+          // Icon quà bên TRÁI, cụm avatar TOP người tặng bên PHẢI icon (ẩn khi cột quá hẹp).
+          return `<div class="${showDonors ? '' : 'donors-hidden'}${tiktokMode ? ' tiktok' : ''}${hasMvp ? ' has-mvp' : ''}" style="--c:${esc(p.color || '#FE2C55')}">${giftsHtml}${showDonors ? donorsHtml(p.topDonors) : ''}</div>`;
         }).join('')}</div>
       </div>`
     : `<div class="pkg-separated-list">${participants.map(p => {
@@ -274,10 +355,10 @@ function render(state = {}) {
         const width = widthOf(p);
         const isLeader = p.id === leaderId;
         const tc = textColorFor(p.color);
-        return `<div class="pkg-card${isLeader ? ' leader' : ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">
+        return `<div class="pkg-card${isLeader ? ' leader' : ''}" data-rank="${rankMap.get(p.id) || ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">
           <div class="pkg-card-person">${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
-          <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `Hạng 1 (<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>)` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${Number(p.streak) > 0 ? `<span class="pkg-streak" title="MVP ${fmt(p.streak)}"><small>MVP</small><em>${fmt(p.streak)}</em></span>` : ''}</div></div>
-          <div class="pkg-card-gifts">${donorsHtml(p.topDonors)}${(p.gifts || []).map(giftHtml).join('')}</div>
+          <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i><span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${Number(p.streak) > 0 ? `<span class="pkg-streak" title="MVP ${fmt(p.streak)}"><small>MVP</small><em>${fmt(p.streak)}</em></span>` : ''}</div></div>
+          <div class="pkg-card-gifts${tiktokMode ? ' tiktok' : ''}">${tiktokMode ? '' : (p.gifts || []).map(giftHtml).join('')}${donorsHtml(p.topDonors)}</div>
         </div>`;
       }).join('')}</div>`;
   const noteText = String(state.noteText || '').trim();
@@ -294,8 +375,11 @@ function render(state = {}) {
   root.style.setProperty('--pkg-scale', overlayScale);
 
   if (!root.querySelector('.pkg-board')) {
-    root.innerHTML = '<div class="pkg-board"><div id="pkgNoteMount"></div><div id="pkgBodyMount"></div><div class="pkg-title"><b></b></div></div>';
+    // .pkg-skin-fx: lớp trang trí skin BỀN — tạo 1 lần, KHÔNG bị dựng lại theo bodyMount nên
+    // hạt rơi/đèn đưa võng chạy liên tục, không búng lại mỗi lần emit (giống bài học overlay-struct-key).
+    root.innerHTML = '<div class="pkg-board"><div class="pkg-skin-fx" aria-hidden="true"></div><div id="pkgNoteMount"></div><div id="pkgBodyMount"></div><div class="pkg-title"><b></b></div></div>';
   }
+  applySkin(state);
   const board = root.querySelector('.pkg-board');
   board.className = `pkg-board mode-${layout} status-${esc(status)}${urgent ? ' urgent' : ''}`;
   // Baseline ×1.5: mức 100% trên giao diện = cỡ như 150% trước đây (avatar + tên to hơn mặc định).

@@ -61,7 +61,9 @@ function rowHtml(row, state, selFxOn) {
   // Số thứ tự thi đấu (STT) — chip góc trên-PHẢI (chỗ R#, thường tắt khi thi đấu), dạng "#10".
   const hasPerf = state.showPerfOrder !== false && Number(row.perfOrder) > 0;
   const perf = hasPerf ? `<div class="ranking-perf" title="Số thứ tự thi đấu">#${Math.round(row.perfOrder)}</div>` : '';
-  return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}${row.inMatch ? ' in-match' : ''}${hasPerf ? ' has-perf' : ''}" style="--row-group-color:${esc(groupColor)}">
+  // Phe PK Đôi (trái A / phải B) → class tô marker + viền theo màu TikTok. PK Nhóm không có phe → rỗng.
+  const teamCls = row.matchTeam === 'A' ? ' match-a' : (row.matchTeam === 'B' ? ' match-b' : '');
+  return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}${row.inMatch ? ' in-match' : ''}${teamCls}${hasPerf ? ' has-perf' : ''}" style="--row-group-color:${esc(groupColor)}">
     ${perf}
     ${state.showRank === false ? '' : `<div class="ranking-rank">${rankEmoji}</div>`}
     ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${selMark}${avatarHtml(row.avatar, row.initials, row.avatarVersion, row.avatarKey)}</div>`}
@@ -76,6 +78,8 @@ function rowHtml(row, state, selFxOn) {
 }
 
 function render(state = {}) {
+  // 🎨 Skin mùa lễ (dùng chung) — trang trí ở <body>, độc lập với việc dựng lại root mỗi render.
+  if (window.OverlaySkin) OverlaySkin.applySkin(state.skin);
   const gridRows = Math.max(1, Number(state.gridRows) || 3);
   const gridCols = Math.max(1, Number(state.gridCols) || 3);
   const gridFlow = state.gridFlow === 'column' ? 'column' : 'row';

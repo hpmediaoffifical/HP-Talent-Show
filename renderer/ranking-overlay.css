@@ -454,7 +454,12 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board.sel-spotlight .ranking-select-mark .sm-spot{ display:block; }
 .ranking-board.sel-versus .ranking-select-mark .sm-vs{ display:block; }
 /* Hàng đang thi đấu: hơi nổi lên (viền sáng theo màu) để dễ nhận ngay cả khi FX nhẹ */
-.ranking-row.in-match{ box-shadow:inset 0 0 0 1px rgba(255,255,255,.10), 0 0 0 1px var(--ranking-streak-color, #67e8f9), 0 2px 8px rgba(0,0,0,.28); }
+.ranking-row.in-match{ box-shadow:inset 0 0 0 1px rgba(255,255,255,.10), 0 0 0 1px var(--mc, var(--ranking-streak-color, #67e8f9)), 0 2px 8px rgba(0,0,0,.28); }
+/* PK Đôi — màu phe kiểu TikTok: phe A (trái) đỏ-hồng, phe B (phải) xanh. Một nguồn màu (--mc) dùng cho
+   cả viền hàng lẫn marker; đặt SAU rule top-1 nên đè luôn màu vàng khi người dẫn đầu đang thi đấu. */
+.ranking-row.match-a{ --mc:#ff2e63; }
+.ranking-row.match-b{ --mc:#22b0ff; }
+.ranking-row.match-a .ranking-select-mark, .ranking-row.match-b .ranking-select-mark{ --sc:var(--mc); }
 
 /* Arrow — tam giác + quầng sáng chỉ vào avatar từ trái, nảy + nhấp nháy */
 .ranking-select-mark .sm-arrow{ animation:rkSelArrow .72s ease-in-out var(--rk-sel-a,0s) infinite; }
@@ -485,3 +490,16 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-select-mark .sm-vs b{ position:absolute; left:50%; bottom:-20%; transform:translateX(-50%); padding:calc(2 * var(--u)) calc(7 * var(--u)); border-radius:calc(7 * var(--u)); background:var(--sc); color:#10141c; font-weight:950; font-style:normal; font-size:calc(13 * var(--u)); line-height:1; letter-spacing:.02em; white-space:nowrap; box-shadow:0 0 calc(9 * var(--u)) var(--sc), 0 calc(2 * var(--u)) calc(4 * var(--u)) rgba(0,0,0,.45); animation:rkSelVs .9s ease-in-out var(--rk-sel-v,0s) infinite; }
 @keyframes rkSelRing{ from{ transform:rotate(0); } to{ transform:rotate(360deg); } }
 @keyframes rkSelVs{ 0%,100%{ transform:translateX(-50%) scale(1); } 50%{ transform:translateX(-50%) scale(1.16); } }
+
+/* ============================================================
+   🎨 SKIN MÙA LỄ — theme LÕI board Ranking qua bảng màu --osk-* (overlay-skin.css) + hạt ở <body>.
+   GIỮ: màu hàng top-1/2/3 (kim-bạc-đồng), màu Active người dùng, mọi logic. ĐỔI: viền board + tiêu đề.
+   ============================================================ */
+body[data-skin] #rankingRoot { position:relative; z-index:1; }
+/* Viền skin quanh board (board overflow:visible → ring hiện đủ) */
+body[data-skin] .ranking-board { position:relative; }
+body[data-skin] .ranking-board::after { content:''; position:absolute; inset:0; z-index:6; border-radius:inherit; pointer-events:none;
+  box-shadow: inset 0 0 0 2px var(--osk-frame, #fff), inset 0 0 0 4px rgba(var(--osk-accent2-rgb, 255,255,255), .45), 0 0 18px rgba(var(--osk-frame-rgb, 255,255,255), .3); }
+/* Tiêu đề + vạch nhấn dưới tiêu đề theo mùa */
+body[data-skin] .ranking-title { background:linear-gradient(180deg, var(--osk-chip1, #2e2b3a), var(--osk-chip2, #1a1822)); color:var(--osk-chip-fg, #fff); box-shadow:inset 0 0 0 1px rgba(var(--osk-frame-rgb, 255,255,255), .35), 0 3px 10px rgba(0,0,0,.28); }
+body[data-skin] .ranking-title::after { background:linear-gradient(90deg, transparent, var(--osk-frame, #67e8f9), transparent); }

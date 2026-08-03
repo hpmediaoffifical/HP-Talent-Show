@@ -570,6 +570,19 @@
                     <option value="off">Tắt</option>
                   </select>
                 </label>
+                <label>🎨 Skin mùa lễ <span class="cfg-adv__hint" id="pkSkinHint" style="font-weight:400;display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom"></span>
+                  <select id="pkSkin">
+                    <option value="auto">🗓️ Tự động theo ngày</option>
+                    <option value="none">Không (mặc định)</option>
+                    <option value="tet">🧧 Tết truyền thống</option>
+                    <option value="noel">🎄 Noel</option>
+                    <option value="halloween">🎃 Halloween</option>
+                    <option value="newyear">🎆 Năm mới</option>
+                    <option value="valentine">💗 Valentine</option>
+                    <option value="trungthu">🌕 Trung thu</option>
+                    <option value="birthday">🎂 Sinh nhật</option>
+                  </select>
+                </label>
                 <label class="full">Scale PK Đôi OBS
                   <div class="range-inline">
                     <input id="pkOverlayScale" type="range" min="80" max="300" step="5" value="200" />
@@ -738,6 +751,19 @@
                     <option value="off">Tắt</option>
                   </select>
                 </label>
+                <label>🎨 Skin mùa lễ <span class="cfg-adv__hint" id="pkgSkinHint" style="font-weight:400;display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom">trang trí thanh máu theo dịp</span>
+                  <select id="pkgSkin">
+                    <option value="auto">🗓️ Tự động theo ngày</option>
+                    <option value="none">Không (mặc định)</option>
+                    <option value="tet">🧧 Tết truyền thống</option>
+                    <option value="noel">🎄 Noel</option>
+                    <option value="halloween">🎃 Halloween</option>
+                    <option value="newyear">🎆 Năm mới</option>
+                    <option value="valentine">💗 Valentine</option>
+                    <option value="trungthu">🌕 Trung thu</option>
+                    <option value="birthday">🎂 Sinh nhật</option>
+                  </select>
+                </label>
                 <label class="full">Scale PK Nhóm OBS
                   <div class="range-inline">
                     <input id="pkgOverlayScale" type="range" min="80" max="300" step="5" value="200" />
@@ -758,7 +784,7 @@
             <div class="cfg-adv__body">
               <label class="switch-row" style="margin-bottom:12px"><input id="pkgNoteEnabled" type="checkbox" /><span></span><b>Bật ghi chú</b></label>
               <div class="form-grid">
-                <label class="full">Nội dung ghi chú <input id="pkgNoteText" maxlength="220" value="Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy" /></label>
+                <label class="full">Nội dung ghi chú <input id="pkgNoteText" maxlength="220" value="Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng" /></label>
                 <label>Màu nền <input id="pkgNoteBg" type="color" value="#1f2430" /></label>
                 <label>Màu chữ <input id="pkgNoteColor" type="color" value="#ffffff" /></label>
                 <label>Tốc độ chạy (giây) <input id="pkgNoteSpeed" type="number" min="6" max="60" value="16" /></label>
@@ -807,7 +833,6 @@
                     <label>Tính điểm theo
                       <select id="rkPointsBy">
                         <option value="diamond">🪙 Coin</option>
-                        <option value="count">Số lượng quà</option>
                       </select>
                     </label>
                   </div>
@@ -896,6 +921,21 @@
                         <option value="gold">Vàng kim (skin vàng)</option>
                         <option value="rainbow">Cầu vồng (skin nhiều màu)</option>
                       </select>
+                    </label>
+                    <label class="full" style="grid-column:1/-1;display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0">
+                      <span style="flex:0 0 auto;white-space:nowrap">🎨 Skin mùa lễ</span>
+                      <select id="rkSkin" style="flex:0 0 auto;width:auto;min-width:160px">
+                        <option value="auto">🗓️ Tự động theo ngày</option>
+                        <option value="none">Không (mặc định)</option>
+                        <option value="tet">🧧 Tết truyền thống</option>
+                        <option value="noel">🎄 Noel</option>
+                        <option value="halloween">🎃 Halloween</option>
+                        <option value="newyear">🎆 Năm mới</option>
+                        <option value="valentine">💗 Valentine</option>
+                        <option value="trungthu">🌕 Trung thu</option>
+                        <option value="birthday">🎂 Sinh nhật</option>
+                      </select>
+                      <span class="cfg-adv__hint" id="rkSkinHint" style="font-weight:400;flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
                     </label>
                   </div>
                   <div class="rk-fields three">
@@ -1025,6 +1065,20 @@
               <button type="button" class="stc-chip" data-theme="sunset" style="--c1:#ff6a3d;--c2:#ffc46b">Hoàng hôn</button>
               <button type="button" class="stc-chip" data-theme="ocean" style="--c1:#0088cc;--c2:#22e0c8">Đại dương</button>
               <button type="button" class="stc-chip" data-theme="candy" style="--c1:#ff8fcf;--c2:#c9a9ff">Kẹo ngọt</button>
+            </div>
+            <div class="stc-row" style="align-items:center;gap:8px;margin-top:6px">
+              <span class="stc-label">🎨 Skin mùa lễ <span class="cfg-adv__hint" id="scSkinHint" style="font-weight:400"></span></span>
+              <select id="scSkin">
+                <option value="auto">🗓️ Tự động theo ngày</option>
+                <option value="none">Không (mặc định)</option>
+                <option value="tet">🧧 Tết truyền thống</option>
+                <option value="noel">🎄 Noel</option>
+                <option value="halloween">🎃 Halloween</option>
+                <option value="newyear">🎆 Năm mới</option>
+                <option value="valentine">💗 Valentine</option>
+                <option value="trungthu">🌕 Trung thu</option>
+                <option value="birthday">🎂 Sinh nhật</option>
+              </select>
             </div>
           </div>
 
@@ -2486,6 +2540,7 @@
   </div>
 
   <script src="obs-reset.js"></script>
+  <script src="overlay-skin.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

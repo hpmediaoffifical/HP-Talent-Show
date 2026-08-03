@@ -407,3 +407,44 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkduo-champs.streak-only .pkduo-champ-side { align-items:center; }
 .pkduo-champs.streak-only .pkduo-champ-side.left { justify-content:flex-start; }
 .pkduo-champs.streak-only .pkduo-champ-side.right { justify-content:flex-end; }
+
+/* ============================================================
+   🎨 SKIN MÙA LỄ — theme LÕI board PK Đôi qua bảng màu --osk-* (overlay-skin.css).
+   GIỮ: màu đội (fill thanh máu), glow báo phe dẫn (box-shadow ngoài của .pkduo-board),
+   mọi logic/điểm. ĐỔI: viền board, tiêu đề, quầng avatar, viền trong thanh máu, màu gợn sóng chevron.
+   ============================================================ */
+body[data-skin] #pkDuoRoot { position:relative; z-index:1; }
+
+/* (1) Viền skin quanh board — vẽ ở ::after (chỉ mép, không che nội dung). Glow phe dẫn vẫn hiện
+   nhờ box-shadow NGOÀI của .pkduo-board (lead-a/lead-b/neutral) không bị đụng. */
+body[data-skin] .pkduo-board::after { content:''; position:absolute; inset:0; z-index:7; border-radius:inherit; pointer-events:none;
+  box-shadow: inset 0 0 0 3px var(--osk-frame, #fff), inset 0 0 0 6px rgba(var(--osk-accent2-rgb, 255,255,255), .5), inset 0 0 20px rgba(var(--osk-frame-rgb, 255,255,255), .28); }
+
+/* (2) Tiêu đề "PK ĐÔI" */
+body[data-skin] .pkduo-content { background:linear-gradient(180deg, var(--osk-chip1, #363945), var(--osk-chip2, #171922)); border-color:rgba(var(--osk-frame-rgb, 190,196,210), .6); color:var(--osk-chip-fg, #fff); }
+
+/* (3) Avatar: quầng sáng theo mùa (GIỮ viền màu đội = currentColor) */
+body[data-skin] .pkduo-creator img { box-shadow:0 0 0 2px rgba(var(--osk-frame-rgb, 255,255,255), .55), 0 0 12px rgba(var(--osk-frame-rgb, 255,255,255), .45); }
+
+/* (4) Thanh máu: viền trong theo mùa (GIỮ nền fill màu đội A→B) */
+body[data-skin] .pkduo-bar { box-shadow: inset 0 0 0 2px rgba(var(--osk-frame-rgb, 255,255,255), .85), inset 0 0 0 4px rgba(var(--osk-accent2-rgb, 255,255,255), .42), inset 0 0 14px rgba(0,0,0,.22); }
+
+/* (5) Gợn sóng chevron → NHUỘM màu mùa bằng mask (giữ nguyên hình mũi tên + hướng + animation).
+   Dùng mask-image như .pkduo-gift-lane (đã chạy trên OBS). Alpha mask từ SVG stroke đặc. */
+body[data-skin] .pkduo-bar.lead-a::after,
+body[data-skin] .pkduo-bar.lead-b::after { background-image:none; background-color:var(--osk-wave, #fff);
+  -webkit-mask-repeat:repeat; mask-repeat:repeat; -webkit-mask-size:34px 100%; mask-size:34px 100%; opacity:.5; }
+body[data-skin] .pkduo-bar.lead-a::after { -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 42'%3E%3Cpath d='M11 7 L24 21 L11 35' fill='none' stroke='%23000' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 42'%3E%3Cpath d='M11 7 L24 21 L11 35' fill='none' stroke='%23000' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+body[data-skin] .pkduo-bar.lead-b::after { -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 42'%3E%3Cpath d='M23 7 L10 21 L23 35' fill='none' stroke='%23000' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 42'%3E%3Cpath d='M23 7 L10 21 L23 35' fill='none' stroke='%23000' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+
+/* (6) Đổi 👑 MVP theo mùa */
+body[data-skin] .pkduo-champ-crown { font-size:0; }
+body[data-skin] .pkduo-champ-crown::before { content:var(--osk-crown, '👑'); font-size:28px; }
+body[data-skin] .pkduo-action .pkduo-champ-crown::before { font-size:20px; }
+body[data-skin="tet"]       { --osk-crown:'🧧'; }
+body[data-skin="noel"]      { --osk-crown:'🎅'; }
+body[data-skin="halloween"] { --osk-crown:'🎃'; }
+body[data-skin="newyear"]   { --osk-crown:'🎆'; }
+body[data-skin="valentine"] { --osk-crown:'💘'; }
+body[data-skin="trungthu"]  { --osk-crown:'🏮'; }
+body[data-skin="birthday"]  { --osk-crown:'🎂'; }

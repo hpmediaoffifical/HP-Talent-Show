@@ -155,6 +155,8 @@ function playSound(soundUrl) {
 }
 
 function render(state = {}) {
+  // 🎨 Skin mùa lễ (dùng chung) — trang trí ở <body>, độc lập với việc dựng lại root mỗi render.
+  if (window.OverlaySkin) OverlaySkin.applySkin(state.skin);
   const a = state.teamA || { name: 'ĐỘI A', color: '#FE2C55', gifts: [] };
   const b = state.teamB || { name: 'ĐỘI B', color: '#25F4EE', gifts: [] };
   const sec = Math.ceil((state.remainingMs || 0) / 1000);

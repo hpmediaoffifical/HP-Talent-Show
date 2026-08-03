@@ -1,0 +1,117 @@
+/* ============================================================
+   overlay-skin.css — HẠT & KEYFRAME SKIN MÙA LỄ DÙNG CHUNG (PK Đôi, THI ĐẤU, Đường đua…).
+   Lớp .ovl-skin-fx nằm ở <body> (cố định theo canvas OBS), cờ trên body[data-skin].
+   Khung/màu THANH & marker riêng của từng overlay để trong CSS overlay đó.
+   OBS-safe: né color-mix()/backdrop-filter, chỉ animate transform/opacity, gradient linear/radial.
+   ============================================================ */
+.ovl-skin-fx { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+body:not([data-skin]) .ovl-skin-fx { display:none; }
+
+/* Hạt rơi (tuyết/cánh hoa/tia/confetti) */
+body[data-skin] .fx-snow { position:absolute; top:-6%; width:9px; height:9px; border-radius:50%; background:radial-gradient(circle,#fff, rgba(255,255,255,.2) 70%); box-shadow:0 0 6px rgba(255,255,255,.5); opacity:0; animation:oskFall linear infinite; }
+body[data-skin] .fx-petal { position:absolute; top:-6%; width:13px; height:13px; border-radius:100% 0 100% 0; background:radial-gradient(120% 120% at 30% 30%, #ffe9a8, #ffb347 55%, #ff7ea8 100%); opacity:0; animation:oskFall linear infinite; }
+body[data-skin] .fx-spark { position:absolute; top:-4%; width:5px; height:5px; border-radius:50%; background:radial-gradient(circle, #fff6cf, rgba(255,214,102,0) 70%); opacity:0; animation:oskFall linear infinite; }
+body[data-skin] .fx-confetti { position:absolute; top:-6%; width:8px; height:12px; border-radius:2px; opacity:0; animation:oskFall linear infinite; }
+body[data-skin] .fx-confetti:nth-child(5n+1) { background:#ff5d8f; }
+body[data-skin] .fx-confetti:nth-child(5n+2) { background:#ffd93d; }
+body[data-skin] .fx-confetti:nth-child(5n+3) { background:#5ad1ff; }
+body[data-skin] .fx-confetti:nth-child(5n+4) { background:#8aff9b; }
+body[data-skin] .fx-confetti:nth-child(5n)   { background:#c58aff; }
+
+/* Nổi lên (tim/bóng bay/hồn ma) */
+body[data-skin] .fx-heart { position:absolute; bottom:-8%; font-size:20px; line-height:1; opacity:0; animation:oskRise linear infinite; }
+body[data-skin] .fx-heart::before { content:'💗'; display:inline-block; animation:oskTwinkle 1.1s ease-in-out infinite; }
+body[data-skin] .fx-balloon { position:absolute; bottom:-10%; font-size:26px; line-height:1; opacity:0; animation:oskRise linear infinite; }
+body[data-skin] .fx-balloon::before { content:'🎈'; }
+body[data-skin] .fx-ghost { position:absolute; bottom:-10%; font-size:24px; line-height:1; opacity:0; animation:oskRise linear infinite; }
+body[data-skin] .fx-ghost::before { content:'👻'; }
+
+/* Bay ngang (dơi) */
+body[data-skin] .fx-bat { position:absolute; left:-6%; font-size:22px; line-height:1; opacity:0; animation:oskDrift linear infinite; }
+body[data-skin] .fx-bat::before { content:'🦇'; display:inline-block; animation:oskFlap .34s ease-in-out infinite; }
+
+/* Lấp lánh tại chỗ (đom đóm) */
+body[data-skin] .fx-firefly { position:absolute; width:6px; height:6px; border-radius:50%; background:radial-gradient(circle, #fff4b8, rgba(255,206,90,0) 70%); box-shadow:0 0 9px rgba(255,214,120,.8); opacity:0; animation:oskTwinkle 1.8s ease-in-out infinite; }
+
+/* Pháo hoa nổ */
+body[data-skin] .fx-firework { position:absolute; width:14px; height:14px; border-radius:50%; opacity:0; background:radial-gradient(circle, #fff 0%, #ffe08a 30%, rgba(255,150,60,0) 72%); box-shadow:0 0 16px rgba(255,210,120,.7); animation:oskPop ease-out infinite; }
+
+/* Nến/đèn nhấp nháy (dây đèn Noel) */
+body[data-skin] .fx-garland { position:absolute; top:12px; left:5%; right:5%; height:12px; display:flex; justify-content:space-between; align-items:center; }
+body[data-skin] .fx-garland i { width:11px; height:11px; border-radius:50%; animation:oskTwinkle 1.4s ease-in-out infinite; }
+body[data-skin] .fx-garland i:nth-child(4n+1) { background:radial-gradient(circle,#ffd0d0,#e94848); box-shadow:0 0 8px rgba(233,72,72,.8); animation-delay:0s; }
+body[data-skin] .fx-garland i:nth-child(4n+2) { background:radial-gradient(circle,#c9f7d8,#34a86e); box-shadow:0 0 8px rgba(52,168,110,.8); animation-delay:.35s; }
+body[data-skin] .fx-garland i:nth-child(4n+3) { background:radial-gradient(circle,#fff3c4,#f2c14e); box-shadow:0 0 8px rgba(242,193,78,.8); animation-delay:.7s; }
+body[data-skin] .fx-garland i:nth-child(4n)   { background:radial-gradient(circle,#cfe6ff,#5aa0ff); box-shadow:0 0 8px rgba(90,160,255,.8); animation-delay:1.05s; }
+
+/* Đèn lồng đưa võng (Tết/Trung thu) */
+body[data-skin] .fx-lantern { position:absolute; top:8px; font-size:34px; line-height:1; transform-origin:50% 0; filter:drop-shadow(0 3px 4px rgba(0,0,0,.4)); }
+body[data-skin] .fx-lantern::before { content:'🏮'; }
+body[data-skin] .fx-lantern.l1 { left:16px; animation:oskSway 3.4s ease-in-out infinite; }
+body[data-skin] .fx-lantern.l2 { right:16px; animation:oskSway 3.8s ease-in-out infinite reverse; }
+
+/* Trăng (Trung thu / Halloween) */
+body[data-skin="trungthu"] .fx-moon { position:absolute; top:12px; left:50%; transform:translateX(-50%); width:52px; height:52px; border-radius:50%; background:radial-gradient(circle at 40% 38%, #fff6d8, #ffd873 66%, #f2b64a 100%); box-shadow:0 0 30px rgba(255,214,120,.6); }
+body[data-skin="halloween"] .fx-moon2 { position:absolute; top:14px; right:24px; width:44px; height:44px; border-radius:50%; background:radial-gradient(circle at 38% 38%, #ffd38a, #ff8a3c 72%); box-shadow:0 0 24px rgba(255,138,60,.55); }
+
+/* Cây thông + ông già Noel đứng 2 góc dưới */
+body[data-skin="noel"] .fx-tree,
+body[data-skin="noel"] .fx-santa { position:absolute; bottom:10px; font-size:38px; line-height:1; opacity:.94; filter:drop-shadow(0 3px 5px rgba(0,0,0,.45)); }
+body[data-skin="noel"] .fx-tree { left:18px; transform-origin:50% 100%; animation:oskBob 3s ease-in-out infinite; }
+body[data-skin="noel"] .fx-santa { right:18px; transform-origin:50% 100%; animation:oskBob 3.4s ease-in-out infinite reverse; }
+body[data-skin="noel"] .fx-tree::before { content:'🎄'; }
+body[data-skin="noel"] .fx-santa::before { content:'🎅'; }
+
+/* ---- Phân bố hạt (bare class — .ovl-skin-fx đã ẩn khi không skin) ---- */
+.fx-snow:nth-child(7n+1), .fx-petal:nth-child(7n+1) { left:6%;  animation-duration:9s;  animation-delay:0s; }
+.fx-snow:nth-child(7n+2), .fx-petal:nth-child(7n+2) { left:20%; animation-duration:12s; animation-delay:1.6s; }
+.fx-snow:nth-child(7n+3), .fx-petal:nth-child(7n+3) { left:34%; animation-duration:10s; animation-delay:3.2s; }
+.fx-snow:nth-child(7n+4), .fx-petal:nth-child(7n+4) { left:50%; animation-duration:13s; animation-delay:.8s; }
+.fx-snow:nth-child(7n+5), .fx-petal:nth-child(7n+5) { left:66%; animation-duration:10.5s; animation-delay:4.2s; }
+.fx-snow:nth-child(7n+6), .fx-petal:nth-child(7n+6) { left:80%; animation-duration:12.5s; animation-delay:2.4s; }
+.fx-snow:nth-child(7n),   .fx-petal:nth-child(7n)   { left:93%; animation-duration:9.5s; animation-delay:5.4s; }
+.fx-spark:nth-child(3n+1) { left:15%; animation-duration:8s;  animation-delay:.5s; }
+.fx-spark:nth-child(3n+2) { left:55%; animation-duration:9s;  animation-delay:2s; }
+.fx-spark:nth-child(3n)   { left:78%; animation-duration:8.5s; animation-delay:3.3s; }
+/* Nổi/rơi dọc dùng chung: tim/confetti/bóng bay/hồn ma */
+.fx-heart:nth-child(6n+1), .fx-confetti:nth-child(6n+1), .fx-balloon:nth-child(6n+1), .fx-ghost:nth-child(6n+1) { left:8%;  animation-duration:9s;  animation-delay:0s; }
+.fx-heart:nth-child(6n+2), .fx-confetti:nth-child(6n+2), .fx-balloon:nth-child(6n+2), .fx-ghost:nth-child(6n+2) { left:24%; animation-duration:11s; animation-delay:1.4s; }
+.fx-heart:nth-child(6n+3), .fx-confetti:nth-child(6n+3), .fx-balloon:nth-child(6n+3), .fx-ghost:nth-child(6n+3) { left:40%; animation-duration:9.5s; animation-delay:2.8s; }
+.fx-heart:nth-child(6n+4), .fx-confetti:nth-child(6n+4), .fx-balloon:nth-child(6n+4), .fx-ghost:nth-child(6n+4) { left:58%; animation-duration:12s; animation-delay:.9s; }
+.fx-heart:nth-child(6n+5), .fx-confetti:nth-child(6n+5), .fx-balloon:nth-child(6n+5), .fx-ghost:nth-child(6n+5) { left:75%; animation-duration:10s; animation-delay:3.6s; }
+.fx-heart:nth-child(6n),   .fx-confetti:nth-child(6n),   .fx-balloon:nth-child(6n),   .fx-ghost:nth-child(6n)   { left:90%; animation-duration:11.5s; animation-delay:2.1s; }
+.fx-bat:nth-child(3n)   { top:16%; animation-duration:11s; animation-delay:0s; }
+.fx-bat:nth-child(3n+1) { top:36%; animation-duration:14s; animation-delay:2.2s; }
+.fx-bat:nth-child(3n+2) { top:56%; animation-duration:10s; animation-delay:4.1s; }
+.fx-firefly:nth-child(4n)   { left:14%; top:32%; animation-delay:0s; }
+.fx-firefly:nth-child(4n+1) { left:38%; top:64%; animation-delay:.7s; }
+.fx-firefly:nth-child(4n+2) { left:62%; top:24%; animation-delay:1.4s; }
+.fx-firefly:nth-child(4n+3) { left:84%; top:56%; animation-delay:2.1s; }
+.fx-firework:nth-child(1) { left:18%; top:26%; animation-duration:2.6s; animation-delay:0s; }
+.fx-firework:nth-child(2) { left:44%; top:16%; animation-duration:2.6s; animation-delay:.9s; }
+.fx-firework:nth-child(3) { left:70%; top:30%; animation-duration:2.6s; animation-delay:1.8s; }
+.fx-firework:nth-child(4) { left:30%; top:50%; animation-duration:2.6s; animation-delay:2.7s; }
+.fx-firework:nth-child(5) { left:82%; top:44%; animation-duration:2.6s; animation-delay:3.6s; }
+
+@keyframes oskFall { 0%{opacity:0;transform:translate3d(0,0,0) rotate(0)} 8%{opacity:.9} 92%{opacity:.9} 100%{opacity:0;transform:translate3d(28px,106vh,0) rotate(300deg)} }
+@keyframes oskRise { 0%{opacity:0;transform:translate3d(0,0,0) scale(.7)} 10%{opacity:.95} 90%{opacity:.95} 100%{opacity:0;transform:translate3d(-24px,-106vh,0) scale(1)} }
+@keyframes oskDrift { 0%{opacity:0;transform:translate3d(0,0,0)} 8%{opacity:.95} 92%{opacity:.95} 100%{opacity:0;transform:translate3d(112vw,20px,0)} }
+@keyframes oskFlap { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(.7)} }
+@keyframes oskSway { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(6deg)} }
+@keyframes oskBob { 0%,100%{transform:translateY(0) rotate(-3deg)} 50%{transform:translateY(-5px) rotate(3deg)} }
+@keyframes oskTwinkle { 0%,100%{opacity:.35;transform:scale(.85)} 50%{opacity:1;transform:scale(1.1)} }
+@keyframes oskPop { 0%{opacity:0;transform:scale(.2)} 20%{opacity:1} 60%{opacity:.9} 100%{opacity:0;transform:scale(1.9)} }
+
+/* ============================================================
+   🎨 BẢNG MÀU SKIN (biến dùng chung) — mỗi overlay ánh xạ phần tử vào các biến này để theme LÕI
+   (viền/khung/thanh/gợn sóng/tiêu đề) nhất quán. Không đụng màu đội hay đèn báo phe dẫn.
+   --osk-frame: màu viền chính · --osk-accent2: màu phụ · --osk-wave: màu gợn sóng ·
+   --osk-chip1/2: gradient tiêu đề · --osk-chip-fg: chữ tiêu đề.
+   ============================================================ */
+body[data-skin="noel"]      { --osk-frame:#e94848; --osk-frame-rgb:233,72,72;   --osk-accent2:#34a86e; --osk-accent2-rgb:52,168,110;  --osk-wave:#e9fff1; --osk-chip1:#0f6b3a; --osk-chip2:#8a1420; --osk-chip-fg:#ffffff; }
+body[data-skin="tet"]       { --osk-frame:#ffce54; --osk-frame-rgb:255,206,84;  --osk-accent2:#b3141a; --osk-accent2-rgb:179,20,26;   --osk-wave:#fff0c0; --osk-chip1:#7a0f12; --osk-chip2:#4a0a0c; --osk-chip-fg:#ffe08a; }
+body[data-skin="halloween"] { --osk-frame:#ff8a20; --osk-frame-rgb:255,138,32;  --osk-accent2:#7c3abe; --osk-accent2-rgb:124,58,190;  --osk-wave:#ffd9a8; --osk-chip1:#4a1178; --osk-chip2:#7a2a06; --osk-chip-fg:#ffcf7a; }
+body[data-skin="newyear"]   { --osk-frame:#ffd479; --osk-frame-rgb:255,212,121; --osk-accent2:#9fb8ff; --osk-accent2-rgb:159,184,255; --osk-wave:#fff3c4; --osk-chip1:#14224e; --osk-chip2:#0a1330; --osk-chip-fg:#ffe6a3; }
+body[data-skin="valentine"] { --osk-frame:#ff5d8f; --osk-frame-rgb:255,93,143;  --osk-accent2:#e11d48; --osk-accent2-rgb:225,29,72;   --osk-wave:#ffd6e6; --osk-chip1:#b21e5a; --osk-chip2:#7a1030; --osk-chip-fg:#ffe0ec; }
+body[data-skin="trungthu"]  { --osk-frame:#ffce78; --osk-frame-rgb:255,206,120; --osk-accent2:#5a4bb0; --osk-accent2-rgb:90,75,176;   --osk-wave:#ffe6b0; --osk-chip1:#26306e; --osk-chip2:#3a1f52; --osk-chip-fg:#ffe0a6; }
+body[data-skin="birthday"]  { --osk-frame:#ff8ad0; --osk-frame-rgb:255,138,208; --osk-accent2:#5aa0ff; --osk-accent2-rgb:90,160,255;  --osk-wave:#fff0fa; --osk-chip1:#7a2a8e; --osk-chip2:#3a2a86; --osk-chip-fg:#ffe6f4; }

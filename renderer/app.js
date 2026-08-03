@@ -6547,6 +6547,7 @@ async function loadPkConfig() {
   if ($('#pkChampNames')) $('#pkChampNames').value = String(pkCfg.championNames === true);
   if ($('#pkArrowStyle')) $('#pkArrowStyle').value = pkCfg.arrowStyle || 'random';
   if ($('#pkSelectFx')) $('#pkSelectFx').value = pkCfg.selectFx || 'random';
+  if ($('#pkSkin')) { $('#pkSkin').value = pkCfg.skin || 'auto'; updateSkinHint('pkSkin', 'pkSkinHint'); }
   setSoundInput('pkSndStart', pkCfg.startSound || '');
   setSoundInput('pkSndWarn', pkCfg.warningSound || '');
   setSoundInput('pkSndAwin', pkCfg.teamASound || '');
@@ -6794,6 +6795,21 @@ const _pkSaver = makeAutoSaver(() => {
 });
 function schedulePkAutoSave() { _pkSaver.schedule(); }
 
+// 🎨 Nhãn skin auto: để "Tự động theo ngày" → hiện dịp đang áp hôm nay ("auto → 🎄 Noel" /
+// "auto → (không có dịp)"); chọn tay → tên dịp. Dùng chung cho PK Nhóm / PK Đôi / Thi đấu.
+function updateSkinHint(selectId, hintId) {
+  const sel = document.getElementById(selectId), hint = document.getElementById(hintId);
+  if (!sel || !hint || !window.OverlaySkin) return;
+  const txt = OverlaySkin.autoLabel(sel.value);
+  hint.textContent = txt;
+  hint.title = txt; // hàng gọn 1 dòng (ellipsis) → rê chuột xem đầy đủ kế hoạch cả tháng
+}
+function wireSkinHint(selectId, hintId) {
+  const sel = document.getElementById(selectId);
+  if (sel) sel.addEventListener('change', () => updateSkinHint(selectId, hintId));
+  updateSkinHint(selectId, hintId);
+}
+
 function wirePkDuoTab() {
   $('#pkJoinMode').addEventListener('change', () => {
     savePkActiveGifts();
@@ -6892,11 +6908,12 @@ function wirePkDuoTab() {
     $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`;
     schedulePkAutoSave();
   });
-  ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkChampNames','pkArrowStyle','pkSelectFx','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
+  ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkChampNames','pkArrowStyle','pkSelectFx','pkSkin','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', schedulePkAutoSave);
   });
+  wireSkinHint('pkSkin', 'pkSkinHint');
   // 🎲 Đổi skin mũi tên ngẫu nhiên NGAY (chọn 1 skin cụ thể khác skin đang chọn) → áp dụng realtime.
   $('#pkArrowRandom')?.addEventListener('click', () => {
     const sel = $('#pkArrowStyle'); if (!sel) return;
@@ -7009,6 +7026,7 @@ function collectPkCfg() {
     championNames: $('#pkChampNames') ? $('#pkChampNames').value === 'true' : false,
     arrowStyle: $('#pkArrowStyle') ? $('#pkArrowStyle').value : 'random',
     selectFx: $('#pkSelectFx') ? $('#pkSelectFx').value : 'random',
+    skin: $('#pkSkin') ? $('#pkSkin').value : 'auto',
   };
 }
 
@@ -7068,6 +7086,8 @@ function renderPkPreview(st) {
 // ============================================================
 // PK Nhóm
 // ============================================================
+// Ghi chú riêng cho 🎮 Chế độ TikTok: tự bật + hiển thị khi chọn mode này (đồng bộ với default & migration ở main.js).
+const PKG_TIKTOK_NOTE = 'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng';
 async function loadPkGroupConfig() {
   const st = await window.api.pkgroup.getState();
   pkGroupCfg = {
@@ -7078,7 +7098,7 @@ async function loadPkGroupConfig() {
     creatorLive: !!st.creatorLive,
     pointsBy: st.pointsBy || 'diamond',
     noteEnabled: !!st.noteEnabled,
-    noteText: st.noteText || 'Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy',
+    noteText: st.noteText || 'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng',
     noteBgColor: st.noteBgColor || '#1f2430',
     noteTextColor: st.noteTextColor || '#ffffff',
     noteSpeedSec: st.noteSpeedSec || 16,
@@ -7137,6 +7157,7 @@ function applyPkGroupCfgToInputs() {
   if ($('#pkgSmartColor')) $('#pkgSmartColor').checked = pkGroupCfg.smartColor !== false;
   if ($('#ovlAutoTextContrast')) $('#ovlAutoTextContrast').checked = !!pkGroupCfg.autoTextContrast;
   if ($('#pkgSelectFx')) $('#pkgSelectFx').value = pkGroupCfg.selectFx || 'random';
+  if ($('#pkgSkin')) { $('#pkgSkin').value = pkGroupCfg.skin || 'auto'; updateSkinHint('pkgSkin', 'pkgSkinHint'); }
 }
 
 function renderPkGroupGroupSelect() {
@@ -7475,9 +7496,23 @@ function wirePkGroupTab() {
       try { await window.api.pkgroup.setConfig(collectPkGroupCfg()); } catch {}
     }
   });
-  ['pkgContent','pkgLayoutMode','pkgPlayMode','pkgPointsBy','pkgNoteEnabled','pkgNoteText','pkgNoteBg','pkgNoteColor','pkgNoteSpeed','pkgNoteEffect','pkgDurH','pkgDurM','pkgDurS','pkgPrep','pkgDelay','pkgTextSize','pkgNameSize','pkgGiftSize','pkgSelectFx'].forEach(id => {
+  ['pkgContent','pkgLayoutMode','pkgPointsBy','pkgNoteEnabled','pkgNoteText','pkgNoteBg','pkgNoteColor','pkgNoteSpeed','pkgNoteEffect','pkgDurH','pkgDurM','pkgDurS','pkgPrep','pkgDelay','pkgTextSize','pkgNameSize','pkgGiftSize','pkgSelectFx','pkgSkin'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers(); });
+  });
+  wireSkinHint('pkgSkin', 'pkgSkinHint');
+  // 🎮 Đổi Chế độ: vào TikTok (creator) → tự BẬT ghi chú + điền nội dung hướng dẫn chọn Creator
+  // (riêng cho chế độ này) để overlay tự hiển thị đúng nội dung. Rời TikTok mà ghi chú vẫn đang là
+  // câu hướng dẫn đó → trả field trống để mode khác tự dùng ghi chú riêng.
+  $('#pkgPlayMode').addEventListener('change', () => {
+    if ($('#pkgPlayMode').value === 'creator') {
+      $('#pkgNoteEnabled').checked = true;
+      $('#pkgNoteText').value = PKG_TIKTOK_NOTE;
+      toast('📡 Chế độ TikTok: đã tự bật ghi chú "Chọn Creator tại hộp quà tặng…" trên overlay.', 'success');
+    } else if ($('#pkgNoteText').value.trim() === PKG_TIKTOK_NOTE) {
+      $('#pkgNoteText').value = '';
+    }
+    syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers();
   });
   $('#pkgSmartColor').addEventListener('change', () => {
     pkGroupCfg.smartColor = $('#pkgSmartColor').checked;
@@ -7521,7 +7556,7 @@ function collectPkGroupCfg() {
   const h = Number($('#pkgDurH').value) || 0;
   const m = Number($('#pkgDurM').value) || 0;
   const s = Number($('#pkgDurS').value) || 0;
-  return {
+  const cfg = {
     ...pkGroupCfg,
     content: $('#pkgContent').value.trim() || 'PK NHÓM',
     groupId: $('#pkgGroup').value,
@@ -7545,8 +7580,14 @@ function collectPkGroupCfg() {
     giftSize: Number($('#pkgGiftSize').value),
     overlayScale: Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 200)),
     selectFx: $('#pkgSelectFx')?.value || 'random',
+    skin: $('#pkgSkin')?.value || 'auto',
     creatorColors: pkGroupCfg.creatorColors || {},
   };
+  // Đồng bộ NGƯỢC toàn bộ giá trị vừa đọc từ DOM vào pkGroupCfg. Quan trọng: hồ sơ nhóm
+  // (pkGroupProfileSnapshot) đọc từ pkGroupCfg — nếu không sync, nó lưu Giao diện/Thời gian CŨ vào
+  // profile và ghi đè config khi mở lại (đúng lỗi "không tự lưu thông số Giao diện và thời gian").
+  Object.assign(pkGroupCfg, cfg);
+  return cfg;
 }
 
 function renderPkGroupPreview(st = {}) {
@@ -7615,6 +7656,7 @@ async function loadRankingConfig() {
   $('#rkActiveBg').value = st.activeBgColor || '#ffca3a';
   $('#rkActiveBgOpacity').value = st.activeBgOpacity ?? 55;
   $('#rkActiveFx').value = st.activeBgFx || 'off';
+  if ($('#rkSkin')) { $('#rkSkin').value = st.skin || 'auto'; updateSkinHint('rkSkin', 'rkSkinHint'); }
   $('#rkActiveSync').checked = !!st.activeBarSync;
   $('#rkShowRank').checked = st.showRank !== false;
   $('#rkShowAvatar').checked = st.showAvatar !== false;
@@ -7692,7 +7734,7 @@ function wireRankingTab() {
     rankFrom: Number($('#rkRankFrom').value) || 1,
     rankTo: Number($('#rkRankTo').value) || 0,
     nameMode: $('#rkNameMode').value,
-    pointsBy: $('#rkPointsBy').value,
+    pointsBy: $('#rkPointsBy').value || 'diamond', // đã bỏ option "Số lượng quà"; config cũ 'count' → select rỗng → fallback Coin
     streakColor: $('#rkStreak').value,
     overlayTitleColor: $('#rkTitleColor').value,
     overlayBgColor: $('#rkBg').value,
@@ -7702,6 +7744,7 @@ function wireRankingTab() {
     activeBgColor: $('#rkActiveBg').value,
     activeBgOpacity: Number($('#rkActiveBgOpacity').value),
     activeBgFx: $('#rkActiveFx').value,
+    skin: $('#rkSkin') ? $('#rkSkin').value : 'auto',
     activeBarSync: $('#rkActiveSync').checked,
     showRank: $('#rkShowRank').checked,
     showAvatar: $('#rkShowAvatar').checked,
@@ -7727,11 +7770,12 @@ function wireRankingTab() {
       await window.api.ranking.setConfig(collectRkCfg());
     }, 180);
   };
-  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkTitleColor','rkBg','rkBoardColor','rkBgOpacity','rkBoardOpacity','rkActiveBg','rkActiveBgOpacity','rkActiveFx','rkActiveSync','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale'].forEach(id => {
+  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkTitleColor','rkBg','rkBoardColor','rkBgOpacity','rkBoardOpacity','rkActiveBg','rkActiveBgOpacity','rkActiveFx','rkActiveSync','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale','rkSkin'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener('input', updateRkRealtime);
     el.addEventListener('change', updateRkRealtime);
   });
+  wireSkinHint('rkSkin', 'rkSkinHint');
   $('#rkSaveCfg').addEventListener('click', async () => {
     await window.api.ranking.setConfig(collectRkCfg());
     toast('Đã cập nhật Thi đấu nhóm', 'success');
@@ -8429,6 +8473,7 @@ async function loadScoreConfig() {
   renderScoreCreatorSelect(st);
   $('#scTheme').value = ['douyin', 'vip', 'neon', 'battle', 'luxury', 'sunset', 'ocean', 'candy', 'custom'].includes(st.themePreset) ? st.themePreset : 'douyin';
   $('#scSize').value = st.overlaySize || 'medium';
+  if ($('#scSkin')) { $('#scSkin').value = st.skin || 'auto'; updateSkinHint('scSkin', 'scSkinHint'); }
   $('#scBarStyle').value = st.barStyle || 'pill';
   if ($('#scLayout')) $('#scLayout').value = ['bar', 'card', 'timer'].includes(st.scoreLayout) ? st.scoreLayout : (st.cardLayout ? 'card' : 'bar');
   $('#scCompact').checked = false;
@@ -8511,6 +8556,7 @@ function collectScoreCfg() {
     creatorAvatar: $('#scCreatorAvatar').value.trim(),
     creatorId: $('#scCreatorSelect')?.value || '',
     themePreset: $('#scTheme').value,
+    skin: $('#scSkin') ? $('#scSkin').value : 'auto',
     overlaySize: $('#scSize').value,
     barStyle: $('#scBarStyle').value,
     scoreLayout: ['bar', 'card', 'timer'].includes($('#scLayout')?.value) ? $('#scLayout').value : 'bar',
@@ -8692,11 +8738,12 @@ function wireScoreTab() {
   $('#scBorderOpacity')?.addEventListener('input', () => { $('#scBorderOpacityValue').textContent = `${$('#scBorderOpacity').value}%`; scheduleScoreAutoSave(); });
   $('#scBorderWidth')?.addEventListener('input', () => { $('#scBorderWidthValue').textContent = `${$('#scBorderWidth').value}px`; scheduleScoreAutoSave(); });
   $('#scCardBgOpacity')?.addEventListener('input', () => { $('#scCardBgOpacityValue').textContent = `${$('#scCardBgOpacity').value}%`; scheduleScoreAutoSave(); });
-  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scLayout','scContent','scHideAvatar','scHideCreator','scColorByProgress','scKpiX2','scKpiMult','scShowRemaining','scFxGlowBorder','scFxGlass','scFxSparkle','scFxSpotlight','scFxAvatarAura','scFxScoreBounce','scFxFloatPoints','scFxCardBreathe','scFxLiquid','scRunnerForcePink','scRunnerDust','scTimerTop5','scTimerTail','scTimerFinalTick','scBorderColor','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor'].forEach(id => {
+  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scLayout','scContent','scHideAvatar','scHideCreator','scColorByProgress','scKpiX2','scKpiMult','scShowRemaining','scFxGlowBorder','scFxGlass','scFxSparkle','scFxSpotlight','scFxAvatarAura','scFxScoreBounce','scFxFloatPoints','scFxCardBreathe','scFxLiquid','scRunnerForcePink','scRunnerDust','scTimerTop5','scTimerTail','scTimerFinalTick','scBorderColor','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor','scSkin'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', scheduleScoreAutoSave);
   });
+  wireSkinHint('scSkin', 'scSkinHint');
   // Sửa tay một trong 4 ô màu preset → cập nhật lại chip cho khớp
   ['scBarColor1','scBarColor2','scWaveColor','scOverColor'].forEach(id => {
     $('#' + id)?.addEventListener('input', syncScoreThemeChips);

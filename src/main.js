@@ -746,7 +746,18 @@ function saveGroupProfiles(map) {
 }
 function loadPkDuoConfig() { return loadJson(PK_DUO_PATH, null); }
 function savePkDuoConfig(cfg) { saveJson(PK_DUO_PATH, cfg); }
-function loadPkGroupConfig() { return loadJson(PK_GROUP_PATH, null); }
+// Ghi chú PK Nhóm: các câu MẶC ĐỊNH CŨ → tự nâng cấp sang câu mới khi load (chỉ đổi nếu đang là
+// text mặc định cũ; user tự sửa thì giữ nguyên). Giúp máy đang cài text cũ tự cập nhật sau khi mở app.
+const PKG_OLD_NOTES = [
+  'Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy',
+  'Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy',
+];
+const PKG_NEW_NOTE = 'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng';
+function loadPkGroupConfig() {
+  const cfg = loadJson(PK_GROUP_PATH, null);
+  if (cfg && typeof cfg.noteText === 'string' && PKG_OLD_NOTES.includes(cfg.noteText.trim())) cfg.noteText = PKG_NEW_NOTE;
+  return cfg;
+}
 function savePkGroupConfig(cfg) { saveJson(PK_GROUP_PATH, cfg); }
 function loadMusicList() { return loadJson(MUSIC_LIST_PATH, null); }
 function saveMusicList(cfg) { saveJson(MUSIC_LIST_PATH, cfg); }
@@ -1415,6 +1426,8 @@ class PkDuoEngine {
       // Đánh dấu "người vào trận" kiểu chọn nhân vật game (2 phe đối đầu → luôn đánh dấu cả 2).
       // random | arrow | lock | spotlight | versus | off. Mặc định Ngẫu nhiên.
       selectFx: 'random',
+      // 🎨 Skin mùa lễ (chỉ trang trí, auto = theo ngày). Xử lý ở overlay-skin.js.
+      skin: 'auto',
     };
     this.state = {
       status: 'idle', // 'idle' | 'prestart' | 'running' | 'grace' | 'finished'
@@ -1488,6 +1501,7 @@ class PkDuoEngine {
       arrowStyle: this._resolveArrowStyle(),
       // PK Đôi luôn có đúng 2 phe → luôn đánh dấu cả 2 (overlay tự ẩn khi status idle/finished).
       selectFx: this._resolveSelectFx(),
+      skin: this.config.skin || 'auto',
     };
   }
   // Skin mũi tên hiển thị: 'random' → chốt 1 skin động cho mỗi vòng (start() gọi lại để đổi vòng sau).
@@ -1714,7 +1728,7 @@ class PkGroupEngine {
       linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm participant cho Creator
       pointsBy: 'diamond',
       noteEnabled: false,
-      noteText: 'Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy',
+      noteText: 'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng',
       noteBgColor: '#1f2430',
       noteTextColor: '#ffffff',
       noteSpeedSec: 16,
@@ -1731,6 +1745,9 @@ class PkGroupEngine {
       // Đánh dấu "người vào trận" kiểu chọn nhân vật game — CHỈ hiện khi chọn subset (ít hơn full nhóm),
       // đủ full thì tự ẩn. random | arrow | lock | spotlight | versus | off. Mặc định Ngẫu nhiên.
       selectFx: 'random',
+      // 🎨 Skin mùa lễ cho thanh máu — CHỈ trang trí (khung/hạt/màu), không đụng logic điểm/độ rộng.
+      // auto = tự chọn theo ngày; none = mặc định; noel|halloween|newyear|tet|valentine|trungthu|birthday.
+      skin: 'auto',
       participants: [],
     };
     this.state = {
@@ -1785,6 +1802,14 @@ class PkGroupEngine {
     const gid = String(this.config.groupId || '');
     const rosterTotal = gid ? (this.getCreators() || []).filter(c => String(c.groupId || '') === gid).length : 0;
     const selectSubset = participants.length >= 2 && (!rosterTotal || participants.length < rosterTotal);
+    // 🎮 TikTok mode (creatorLive): overlay LUÔN hiển thị ghi chú hướng dẫn chọn Creator (câu riêng cho
+    // mode này), trừ khi user đã đặt một ghi chú KHÁC. Nhờ vậy đổi sang TikTok là note tự đúng nội dung.
+    let noteEnabled = this.config.noteEnabled;
+    let noteText = this.config.noteText;
+    if (this.config.creatorLive) {
+      const t = String(noteText || '').trim();
+      if (!t || PKG_OLD_NOTES.includes(t) || t === PKG_NEW_NOTE) { noteText = PKG_NEW_NOTE; noteEnabled = true; }
+    }
     return {
       status: this.state.status,
       remainingMs: this.state.remainingMs,
@@ -1799,9 +1824,10 @@ class PkGroupEngine {
       groupId: this.config.groupId,
       layoutMode: this.config.layoutMode,
       playMode: this.config.playMode,
+      creatorLive: this.config.creatorLive, // 🎮 TikTok mode → overlay ẩn icon quà, chỉ hiện avatar TOP người tặng
       pointsBy: this.config.pointsBy,
-      noteEnabled: this.config.noteEnabled,
-      noteText: this.config.noteText,
+      noteEnabled,
+      noteText,
       noteBgColor: this.config.noteBgColor,
       noteTextColor: this.config.noteTextColor,
       noteSpeedSec: this.config.noteSpeedSec,
@@ -1815,6 +1841,7 @@ class PkGroupEngine {
       nameSize: this.config.nameSize,
       giftSize: this.config.giftSize,
       overlayScale: this.config.overlayScale,
+      skin: this.config.skin || 'auto',
     };
   }
   // Kiểu FX đánh dấu người vào trận: 'random' → chốt 1 kiểu cho mỗi vòng; 'off' → tắt hẳn.
@@ -2578,6 +2605,7 @@ class RankingEngine {
       giftScale: 145,
       overlayScale: 100,
       scoreFloor: 0,           // Điểm sàn cộng vào Mục tiêu tự tính khi VOTE (0 = tính bình thường)
+      skin: 'auto',            // 🎨 Skin mùa lễ (chỉ trang trí; auto = theo ngày). Xử lý ở overlay-skin.js.
     };
     // Snapshot scores tích lũy theo round
     this.round = 0;
@@ -2662,6 +2690,7 @@ class RankingEngine {
         return {
           id: c.id,
           inMatch: !!(fighters && fighters.ids.has(String(c.id))),
+          matchTeam: fighters ? (fighters.teamOf.get(String(c.id)) || '') : '', // 'A'/'B' (PK Đôi) → màu phe
           name: c.nickname || c.tiktokId,
           avatar: c.avatar || '',
           avatarKey: c.avatarCacheKey || avatarCacheKey(c.avatar),
@@ -2753,6 +2782,7 @@ class RankingEngine {
       giftScale: this.config.giftScale,
       overlayScale: this.config.overlayScale,
       scoreFloor: this.config.scoreFloor,
+      skin: this.config.skin || 'auto',
       rows,
       // Kiểu FX đánh dấu người đang thi đấu PK (Đôi/Nhóm) đã Liên kết — 'off' nếu không có ai đang đấu.
       selectFx: fighters ? fighters.fx : 'off',
@@ -2779,6 +2809,7 @@ class ScoreEngine {
       creatorId: '', // id Creator đang tính điểm — để lọc quà theo người nhận (LIVE nhóm)
       content: '',
       themePreset: 'douyin',
+      skin: 'auto', // 🎨 Skin mùa lễ (chỉ trang trí; auto = theo tháng/sự kiện). Xử lý ở overlay-skin.js.
       overlaySize: 'medium',
       barStyle: 'pill',
       cardLayout: false, // (cũ, giữ tương thích) false = Thanh ngang · true = Thẻ HUD góc
@@ -3437,13 +3468,16 @@ function activePkFighters() {
   const l = getRankingLinks();
   const live = s => ['prestart', 'running', 'grace'].includes(s);
   const ids = new Set();
+  // PK Đôi có 2 phe cố định: teamA (trái) / teamB (phải) → tô marker theo màu TikTok (A đỏ-hồng, B xanh).
+  // PK Nhóm không có trái/phải → không gán phe (marker giữ màu mặc định).
+  const teamOf = new Map();
   let fx = '';
   if (l.pkduo && pkDuoEngine && live(pkDuoEngine.state.status)) {
     const f = pkDuoEngine._resolveSelectFx();
     if (f !== 'off') {
       const a = pkDuoEngine.config.teamA, b = pkDuoEngine.config.teamB;
-      if (a && a.creatorId) ids.add(String(a.creatorId));
-      if (b && b.creatorId) ids.add(String(b.creatorId));
+      if (a && a.creatorId) { ids.add(String(a.creatorId)); teamOf.set(String(a.creatorId), 'A'); }
+      if (b && b.creatorId) { ids.add(String(b.creatorId)); teamOf.set(String(b.creatorId), 'B'); }
       if (ids.size && !fx) fx = f;
     }
   }
@@ -3459,7 +3493,7 @@ function activePkFighters() {
       if (!fx) fx = f;
     }
   }
-  return ids.size ? { ids, fx: fx || 'arrow' } : null;
+  return ids.size ? { ids, teamOf, fx: fx || 'arrow' } : null;
 }
 
 function bootstrapEngines() {

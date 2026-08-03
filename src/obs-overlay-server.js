@@ -271,6 +271,8 @@ class ObsOverlayServer {
       '/interact-overlay.js': 'renderer/interact-overlay.js',
       '/interact-overlay.css': 'renderer/interact-overlay.css',
       '/overlay-common.css': 'renderer/overlay-common.css',
+      '/overlay-skin.css': 'renderer/overlay-skin.css',
+      '/overlay-skin.js': 'renderer/overlay-skin.js',
       '/overlay-sse.js': 'renderer/overlay-sse.js',
       '/review-resize.js': 'renderer/review-resize.js',
       '/pk-duo-rocket.svg': 'renderer/pk-duo-rocket.svg',

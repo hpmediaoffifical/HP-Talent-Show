@@ -314,6 +314,8 @@ function buildStructure(state, v) {
 }
 
 function render(state = {}) {
+  // 🎨 Skin mùa lễ (dùng chung) — trang trí ở <body>, độc lập việc dựng lại root mỗi render.
+  if (window.OverlaySkin) OverlaySkin.applySkin(state.skin);
   // Mục tiêu = 0 (trống) → chế độ "không mục tiêu": chỉ cộng điểm, thanh luôn đầy chảy, bỏ KPI/Over/goal.
   const noTarget = !(Number(state.target) > 0);
   const target = noTarget ? 0 : Math.max(1, Number(state.target));
