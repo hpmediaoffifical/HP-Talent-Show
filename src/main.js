@@ -56,8 +56,8 @@ const KC_MONTHS_PATH = path.join(CONFIG_DIR, 'kc-months.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
 const SHIPPED_GIFT_MASTER_PATH = path.join(SHIPPED_CONFIG_DIR, 'gift-master.json');
 const GIFT_MASTER_SHEET = 'https://docs.google.com/spreadsheets/d/1Fv9Jdno_pPMTx_-tnwSfRObm1r1wKds_gaMBnfCDm4M/gviz/tq?tqx=out:csv&sheet=DANH%20SACH%20QUA';
-const GITHUB_RELEASES_API = 'https://api.github.com/repos/hpmediaoffifical/HP-Talent-Show/releases/latest';
-const GITHUB_RELEASES_URL = 'https://github.com/hpmediaoffifical/HP-Talent-Show/releases/latest';
+const GITHUB_RELEASES_API = 'https://api.github.com/repos/hpmediaoffifical/H-P-T-a-l-e-n-t-S-h-o-w/releases/latest';
+const GITHUB_RELEASES_URL = 'https://github.com/hpmediaoffifical/H-P-T-a-l-e-n-t-S-h-o-w/releases/latest';
 const BANNER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=Banner';
 const TICKER_SHEET = 'https://docs.google.com/spreadsheets/d/1g0oNn60BJjp5s8SN_7_vrrUPidw8HtX0xKsS2OP0waM/gviz/tq?tqx=out:csv&sheet=CH%E1%BB%AE%20TH%C3%94NG%20B%C3%81O';
 // KIM CƯƠNG TỔNG: sheet DAILY DATA — cột C = username (khớp tiktokId nhóm), cột H = Kim cương, cột A = giai đoạn.
