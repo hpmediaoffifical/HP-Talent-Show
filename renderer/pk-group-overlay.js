@@ -7,6 +7,8 @@ if (new URLSearchParams(location.search).get('review') === '1') {
 const root = document.getElementById('pkGroupRoot');
 let noteEl = null;
 let noteKey = '';
+let mvpTitleKey = '';
+let mvpTitleAlignRaf = 0;
 let boardStyleKey = '';
 let lastLeaderId = '';   // để phát hiện đổi ngôi Hạng 1
 let lastIdsKey = '';     // để biết khi nào cấu trúc người chơi đổi → snap count-up
@@ -43,6 +45,25 @@ window.avRetry = function (img) {
 function avatarImg(value, key = '') {
   return `<img src="${esc(mediaUrl(value, key))}" onerror="avRetry(this)" />`;
 }
+function alignMvpTitle() {
+  const board = root.querySelector('.pkg-board');
+  const row = board?.querySelector('.pkg-title-row');
+  const firstCard = board?.querySelector('.pkg-separated-list .pkg-card');
+  if (!board || !row || !board.classList.contains('mode-separated') || !firstCard) {
+    board?.style.removeProperty('--pkg-mvp-left');
+    return;
+  }
+  const left = Math.max(0, firstCard.getBoundingClientRect().left - row.getBoundingClientRect().left);
+  board.style.setProperty('--pkg-mvp-left', `${left.toFixed(2)}px`);
+}
+function scheduleMvpTitleAlignment() {
+  if (mvpTitleAlignRaf) cancelAnimationFrame(mvpTitleAlignRaf);
+  mvpTitleAlignRaf = requestAnimationFrame(() => {
+    mvpTitleAlignRaf = 0;
+    alignMvpTitle();
+  });
+}
+window.addEventListener('resize', scheduleMvpTitleAlignment);
 function hexToRgb(hex, fb = '0,0,0') {
   let s = String(hex || '').trim();
   const m3 = s.match(/^#([0-9a-f]{3})$/i);
@@ -247,11 +268,13 @@ function render(state = {}) {
     : '';
   const statusIcon = status === 'finished' ? 'off' : (statusText ? 'clock' : '');
   const layout = state.layoutMode === 'separated' ? 'separated' : 'joined';
+  const showMvpTotals = !!state.showMvpTotals;
   const total = participants.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
   const max = Math.max(1, ...participants.map(p => Number(p.score) || 0));
   const minWidth = 8;
   const ranked = rankParticipants(participants);
   const leaderId = ranked[0]?.id || '';
+  const mvpParticipant = participants.find(p => (Number(p.streak) || 0) >= 1) || null;
   // Đổi ngôi: có leader mới khác leader trước, trong lúc trận đang diễn ra → lóe sáng 1 nhịp.
   const leaderChanged = lastLeaderId && leaderId && leaderId !== lastLeaderId && (status === 'running' || status === 'grace');
   // "Vừa lên quà": điểm thật của người đó tăng so với lần render trước → bắn 1 nhịp gợn sóng (port từ PK Đôi).
@@ -300,10 +323,19 @@ function render(state = {}) {
   // Cỡ chữ tên (đồng bộ board style) để ĐO bề rộng tên → nền pill dài ĐÚNG theo tên (fit-content thông
   // minh): cột đủ rộng thì tên hiện đầy đủ và nền chỉ dài thêm, cột hẹp thì nền kẹp 100% cột + tên cắt gọn.
   const nameScaleM = Math.max(.9, Math.min(3, ((parseInt(state.nameSize, 10) || 100) / 100) * 1.5));
-  const platePx = (dispName, isLeader) => {
+  const mvpTotalText = (p) => fmt(p.mvpTotal);
+  const mvpTotalBadgePx = (p) => showMvpTotals
+    ? Math.max(pkgText * .92, textPx(mvpTotalText(p), pkgText * .58, 950) + pkgText * .28)
+    : 0;
+  const platePx = (p, dispName, isLeader) => {
     const nameFont = pkgText * (isLeader ? 0.72 : 0.58) * nameScaleM;
     const avaW = (isLeader ? 46 : 36) * nameScaleM;
-    return Math.round(avaW + 6 * nameScaleM + textPx(dispName, nameFont, 950) + 16); // avatar + lề + tên + đệm phải
+    return Math.round(avaW + 6 * nameScaleM + textPx(dispName, nameFont, 950) + 16 + (showMvpTotals ? mvpTotalBadgePx(p) + 8 : 0)); // avatar + tên + huy hiệu tổng MVP
+  };
+  const totalMvpHtml = (p) => {
+    if (!showMvpTotals) return '';
+    const value = mvpTotalText(p);
+    return `<span class="pkg-mvp-total${value.length > 2 ? ' is-wide' : ''}" title="Tổng MVP: ${value}">${value}</span>`;
   };
   const body = layout === 'joined'
     ? `<div class="pkg-joined-stage">
@@ -312,25 +344,23 @@ function render(state = {}) {
           const narrow = widthOf(p) < NARROW_W;
           const tc = textColorFor(p.color);
           const dispName = shortName(p.name || p.tiktokId || 'Creator');
-          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" data-rank="${rankMap.get(p.id) || ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)};--pw:${platePx(dispName, isLeader)}px">${isLeader ? `<span class="pkg-crown${leaderChanged ? ' shake' : ''}" aria-hidden="true">👑</span>` : ''}${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(dispName)}</b></div>`;
+          return `<div class="pkg-name${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}" data-rank="${rankMap.get(p.id) || ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)};--pw:${platePx(p, dispName, isLeader)}px">${isLeader ? `<span class="pkg-crown${leaderChanged ? ' shake' : ''}" aria-hidden="true">👑</span>` : ''}${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(dispName)}</b>${totalMvpHtml(p)}</div>`;
         }).join('')}</div>
         <div class="pkg-joined-bar">${participants.map((p, i) => {
           const isLeader = p.id === leaderId;
           const narrow = widthOf(p) < NARROW_W;
           const score = Number(p.score) || 0;
-          const streak = Number(p.streak) || 0;
           const tc = textColorFor(p.color);
           const edge = `${i === 0 ? ' is-first' : ''}${i === participants.length - 1 ? ' is-last' : ''}`;
           const num = `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`;
           const crowned = isLeader && leaderChanged;
-          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i>${num}` : num}</em></b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
+          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i>${num}` : num}</em></b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}</div>`;
         }).join('')}</div>
         <div class="pkg-joined-gifts">${participants.map(p => {
           const showDonors = widthOf(p) >= donorFitPct(p.topDonors);
           const giftsHtml = tiktokMode ? '' : (p.gifts || []).map(giftHtml).join('');
-          const hasMvp = Number(p.streak) > 0; // có huy hiệu MVP → chừa chỗ bên trái để KHÔNG che icon/avatar
           // Icon quà bên TRÁI, cụm avatar TOP người tặng bên PHẢI icon (ẩn khi cột quá hẹp).
-          return `<div class="${showDonors ? '' : 'donors-hidden'}${tiktokMode ? ' tiktok' : ''}${hasMvp ? ' has-mvp' : ''}" style="--c:${esc(p.color || '#FE2C55')}">${giftsHtml}${showDonors ? donorsHtml(p.topDonors) : ''}</div>`;
+          return `<div class="${showDonors ? '' : 'donors-hidden'}${tiktokMode ? ' tiktok' : ''}" style="--c:${esc(p.color || '#FE2C55')}">${giftsHtml}${showDonors ? donorsHtml(p.topDonors) : ''}</div>`;
         }).join('')}</div>
       </div>`
     : `<div class="pkg-separated-list">${participants.map(p => {
@@ -339,8 +369,8 @@ function render(state = {}) {
         const isLeader = p.id === leaderId;
         const tc = textColorFor(p.color);
         return `<div class="pkg-card${isLeader ? ' leader' : ''}" data-rank="${rankMap.get(p.id) || ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">
-          <div class="pkg-card-person">${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b></div>
-          <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i><span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${Number(p.streak) > 0 ? `<span class="pkg-streak" title="MVP ${fmt(p.streak)}"><small>MVP</small><em>${fmt(p.streak)}</em></span>` : ''}</div></div>
+          <div class="pkg-card-person${showMvpTotals ? ' has-mvp-total' : ''}">${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b>${totalMvpHtml(p)}</div>
+          <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i><span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}</div></div>
           <div class="pkg-card-gifts${tiktokMode ? ' tiktok' : ''}">${tiktokMode ? '' : (p.gifts || []).map(giftHtml).join('')}${donorsHtml(p.topDonors)}</div>
         </div>`;
       }).join('')}</div>`;
@@ -360,7 +390,7 @@ function render(state = {}) {
   if (!root.querySelector('.pkg-board')) {
     // .pkg-skin-fx: lớp trang trí skin BỀN — tạo 1 lần, KHÔNG bị dựng lại theo bodyMount nên
     // hạt rơi/đèn đưa võng chạy liên tục, không búng lại mỗi lần emit (giống bài học overlay-struct-key).
-    root.innerHTML = '<div class="pkg-board"><div class="pkg-skin-fx" aria-hidden="true"></div><div id="pkgNoteMount"></div><div id="pkgBodyMount"></div><div class="pkg-title"><b></b></div></div>';
+    root.innerHTML = '<div class="pkg-board"><div class="pkg-skin-fx" aria-hidden="true"></div><div id="pkgNoteMount"></div><div id="pkgBodyMount"></div><div class="pkg-title"><div class="pkg-title-row"><span id="pkgMvpTitle" class="pkg-mvp-title" hidden></span><b></b></div></div></div>';
   }
   applySkin(state);
   const board = root.querySelector('.pkg-board');
@@ -397,6 +427,25 @@ function render(state = {}) {
   for (const p of participants) prevRealScore.set(p.id, Number(p.score) || 0);
   const title = board.querySelector('.pkg-title b');
   if (title) title.innerHTML = statusText ? `<span class="pkg-time-icon ${statusIcon}" aria-hidden="true"></span><span>${esc(statusText)}</span>` : '';
+  const mvpTitle = document.getElementById('pkgMvpTitle');
+  const nextMvpTitleKey = mvpParticipant
+    ? [mvpParticipant.id, mvpParticipant.avatar, mvpParticipant.avatarKey, mvpParticipant.color, mvpParticipant.name, mvpParticipant.tiktokId, mvpParticipant.streak].join('|')
+    : '';
+  if (mvpTitle && mvpTitleKey !== nextMvpTitleKey) {
+    mvpTitleKey = nextMvpTitleKey;
+    if (mvpParticipant) {
+      const name = shortName(mvpParticipant.name || mvpParticipant.tiktokId || 'Creator');
+      mvpTitle.hidden = false;
+      const streak = Math.max(1, Number(mvpParticipant.streak) || 0);
+      mvpTitle.title = `MVP: ${name} - Chuỗi ${fmt(streak)}`;
+      mvpTitle.innerHTML = `<span class="pkg-mvp-avatar" style="--mvp-c:${esc(mvpParticipant.color || '#FE2C55')};--mvp-cr:${hexToRgb(mvpParticipant.color, '254,44,85')}">${mvpParticipant.avatar ? avatarImg(mvpParticipant.avatar, mvpParticipant.avatarKey) : ''}</span><strong>MVP</strong><span class="pkg-mvp-streak">${fmt(streak)}</span>`;
+    } else {
+      mvpTitle.hidden = true;
+      mvpTitle.removeAttribute('title');
+      mvpTitle.replaceChildren();
+    }
+  }
+  scheduleMvpTitleAlignment();
 
   const noteMount = document.getElementById('pkgNoteMount');
   if (noteMount && nextNoteKey) {

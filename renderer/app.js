@@ -147,38 +147,49 @@ const OV_KEYS_OF = (scene) => (OV_SCENE_BY[scene]?.items || []).map(i => i.key);
 const OV_TAB_TO_SCENE = { connect: 'interact', score: 'score', pkduo: 'pkduo', kcduo: 'kcduo', pkgroup: 'pkgroup', ranking: 'ranking', musiclist: 'dancevideo', stickerdance: 'sticker', mvphonor: 'mvphonor', luckywheel: 'luckywheel', mtrio: 'missiontrio', cardflip: 'cardflip' };
 const OV_SCENE_LABEL = Object.fromEntries(OV_SCENES.map(s => [s.scene, s.label]));
 let ovVis = { autoScene: true, pinned: {}, vis: {} };
+// Cảnh (scene) đang "trên sóng" theo menu — CHỈ đổi khi mở một tab có overlay. Tab không overlay
+// (Cài đặt/Creator…) GIỮ nguyên cảnh cũ (khỏi làm tắt hết khi vào Cài đặt). '' = chưa mở game nào ⇒
+// chưa ẩn ai (giữ mặc định HIỆN). KHÔNG lưu vào settings — chỉ là trạng thái phiên hiện tại.
+let ovActiveScene = '';
 
 function ovCurrentTab() { return document.querySelector('.nav-btn.active')?.dataset.tab || ''; }
 
 async function ovLoadVisibility() {
   try { ovVis = await api.overlay.getVisibility(); } catch { ovVis = { autoScene: true, pinned: { interact: true, giftmenu: true }, vis: {} }; }
   ovVis.vis = ovVis.vis || {}; ovVis.pinned = ovVis.pinned || {};
+  // Lúc mở app: cảnh chưa "trên sóng" (ovActiveScene = '') ⇒ hiệu lực = lựa chọn tay (mặc định HIỆN),
+  // giống hành vi cũ. Chỉ khi bấm vào một game thì mới bắt đầu tự-theo-menu.
   ovBuildVisList(); ovSyncUI();
+  ovPushEffective();
 }
 async function ovSave(patch) {
+  // Lưu LỰA CHỌN TAY (autoScene/pinned/vis) — mặc định HIỆN, chỉ đổi khi người dùng bấm.
   try { ovVis = await api.overlay.setVisibility(patch); } catch {}
   ovVis.vis = ovVis.vis || {}; ovVis.pinned = ovVis.pinned || {};
   ovSyncUI();
+  ovPushEffective(); // phát lại bản đồ HIỆU LỰC sau mỗi thay đổi
 }
-// Áp cảnh: hiện các overlay của cảnh đang mở (theo lựa chọn tay, mặc định hiện), ẩn overlay các cảnh
-// khác — TRỪ overlay đang ghim (giữ nguyên). Xét theo TỪNG khoá overlay để nhóm nhiều overlay vẫn đúng.
-function ovApplyScene(scene) {
-  if (!scene) return;
+// Bản đồ HIỆU LỰC = những gì THỰC SỰ hiện trên OBS/TikTok. Tính từ: lựa chọn tay (mặc định HIỆN) +
+// cảnh đang mở + ghim. KHÔNG ghi ngược vào ovVis.vis ⇒ auto-ẩn theo menu không làm hỏng lựa chọn tay
+// (sửa lỗi: mở game khác rồi quay lại thì overlay tự hiện lại đúng, không bị "ẩn dính").
+function ovEffectiveVis() {
+  const auto = ovVis.autoScene !== false;
+  const scene = ovActiveScene; // '' ⇒ chưa mở game nào → chưa ẩn ai
   const vis = {};
-  for (const s of OV_SCENES) {
-    const active = s.scene === scene;
-    for (const it of s.items) {
-      const k = it.key;
-      if (active || ovVis.pinned[k]) vis[k] = ovVis.vis[k] !== false; // cảnh mở/ghim: tôn trọng chọn tay
-      else vis[k] = false;                                           // cảnh khác không ghim: ẩn
-    }
+  for (const s of OV_SCENES) for (const it of s.items) {
+    const k = it.key;
+    const manualOn = ovVis.vis[k] !== false;                 // lựa chọn tay (mặc định HIỆN)
+    if (!auto || !scene) { vis[k] = manualOn; continue; }     // tắt tự-theo-menu / chưa mở game: chỉ theo tay
+    const onAir = (s.scene === scene) || !!ovVis.pinned[k];   // cảnh đang mở hoặc đang ghim
+    vis[k] = onAir && manualOn;                               // cảnh khác: ẩn (nhưng KHÔNG lưu vào tay)
   }
-  ovSave({ vis });
+  return vis;
 }
-// Gọi khi đổi tab: nếu bật tự-theo-menu và tab có overlay → áp cảnh. Luôn cập nhật nút nổi.
+function ovPushEffective() { try { api.overlay.applyVisibility(ovEffectiveVis()); } catch {} }
+// Gọi khi đổi tab: ghi nhớ cảnh đang mở (nếu tab có overlay) rồi phát lại bản đồ hiệu lực. Luôn cập nhật nút nổi.
 function ovOnTab(tabId) {
   const sc = OV_TAB_TO_SCENE[tabId];
-  if (ovVis.autoScene && sc) ovApplyScene(sc);
+  if (sc) { ovActiveScene = sc; if (ovVis.autoScene) ovPushEffective(); }
   ovUpdateTopToggle(tabId);
 }
 // Nút nổi ở thanh trên: phản ánh + bật/tắt nhanh overlay của tab đang xem.
@@ -245,10 +256,10 @@ document.getElementById('ovQuickBtn')?.addEventListener('click', () => {
   const vis = {}; keys.forEach(k => vis[k] = !anyOn); // đang hiện → ẩn HẾT; đang ẩn → hiện HẾT
   ovSave({ vis });
 });
-// Công tắc tổng "Tự hiện/ẩn theo menu".
+// Công tắc tổng "Tự hiện/ẩn theo menu". BẬT → phát lại hiệu lực theo cảnh đang mở; TẮT → hiện hết theo tay.
+// (ovSave đã tự gọi ovPushEffective, dùng ovActiveScene hiện tại nên không cần áp cảnh thủ công.)
 document.getElementById('ovlAutoScene')?.addEventListener('change', (e) => {
-  const on = e.target.checked;
-  ovSave({ autoScene: on }).then(() => { if (on) { const sc = OV_TAB_TO_SCENE[ovCurrentTab()]; if (sc) ovApplyScene(sc); } });
+  ovSave({ autoScene: e.target.checked });
 });
 
 // ===== Ngăn menu con (parent gập/mở) =====
@@ -338,6 +349,9 @@ let giftMaster = []; // [{id, name, icon, webm, diamond}]
 let pkCfg = null;
 let kcCfg = null; // GIỮ / ĐỔI (Keep/Change)
 let pkGroupCfg = null;
+let pkGroupMvpTotals = new Map();
+let pkGroupMvpTotalsGroupId = '';
+let pkGroupMvpTotalsRenderKey = '';
 let musicItems = [];                 // DANH SÁCH NHẠC: [{giftId, giftName, icon, diamond, audioPath, volume}]
 let musicCfg = { duckWaiting: true, bgEnabled: false, paused: false };
 // NHẠC DANCE theo NHÓM: mỗi nhóm một danh sách quà riêng ('' = TALENT SHOW dùng file gốc).
@@ -4658,7 +4672,7 @@ function startBootExtras() {
     'Mẹo: Ctrl + R để reset nhanh overlay OBS',
     'Mẹo: Chọn nhóm để lọc mọi thông số theo nhóm đó',
     'Mẹo: Bật "Tự động kết nối" để vào LIVE ngay khi mở app',
-    'Mẹo: TALENT SHOW gộp toàn bộ creator của mọi nhóm',
+    'Mẹo: TALENT SHOW gộp toàn bộ Creator của mọi nhóm',
     'Mẹo: Kéo-thả để sắp xếp thứ tự hiển thị trên OBS',
   ];
   const tipEl = document.getElementById('bootTip');
@@ -5437,7 +5451,7 @@ async function updateCreatorQuick(creator) {
 // Bấm trực tiếp vào ô quà ở mỗi dòng Creator để chọn/đổi quà mặc định
 async function pickCreatorGiftQuick(id) {
   const c = creators.find(x => x.id === id || (!x.id && x.tiktokId === id));
-  if (!c) { toast('Không tìm thấy creator này', 'error'); return; }
+  if (!c) { toast('Không tìm thấy Creator này', 'error'); return; }
   const usedBy = creatorGiftUsage(c.id || '', c.groupId || '');
   const g = await GiftPicker.open({
     title: `🎁 Chọn quà mặc định cho ${c.nickname || c.tiktokId}`,
@@ -5458,7 +5472,7 @@ async function pickCreatorGiftQuick(id) {
 // Gỡ quà mặc định của creator (nút "x") — về trạng thái chưa đặt quà.
 async function clearCreatorGiftQuick(id) {
   const c = creators.find(x => x.id === id || (!x.id && x.tiktokId === id));
-  if (!c) { toast('Không tìm thấy creator này', 'error'); return; }
+  if (!c) { toast('Không tìm thấy Creator này', 'error'); return; }
   if (!c.defaultGiftId && !c.defaultGiftName) return;
   await window.api.creators.upsert({ ...c, defaultGiftId: '', defaultGiftName: '', defaultGiftIcon: '' });
   await refreshCreators();
@@ -5527,6 +5541,7 @@ function renderModeSelect() {
 }
 
 async function setActiveGroup(id) {
+  const prevGroupId = activeGroupId; // để biết lựa chọn nhóm có ĐỔI thật không (chỉ auto khi đổi)
   activeGroupId = id || '';
   // Đổi nhóm (nhất là chọn từ launcher "bên ngoài") → NẠP LẠI Creator/Nhóm mới nhất từ main
   // (avatar vừa fetch, thành viên vừa đổi) để vào APP hiện ĐẦY ĐỦ thông tin + avatar nhóm mới,
@@ -5557,6 +5572,11 @@ async function setActiveGroup(id) {
   if (activeGroupId && pkgGroup) {
     pkgGroup.value = activeGroupId;
     if (pkGroupCfg) pkgGroup.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  // 🏆 THI ĐẤU NHÓM: chọn RIÊNG 1 nhóm → tên nhóm lặp lại thừa ở mọi hàng → TỰ tắt cho thanh gọn (thấp) hơn;
+  // về TALENT SHOW (nhiều nhóm) → tự bật lại. Chỉ chạy khi lựa chọn NHÓM thực sự đổi (không đè chỉnh tay giữa chừng).
+  if (activeGroupId !== prevGroupId) {
+    window.api.ranking.setConfig({ showGroupName: !activeGroupId }).catch(() => {});
   }
   applyActiveGroupMode();
 }
@@ -5809,8 +5829,8 @@ function renderGroupLauncher() {
     <img class="lc-ava" src="../logo/hp-logo.png" alt="" />
     <span class="lc-hero-text">
       <span class="lc-name">🎤 TALENT SHOW</span>
-      <span class="lc-handle">Tất cả nhóm — gộp toàn bộ creator</span>
-      <span class="lc-count">${formatNumber(creators.length)} creator · ${formatNumber(groups.length)} nhóm</span>
+      <span class="lc-handle">Tất cả nhóm — gộp toàn bộ Creator</span>
+      <span class="lc-count">${formatNumber(creators.length)} Creator · ${formatNumber(groups.length)} nhóm</span>
     </span>
     ${hasKc ? `<span class="lc-kc lc-kc-total">💎 ${formatNumber(kcData.total)}</span>` : ''}
     <span class="lc-members">${memberAvatarStack(creators, 8)}</span>
@@ -5941,7 +5961,7 @@ function setCreatorGiftDisplay(g) {
 
 function editCreator(id) {
   const c = creators.find(x => x.id === id || (!x.id && x.tiktokId === id));
-  if (!c) { toast('Không tìm thấy creator này', 'error'); return; }
+  if (!c) { toast('Không tìm thấy Creator này', 'error'); return; }
   currentEditingCreator = c;
   $('#crTiktokId').value = c.tiktokId || '';
   $('#crNickname').value = c.nickname || '';
@@ -6589,7 +6609,7 @@ function groupDefaultGift(groupId) {
 }
 
 // ===== PK Nhóm: chụp / nạp thông số theo nhóm =====
-const PKG_PROFILE_FIELDS = ['content', 'layoutMode', 'playMode', 'creatorLive', 'pointsBy', 'noteEnabled', 'noteText', 'noteBgColor', 'noteTextColor', 'noteSpeedSec', 'noteEffect', 'separatedGap', 'autoTextContrast', 'durationSec', 'prepSec', 'delaySec', 'textSize', 'nameSize', 'giftSize', 'overlayScale', 'smartColor', 'creatorColors', 'participants'];
+const PKG_PROFILE_FIELDS = ['content', 'layoutMode', 'playMode', 'creatorLive', 'tiktokCombine', 'pointsBy', 'noteEnabled', 'noteText', 'noteBgColor', 'noteTextColor', 'noteSpeedSec', 'noteEffect', 'separatedGap', 'autoTextContrast', 'showMvpTotals', 'durationSec', 'prepSec', 'delaySec', 'textSize', 'nameSize', 'giftSize', 'overlayScale', 'smartColor', 'creatorColors', 'participants'];
 
 // Chụp thông số PK Nhóm hiện tại thành object (KHÔNG đọc DOM — caller tự sync trước).
 function pkGroupProfileSnapshot() {
@@ -6650,7 +6670,7 @@ async function loadPkConfig() {
     teamA: normalizePkTeam(st.teamA, { name: 'TEAM A', color: '#FE2C55' }),
     teamB: normalizePkTeam(st.teamB, { name: 'TEAM B', color: '#25F4EE' }),
     durationSec: st.durationSec || 90, prepSec: st.prepSec ?? 3, delaySec: st.delaySec ?? 5,
-    joinMode: !!st.joinMode, creatorLive: !!st.creatorLive, pointsBy: st.pointsBy || 'diamond',
+    joinMode: !!st.joinMode, tiktokCombine: !!(st.tiktokCombine || st.creatorLive), pointsBy: st.pointsBy || 'diamond',
     bgColor: st.bgColor || '#000000', bgOpacity: st.bgOpacity ?? 88,
     giftSize: st.giftSize || 46, textSize: st.textSize || 21,
     overlayScale: st.overlayScale || 200,
@@ -6686,7 +6706,8 @@ async function loadPkConfig() {
   $('#pkDurS').value = d % 60;
   $('#pkPrep').value = pkCfg.prepSec;
   $('#pkDelay').value = pkCfg.delaySec;
-  $('#pkJoinMode').value = pkCfg.creatorLive ? 'creator' : String(pkCfg.joinMode);
+  $('#pkJoinMode').value = String(pkCfg.joinMode);
+  if ($('#pkTiktokCombine')) $('#pkTiktokCombine').checked = !!pkCfg.tiktokCombine;
   $('#pkPointsBy').value = pkCfg.pointsBy;
   $('#pkBg').value = pkCfg.bgColor;
   $('#pkBgOpacity').value = pkCfg.bgOpacity;
@@ -6760,7 +6781,7 @@ function renderPkCreatorSelect(side) {
   if (!sel) return;
   const current = sel.value || team.creatorId || '';
   const filtered = visibleCreators().filter(c => !groupId || c.groupId === groupId);
-  sel.innerHTML = '<option value="">— Chọn creator —</option>' + filtered.map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.nickname || c.tiktokId)}</option>`).join('');
+  sel.innerHTML = '<option value="">— Chọn Creator —</option>' + filtered.map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.nickname || c.tiktokId)}</option>`).join('');
   sel.value = filtered.some(c => c.id === current) ? current : '';
 }
 
@@ -6970,16 +6991,8 @@ function wireSkinHint(selectId, hintId) {
 function wirePkDuoTab() {
   $('#pkJoinMode').addEventListener('change', () => {
     savePkActiveGifts();
-    const mode = $('#pkJoinMode').value;
-    pkCfg.creatorLive = mode === 'creator';
-    pkCfg.joinMode = mode === 'true';
+    pkCfg.joinMode = $('#pkJoinMode').value === 'true';
     syncPkActiveGifts();
-    if (pkCfg.creatorLive) {
-      renderPkGifts();
-      schedulePkAutoSave();
-      toast('📡 Chế độ TikTok: tự cộng theo người nhận quà — khỏi chọn quà. Chọn đúng Creator khi tặng trên TikTok.', 'success');
-      return;
-    }
     if (pkCfg.joinMode) {
       applyPkCreator('A', { applyDefaultGift: !(pkCfg.teamA.joinGifts || []).length });
       applyPkCreator('B', { applyDefaultGift: !(pkCfg.teamB.joinGifts || []).length });
@@ -6987,6 +7000,13 @@ function wirePkDuoTab() {
     renderPkGifts();
     schedulePkAutoSave();
     toast(pkCfg.joinMode ? 'Đang chỉnh bảng quà Chọn Phe' : 'Đang chỉnh bảng quà Cố định');
+  });
+  $('#pkTiktokCombine')?.addEventListener('change', () => {
+    pkCfg.tiktokCombine = $('#pkTiktokCombine').checked;
+    schedulePkAutoSave();
+    toast(pkCfg.tiktokCombine
+      ? '📡 Kết hợp TikTok BẬT: quà tặng đúng Creator của phe tự cộng — chọn đúng Creator khi tặng trên TikTok.'
+      : '📡 Kết hợp TikTok TẮT — chỉ tính theo chế độ nền.', 'success');
   });
 
   for (const side of ['A', 'B']) {
@@ -7173,7 +7193,7 @@ function collectPkCfg() {
     prepSec: Number($('#pkPrep').value) || 0,
     delaySec: Number($('#pkDelay').value) || 0,
     joinMode: $('#pkJoinMode').value === 'true',
-    creatorLive: $('#pkJoinMode').value === 'creator',
+    tiktokCombine: !!$('#pkTiktokCombine')?.checked,
     pointsBy: $('#pkPointsBy').value,
     bgColor: $('#pkBg').value,
     bgOpacity: Number($('#pkBgOpacity').value),
@@ -7297,14 +7317,14 @@ async function loadKcConfig() {
     defendStreak: Math.max(0, Number(st.defendStreak) || 0), totalRounds: Math.max(0, Number(st.totalRounds) || 0),
     flipMargin: Math.max(0, Number(st.flipMargin) || 0), flipMarginMode: st.flipMarginMode === 'point' ? 'point' : 'percent',
     durationSec: st.durationSec || 90, prepSec: st.prepSec ?? 3, delaySec: st.delaySec ?? 5,
-    joinMode: !!st.joinMode, creatorLive: !!st.creatorLive, pointsBy: st.pointsBy || 'diamond',
+    joinMode: !!st.joinMode, tiktokCombine: !!(st.tiktokCombine || st.creatorLive), pointsBy: st.pointsBy || 'diamond',
     content: st.content == null ? 'GIỮ / ĐỔI' : st.content, timerPos: ['left', 'right', 'center'].includes(st.timerPos) ? st.timerPos : 'center',
     giftSize: st.giftSize || 46, textSize: st.textSize || 21, overlayScale: st.overlayScale || 200,
     giftDisplayMode: st.giftDisplayMode || 'scroll', skin: st.skin || 'auto',
     startSound: st.startSound || '', warningSound: st.warningSound || '', keepSound: st.keepSound || '', changeSound: st.changeSound || '', drawSound: st.drawSound || '',
   };
   // Mặc định quà tính điểm GIỮ = HOA HỒNG khi chưa cấu hình (không đụng ĐỔI để 2 phe không trùng quà).
-  if (!kcCfg.creatorLive) {
+  {
     const key = kcCfg.joinMode ? 'joinGifts' : 'fixedGifts';
     if (!(kcCfg.teamA[key] || []).length) { kcCfg.teamA[key] = [kcRoseGift()]; scheduleKcAutoSave(); }
   }
@@ -7332,7 +7352,8 @@ async function loadKcConfig() {
   $('#kcDurS').value = d % 60;
   $('#kcPrep').value = kcCfg.prepSec;
   $('#kcDelay').value = kcCfg.delaySec;
-  $('#kcJoinMode').value = kcCfg.creatorLive ? 'creator' : String(kcCfg.joinMode);
+  $('#kcJoinMode').value = String(kcCfg.joinMode);
+  if ($('#kcTiktokCombine')) $('#kcTiktokCombine').checked = !!kcCfg.tiktokCombine;
   $('#kcPointsBy').value = kcCfg.pointsBy;
   $('#kcTextSize').value = kcCfg.textSize;
   $('#kcGiftSize').value = kcCfg.giftSize;
@@ -7427,20 +7448,12 @@ function applyKcDefaultMembers(groupId) {
 
 function renderKcGifts() {
   const joinMode = !!kcCfg?.joinMode;
-  const creatorLive = !!kcCfg?.creatorLive;
   for (const side of ['A', 'B']) {
     const wrap = $(`#kc${side}gifts`);
     if (!wrap) continue;
     wrap.dataset.team = side;
     wrap.innerHTML = '';
     const team = kcGetTeam(side);
-    if (creatorLive) {
-      const hint = document.createElement('span');
-      hint.className = 'muted tiny';
-      hint.textContent = '📡 TikTok: tính theo Creator người nhận — không cần chọn quà';
-      wrap.appendChild(hint);
-      continue;
-    }
     (team.gifts || []).forEach((g, i) => {
       const chip = document.createElement('span');
       chip.className = 'chip';
@@ -7523,7 +7536,7 @@ function collectKcCfg() {
     prepSec: Number($('#kcPrep').value) || 0,
     delaySec: Number($('#kcDelay').value) || 0,
     joinMode: $('#kcJoinMode').value === 'true',
-    creatorLive: $('#kcJoinMode').value === 'creator',
+    tiktokCombine: !!$('#kcTiktokCombine')?.checked,
     pointsBy: $('#kcPointsBy').value,
     giftSize: Number($('#kcGiftSize').value),
     giftDisplayMode: $('#kcGiftDisplayMode').value,
@@ -7606,16 +7619,8 @@ function wireKcDuoTab() {
   if (!$('#kcJoinMode')) return;
   $('#kcJoinMode').addEventListener('change', () => {
     saveKcActiveGifts();
-    const mode = $('#kcJoinMode').value;
-    kcCfg.creatorLive = mode === 'creator';
-    kcCfg.joinMode = mode === 'true';
+    kcCfg.joinMode = $('#kcJoinMode').value === 'true';
     syncKcActiveGifts();
-    if (kcCfg.creatorLive) {
-      renderKcGifts();
-      scheduleKcAutoSave();
-      toast('📡 Chế độ TikTok: tự cộng theo Creator người nhận — khỏi chọn quà.', 'success');
-      return;
-    }
     if (kcCfg.joinMode) {
       applyKcCreator('A', { applyDefaultGift: !(kcCfg.teamA.joinGifts || []).length });
       applyKcCreator('B', { applyDefaultGift: !(kcCfg.teamB.joinGifts || []).length });
@@ -7623,6 +7628,13 @@ function wireKcDuoTab() {
     renderKcGifts();
     scheduleKcAutoSave();
     toast(kcCfg.joinMode ? 'Đang chỉnh quà Chọn Phe' : 'Đang chỉnh quà Cố định');
+  });
+  $('#kcTiktokCombine')?.addEventListener('change', () => {
+    kcCfg.tiktokCombine = $('#kcTiktokCombine').checked;
+    scheduleKcAutoSave();
+    toast(kcCfg.tiktokCombine
+      ? '📡 Kết hợp TikTok BẬT: quà tặng đúng Creator của phe tự cộng — chọn đúng Creator khi tặng trên TikTok.'
+      : '📡 Kết hợp TikTok TẮT — chỉ tính theo chế độ nền.', 'success');
   });
 
   for (const side of ['A', 'B']) {
@@ -7714,14 +7726,67 @@ function wireKcDuoTab() {
 // ============================================================
 // Ghi chú riêng cho 🎮 Chế độ TikTok: tự bật + hiển thị khi chọn mode này (đồng bộ với default & migration ở main.js).
 const PKG_TIKTOK_NOTE = 'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng';
+function syncPkGroupMvpTotalsFromState(st = {}) {
+  if (!Array.isArray(st.participants)) return;
+  const totals = new Map();
+  st.participants.forEach(p => {
+    const id = String(p.creatorId || p.id || '');
+    if (id) totals.set(id, Math.max(0, Math.floor(Number(p.mvpTotal) || 0)));
+  });
+  pkGroupMvpTotals = totals;
+  pkGroupMvpTotalsGroupId = String(st.groupId || '');
+}
+function pkGroupMvpTotalFor(creatorId) {
+  const groupId = String($('#pkgGroup')?.value || pkGroupCfg?.groupId || '');
+  return pkGroupMvpTotalsGroupId === groupId ? (pkGroupMvpTotals.get(String(creatorId || '')) || 0) : 0;
+}
+function renderPkGroupMvpTotals() {
+  const wrap = $('#pkgMvpTotals');
+  if (!wrap || !pkGroupCfg || wrap.contains(document.activeElement)) return;
+  const groupId = $('#pkgGroup')?.value || pkGroupCfg.groupId || '';
+  const members = visibleCreators().filter(c => c.groupId === groupId);
+  if (!groupId) {
+    wrap.innerHTML = '<div class="hint">Chọn nhóm để quản lý tổng MVP.</div>';
+    return;
+  }
+  if (!members.length) {
+    wrap.innerHTML = '<div class="hint">Nhóm này chưa có Creator.</div>';
+    return;
+  }
+  const renderKey = `${groupId}|${members.map(c => `${c.id}:${pkGroupMvpTotalFor(c.id)}:${c.nickname || c.tiktokId || ''}:${c.avatar || ''}`).join('|')}`;
+  if (renderKey === pkGroupMvpTotalsRenderKey) return;
+  pkGroupMvpTotalsRenderKey = renderKey;
+  wrap.innerHTML = members.map(c => {
+    const total = pkGroupMvpTotalFor(c.id);
+    return `<div class="pkg-mvp-total-row" data-id="${escapeAttr(c.id)}"><img src="${escapeAttr(c.avatar || '../logo/hp-logo.png')}" /><div class="pkg-mvp-total-name"><b>${escapeHtml(c.nickname || c.tiktokId || 'Creator')}</b></div><input class="pkg-mvp-total-input" type="number" min="0" max="999999" value="${total}" title="Tổng MVP" /><button class="ghost tiny pkg-mvp-total-save" type="button">Lưu</button></div>`;
+  }).join('');
+  wrap.querySelectorAll('.pkg-mvp-total-row').forEach(row => {
+    const save = async () => {
+      const creatorId = row.dataset.id;
+      const input = row.querySelector('.pkg-mvp-total-input');
+      const total = Math.max(0, Math.min(999999, Math.floor(Number(input?.value) || 0)));
+      if (input) input.value = total;
+      const saved = await window.api.pkgroup.setMvpTotal(creatorId, groupId, total);
+      if (!saved) { toast('Không lưu được tổng MVP', 'error'); return; }
+      pkGroupMvpTotalsGroupId = String(groupId);
+      pkGroupMvpTotals.set(creatorId, Number(saved.total) || 0);
+      pkGroupMvpTotalsRenderKey = '';
+      renderPkGroupMvpTotals();
+      toast(`🏆 Đã đặt tổng MVP: ${formatNumber(saved.total)}`, 'success');
+    };
+    row.querySelector('.pkg-mvp-total-save').addEventListener('click', save);
+    row.querySelector('.pkg-mvp-total-input').addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+  });
+}
 async function loadPkGroupConfig() {
   const st = await window.api.pkgroup.getState();
+  syncPkGroupMvpTotalsFromState(st);
   pkGroupCfg = {
     content: st.content || 'PK NHÓM',
     groupId: st.groupId || '',
     layoutMode: st.layoutMode || 'joined',
     playMode: st.playMode || 'fixed',
-    creatorLive: !!st.creatorLive,
+    tiktokCombine: !!(st.tiktokCombine || st.creatorLive),
     pointsBy: st.pointsBy || 'diamond',
     noteEnabled: !!st.noteEnabled,
     noteText: st.noteText || 'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng',
@@ -7731,6 +7796,7 @@ async function loadPkGroupConfig() {
     noteEffect: st.noteEffect || 'soft',
     separatedGap: st.separatedGap ?? 180,
     autoTextContrast: !!st.autoTextContrast,
+    showMvpTotals: !!st.showMvpTotals,
     durationSec: st.durationSec || 90,
     prepSec: st.prepSec ?? 3,
     delaySec: st.delaySec ?? 5,
@@ -7751,6 +7817,7 @@ async function loadPkGroupConfig() {
   }
   applyPkGroupCfgToInputs();
   renderPkGroupMembers();
+  renderPkGroupMvpTotals();
   renderPkGroupPreview(st);
 }
 
@@ -7759,7 +7826,8 @@ function applyPkGroupCfgToInputs() {
   $('#pkgContent').value = pkGroupCfg.content;
   $('#pkgGroup').value = pkGroupCfg.groupId;
   $('#pkgLayoutMode').value = pkGroupCfg.layoutMode;
-  $('#pkgPlayMode').value = pkGroupCfg.creatorLive ? 'creator' : pkGroupCfg.playMode;
+  $('#pkgPlayMode').value = pkGroupCfg.playMode === 'creator' ? 'fixed' : pkGroupCfg.playMode;
+  if ($('#pkgTiktokCombine')) $('#pkgTiktokCombine').checked = !!(pkGroupCfg.tiktokCombine || pkGroupCfg.creatorLive);
   $('#pkgPointsBy').value = pkGroupCfg.pointsBy;
   $('#pkgNoteEnabled').checked = !!pkGroupCfg.noteEnabled;
   $('#pkgNoteText').value = pkGroupCfg.noteText || '';
@@ -7782,6 +7850,7 @@ function applyPkGroupCfgToInputs() {
   $('#pkgOverlayScaleValue').textContent = `${$('#pkgOverlayScale').value}%`;
   if ($('#pkgSmartColor')) $('#pkgSmartColor').checked = pkGroupCfg.smartColor !== false;
   if ($('#ovlAutoTextContrast')) $('#ovlAutoTextContrast').checked = !!pkGroupCfg.autoTextContrast;
+  if ($('#pkgShowMvpTotals')) $('#pkgShowMvpTotals').checked = !!pkGroupCfg.showMvpTotals;
   if ($('#pkgSelectFx')) $('#pkgSelectFx').value = pkGroupCfg.selectFx || 'random';
   if ($('#pkgSkin')) { $('#pkgSkin').value = pkGroupCfg.skin || 'auto'; updateSkinHint('pkgSkin', 'pkgSkinHint'); }
 }
@@ -7895,11 +7964,11 @@ function renderPkGroupMembers() {
   const members = visibleCreators().filter(c => c.groupId === groupId);
   const selected = new Map((pkGroupCfg.participants || []).map(p => [p.creatorId || p.id, p]));
   if (!groupId) {
-    wrap.innerHTML = '<div class="hint">Chọn một nhóm để hiện danh sách creator.</div>';
+    wrap.innerHTML = '<div class="hint">Chọn một nhóm để hiện danh sách Creator.</div>';
     return;
   }
   if (!members.length) {
-    wrap.innerHTML = '<div class="hint">Nhóm này chưa có creator.</div>';
+    wrap.innerHTML = '<div class="hint">Nhóm này chưa có Creator.</div>';
     return;
   }
   const order = new Map((pkGroupCfg.participants || []).map((p, i) => [p.creatorId || p.id, i]));
@@ -8102,10 +8171,14 @@ function wirePkGroupTab() {
     }
     // Nạp lại thông số riêng của nhóm mới (participants, màu, quà, streak... theo từng creator).
     applyPkGroupProfile(nextGroupId);
+    pkGroupMvpTotals = new Map();
+    pkGroupMvpTotalsGroupId = '';
+    pkGroupMvpTotalsRenderKey = '';
     // Lần đầu chọn nhóm (hoặc hồ sơ cũ rỗng), toàn bộ Creator cùng tham gia mặc định.
     // MC chỉ cần bỏ tích những người nghỉ; lựa chọn đó được lưu theo hồ sơ nhóm.
     selectAllPkGroupMembers(nextGroupId);
     renderPkGroupMembers();
+    renderPkGroupMvpTotals();
     schedulePkGroupAutoSave();
   });
   $('#pkgSeparatedGap').addEventListener('input', async () => {
@@ -8129,14 +8202,16 @@ function wirePkGroupTab() {
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers(); });
   });
   wireSkinHint('pkgSkin', 'pkgSkinHint');
-  // 🎮 Đổi Chế độ: vào TikTok (creator) → tự BẬT ghi chú + điền nội dung hướng dẫn chọn Creator
-  // (riêng cho chế độ này) để overlay tự hiển thị đúng nội dung. Rời TikTok mà ghi chú vẫn đang là
-  // câu hướng dẫn đó → trả field trống để mode khác tự dùng ghi chú riêng.
   $('#pkgPlayMode').addEventListener('change', () => {
-    if ($('#pkgPlayMode').value === 'creator') {
+    syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers();
+  });
+  // 📡 Kết hợp TikTok: BẬT → tự bật ghi chú + điền câu hướng dẫn chọn Creator (riêng cho chế độ này)
+  // để overlay tự hiển thị đúng nội dung. TẮT mà ghi chú vẫn đang là câu đó → trả field trống.
+  $('#pkgTiktokCombine')?.addEventListener('change', () => {
+    if ($('#pkgTiktokCombine').checked) {
       $('#pkgNoteEnabled').checked = true;
       $('#pkgNoteText').value = PKG_TIKTOK_NOTE;
-      toast('📡 Chế độ TikTok: đã tự bật ghi chú "Chọn Creator tại hộp quà tặng…" trên overlay.', 'success');
+      toast('📡 Kết hợp TikTok BẬT: quà tặng đúng Creator tự cộng — đã bật ghi chú "Chọn Creator tại hộp quà tặng…".', 'success');
     } else if ($('#pkgNoteText').value.trim() === PKG_TIKTOK_NOTE) {
       $('#pkgNoteText').value = '';
     }
@@ -8151,13 +8226,27 @@ function wirePkGroupTab() {
     pkGroupCfg.autoTextContrast = $('#ovlAutoTextContrast').checked;
     schedulePkGroupAutoSave();
   });
+  $('#pkgShowMvpTotals')?.addEventListener('change', async () => {
+    if (!pkGroupCfg) return;
+    pkGroupCfg.showMvpTotals = $('#pkgShowMvpTotals').checked;
+    try {
+      await window.api.pkgroup.setConfig(collectPkGroupCfg());
+      if (pkGroupCfg.groupId) snapshotPkGroupToProfile(pkGroupCfg.groupId);
+    } catch {}
+  });
+  $('#pkgEditMvpTotals')?.addEventListener('click', () => {
+    const editor = $('#pkgMvpTotalEditor');
+    if (!editor) return;
+    editor.open = !editor.open;
+    if (editor.open) renderPkGroupMvpTotals();
+  });
   $('#pkgAutoColor').addEventListener('click', autoAssignPkgColors);
   // Cấu hình PK Nhóm tự lưu real-time (schedulePkGroupAutoSave) — không cần nút Cập nhật.
   $('#pkgStart').addEventListener('click', async () => {
     if ($('#pkgStart').dataset.running === 'true') { await window.api.pkgroup.stop(); return; }
     if (!requireLive('BẮT ĐẦU PK Nhóm')) return;
     const cfg = collectPkGroupCfg();
-    if (!cfg.participants.length) { toast('Cần tích ít nhất 1 creator', 'error'); return; }
+    if (!cfg.participants.length) { toast('Cần tích ít nhất 1 Creator', 'error'); return; }
     await window.api.pkgroup.setConfig(cfg);
     await window.api.pkgroup.start();
   });
@@ -8189,8 +8278,8 @@ function collectPkGroupCfg() {
     content: $('#pkgContent').value.trim() || 'PK NHÓM',
     groupId: $('#pkgGroup').value,
     layoutMode: $('#pkgLayoutMode').value,
-    playMode: $('#pkgPlayMode').value === 'creator' ? 'fixed' : $('#pkgPlayMode').value,
-    creatorLive: $('#pkgPlayMode').value === 'creator',
+    playMode: $('#pkgPlayMode').value,
+    tiktokCombine: !!$('#pkgTiktokCombine')?.checked,
     pointsBy: $('#pkgPointsBy').value || 'diamond',
     noteEnabled: $('#pkgNoteEnabled').checked,
     noteText: $('#pkgNoteText').value.trim(),
@@ -8200,6 +8289,7 @@ function collectPkGroupCfg() {
     noteEffect: $('#pkgNoteEffect').value,
     separatedGap: Math.max(0, Math.min(800, Number($('#pkgSeparatedGap').value) || 0)),
     autoTextContrast: !!$('#ovlAutoTextContrast')?.checked,
+    showMvpTotals: !!$('#pkgShowMvpTotals')?.checked,
     durationSec: Math.max(5, h * 3600 + m * 60 + s),
     prepSec: Number($('#pkgPrep').value) || 0,
     delaySec: Number($('#pkgDelay').value) || 0,
@@ -8219,6 +8309,7 @@ function collectPkGroupCfg() {
 }
 
 function renderPkGroupPreview(st = {}) {
+  syncPkGroupMvpTotalsFromState(st);
   const participants = st.participants || pkGroupCfg?.participants || [];
   if (pkGroupCfg && Array.isArray(st.participants) && ['grace', 'finished'].includes(st.status)) {
     const streakById = new Map(st.participants.map(p => [p.id || p.creatorId, Number(p.streak) || 0]));
@@ -8251,6 +8342,7 @@ function renderPkGroupPreview(st = {}) {
     const scoreColor = width >= 50 ? textColorForPreview(p.color || '#FE2C55') : '#111827';
     return `<div class="pkg-preview-row"><span style="color:${escapeAttr(p.color || '#FE2C55')}">${escapeHtml(p.name || 'Creator')}</span><div><i style="width:${width}%;background:${escapeAttr(p.color || '#FE2C55')}"></i><b style="color:${escapeAttr(scoreColor)}">${formatNumber(score)}</b></div></div>`;
   }).join('')}</div>`;
+  renderPkGroupMvpTotals();
 }
 
 function textColorForPreview(bg) {
@@ -8283,13 +8375,17 @@ async function loadRankingConfig() {
   $('#rkBoardOpacity').value = st.overlayBoardOpacity ?? 75;
   $('#rkActiveBg').value = st.activeBgColor || '#ffca3a';
   $('#rkActiveBgOpacity').value = st.activeBgOpacity ?? 55;
-  $('#rkActiveFx').value = st.activeBgFx || 'off';
+  const legacyActiveFx = { spotlight: 'shine', sparkle: 'royal', pulse: 'neon' };
+  const activeFx = legacyActiveFx[st.activeBgFx] || st.activeBgFx;
+  $('#rkActiveFx').value = ['off', 'shine', 'neon', 'gold', 'rainbow', 'royal', 'plasma', 'flash', 'live'].includes(activeFx) ? activeFx : 'off';
   if ($('#rkSkin')) { $('#rkSkin').value = st.skin || 'auto'; updateSkinHint('rkSkin', 'rkSkinHint'); }
   $('#rkActiveSync').checked = !!st.activeBarSync;
   $('#rkShowRank').checked = st.showRank !== false;
   $('#rkShowAvatar').checked = st.showAvatar !== false;
   $('#rkShowGift').checked = st.showGift !== false;
   $('#rkShowRound').checked = st.showRound !== false;
+  if ($('#rkShowGroupName')) $('#rkShowGroupName').checked = st.showGroupName !== false;
+  if ($('#rkShowTopColors')) $('#rkShowTopColors').checked = st.showTopColors !== false;
   $('#rkShowActive').checked = st.showActive !== false;
   $('#rkHideAllScores').checked = !!st.hideAllScores;
   $('#rkGridRows').value = st.gridRows || 3;
@@ -8312,7 +8408,7 @@ const GAME_LINK_LABEL = { pkduo: 'PK Đôi', kcduo: 'Giữ/Đổi', pkgroup: 'PK
 // Mỗi trò có nhiều ô tích (tiêu đề + bảng tổng, riêng score còn ô trong thẻ) → luôn set cùng lúc.
 const GAME_LINK_BOXES = {
   pkduo: ['#pkLinkRanking', '#rkLinkPkduo'],
-  kcduo: ['#kcLinkRanking'],
+  kcduo: ['#kcLinkRanking', '#rkLinkKcduo'],
   pkgroup: ['#pkgLinkRanking', '#rkLinkPkgroup'],
   score: ['#scLinkTop', '#rkLinkScore'],
   sticker: ['#sdLinkRanking', '#rkLinkSticker'],
@@ -8352,6 +8448,28 @@ async function initRankingLinks() {
     }
   }
   window.api.on('ranking:links', (l) => { if (l) { rankingLinks = l; applyGameLinksToUI(); } });
+  const vbtn = $('#rkValidateLinks');
+  if (vbtn) vbtn.addEventListener('click', validateRankingLinks);
+}
+
+// 🔍 Soi các nguồn Liên kết ĐANG BẬT xem creatorId đã gắn có hợp lệ không → cảnh báo trước LIVE.
+async function validateRankingLinks() {
+  const box = $('#rkLinksReport');
+  let res;
+  try { res = await window.api.ranking.validateLinks(); } catch { res = null; }
+  if (!box) { if (res) toast(res.problems?.length ? `⚠️ ${res.problems.length} liên kết có vấn đề` : '✅ Liên kết OK', res.problems?.length ? 'error' : 'success'); return; }
+  box.hidden = false;
+  if (!res) { box.className = 'rk-links-report is-bad'; box.textContent = '❌ Không kiểm tra được (thử lại).'; return; }
+  if (!res.anyOn) { box.className = 'rk-links-report'; box.textContent = 'ℹ️ Chưa bật liên kết trò chơi nào.'; return; }
+  const probs = res.problems || [];
+  if (!probs.length) {
+    box.className = 'rk-links-report is-ok';
+    box.textContent = '✅ Mọi nguồn đang bật đều gắn Creator hợp lệ — điểm sẽ vào BXH đúng.';
+    return;
+  }
+  box.className = 'rk-links-report is-bad';
+  box.innerHTML = `<div class="rk-links-report-head">⚠️ ${probs.length} chỗ có thể KHÔNG cộng đúng vào BXH:</div>` +
+    probs.map(p => `<div class="rk-links-report-row"><b>${escapeHtml(p.game)}</b> · ${escapeHtml(p.who)} — ${escapeHtml(p.issue)}</div>`).join('');
 }
 
 function wireRankingTab() {
@@ -8372,13 +8490,15 @@ function wireRankingTab() {
     overlayBoardOpacity: Number($('#rkBoardOpacity').value),
     activeBgColor: $('#rkActiveBg').value,
     activeBgOpacity: Number($('#rkActiveBgOpacity').value),
-    activeBgFx: $('#rkActiveFx').value,
+    activeBgFx: $('#rkActiveFx').value || 'gold',
     skin: $('#rkSkin') ? $('#rkSkin').value : 'auto',
     activeBarSync: $('#rkActiveSync').checked,
     showRank: $('#rkShowRank').checked,
     showAvatar: $('#rkShowAvatar').checked,
     showGift: $('#rkShowGift').checked,
     showRound: $('#rkShowRound').checked,
+    showGroupName: $('#rkShowGroupName') ? $('#rkShowGroupName').checked : true,
+    showTopColors: $('#rkShowTopColors') ? $('#rkShowTopColors').checked : true,
     showActive: $('#rkShowActive').checked,
     hideAllScores: $('#rkHideAllScores').checked,
     gridRows: Number($('#rkGridRows').value) || 3,
@@ -8399,7 +8519,7 @@ function wireRankingTab() {
       await window.api.ranking.setConfig(collectRkCfg());
     }, 180);
   };
-  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkTitleColor','rkBg','rkBoardColor','rkBgOpacity','rkBoardOpacity','rkActiveBg','rkActiveBgOpacity','rkActiveFx','rkActiveSync','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale','rkSkin'].forEach(id => {
+  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkTitleColor','rkBg','rkBoardColor','rkBgOpacity','rkBoardOpacity','rkActiveBg','rkActiveBgOpacity','rkActiveFx','rkActiveSync','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowGroupName','rkShowTopColors','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale','rkSkin'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener('input', updateRkRealtime);
     el.addEventListener('change', updateRkRealtime);
@@ -8862,9 +8982,11 @@ async function updateRankingCreator(id, patch, message = 'Đã cập nhật Thi 
 
 function rankLabel(rank, hidden) {
   if (hidden) return 'Ẩn';
-  if (rank === 1) return '🥇';
-  if (rank === 2) return '🥈';
-  if (rank === 3) return '🥉';
+  // 👑 Vương miện TOP 1/2/3 (vàng/bạc/đồng) — khớp overlay OBS dọc + ngang.
+  if (rank === 1 || rank === 2 || rank === 3) {
+    const c = rank === 1 ? '#ffd75e' : (rank === 2 ? '#dfe8f7' : '#f8ad6b');
+    return `<svg class="rk-crown-mini" viewBox="0 0 24 20" width="18" height="15" aria-hidden="true" style="vertical-align:-2px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))"><path d="M2.6 7.2l3.6 3.8L12 3.3l5.8 7.7 3.6-3.8-1.5 9.7H4.1L2.6 7.2z" fill="${c}" stroke="rgba(60,40,0,.42)" stroke-width=".7" stroke-linejoin="round"/><circle cx="12" cy="3.3" r="1.6" fill="#fff" opacity=".9"/></svg>`;
+  }
   const n = Number(rank) || 0;
   return n > 0 && n < 10 ? `0${n}` : String(n || '');
 }
@@ -8989,7 +9111,7 @@ function renderRkPreview(st) {
         ${st.showAvatar === false ? '' : `<img class="rk-avatar" src="${escapeAttr(safeAvatarUrl(r.avatar))}" onerror="this.onerror=null;this.src='../logo/hp-logo.png'" />`}
         <div class="rk-person">
           <span class="rk-name">${escapeHtml(r.name)}${st.showPerfOrder !== false && Number(r.perfOrder) > 0 ? ` <span class="rk-perf" title="Số thứ tự thi đấu (gán từ VÒNG QUAY)">#${Math.round(r.perfOrder)}</span>` : ''}</span>
-          <span class="rk-group">${r.groupName ? escapeHtml(r.groupName) : 'Chưa nhóm'}</span>
+          ${st.showGroupName === false ? '' : `<span class="rk-group">${r.groupName ? escapeHtml(r.groupName) : 'Chưa nhóm'}</span>`}
         </div>
       </div>
       ${showCreatorControls ? `<div class="rk-scorebox">

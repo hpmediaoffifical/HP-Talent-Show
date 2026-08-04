@@ -56,6 +56,8 @@ const api = {
     // Ẩn/hiện overlay theo cảnh (tự-theo-menu + ghim + bật/tắt tay).
     getVisibility: () => ipcRenderer.invoke('overlay:getVisibility'),
     setVisibility: (patch) => ipcRenderer.invoke('overlay:setVisibility', patch),
+    // Phát bản đồ HIỆU LỰC (tay + cảnh + ghim) tới overlay — chỉ broadcast, không lưu đè lựa chọn tay.
+    applyVisibility: (vis) => ipcRenderer.invoke('overlay:applyVisibility', vis),
   },
   // Dòng hosts "127.0.0.1 hpstudio.obs" cho link TikTok Studio: kiểm tra trạng thái / tự cài (UAC).
   hosts: {
@@ -86,6 +88,7 @@ const api = {
     resetAll: () => ipcRenderer.invoke('pkgroup:resetAll'),
     addPoints: (id, points) => ipcRenderer.invoke('pkgroup:addPoints', { id, points }),
     testGift: (id, qty, sign) => ipcRenderer.invoke('pkgroup:testGift', { id, qty, sign }),
+    setMvpTotal: (creatorId, groupId, total) => ipcRenderer.invoke('pkgroup:setMvpTotal', { creatorId, groupId, total }),
     getUrl: () => ipcRenderer.invoke('pkgroup:getUrl'),
   },
 
@@ -210,6 +213,7 @@ const api = {
     applyLog: () => ipcRenderer.invoke('ranking:applyLog'),
     getLinks: () => ipcRenderer.invoke('ranking:getLinks'),
     setLinks: (patch) => ipcRenderer.invoke('ranking:setLinks', patch),
+    validateLinks: () => ipcRenderer.invoke('ranking:validateLinks'),
     setPerfOrder: (creatorId, order) => ipcRenderer.invoke('ranking:setPerfOrder', { creatorId, order }),
     clearPerfOrder: () => ipcRenderer.invoke('ranking:clearPerfOrder'),
     syncPerfOrders: (assignments) => ipcRenderer.invoke('ranking:syncPerfOrders', assignments),

@@ -410,9 +410,20 @@ async function downloadAndInstallUpdate(downloadUrl, assetName = '') {
   }
   const dir = path.join(USER_DATA_DIR, 'updates');
   fs.mkdirSync(dir, { recursive: true });
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const tryUnlink = (p) => { try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch {} };
   const safeName = String(assetName || path.basename(new URL(downloadUrl).pathname) || 'HP-GROUP-LIVE-Setup.exe').replace(/[\\/:*?"<>|]/g, '_');
-  const file = path.join(dir, safeName);
+  // Dọn rác lần cập nhật trước (bản .part dở hoặc .exe cùng tên còn bị khoá) để rename không đụng file cũ.
+  tryUnlink(path.join(dir, safeName));
+  tryUnlink(path.join(dir, safeName + '.part'));
+  // Nếu .exe cũ vẫn còn (không xoá nổi vì bị khoá) thì chọn tên đích khác để rename không thất bại.
+  let file = path.join(dir, safeName);
+  if (fs.existsSync(file)) {
+    const ext = path.extname(safeName), stem = safeName.slice(0, safeName.length - ext.length);
+    for (let i = 1; i < 50 && fs.existsSync(file); i++) file = path.join(dir, `${stem}-${i}${ext}`);
+  }
   const tmp = file + '.part';
+  tryUnlink(tmp);
   // fetch (undici) tự theo chuỗi redirect (github.com → release-assets.githubusercontent.com).
   const res = await fetch(downloadUrl, { headers: { 'User-Agent': 'HP GROUP LIVE' }, redirect: 'follow' });
   if (!res.ok || !res.body) throw new Error('Không tải được bản cập nhật HTTP ' + res.status);
@@ -438,7 +449,26 @@ async function downloadAndInstallUpdate(downloadUrl, assetName = '') {
     try { fs.unlinkSync(tmp); } catch {}
     throw new Error('Tải bản cập nhật bị gián đoạn: ' + (e.message || e));
   }
-  fs.renameSync(tmp, file);
+  // Đổi tên .part -> .exe. Antivirus (Defender…) hay quét & khoá file .exe vừa ghi xong,
+  // khiến rename ném EPERM tức thời -> thử lại nhiều lần với backoff cho AV nhả file.
+  let renamed = false, lastErr = null;
+  for (let i = 0; i < 10; i++) {
+    try { fs.renameSync(tmp, file); renamed = true; break; }
+    catch (e) { lastErr = e; await sleep(300 + i * 250); }
+  }
+  // Dự phòng: rename mãi không được thì copy nội dung sang file đích rồi xoá .part.
+  if (!renamed) {
+    try { fs.copyFileSync(tmp, file); tryUnlink(tmp); renamed = true; }
+    catch (e) { lastErr = e; }
+  }
+  if (!renamed) {
+    tryUnlink(tmp);
+    // Cùng đường: mở trang tải để cài thủ công + gợi ý loại trừ thư mục khỏi antivirus.
+    try { await shell.openExternal(GITHUB_RELEASES_URL); } catch {}
+    throw new Error('Không đổi tên được bản cập nhật (bị phần mềm diệt virus khoá file). '
+      + 'Hãy tải & cài thủ công từ trang vừa mở, hoặc loại trừ thư mục cập nhật khỏi antivirus. Chi tiết: '
+      + (lastErr?.message || lastErr));
+  }
   sendProgress(total || received, 100);
   await shell.openPath(file);
   setTimeout(() => app.quit(), 1200);
@@ -669,12 +699,49 @@ function loadCreators() {
   if (changed) saveCreators(list);
   return list;
 }
-function saveCreators(list) { saveJson(CREATORS_PATH, list); _creatorUserIdMap = null; _creatorNameIndex = null; }
+function saveCreators(list) { saveJson(CREATORS_PATH, list); _creatorUserIdMap = null; _creatorNameIndex = null; _creatorByIdMap = null; }
+
+// Tổng MVP PK Nhóm tách khỏi `streak`: mỗi Creator có một tổng riêng cho từng nhóm để đổi
+// nhóm không làm lẫn thành tích. Không suy diễn từ chuỗi cũ vì chuỗi không phải tổng số MVP.
+const PKG_MVP_DEFAULT_GROUP = '__default__';
+const PKG_MVP_TOTAL_MAX = 999999;
+function pkGroupMvpKey(groupId) { return String(groupId || PKG_MVP_DEFAULT_GROUP); }
+function normalizePkGroupMvpTotal(value) {
+  return Math.max(0, Math.min(PKG_MVP_TOTAL_MAX, Math.floor(Number(value) || 0)));
+}
+function getPkGroupMvpTotal(creator, groupId) {
+  const totals = creator?.pkGroupMvpTotals;
+  if (!totals || typeof totals !== 'object' || Array.isArray(totals)) return 0;
+  return normalizePkGroupMvpTotal(totals[pkGroupMvpKey(groupId)]);
+}
+function setPkGroupMvpTotal(creatorId, groupId, total) {
+  const cid = String(creatorId || '');
+  if (!cid) return null;
+  const list = loadCreators();
+  const index = list.findIndex(c => String(c.id || '') === cid);
+  if (index < 0) return null;
+  const key = pkGroupMvpKey(groupId);
+  const creator = list[index];
+  const totals = creator.pkGroupMvpTotals && typeof creator.pkGroupMvpTotals === 'object' && !Array.isArray(creator.pkGroupMvpTotals)
+    ? { ...creator.pkGroupMvpTotals }
+    : {};
+  const next = normalizePkGroupMvpTotal(total);
+  totals[key] = next;
+  list[index] = { ...creator, pkGroupMvpTotals: totals };
+  saveCreators(list);
+  return { creatorId: cid, groupId: key, total: next };
+}
+function addPkGroupMvpTotal(creatorId, groupId, delta = 1) {
+  const creator = getCreatorById(creatorId);
+  if (!creator) return null;
+  return setPkGroupMvpTotal(creator.id, groupId, getPkGroupMvpTotal(creator, groupId) + (Number(delta) || 0));
+}
 
 // Nhận diện Creator NHẬN quà trong LIVE nhóm từ gift event (toMemberId + toMemberNickname).
 // Cache lười, tự huỷ khi creators đổi (saveCreators).
 let _creatorUserIdMap = null;   // userId(số) → creatorId
 let _creatorNameIndex = null;   // [{ id, userId, keys:[tên chuẩn hoá...] }]
+let _creatorByIdMap = null;     // creatorId → creator (tra O(1), tránh đọc đĩa mỗi nhịp quà ở addLivePoints)
 let _learnRecipientArmed = false; // "Học ID": true = chộp recipientMemberId của quà kế tiếp
 
 // Chuẩn hoá tên để khớp mềm: bỏ dấu tiếng Việt, emoji, khoảng trắng/ký tự lạ, thường hoá.
@@ -686,15 +753,25 @@ function normRecipientName(s) {
     .replace(/[^a-z0-9]/g, '');
 }
 function buildCreatorIndex() {
-  if (_creatorUserIdMap && _creatorNameIndex) return;
+  if (_creatorUserIdMap && _creatorNameIndex && _creatorByIdMap) return;
   _creatorUserIdMap = new Map();
   _creatorNameIndex = [];
+  _creatorByIdMap = new Map();
   for (const c of loadCreators()) {
     if (!c || !c.id) continue;
+    _creatorByIdMap.set(String(c.id), c);
     if (c.userId) _creatorUserIdMap.set(String(c.userId), c.id);
     const keys = [...new Set([normRecipientName(c.nickname), normRecipientName(c.channelName), normRecipientName(c.tiktokId)].filter(k => k && k.length >= 2))];
     _creatorNameIndex.push({ id: c.id, userId: c.userId ? String(c.userId) : '', keys });
   }
+}
+// Tra Creator theo id có CACHE (buildCreatorIndex tự dựng, saveCreators tự huỷ). Dùng cho hot-path
+// addLivePoints để không đọc đĩa mỗi nhịp quà khi Liên kết bật + nhiều nhóm/Creator.
+function getCreatorById(id) {
+  const key = String(id || '');
+  if (!key) return null;
+  buildCreatorIndex();
+  return _creatorByIdMap.get(key) || null;
 }
 // Ghi userId (đã học từ luồng gift) vào Creator để lần sau khớp CHÍNH XÁC theo ID.
 function learnCreatorUserId(creatorId, userId) {
@@ -1402,7 +1479,8 @@ class PkDuoEngine {
       prepSec: 3,
       delaySec: 5,
       joinMode: false, // false = fixed by gift, true = chosen by first gift sent
-      creatorLive: false, // 🔴 Creator LIVE: cộng theo người nhận thật (toMemberId/tên), khỏi chọn quà
+      creatorLive: false, // (legacy) chế độ TikTok cũ — nay chuyển thành cờ tiktokCombine kết hợp
+      tiktokCombine: true, // 📡 Kết hợp TikTok: MẶC ĐỊNH BẬT — ưu tiên cộng theo NGƯỜI NHẬN thật (recipientCreatorId), không khớp thì rơi về chế độ nền (user bỏ tích thì nhớ)
       linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm phe cho Creator
       pointsBy: 'diamond',
       content: 'PK ĐÔI',
@@ -1450,8 +1528,9 @@ class PkDuoEngine {
       gifters: { A: new Map(), B: new Map() }, // side -> Map(userKey -> {uniqueId,nickname,avatar,total}) để vinh danh TOP tặng quà
     };
     this._tick = null;
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
   }
-  setConfig(patch) { this.config = { ...this.config, ...patch }; this._emit(); }
+  setConfig(patch) { this.config = { ...this.config, ...patch }; migrateTiktokMode(this.config); this._emit(); }
   // Avatar leader lấy realtime từ hồ sơ creator theo creatorId. Snapshot creatorAvatar trong
   // config có thể cũ (đổi nhóm / avatar về sau mới tải) → luôn ưu tiên avatar hiện tại của creator.
   _resolveTeamAvatar(team) {
@@ -1477,6 +1556,7 @@ class PkDuoEngine {
       prepSec: this.config.prepSec,
       delaySec: this.config.delaySec,
       joinMode: this.config.joinMode,
+      tiktokCombine: this.config.tiktokCombine !== false,
       pointsBy: this.config.pointsBy,
       bgColor: this.config.bgColor,
       bgOpacity: this.config.bgOpacity,
@@ -1578,18 +1658,21 @@ class PkDuoEngine {
     if (this.config.selectFx === 'random') { const rnd = ['arrow', 'lock', 'spotlight', 'versus']; this.state.selectFxActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     this.state.historySaved = false;
     this._resetGifters();
+    this._comboRepeats.clear();
     this._runTicker();
   }
   stop() {
     this.state.status = 'finished';
     this.state.remainingMs = 0;
     this.state.userTeams = {};
+    this._comboRepeats.clear();
     this._recordHistory();
     this._clearTicker();
     this._emit();
   }
   reset() {
     this._clearTicker();
+    this._comboRepeats.clear();
     this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, arrowStyleActive: '', selectFxActive: '', historySaved: false, gifters: { A: new Map(), B: new Map() } };
     this._emit();
   }
@@ -1659,16 +1742,20 @@ class PkDuoEngine {
   // Chỉ ngừng khi Delay hết hẳn (status 'finished').
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
+    // Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn (xem comboDelta).
+    const repeat = comboDelta(this._comboRepeats, ev);
+    if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
-      ? Math.max(1, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1)
-      : Math.max(1, Number(ev.repeatCount) || 1);
+      ? Math.max(1, resolveDiamond(ev)) * repeat
+      : repeat;
     let side;
-    if (this.config.creatorLive) {
-      // 🔴 Creator LIVE: cộng theo NGƯỜI NHẬN thật (recipientCreatorId từ toMemberId/tên),
-      // KHÔNG dùng bảng quà/chọn phe. Quà không nhắm đúng Creator của phe nào → bỏ.
+    // 📡 Kết hợp TikTok: ưu tiên NGƯỜI NHẬN thật (recipientCreatorId từ toMemberId/tên). Quà nhắm
+    // đúng Creator của phe nào → cộng ngay, khỏi phụ thuộc bảng quà. Không nhắm ai → rơi về chế độ nền.
+    if (this.config.tiktokCombine) {
       const rc = ev.recipientCreatorId;
       side = rc ? (this.config.teamA?.creatorId === rc ? 'A' : (this.config.teamB?.creatorId === rc ? 'B' : null)) : null;
-    } else {
+    }
+    if (!side) {
       // Cố Định / Chọn Phe: khớp bảng quà như cũ.
       const inA = (this.config.teamA.gifts || []).some(g => giftMatches(g, ev));
       const inB = (this.config.teamB.gifts || []).some(g => giftMatches(g, ev));
@@ -1758,7 +1845,8 @@ class KcDuoEngine {
       prepSec: 3,
       delaySec: 5,
       joinMode: false,    // false = cố định theo quà; true = Chọn Phe (quà kích hoạt)
-      creatorLive: false, // 🔴 TikTok: cộng theo người nhận thật (recipientCreatorId), khỏi chọn quà
+      creatorLive: false, // (legacy) chế độ TikTok cũ — nay chuyển thành cờ tiktokCombine kết hợp
+      tiktokCombine: true, // 📡 Kết hợp TikTok: MẶC ĐỊNH BẬT — ưu tiên cộng theo NGƯỜI NHẬN thật (recipientCreatorId), không khớp thì rơi về chế độ nền (user bỏ tích thì nhớ)
       linkRanking: false,
       pointsBy: 'diamond',
       content: 'GIỮ / ĐỔI',
@@ -1792,7 +1880,7 @@ class KcDuoEngine {
     // Theo dõi combo x10/x1000 theo từng người+quà để cộng phần CHÊNH LỆCH mỗi nhịp (không mất, không đúp).
     this._comboRepeats = new Map();
   }
-  setConfig(patch) { this.config = { ...this.config, ...patch }; this._emit(); }
+  setConfig(patch) { this.config = { ...this.config, ...patch }; migrateTiktokMode(this.config); this._emit(); }
   // Ngưỡng điểm ĐỔI cần vượt GIỮ để lật ghế (theo % tổng điểm hoặc điểm tuyệt đối).
   _flipRequired() {
     const m = Math.max(0, Number(this.config.flipMargin) || 0);
@@ -1819,6 +1907,7 @@ class KcDuoEngine {
       delaySec: this.config.delaySec,
       joinMode: this.config.joinMode,
       creatorLive: this.config.creatorLive,
+      tiktokCombine: this.config.tiktokCombine !== false,
       pointsBy: this.config.pointsBy,
       bgColor: this.config.bgColor,
       bgOpacity: this.config.bgOpacity,
@@ -1930,35 +2019,18 @@ class KcDuoEngine {
   }
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
-    // Combo x10/x1000 (giftType 1): TikTok gửi nhiều nhịp repeatCount tăng dần rồi 1 gói repeatEnd.
-    // Cộng phần CHÊNH LỆCH của MỖI nhịp (giống TÍNH ĐIỂM) để điểm lên NGAY trong đếm lùi + thời gian
-    // Delay, và KHÔNG mất combo nếu gói chốt tới muộn (sau khi hết vòng) hoặc bị rớt mạng. Nhiều người
-    // combo cùng lúc vẫn đúng vì mỗi combo được khoá riêng theo người+quà (không đúp, không bỏ sót).
-    let repeat = Math.max(1, Number(ev.repeatCount) || 1);
-    if (Number(ev.giftType) === 1) {
-      const key = `${ev.uniqueId || ev.nickname || ev.avatar || 'anonymous'}:${ev.giftId || ev.giftName || 'gift'}`;
-      const now = Date.now();
-      const previous = this._comboRepeats.get(key);
-      let delta = repeat;
-      if (previous) {
-        if (repeat > previous.count) delta = repeat - previous.count;
-        else if (repeat === 1 && !ev.repeatEnd && now - previous.at > 1500) delta = 1; // combo mới không có gói chốt trước đó
-        else delta = 0;
-      }
-      if (ev.repeatEnd) this._comboRepeats.delete(key);
-      else this._comboRepeats.set(key, { count: repeat, at: now });
-      if (!delta) return;
-      repeat = delta;
-    }
+    const repeat = comboDelta(this._comboRepeats, ev);
+    if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * repeat
       : repeat;
     let side;
-    if (this.config.creatorLive) {
-      // 🔴 TikTok: cộng theo NGƯỜI NHẬN thật trong LIVE nhóm (recipientCreatorId từ toMemberId).
+    // 📡 Kết hợp TikTok: ưu tiên NGƯỜI NHẬN thật (recipientCreatorId từ toMemberId). Không nhắm ai → chế độ nền.
+    if (this.config.tiktokCombine) {
       const rc = ev.recipientCreatorId;
       side = rc ? (this.config.teamA?.creatorId === rc ? 'A' : (this.config.teamB?.creatorId === rc ? 'B' : null)) : null;
-    } else {
+    }
+    if (!side) {
       const inA = (this.config.teamA.gifts || []).some(g => giftMatches(g, ev));
       const inB = (this.config.teamB.gifts || []).some(g => giftMatches(g, ev));
       side = inA && !inB ? 'A' : (inB && !inA ? 'B' : null);
@@ -2020,9 +2092,11 @@ class KcDuoEngine {
 }
 
 class PkGroupEngine {
-  constructor({ onState, onResult, getCreators, onRankingPoints }) {
+  constructor({ onState, onResult, getCreators, onRankingPoints, onConfigChange, onMvpAward }) {
     this.onState = onState;
     this.onResult = onResult;
+    this.onConfigChange = typeof onConfigChange === 'function' ? onConfigChange : null;
+    this.onMvpAward = typeof onMvpAward === 'function' ? onMvpAward : null;
     // Liên kết THI ĐẤU NHÓM: mỗi quà quy về 1 participant (là Creator) → cộng realtime cho Creator đó.
     this.onRankingPoints = typeof onRankingPoints === 'function' ? onRankingPoints : null;
     // Lấy danh sách creator hiện tại để resolve avatar realtime (không đông cứng snapshot).
@@ -2032,7 +2106,8 @@ class PkGroupEngine {
       groupId: '',
       layoutMode: 'joined', // joined | separated
       playMode: 'fixed', // fixed | join
-      creatorLive: false, // 🔴 Creator LIVE: cộng theo người nhận thật (toMemberId/tên), khỏi chọn quà
+      creatorLive: false, // (legacy) chế độ TikTok cũ — nay chuyển thành cờ tiktokCombine kết hợp
+      tiktokCombine: true, // 📡 Kết hợp TikTok: MẶC ĐỊNH BẬT — ưu tiên cộng theo NGƯỜI NHẬN thật (recipientCreatorId), không khớp thì rơi về chế độ nền (user bỏ tích thì nhớ)
       linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm participant cho Creator
       pointsBy: 'diamond',
       noteEnabled: false,
@@ -2050,6 +2125,7 @@ class PkGroupEngine {
       nameSize: 100,
       giftSize: 60,
       overlayScale: 100,
+      showMvpTotals: false,
       // Đánh dấu "người vào trận" kiểu chọn nhân vật game — CHỈ hiện khi chọn subset (ít hơn full nhóm),
       // đủ full thì tự ẩn. random | arrow | lock | spotlight | versus | off. Mặc định Ngẫu nhiên.
       selectFx: 'random',
@@ -2079,9 +2155,11 @@ class PkGroupEngine {
       gifters: {},
     };
     this._tick = null;
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
   }
   setConfig(patch) {
     this.config = { ...this.config, ...(patch || {}) };
+    migrateTiktokMode(this.config);
     this.config.participants = Array.isArray(this.config.participants) ? this.config.participants : [];
     if (!['prestart', 'running', 'grace'].includes(this.state.status)) {
       this.state.streaks = Object.fromEntries(this.config.participants.map(p => [p.id, Number(p.streak) || 0]));
@@ -2100,6 +2178,7 @@ class PkGroupEngine {
         avatarKey: (creator && creator.avatarCacheKey) || avatarCacheKey((creator && creator.avatar) || p.avatar || ''),
         score: Number(this.state.scores[p.id]) || 0,
         streak: Number(this.state.streaks[p.id]) || 0,
+        mvpTotal: getPkGroupMvpTotal(creator, this.config.groupId),
         // TOP 3 người tặng nhiều nhất cho Creator này — overlay xếp avatar chồng nửa lên nhau.
         topDonors: this.config.donorsEnabled !== false ? this._topDonors(p.id) : [],
       };
@@ -2110,11 +2189,11 @@ class PkGroupEngine {
     const gid = String(this.config.groupId || '');
     const rosterTotal = gid ? (this.getCreators() || []).filter(c => String(c.groupId || '') === gid).length : 0;
     const selectSubset = participants.length >= 2 && (!rosterTotal || participants.length < rosterTotal);
-    // 🎮 TikTok mode (creatorLive): overlay LUÔN hiển thị ghi chú hướng dẫn chọn Creator (câu riêng cho
-    // mode này), trừ khi user đã đặt một ghi chú KHÁC. Nhờ vậy đổi sang TikTok là note tự đúng nội dung.
+    // 📡 Kết hợp TikTok: overlay tự bật ghi chú hướng dẫn chọn Creator (câu riêng), trừ khi user đã
+    // đặt một ghi chú KHÁC. Nhờ vậy bật Kết hợp TikTok là note tự đúng nội dung.
     let noteEnabled = this.config.noteEnabled;
     let noteText = this.config.noteText;
-    if (this.config.creatorLive) {
+    if (this.config.tiktokCombine) {
       const t = String(noteText || '').trim();
       if (!t || PKG_OLD_NOTES.includes(t) || t === PKG_NEW_NOTE) { noteText = PKG_NEW_NOTE; noteEnabled = true; }
     }
@@ -2132,7 +2211,8 @@ class PkGroupEngine {
       groupId: this.config.groupId,
       layoutMode: this.config.layoutMode,
       playMode: this.config.playMode,
-      creatorLive: this.config.creatorLive, // 🎮 TikTok mode → overlay ẩn icon quà, chỉ hiện avatar TOP người tặng
+      creatorLive: false, // overlay LUÔN hiển thị theo chế độ nền (Cố định/Chọn phe) — Kết hợp TikTok chỉ chạy ngầm phần tính điểm
+      tiktokCombine: this.config.tiktokCombine !== false,
       pointsBy: this.config.pointsBy,
       noteEnabled,
       noteText,
@@ -2149,6 +2229,7 @@ class PkGroupEngine {
       nameSize: this.config.nameSize,
       giftSize: this.config.giftSize,
       overlayScale: this.config.overlayScale,
+      showMvpTotals: !!this.config.showMvpTotals,
       skin: this.config.skin || 'auto',
     };
   }
@@ -2181,6 +2262,7 @@ class PkGroupEngine {
     this.state.resultHandled = false;
     this.state.historySaved = false;
     this._resetGifters();
+    this._comboRepeats.clear();
     this._runTicker();
   }
   stop() {
@@ -2188,12 +2270,14 @@ class PkGroupEngine {
     this.state.status = 'finished';
     this.state.remainingMs = 0;
     this.state.userTeams = {};
+    this._comboRepeats.clear();
     this._recordHistory();
     this._clearTicker();
     this._emit();
   }
   reset() {
     this._clearTicker();
+    this._comboRepeats.clear();
     // GIỮ chuỗi WIN qua Reset: Reset chỉ xoá điểm/trạng thái trận, KHÔNG xoá thành tích chuỗi thắng.
     // (Overlay đọc streak từ state.streaks — nếu wipe thì huy hiệu MVP về 0 dù config vẫn còn.)
     // Chuỗi chỉ về 0 khi THUA ở _finalizeRound, giống winStreak của PK Đôi.
@@ -2302,15 +2386,19 @@ class PkGroupEngine {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
     const participants = this.config.participants || [];
     if (!participants.length) return;
+    // Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn (xem comboDelta).
+    const repeat = comboDelta(this._comboRepeats, ev);
+    if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
-      ? Math.max(1, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1)
-      : Math.max(1, Number(ev.repeatCount) || 1);
+      ? Math.max(1, resolveDiamond(ev)) * repeat
+      : repeat;
     let target;
-    if (this.config.creatorLive) {
-      // 🔴 Creator LIVE: cộng theo NGƯỜI NHẬN thật (recipientCreatorId), KHÔNG dùng bảng quà.
+    // 📡 Kết hợp TikTok: ưu tiên NGƯỜI NHẬN thật (recipientCreatorId). Không nhắm ai → chế độ nền.
+    if (this.config.tiktokCombine) {
       const rc = ev.recipientCreatorId;
       target = rc ? (participants.find(p => (p.creatorId || p.id) === rc) || null) : null;
-    } else {
+    }
+    if (!target) {
       target = participants.find(p => (p.gifts || []).some(g => giftMatches(g, ev))) || null;
       if (this.config.playMode === 'join') {
         const user = ev.uniqueId || ev.userId;
@@ -2341,6 +2429,15 @@ class PkGroupEngine {
     this.state.streaks = streaks;
     this.config.participants = (this.config.participants || []).map(p => ({ ...p, streak: Number(streaks[p.id]) || 0 }));
     this.state.lastWinnerId = winnerId;
+    const winner = (this.config.participants || []).find(p => p.id === winnerId);
+    try { this.onConfigChange?.(this.config); } catch {}
+    try {
+      this.onMvpAward?.({
+        creatorId: winner?.creatorId || winnerId,
+        groupId: this.config.groupId || '',
+        roundNo: this.state.roundNo || 0,
+      });
+    } catch {}
   }
   // Ghi 1 bản ghi LỊCH SỬ khi trận kết thúc (chỉ 1 lần/trận, chỉ khi đã bắt đầu thật).
   _recordHistory() {
@@ -2422,6 +2519,17 @@ function colorFromId(id) {
   return `hsl(${hue}, 72%, 52%)`;
 }
 
+// Nâng cấp cấu hình cũ: chế độ TikTok trước đây là 1 lựa chọn loại trừ (creatorLive=true, thay
+// bảng quà). Nay TikTok là cờ KẾT HỢP (tiktokCombine) chồng lên chế độ nền (Cố Định/Chọn Phe).
+// Bản lưu cũ có creatorLive=true → bật tiktokCombine, giữ chế độ nền Cố Định (joinMode/playMode giữ nguyên).
+function migrateTiktokMode(cfg) {
+  if (cfg && cfg.creatorLive) {
+    cfg.tiktokCombine = true;
+    cfg.creatorLive = false;
+  }
+  return cfg;
+}
+
 function giftMatches(rule, ev) {
   if (!rule) return false;
   if (rule.giftId && String(rule.giftId) === String(ev.giftId)) return true;
@@ -2434,6 +2542,32 @@ function resolveDiamond(ev) {
   if (Number(ev.diamondCount) > 0) return Number(ev.diamondCount);
   const g = lookupGift(ev.giftId) || lookupGift(ev.giftName);
   return g ? Number(g.diamond) || 0 : 0;
+}
+
+// Combo x10/x1000 (giftType 1): TikTok gửi NHIỀU nhịp repeatCount tăng dần rồi 1 gói chốt repeatEnd.
+// Hàm này trả về SỐ QUÀ MỚI của nhịp hiện tại (delta) để cộng NGAY — KHÔNG chờ gói chốt. Nhờ vậy
+// KHÔNG mất quà khi TikTok gửi gói repeatEnd muộn HOẶC rớt mạng (chính là lỗi "tặng 2 quà chỉ nhận 1":
+// gói chốt của combo thứ 2 bị rớt → cách cũ gate theo shouldProcess bỏ luôn quà đó). Mỗi combo khoá
+// riêng theo NGƯỜI + QUÀ nên nhiều người combo cùng lúc vẫn đúng (không đúp, không bỏ sót).
+//   • Quà KHÔNG combo (giftType != 1): trả thẳng repeatCount (mỗi event là 1 lần độc lập).
+//   • Trả 0 = nhịp này đã cộng ở lần trước rồi → engine phải bỏ qua (return).
+// LƯU Ý: engine dùng hàm này PHẢI được gọi trên MỌI nhịp quà (không gate theo shouldProcess nữa).
+function comboDelta(map, ev) {
+  const repeat = Math.max(1, Number(ev.repeatCount) || 1);
+  if (Number(ev.giftType) !== 1) return repeat;
+  const key = `${ev.uniqueId || ev.nickname || ev.avatar || 'anonymous'}:${ev.giftId || ev.giftName || 'gift'}`;
+  const previous = map.get(key);
+  let delta = repeat;
+  if (previous) {
+    if (repeat > previous.count) delta = repeat - previous.count;
+    // Counter của một combo chỉ tăng. Quay về 1 nghĩa là combo MỚI, kể cả khi
+    // repeatEnd của combo trước bị rớt và người dùng tặng tiếp ngay lập tức.
+    else if (repeat < previous.count || (repeat === 1 && !ev.repeatEnd)) delta = repeat;
+    else delta = 0;
+  }
+  if (ev.repeatEnd) map.delete(key);
+  else map.set(key, { count: repeat });
+  return delta;
 }
 
 // ----------------- STICKER DANCE -----------------
@@ -2496,13 +2630,14 @@ class StickerEngine {
     this.queuedByGift = {}; // giftId -> số lượt đang chờ/đang phát trong HÀNG ĐỢI HIỆU ỨNG (nguồn cho đếm lùi)
     this.queuedByGiftName = {}; // tên quà (thường hoá) -> số lượt; dự phòng khi giftId mục nhạc lệch giftId ô lưới
     this.streaks = {}; // giftId -> mốc hết chuỗi (ms, Date.now); renderer đẩy sang để overlay vẽ thanh máu
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
   }
   setConfig(patch) {
     this.config = { ...this.config, ...(patch || {}) };
     this.config.cells = Array.isArray(this.config.cells) ? this.config.cells : [];
     this._emit();
   }
-  reset() { this.rt = {}; this.performingId = ''; this.queuedByGift = {}; this.queuedByGiftName = {}; this._emit(); }
+  reset() { this.rt = {}; this.performingId = ''; this.queuedByGift = {}; this.queuedByGiftName = {}; this._comboRepeats.clear(); this._emit(); }
   // Renderer đẩy toàn bộ số lượt còn trong hàng đợi (theo giftId) mỗi khi hàng đợi đổi.
   // Đây là NGUỒN SỰ THẬT cho chế độ "Đếm lùi" → khớp tuyệt đối với "Đang chờ" và tự trừ dần khi phát.
   setQueued(pending, pendingByName) {
@@ -2533,7 +2668,9 @@ class StickerEngine {
     return this.rt[k];
   }
   routeGift(ev) {
-    const rep = Math.max(1, Number(ev.repeatCount) || 1);
+    // Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn (xem comboDelta).
+    const rep = comboDelta(this._comboRepeats, ev);
+    if (!rep) return;
     const dia = Math.max(0, resolveDiamond(ev));
     let matched = false;
     for (const c of (this.config.cells || [])) {
@@ -2882,10 +3019,12 @@ class LuckyWheelEngine {
 // Schema theo spec BIGO port: rows[] với {id, rank, name, avatar, initials, points,
 // round, giftIconId, giftIcon, giftName, hideScore, lost, active, activePoints}
 class RankingEngine {
-  constructor({ onState, getCreators, getGroups, getActiveFighters }) {
+  constructor({ onState, getCreators, getGroups, getActiveFighters, getCreatorById }) {
     this.onState = onState;
     this.getCreators = getCreators;
     this.getGroups = getGroups;
+    // Tra Creator theo id (có cache) — dùng ở addLivePoints để đổi creatorId→group + xác thực id.
+    this.getCreatorById = typeof getCreatorById === 'function' ? getCreatorById : (id) => this.getCreators().find(x => String(x.id) === String(id)) || null;
     // Ai đang thi đấu PK (Đôi/Nhóm) đã Liên kết → đánh dấu hàng Creator đó bằng FX chọn nhân vật.
     this.getActiveFighters = typeof getActiveFighters === 'function' ? getActiveFighters : () => null;
     this.config = {
@@ -2904,13 +3043,15 @@ class RankingEngine {
       overlayBoardOpacity: 75,
       activeBgColor: '#ffca3a',  // (A) màu nền hàng được VOTE (tách riêng khỏi màu viền Active)
       activeBgOpacity: 55,       // (A) độ đậm nền Active % (mờ nhẹ ↔ đậm)
-      activeBgFx: 'off',         // (B) kiểu FX độc lập: off|shine|spotlight|sparkle|neon|pulse|gold|rainbow
+      activeBgFx: 'gold',        // (B) kiểu FX độc lập: shine|neon|gold|rainbow|royal|plasma|flash|live
       activeBarSync: false,      // đồng bộ Màu nền + Kiểu FX sang Thanh dưới (người dẫn đầu)
       hideAllScores: false,
       showRank: true,
       showAvatar: true,
       showGift: true,
       showRound: true,
+      showGroupName: true,      // hiện tên NHÓM dưới tên idol; tự tắt khi chọn riêng 1 nhóm (đỡ lặp, thanh gọn hơn)
+      showTopColors: true,      // tô màu nền kim-bạc-đồng cho TOP 1/2/3; tắt = nền đồng đều, chỉ khác vương miện bên trái
       showPerfOrder: true,      // STT từ Vòng quay: tắt chỉ ẩn trên OBS, không xoá dữ liệu Creator
       showActive: true,         // thanh xanh dưới cùng: người dẫn đầu/đang nổi bật (dọc + ngang)
       gridRows: 3,
@@ -2926,10 +3067,11 @@ class RankingEngine {
     this.round = 0;
     this.scores = {}; // key (creatorId hoặc groupId) -> { points, lastGiftId, lastGiftIcon, lastGiftName }
     this.activeId = null;
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
   }
   setConfig(patch) { this.config = { ...this.config, ...patch }; this._emit(); }
-  reset() { this.scores = {}; this.activeId = null; this._emit(); }
-  startRound() { this.round++; this.scores = {}; this._emit(); }
+  reset() { this.scores = {}; this.activeId = null; this._comboRepeats.clear(); this._emit(); }
+  startRound() { this.round++; this.scores = {}; this._comboRepeats.clear(); this._emit(); }
   setActive(id) { this.activeId = id; this._emit(); }
 
   // Cộng điểm LIVE cho 1 Creator từ nguồn bên ngoài (trò chơi đang Liên kết THI ĐẤU NHÓM).
@@ -2938,11 +3080,18 @@ class RankingEngine {
     let key = String(creatorId || '');
     const pts = Number(points) || 0;
     if (!key || !pts) return;
-    // Chế độ NHÓM: gom điểm theo NHÓM của Creator (khớp routeGift + overlay đọc scores[groupId]),
-    // nếu không điểm live của game Liên kết sẽ rơi vào key creatorId và không bao giờ hiện/chốt.
+    // XÁC THỰC creatorId có thật không. Trò chơi có thể còn gắn Creator đã bị xoá/đổi id → điểm rơi
+    // vào "bucket mồ côi" mà KHÔNG hàng nào đọc (creator mode đọc scores[c.id], group mode đọc
+    // scores[groupId]) → mất im lặng. Cảnh báo ra console để soi được thay vì âm thầm sai/lệch.
+    const creator = this.getCreatorById(key);
+    if (!creator) {
+      console.warn('[ranking] addLivePoints: creatorId không khớp Creator nào →', key,
+        '(điểm liên kết realtime sẽ KHÔNG hiện; kiểm tra lại phe/participant/ô quà đã gắn Creator)');
+    }
+    // Chế độ NHÓM: gom điểm theo NHÓM của Creator (khớp routeGift + overlay đọc scores[groupId]).
+    // Không resolve được Creator → dồn vào '_nogroup' (vẫn HIỆN được) thay vì key lạ (vô hình).
     if (this.config.mode === 'group') {
-      const c = this.getCreators().find(x => String(x.id) === key);
-      key = c ? String(c.groupId || '_nogroup') : key;
+      key = creator ? String(creator.groupId || '_nogroup') : '_nogroup';
     }
     if (!this.scores[key]) this.scores[key] = { points: 0, lastGiftId: '', lastGiftIcon: '', lastGiftName: '' };
     this.scores[key].points += pts;
@@ -2966,9 +3115,12 @@ class RankingEngine {
     // Tắt ô "Quà" = ngưng TỰ cộng điểm theo quà mặc định. Vẫn cho VOTE (chấm thủ công) hoạt động,
     // vì khi có Creator đang VOTE mọi điểm được điều khiển có chủ đích, không phải auto theo quà.
     if (this.config.showGift === false && !voted) return;
+    // Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn (xem comboDelta).
+    const repeat = comboDelta(this._comboRepeats, ev);
+    if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
-      ? Math.max(1, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1)
-      : Math.max(1, Number(ev.repeatCount) || 1);
+      ? Math.max(1, resolveDiamond(ev)) * repeat
+      : repeat;
     // Khi có Creator đang VOTE, mọi điểm trong phiên vote chỉ cộng cho Creator đó.
     const matched = voted ? [voted] : creators.filter(c =>
       (c.defaultGiftId && String(c.defaultGiftId) === String(ev.giftId)) ||
@@ -3088,6 +3240,8 @@ class RankingEngine {
       showAvatar: this.config.showAvatar,
       showGift: this.config.showGift,
       showRound: this.config.showRound,
+      showGroupName: this.config.showGroupName !== false,
+      showTopColors: this.config.showTopColors !== false,
       showPerfOrder: this.config.showPerfOrder !== false,
       showActive: this.config.showActive,
       gridRows: this.config.gridRows,
@@ -3254,22 +3408,8 @@ class ScoreEngine {
   }
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
-    let repeat = Math.max(1, Number(ev.repeatCount) || 1);
-    if (Number(ev.giftType) === 1) {
-      const key = `${ev.uniqueId || ev.nickname || ev.avatar || 'anonymous'}:${ev.giftId || ev.giftName || 'gift'}`;
-      const now = Date.now();
-      const previous = this._comboRepeats.get(key);
-      let delta = repeat;
-      if (previous) {
-        if (repeat > previous.count) delta = repeat - previous.count;
-        else if (repeat === 1 && !ev.repeatEnd && now - previous.at > 1500) delta = 1; // A new streak arrived without a final packet.
-        else delta = 0;
-      }
-      if (ev.repeatEnd) this._comboRepeats.delete(key);
-      else this._comboRepeats.set(key, { count: repeat, at: now });
-      if (!delta) return;
-      repeat = delta;
-    }
+    const repeat = comboDelta(this._comboRepeats, ev);
+    if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * repeat
       : repeat;
@@ -3395,6 +3535,7 @@ class MissionTrioEngine {
       horizontal: { ...MISSION_TRIO_GEO_H }, // thông số riêng cho overlay Ngang
     };
     this.state = { running: false, donors: new Set(), likes: 0, points: 0 };
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
   }
   setConfig(patch) {
     patch = patch || {};
@@ -3417,17 +3558,18 @@ class MissionTrioEngine {
     };
     this._emit();
   }
-  start() { this.state = { running: true, donors: new Set(), likes: 0, points: 0 }; this._emit(); }
-  reset() { this.state = { running: false, donors: new Set(), likes: 0, points: 0 }; this._emit(); }
-  stop() { this.state.running = false; this._emit(); }
+  start() { this.state = { running: true, donors: new Set(), likes: 0, points: 0 }; this._comboRepeats.clear(); this._emit(); }
+  reset() { this.state = { running: false, donors: new Set(), likes: 0, points: 0 }; this._comboRepeats.clear(); this._emit(); }
+  stop() { this.state.running = false; this._comboRepeats.clear(); this._emit(); }
   routeGift(ev) {
     if (!this.state.running) return;
     // Người tặng: mỗi user tính ĐÚNG 1 lần dù tặng 1 coin hay 10.000 coin, dù nhiều quà (Set uniqueId).
     const uid = ev.uniqueId || ev.userId;
     if (uid) this.state.donors.add(String(uid));
-    // Điểm: 1 KIM CƯƠNG = 1 ĐIỂM, không phân biệt số người. Cộng ĐÚNG tổng kim cương (diamond × số quà
-    // trong combo), KHÔNG ép tối thiểu 1 → quà 0 kim cương cộng 0 điểm.
-    this.state.points += Math.max(0, resolveDiamond(ev)) * Math.max(1, Number(ev.repeatCount) || 1);
+    // Điểm: 1 KIM CƯƠNG = 1 ĐIỂM. Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn
+    // (xem comboDelta). Cộng ĐÚNG tổng kim cương (diamond × số quà mới), quà 0 kim cương cộng 0.
+    const repeat = comboDelta(this._comboRepeats, ev);
+    if (repeat) this.state.points += Math.max(0, resolveDiamond(ev)) * repeat;
     this._emit();
   }
   routeLike(ev) {
@@ -3747,7 +3889,17 @@ function throttledBroadcast(channel, data, ms = 120) {
 
 // ===== Liên kết trò chơi → THI ĐẤU NHÓM (realtime) =====
 // Callback duy nhất các engine trò chơi gọi khi 1 quà quy về Creator có gắn (khi Liên kết BẬT).
+// CHỐNG CỘNG ĐÔI: nhiều nguồn Liên kết (PK Đôi + Đập Trứng…) có thể cùng khớp MỘT sự kiện quà →
+// mỗi món quà chỉ được cộng vào BXH đúng MỘT lần (engine đầu tiên khớp trong nhịp dispatch).
+// Sự kiện quà được gắn ev.__rankToken (duy nhất/nhịp) ở luồng nhận quà; điểm THỦ CÔNG/TEST không có
+// token → luôn cộng bình thường.
+let _lastRankToken = null;
+let _rankGiftSeq = 0; // bộ đếm token sự kiện quà (gắn ev.__rankToken ở luồng nhận quà)
 function rankingLivePoints(creatorId, points, ev) {
+  if (ev && ev.__rankToken != null) {
+    if (ev.__rankToken === _lastRankToken) return; // đã có engine khác cộng cho quà này
+    _lastRankToken = ev.__rankToken;
+  }
   rankingEngine?.addLivePoints(creatorId, points, ev);
 }
 // Nguồn chuẩn của trạng thái Liên kết: settings.rankingLinks { pkduo, pkgroup, sticker }.
@@ -3862,6 +4014,9 @@ function bootstrapEngines() {
     onResult: appendMatchHistory,
     getCreators: loadCreators,
     onRankingPoints: rankingLivePoints,
+    // Chốt vòng phải lưu ngay chuỗi mới; tổng MVP được ghi độc lập vào hồ sơ Creator.
+    onConfigChange: () => savePkGroupConfig(pkGroupEngine.config),
+    onMvpAward: ({ creatorId, groupId }) => addPkGroupMvpTotal(creatorId, groupId, 1),
   });
   const savedPkGroup = loadPkGroupConfig();
   if (savedPkGroup) pkGroupEngine.setConfig(savedPkGroup);
@@ -3873,6 +4028,7 @@ function bootstrapEngines() {
     getCreators: loadCreators,
     getGroups: loadGroups,
     getActiveFighters: activePkFighters,
+    getCreatorById,
   });
   if (settings.ranking) rankingEngine.setConfig(settings.ranking);
   rankingEngine.config.activeGroupId = ''; // Luôn khởi động ở chế độ TALENT SHOW (mở tất cả)
@@ -4009,19 +4165,19 @@ function bootstrapTikTok() {
         giftIcon: d.giftIcon || '', repeat, totalCoin: coinEach * repeat,
       });
     }
-    // Score + Giữ/Đổi tự cộng phần chênh lệch của từng nhịp combo để điểm lên ngay, không chờ chốt
-    // streak → không mất combo x10/x1000 nếu gói chốt tới muộn/rớt sau khi hết vòng + thời gian Delay.
+    // TẤT CẢ engine cộng điểm quà đều đếm theo DELTA từng nhịp combo (xem comboDelta) → gọi trên MỌI
+    // nhịp, KHÔNG gate theo shouldProcess. Nhờ vậy điểm lên ngay và KHÔNG mất combo x10/x1000 khi TikTok
+    // gửi gói chốt repeatEnd muộn/rớt mạng (lỗi "tặng 2 quà chỉ nhận 1" ở CHỌN PHE PK Đôi/Nhóm).
+    // Token duy nhất/nhịp → rankingLivePoints chỉ cho MỘT nguồn Liên kết cộng vào BXH (chống trùng).
+    d.__rankToken = ++_rankGiftSeq;
     scoreEngine?.routeGift(d);
     kcDuoEngine?.routeGift(d);
-    // Các game còn lại chỉ route khi streak kết thúc để tránh double-count khi user combo.
-    if (d.shouldProcess) {
-      pkDuoEngine?.routeGift(d);
-      pkGroupEngine?.routeGift(d);
-      // Khi có trò chơi đang Liên kết → BXH ngưng tự cộng quà mặc định (điểm đến từ trò chơi).
-      rankingEngine?.routeGift(d, anyLinkedGiftSourceActive(), rankVoteStarted());
-      stickerEngine?.routeGift(d);
-      missionTrioEngine?.routeGift(d);
-    }
+    pkDuoEngine?.routeGift(d);
+    pkGroupEngine?.routeGift(d);
+    // Khi có trò chơi đang Liên kết → BXH ngưng tự cộng quà mặc định (điểm đến từ trò chơi).
+    rankingEngine?.routeGift(d, anyLinkedGiftSourceActive(), rankVoteStarted());
+    stickerEngine?.routeGift(d);
+    missionTrioEngine?.routeGift(d);
   });
   // QUAN TRỌNG (fix treo/đơ giao diện khi LIVE): like/member/follow/share là các
   // sự kiện TẦN SUẤT RẤT CAO (like có thể hàng trăm/giây, member = mỗi lượt vào phòng).
@@ -4047,16 +4203,21 @@ const OVERLAY_SCENE_KEYS = [
   'dancevideo', 'dancevideo2', 'dancevideo3', 'interact',
 ];
 // Đọc cấu hình ẩn/hiện overlay (chuẩn hoá + mặc định): hiện hết, tự-theo-menu BẬT, ghim sẵn TƯƠNG TÁC + Menu Quà.
+// visModel = phiên bản mô hình lưu. Bản CŨ (<2) từng ghi auto-ẩn theo menu ĐÈ vào 'vis' (lựa chọn tay),
+// để lại các 'false' rác khiến overlay bị "ẩn dính". Nâng cấp lên model 2: XÓA hết false rác về mặc định HIỆN,
+// vì từ nay 'vis' chỉ chứa lựa chọn TAY (auto-ẩn tính riêng, không lưu). Giữ nguyên autoScene + pinned.
 function getOverlayVis() {
   const raw = settings.overlayVisibility || {};
   const vis = {}, pinned = {};
-  const rawVis = raw.vis || {}, rawPin = raw.pinned || {};
+  const migrateVis = (raw.visModel || 0) >= 2; // đủ mới ⇒ tôn trọng false đã lưu (là lựa chọn tay thật)
+  const rawVis = migrateVis ? (raw.vis || {}) : {}; // model cũ: bỏ qua vis rác → về mặc định HIỆN
+  const rawPin = raw.pinned || {};
   const firstRun = !raw.pinned; // chưa từng lưu ⇒ dùng ghim mặc định
   for (const k of OVERLAY_SCENE_KEYS) {
     vis[k] = rawVis[k] !== false;                       // mặc định hiện
     pinned[k] = firstRun ? (k === 'interact' || k === 'giftmenu') : !!rawPin[k];
   }
-  return { autoScene: raw.autoScene !== false, pinned, vis };
+  return { autoScene: raw.autoScene !== false, pinned, vis, visModel: 2 };
 }
 
 async function bootstrapOverlay() {
@@ -4388,18 +4549,24 @@ function registerIpc() {
   });
   // Ẩn/hiện overlay theo cảnh: renderer đọc trạng thái để dựng bảng điều khiển + nút nổi.
   ipcMain.handle('overlay:getVisibility', () => getOverlayVis());
-  // Ghi patch {autoScene?, pinned?, vis?} → lưu + phát bản đồ vis mới tới mọi overlay đang mở.
+  // Ghi patch {autoScene?, pinned?, vis?} → CHỈ lưu LỰA CHỌN TAY (mặc định HIỆN), KHÔNG tự phát.
+  // Việc phát ra OBS là bản đồ HIỆU LỰC (tay + cảnh đang mở + ghim) do renderer tính rồi gọi
+  // overlay:applyVisibility. Tách vậy để auto-ẩn theo menu KHÔNG ghi đè lựa chọn tay (tránh "ẩn dính").
   ipcMain.handle('overlay:setVisibility', (_e, patch) => {
     const cur = getOverlayVis();
     const next = {
+      visModel: 2, // đã ở mô hình mới (vis = chỉ lựa chọn tay) — khỏi bị migrate reset lần sau
       autoScene: patch && 'autoScene' in patch ? !!patch.autoScene : cur.autoScene,
       pinned: patch && patch.pinned ? { ...cur.pinned, ...patch.pinned } : cur.pinned,
       vis: patch && patch.vis ? { ...cur.vis, ...patch.vis } : cur.vis,
     };
     settings.overlayVisibility = next;
     saveSettings();
-    overlayServer?.setVisibility(next.vis);
     return next;
+  });
+  // Phát bản đồ HIỆU LỰC (những gì THỰC SỰ hiện trên OBS/TikTok) — chỉ broadcast, KHÔNG lưu.
+  ipcMain.handle('overlay:applyVisibility', (_e, vis) => {
+    overlayServer?.setVisibility(vis && typeof vis === 'object' ? vis : {});
   });
   // Trạng thái dòng hosts cho hostname overlay (renderer hiện/ẩn banner cảnh báo).
   ipcMain.handle('hosts:status', () => ({
@@ -4433,6 +4600,11 @@ function registerIpc() {
   ipcMain.handle('pkgroup:resetAll', () => { pkGroupEngine.resetAll(); savePkGroupConfig(pkGroupEngine.config); return true; });
   ipcMain.handle('pkgroup:addPoints', (_e, { id, points }) => { pkGroupEngine.addPoints(id, points); return true; });
   ipcMain.handle('pkgroup:testGift', (_e, { id, qty, sign } = {}) => pkGroupEngine.testGift(id, qty, sign));
+  ipcMain.handle('pkgroup:setMvpTotal', (_e, { creatorId, groupId, total } = {}) => {
+    const result = setPkGroupMvpTotal(creatorId, groupId || pkGroupEngine?.config?.groupId || '', total);
+    if (result) pkGroupEngine?._emit();
+    return result;
+  });
   ipcMain.handle('pkgroup:getUrl', () => overlayServer.getPkGroupUrl());
 
   // DANH SÁCH NHẠC (quà → clip audio). Audio phát ở renderer; main chỉ lưu cấu hình.
@@ -4747,6 +4919,52 @@ function registerIpc() {
     applyRankingLinksToEngines();
     broadcast('ranking:links', next); // đồng bộ ô tích ở mọi tab + bảng tổng
     return next;
+  });
+  // 🔍 Kiểm tra liên kết trước LIVE: soi từng nguồn ĐANG BẬT xem creatorId đã gắn có hợp lệ không
+  // (thiếu / trỏ Creator đã xoá) → chặn "lúc nhận lúc không / nhận sai" khi nhiều nhóm. Chỉ đọc, không sửa.
+  ipcMain.handle('ranking:validateLinks', () => {
+    const links = getRankingLinks();
+    const scoreOn = !!settings.scoreLinkRanking;
+    const problems = [];
+    const badId = (cid) => !cid || !getCreatorById(cid); // thiếu id HOẶC id không còn Creator
+    // PK Đôi / Giữ-Đổi: 2 phe cố định, mỗi phe 1 creatorId.
+    for (const [on, eng, tag] of [[links.pkduo, pkDuoEngine, '⚔️ PK Đôi'], [links.kcduo, kcDuoEngine, '🔁 Giữ/Đổi']]) {
+      if (!on || !eng) continue;
+      for (const [side, team] of [['A', eng.config.teamA], ['B', eng.config.teamB]]) {
+        const cid = team && team.creatorId;
+        if (!cid) problems.push({ game: tag, who: `Phe ${side}`, issue: 'chưa gắn Creator → quà phe này KHÔNG cộng vào BXH' });
+        else if (!getCreatorById(cid)) problems.push({ game: tag, who: `Phe ${side}`, issue: `Creator đã gắn không còn tồn tại (id ${cid})` });
+      }
+    }
+    // PK Nhóm: mỗi participant là 1 Creator (creatorId hoặc id).
+    if (links.pkgroup && pkGroupEngine) {
+      const parts = pkGroupEngine.config.participants || [];
+      if (!parts.length) problems.push({ game: '🧩 PK Nhóm', who: '—', issue: 'chưa có người tham gia' });
+      parts.forEach((p, i) => {
+        const cid = p.creatorId || p.id;
+        const label = p.name || p.tiktokId || `#${i + 1}`;
+        if (badId(cid)) problems.push({ game: '🧩 PK Nhóm', who: label, issue: cid ? `Creator không tồn tại (id ${cid})` : 'chưa gắn Creator' });
+      });
+    }
+    // Đập Trứng/Dance: mỗi ô suy Creator theo c.creatorId, không có thì khớp Quà mặc định (giống engine).
+    if (links.sticker && stickerEngine) {
+      const cells = stickerEngine.config.cells || [];
+      const creators = loadCreators() || [];
+      cells.forEach((c, i) => {
+        let cid = c.creatorId;
+        if (!cid) {
+          const cr = creators.find(x =>
+            (x.defaultGiftId && String(x.defaultGiftId) === String(c.giftId || '')) ||
+            (x.defaultGiftName && _normName(x.defaultGiftName) === _normName(c.giftName)));
+          cid = cr && cr.id;
+        }
+        const label = c.giftName || `Ô #${i + 1}`;
+        if (!cid) problems.push({ game: '🥚 Đập Trứng', who: label, issue: 'không suy ra được Creator (chưa gắn 👤 Creator, không khớp Quà mặc định)' });
+        else if (!getCreatorById(cid)) problems.push({ game: '🥚 Đập Trứng', who: label, issue: `Creator không tồn tại (id ${cid})` });
+      });
+    }
+    const anyOn = links.pkduo || links.kcduo || links.pkgroup || links.sticker || scoreOn;
+    return { anyOn, links: { ...links, score: scoreOn }, problems };
   });
 
   // Score

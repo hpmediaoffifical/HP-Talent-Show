@@ -356,7 +356,7 @@
             </label>
             <div class="rf-actions">
               <button id="btnSaveCreator" class="primary" type="button">💾 Lưu</button>
-              <button id="btnNewCreator" class="ghost" type="button" title="Tạo creator mới">+</button>
+              <button id="btnNewCreator" class="ghost" type="button" title="Tạo Creator mới">+</button>
             </div>
             <input type="hidden" id="crAvatarUrl" />
             <input type="hidden" id="crGiftId" />
@@ -403,7 +403,7 @@
           </label>
           <label class="rf-cell rf-gift-cell">
             <span>Quà mặc định nhóm</span>
-            <button id="btnPickGrGift" class="rf-gift-btn" type="button" title="Quà đại diện cho nhóm — tự áp cho creator chưa có quà riêng">
+            <button id="btnPickGrGift" class="rf-gift-btn" type="button" title="Quà đại diện cho nhóm — tự áp cho Creator chưa có quà riêng">
               <img id="grGiftIconPreview" alt="" />
               <span class="rf-gift-name" id="grGiftDisplay">🎁 Chọn quà</span>
             </button>
@@ -444,8 +444,10 @@
               <select id="pkJoinMode">
                 <option value="false" title="Quà rơi vào đội đã gán sẵn">Cố Định</option>
                 <option value="true" title="Quà kích hoạt để người xem chọn phe">Chọn Phe</option>
-                <option value="creator" title="Tự cộng theo người nhận thật trong LIVE nhóm — khỏi chọn quà. Chọn đúng Creator khi tặng trên TikTok là điểm tự vào đúng phe.">TikTok</option>
               </select>
+            </label>
+            <label class="pk-row-field pk-tiktok-combine" title="Kết hợp TikTok: quà tặng đúng Creator của phe (chọn trên hộp quà TikTok) tự cộng cho phe đó — không cần chọn quà. Vẫn giữ chế độ nền: quà không nhắm ai thì tính theo Cố Định/Chọn Phe.">
+              <input type="checkbox" id="pkTiktokCombine" /> 📡 Kết hợp TikTok
             </label>
             <select id="pkPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
             <button id="pkHistory" class="ghost" type="button">📜 Lịch sử</button>
@@ -487,7 +489,7 @@
                 <div class="pk-team-config pk-team-config-a">
                   <div class="pk-team-config-head"><b id="pkTeamAHeading">TEAM A</b><span>Thành viên và nhận diện đội</span></div>
                   <label>Nhóm A <select id="pkAgroup"><option value="">— Chọn nhóm —</option></select></label>
-                  <label>Creator A <select id="pkAcreator"><option value="">— Chọn creator —</option></select></label>
+                  <label>Creator A <select id="pkAcreator"><option value="">— Chọn Creator —</option></select></label>
                   <label>Tên hiển thị A <input id="pkAname" maxlength="20" /></label>
                   <label>Chuỗi WIN A <input id="pkAstreak" type="number" min="0" max="999" value="0" title="Số lần thắng liên tiếp (sửa tay nếu sai)" /></label>
                   <label>Màu đội A <input id="pkAcolor" type="color" value="#FE2C55" /></label>
@@ -505,7 +507,7 @@
                 <div class="pk-team-config pk-team-config-b">
                   <div class="pk-team-config-head"><b id="pkTeamBHeading">TEAM B</b><span>Thành viên và nhận diện đội</span></div>
                   <label>Nhóm B <select id="pkBgroup"><option value="">— Chọn nhóm —</option></select></label>
-                  <label>Creator B <select id="pkBcreator"><option value="">— Chọn creator —</option></select></label>
+                  <label>Creator B <select id="pkBcreator"><option value="">— Chọn Creator —</option></select></label>
                   <label>Tên hiển thị B <input id="pkBname" maxlength="20" /></label>
                   <label>Chuỗi WIN B <input id="pkBstreak" type="number" min="0" max="999" value="0" title="Số lần thắng liên tiếp (sửa tay nếu sai)" /></label>
                   <label>Màu đội B <input id="pkBcolor" type="color" value="#25F4EE" /></label>
@@ -677,8 +679,10 @@
               <select id="kcJoinMode">
                 <option value="false" title="Quà rơi vào phe đã gán sẵn">Cố Định</option>
                 <option value="true" title="Chỉ chọn 1 quà kích hoạt cho mỗi phe">Chọn Phe</option>
-                <option value="creator" title="Tự cộng theo người nhận thật trong LIVE nhóm (UID) — khỏi chọn quà">TikTok</option>
               </select>
+            </label>
+            <label class="pk-row-field pk-tiktok-combine" title="Kết hợp TikTok: quà tặng đúng Creator của phe (chọn trên hộp quà TikTok) tự cộng cho phe đó — không cần chọn quà. Vẫn giữ chế độ nền: quà không nhắm ai thì tính theo Cố Định/Chọn Phe.">
+              <input type="checkbox" id="kcTiktokCombine" /> 📡 Kết hợp TikTok
             </label>
             <select id="kcPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
             <details class="pk-quick">
@@ -849,8 +853,10 @@
               <select id="pkgPlayMode">
                 <option value="fixed">Cố định</option>
                 <option value="join">Chọn phe</option>
-                <option value="creator" title="Tự cộng theo người nhận thật trong LIVE nhóm — khỏi chọn quà. Chọn đúng Creator khi tặng trên TikTok.">TikTok</option>
               </select>
+            </label>
+            <label class="pk-row-field pk-tiktok-combine" title="Kết hợp TikTok: quà tặng đúng Creator (chọn trên hộp quà TikTok) tự cộng cho Creator đó — không cần chọn quà. Vẫn giữ chế độ nền: quà không nhắm ai thì tính theo Cố định/Chọn phe.">
+              <input type="checkbox" id="pkgTiktokCombine" /> 📡 Kết hợp TikTok
             </label>
             <select id="pkgPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
             <button id="pkgHistory" class="ghost pk-act-right" type="button">📜 Lịch sử</button>
@@ -901,8 +907,19 @@
               <label class="switch-row" title="Tự đổi màu chữ (đen/trắng) theo độ sáng của nền để luôn dễ đọc">
                 <input id="ovlAutoTextContrast" type="checkbox" /><span></span><b>🌗 Tự đổi màu chữ theo nền</b>
               </label>
+              <label class="switch-row" title="Hiện huy hiệu số tổng MVP của từng Creator trên tên ở overlay PK Nhóm">
+                <input id="pkgShowMvpTotals" type="checkbox" /><span></span><b>🏆 Hiện tổng MVP</b>
+              </label>
+              <button id="pkgEditMvpTotals" class="ghost tiny" type="button" title="Sửa số tổng MVP khi mất kết nối hoặc thao tác nhầm">🏆 Sửa tổng MVP</button>
               <button id="pkgAutoColor" class="ghost tiny" type="button">🎲 Phối lại màu</button>
             </div>
+            <details class="pkg-mvp-total-editor" id="pkgMvpTotalEditor">
+              <summary><span>🏆 Tổng MVP từng Creator</span><span class="cfg-adv__hint">tự cộng khi thắng duy nhất, có thể sửa chính xác</span></summary>
+              <div class="pkg-mvp-total-editor__body">
+                <p>Chuỗi MVP và tổng MVP là hai chỉ số khác nhau. Nhập số đúng rồi bấm Lưu để xử lý mất kết nối hoặc thao tác nhầm.</p>
+                <div class="pkg-mvp-total-list" id="pkgMvpTotals"></div>
+              </div>
+            </details>
             <div class="pkg-member-list" id="pkgMembers"></div>
           </section>
 
@@ -1045,6 +1062,8 @@
                   <label><input id="rkShowAvatar" type="checkbox" checked /> Avatar</label>
                   <label title="Tắt = ẩn icon quà trên OBS VÀ ngưng tự cộng điểm theo quà mặc định"><input id="rkShowGift" type="checkbox" checked /> Quà</label>
                   <label><input id="rkShowRound" type="checkbox" checked /> Round</label>
+                  <label title="Hiện tên NHÓM dưới tên idol (dọc + ngang). Chọn riêng 1 nhóm sẽ TỰ tắt để đỡ lặp, thanh gọn hơn."><input id="rkShowGroupName" type="checkbox" checked /> Tên nhóm</label>
+                  <label title="Tô màu nền kim-bạc-đồng cho TOP 1/2/3 (dọc + ngang). Bỏ tích = nền đồng đều, chỉ khác 👑 vương miện bên trái."><input id="rkShowTopColors" type="checkbox" checked /> Màu TOP 123</label>
                   <label title="Thanh xanh dưới cùng: hiện người dẫn đầu/đang nổi bật (áp dụng cả OBS dọc và ngang)"><input id="rkShowActive" type="checkbox" checked /> Thanh dưới</label>
                   <label><input id="rkHideAllScores" type="checkbox" /> Ẩn điểm</label>
                 </div>
@@ -1098,14 +1117,15 @@
                     </label>
                     <label class="full" title="Hiệu ứng nổi bật riêng cho hàng được VOTE — độc lập với Màu nền">Kiểu nền Active
                       <select id="rkActiveFx">
-                        <option value="off">Không (chỉ Màu nền)</option>
-                        <option value="shine">Óng ánh (dải sáng quét)</option>
-                        <option value="spotlight">Đèn quét (vầng sáng lia)</option>
-                        <option value="sparkle">Lấp lánh (đốm sáng)</option>
-                        <option value="neon">Neon viền (cyan nhấp nháy)</option>
-                        <option value="pulse">Nhịp sáng (sáng-tối thở)</option>
-                        <option value="gold">Vàng kim (skin vàng)</option>
-                        <option value="rainbow">Cầu vồng (skin nhiều màu)</option>
+                        <option value="off">Không hiệu ứng</option>
+                        <option value="shine">Óng ánh</option>
+                        <option value="neon">Neon viền</option>
+                        <option value="gold" selected>Vàng kim</option>
+                        <option value="rainbow">Cầu vồng</option>
+                        <option value="royal">Khung hoàng kim</option>
+                        <option value="plasma">Plasma tím xanh</option>
+                        <option value="flash">Tia chớp</option>
+                        <option value="live">LIVE đỏ hồng</option>
                       </select>
                     </label>
                     <label class="full" style="grid-column:1/-1;display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0">
@@ -1179,10 +1199,13 @@
           <div class="rk-links-panel">
             <span class="rk-links-title">🔗 Liên kết trò chơi → tự cộng điểm realtime:</span>
             <label title="PK Đôi: mỗi quà vào phe (có gắn Creator) tự cộng cho Creator"><input id="rkLinkPkduo" type="checkbox" /> ⚔️ PK Đôi</label>
+            <label title="Giữ/Đổi: mỗi quà vào phe (có gắn Creator) tự cộng cho Creator"><input id="rkLinkKcduo" type="checkbox" /> 🔁 Giữ/Đổi</label>
             <label title="PK Nhóm: mỗi quà vào Creator tự cộng cho Creator"><input id="rkLinkPkgroup" type="checkbox" /> 🧩 PK Nhóm</label>
             <label title="Tính điểm: chọn VOTE điều khiển đúng Creator; kết thúc lượt tự cộng điểm"><input id="rkLinkScore" type="checkbox" /> 🎯 Tính điểm</label>
             <label title="Đập Trứng/NHẠC DANCE: mỗi quà vào ô (có gắn Creator) tự cộng cho Creator"><input id="rkLinkSticker" type="checkbox" /> 🥚 Đập Trứng/Dance</label>
+            <button id="rkValidateLinks" class="ghost tiny" type="button" title="Soi các nguồn ĐANG BẬT: phe/participant/ô quà nào chưa gắn Creator hoặc gắn Creator đã xoá → điểm sẽ không vào BXH">🔍 Kiểm tra liên kết</button>
           </div>
+          <div class="rk-links-report" id="rkLinksReport" hidden></div>
           <div class="rk-preview" id="rkPreview"></div>
         </div>
       </section>
@@ -1337,7 +1360,7 @@
                 <div class="fld full">Avatar/Creator
                   <div class="option-pills">
                     <label><input id="scHideAvatar" type="checkbox" /> Ẩn avatar</label>
-                    <label><input id="scHideCreator" type="checkbox" /> Ẩn creator</label>
+                    <label><input id="scHideCreator" type="checkbox" /> Ẩn Creator</label>
                   </div>
                 </div>
                 <input id="scCompact" type="checkbox" hidden />
@@ -2663,7 +2686,7 @@
 
         <div class="card">
           <h3>💾 Sao lưu / Khôi phục dữ liệu</h3>
-          <p class="sub">Xuất toàn bộ <b>Creator + Nhóm</b> ra 1 file để chuyển sang máy khác hoặc sao lưu. Bản cài đặt mới <b>không</b> kèm sẵn danh sách creator/nhóm — hãy Xuất ở máy cũ và Nhập ở máy mới.</p>
+          <p class="sub">Xuất toàn bộ <b>Creator + Nhóm</b> ra 1 file để chuyển sang máy khác hoặc sao lưu. Bản cài đặt mới <b>không</b> kèm sẵn danh sách Creator/nhóm — hãy Xuất ở máy cũ và Nhập ở máy mới.</p>
           <div class="form-actions">
             <button id="btnExportData" class="primary" type="button">⬆ Xuất dữ liệu (Creator + Nhóm)</button>
             <button id="btnImportData" class="ghost" type="button">⬇ Nhập dữ liệu từ file</button>

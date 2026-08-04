@@ -7,6 +7,9 @@ if (new URLSearchParams(location.search).get('review') === '1') {
   if (/^(#[0-9a-f]{6}|rgba\(\d{1,3},\d{1,3},\d{1,3},(?:0|1|0?\.\d+)\))$/i.test(bg)) document.body.style.setProperty('--review-bg', bg);
 }
 const root = document.getElementById('rankingRoot');
+root.classList.toggle('ranking-grid', layoutGrid);
+root.classList.toggle('ranking-vertical', !layoutGrid);
+const textMeasureContext = document.createElement('canvas').getContext('2d');
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('vi-VN'); }
@@ -51,8 +54,20 @@ function selectMarkHtml() {
   return `<span class="ranking-select-mark" aria-hidden="true"><span class="sm-arrow"></span><span class="sm-lock"><i></i><i></i><i></i><i></i></span><span class="sm-spot"></span><span class="sm-vs"><b>ĐẤU</b></span></span>`;
 }
 
+// Vương miện TOP 1/2/3 — SVG tô màu theo hạng (--crown-c ở CSS), luôn hiện dù bật/tắt "màu TOP 123".
+// Dùng cho cả overlay DỌC và NGANG (cùng rowHtml) nên đồng bộ tuyệt đối.
+function crownSvg(rank) {
+  return `<svg class="rk-crown crown-${rank}" viewBox="0 0 24 20" aria-hidden="true">`
+    + `<path class="rk-crown-body" d="M2.6 7.2l3.6 3.8L12 3.3l5.8 7.7 3.6-3.8-1.5 9.7H4.1L2.6 7.2z"/>`
+    + `<circle class="rk-crown-gem" cx="12" cy="3.3" r="1.6"/>`
+    + `<circle class="rk-crown-gem" cx="2.6" cy="7.2" r="1.3"/>`
+    + `<circle class="rk-crown-gem" cx="21.4" cy="7.2" r="1.3"/></svg>`;
+}
+
 function rowHtml(row, state, selFxOn) {
-  const rankEmoji = row.rank === 1 ? '🥇' : (row.rank === 2 ? '🥈' : (row.rank === 3 ? '🥉' : (row.rank < 10 ? '0' + row.rank : String(row.rank))));
+  const rankEmoji = row.rank <= 3
+    ? crownSvg(row.rank) + `<span class="rk-crown-num">${row.rank}</span>`
+    : (row.rank < 10 ? '0' + row.rank : String(row.rank));
   const loser = !!row.lost;
   const gift = row.giftIcon ? `<img src="${esc(row.giftIcon)}" />` : (row.giftName ? '🎁' : '');
   const groupColor = row.groupColor || 'transparent';
@@ -69,12 +84,120 @@ function rowHtml(row, state, selFxOn) {
     ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${selMark}${avatarHtml(row.avatar, row.initials, row.avatarVersion, row.avatarKey)}</div>`}
     <div class="ranking-main">
       ${nameHtml(row.name || 'Idol', 'ranking-name')}
-      ${row.groupName ? `<div class="ranking-group">${esc(row.groupName)}</div>` : ''}
+      ${state.showGroupName !== false && row.groupName ? `<div class="ranking-group">${esc(row.groupName)}</div>` : ''}
       ${row.hideScore || state.hideAllScores ? '<div class="ranking-points hidden-score" aria-label="Ẩn điểm" title="Ẩn điểm">•••</div>' : `<div class="ranking-points">${fmt(row.points)}</div>`}
     </div>
     ${state.showGift === false || !gift ? '' : `<div class="ranking-gift">${gift}</div>`}
     ${state.showRound === false ? '' : `<div class="ranking-round">R${fmt(row.round)}</div>`}
   </div>`;
+}
+
+// DỌC giữ "|" thành hai dòng; NGANG luôn là một dòng. Cả hai tự thu chữ để
+// giữ lề hai bên của nền tiêu đề, thay vì làm nền tiêu đề nới rộng ra.
+// Cache theo (chữ|bề rộng) để không tính lại mỗi render (render dựng lại innerHTML liên tục theo SSE).
+let _titleFit = { key: '', size: 15, wrap: false };
+function fitTitle() {
+  const el = root.querySelector('.ranking-title');
+  if (!el || !el.clientWidth) return;
+  const key = `${el.textContent || ''}|${el.clientWidth}`;
+  if (key === _titleFit.key) {
+    el.style.setProperty('--rk-title-size', `${_titleFit.size}px`);
+    el.classList.toggle('wrap', _titleFit.wrap);
+    return;
+  }
+  el.classList.remove('wrap');
+  // BỀ RỘNG CONTENT-BOX = clientWidth trừ lề trong 2 bên (padding). PHẢI so cỡ chữ với mốc này,
+  // KHÔNG dùng scrollWidth>clientWidth (cả hai đều tính CẢ padding) → khi chữ tràn content-box mà vẫn
+  // nằm trong padding thì không bị phát hiện, chữ dồn lệch trái (do width:0) chừa trống bên phải.
+  const cs = getComputedStyle(el);
+  const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  const avail = el.clientWidth - padX; // content-box (px layout, độc lập zoom — cùng đơn vị offsetWidth)
+  // #rankingRoot dùng zoom nên Range.getBoundingClientRect trả px ĐÃ ZOOM; quy về px layout bằng tỉ lệ
+  // rect/offsetWidth của chính title để so CÙNG ĐƠN VỊ với avail (zoom-safe, khỏi lệch như scrollWidth cũ).
+  const zk = el.getBoundingClientRect().width / (el.offsetWidth || 1) || 1;
+  const rng = document.createRange();
+  const lineW = () => {
+    let w = 0;
+    el.childNodes.forEach(n => { if (n.nodeType === 3 && n.textContent.trim()) { rng.selectNode(n); w = Math.max(w, rng.getBoundingClientRect().width); } });
+    return w ? w / zk : (el.scrollWidth - padX);
+  };
+  const minSize = layoutGrid ? 5 : 8;
+  let size = 15;
+  el.style.setProperty('--rk-title-size', `${size}px`);
+  let guard = 0;
+  while (guard++ < 40 && size > minSize && lineW() > avail + 0.5) {
+    size -= 0.5;
+    el.style.setProperty('--rk-title-size', `${size}px`);
+  }
+  if (layoutGrid && lineW() > avail + 0.5) {
+    size = Math.max(minSize, size * avail / lineW());
+    el.style.setProperty('--rk-title-size', `${size}px`);
+  }
+  const wrap = !layoutGrid && lineW() > avail + 0.5;
+  el.classList.toggle('wrap', wrap);
+  _titleFit = { key, size, wrap };
+}
+
+// Thu nhỏ chữ số đến mức vẫn đọc được trước khi CSS phải cắt phần vượt khung.
+// Cả DỌC và NGANG dùng cùng state, nên phải cùng ưu tiên hiện đủ điểm.
+function fitScores() {
+  root.querySelectorAll('.ranking-points:not(.hidden-score), .ranking-active-main b').forEach(el => {
+    if (el.clientWidth <= 0) return;
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    if (!Number.isFinite(size)) return;
+    let guard = 0;
+    while (el.scrollWidth > el.clientWidth + 1 && size > 8 && guard++ < 16) {
+      size -= 0.5;
+      el.style.fontSize = `${size}px`;
+    }
+  });
+}
+
+function labelWidth(el, text) {
+  const value = String(text || '');
+  if (!value) return 0;
+  const ctx = textMeasureContext;
+  if (!ctx) return el.scrollWidth || 0;
+  const style = getComputedStyle(el);
+  ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const spacing = parseFloat(style.letterSpacing);
+  return ctx.measureText(value).width + (Number.isFinite(spacing) ? spacing * Math.max(0, value.length - 1) : 0);
+}
+
+// DỌC và từng card NGANG cùng lấy bề rộng từ tên/điểm dài nhất. Badge vẫn có
+// khoảng thở nhưng không để lại mảng nền phải quá rộng ở các hàng ngắn.
+function fitLayoutWidth() {
+  const board = root.querySelector('.ranking-board');
+  const rows = board?.querySelectorAll('.ranking-row');
+  if (!board || !rows?.length) return;
+  let needed = 0;
+  rows.forEach(row => {
+    const main = row.querySelector('.ranking-main');
+    if (!main || !main.clientWidth) return;
+    const name = main.querySelector('.ranking-name');
+    const points = main.querySelector('.ranking-points');
+    const text = Math.max(
+      name ? labelWidth(name, name.title || name.textContent) : 0,
+      points ? labelWidth(points, points.textContent) : 0,
+    );
+    needed = Math.max(needed, row.offsetWidth - main.clientWidth + text + 2);
+  });
+  const active = board.querySelector('.ranking-active-name');
+  const activeMain = active?.querySelector('.ranking-active-main');
+  if (active && activeMain?.clientWidth) {
+    const name = activeMain.querySelector('div');
+    const points = activeMain.querySelector('b');
+    const text = Math.max(
+      name ? labelWidth(name, name.textContent) : 0,
+      points ? labelWidth(points, points.textContent) : 0,
+    );
+    needed = Math.max(needed, active.offsetWidth - activeMain.clientWidth + text + 2);
+  }
+  if (!needed) return;
+  const style = getComputedStyle(board);
+  const min = parseFloat(style.getPropertyValue(layoutGrid ? '--rk-grid-min-width' : '--rk-min-width')) || (layoutGrid ? 86 : 100);
+  const max = parseFloat(style.getPropertyValue(layoutGrid ? '--rk-grid-max-width' : '--rk-max-width')) || 180;
+  board.style.setProperty(layoutGrid ? '--rk-grid-card-width' : '--rk-width', `${Math.max(min, Math.min(max, Math.ceil(needed)))}px`);
 }
 
 function render(state = {}) {
@@ -84,7 +207,13 @@ function render(state = {}) {
   const gridCols = Math.max(1, Number(state.gridCols) || 3);
   const gridFlow = state.gridFlow === 'column' ? 'column' : 'row';
   const rows = Array.isArray(state.rows) ? state.rows : [];
-  const visibleRows = layoutGrid ? rows.slice(0, gridRows * gridCols) : rows;
+  // rows đã được RankingEngine lọc theo Khoảng hạng/Tối đa. Grid chỉ quyết định
+  // cách xếp, không được tự cắt thêm dữ liệu khiến OBS ngang khác OBS dọc.
+  const visibleRows = rows;
+  const hasGiftBadge = state.showGift !== false && visibleRows.some(r => r.giftIcon || r.giftName);
+  const hasRoundBadge = state.showRound !== false && visibleRows.length > 0;
+  const hasPerfBadge = state.showPerfOrder !== false && visibleRows.some(r => Number(r.perfOrder) > 0);
+  const badgeClass = hasGiftBadge || hasRoundBadge || hasPerfBadge ? ' has-badge' : ' no-badge';
   // Grid tự canh theo số thành viên thực tế: bỏ hàng/cột trống để board khít
   // với thanh vote bên dưới (không chừa chỗ cho ô rỗng đã cấu hình).
   let effRows = gridRows, effCols = gridCols;
@@ -103,6 +232,8 @@ function render(state = {}) {
     (state.showAvatar === false ? ' hide-avatar' : '') +
     (state.showGift === false ? ' hide-gift' : '') +
     (state.showRound === false ? ' hide-round' : '') +
+    (state.showGroupName === false ? ' hide-groupname' : '') +
+    (state.showTopColors === false ? ' hide-top-colors' : '') +
     ` cols-${[state.showRank !== false, state.showAvatar !== false, state.showGift !== false, state.showRound !== false].filter(Boolean).length}`;
   const layoutClass = layoutGrid ? ` layout-grid flow-${gridFlow}` : '';
   const activeName = state.active ? esc(state.active.name || 'Idol') : '';
@@ -113,7 +244,13 @@ function render(state = {}) {
   const useScale = Number.isFinite(rawScale) ? rawScale : (parseInt(localStorage.getItem('rankingScale'), 10) || 200);
   const overlayScale = Math.max(.8, Math.min(3, useScale / 100));
   const avatarScale = Math.max(.8, Math.min(1.7, (Number(state.avatarScale) || 130) / 100));
+  const avatarSlot = (25 * avatarScale).toFixed(2);
   const giftScale = Math.max(.8, Math.min(1.8, (Number(state.giftScale) || 145) / 100));
+  const badgeSpace = Math.max(
+    5,
+    hasGiftBadge ? 15 * giftScale + 6 : 0,
+    hasRoundBadge || hasPerfBadge ? 30 : 0,
+  );
   root.style.setProperty('--rk-scale', overlayScale);
 
   // --- FX đánh dấu người đang thi đấu PK (đã Liên kết THI ĐẤU NHÓM) ---
@@ -131,9 +268,17 @@ function render(state = {}) {
     root.style.setProperty('--rk-sel-ring', `${-((now % 3000) / 1000).toFixed(3)}s`);
   }
 
-  const activeFx = ['shine', 'spotlight', 'sparkle', 'neon', 'pulse', 'gold', 'rainbow'].includes(state.activeBgFx) ? state.activeBgFx : 'off';
+  // Cấu hình cũ có spotlight/sparkle/pulse/off. Ánh xạ rõ ràng để cập nhật không
+  // tự đổi FX người dùng đã chọn sang vàng.
+  const legacyActiveFx = { spotlight: 'shine', sparkle: 'royal', pulse: 'neon' };
+  const requestedActiveFx = legacyActiveFx[state.activeBgFx] || state.activeBgFx;
+  const activeFx = ['off', 'shine', 'neon', 'gold', 'rainbow', 'royal', 'plasma', 'flash', 'live'].includes(requestedActiveFx) ? requestedActiveFx : 'off';
   const activeBgOp = Math.max(0, Math.min(1, (Number(state.activeBgOpacity ?? 55)) / 100));
-  root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}${showSelect ? ` sel-on sel-${selFx}` : ''} af-${activeFx}${state.activeBarSync ? ' bar-sync' : ''}" style="
+  const title = String(state.title || 'TOP IDOL').trim();
+  const titleHtml = layoutGrid
+    ? esc(title.replace(/\s*\|\s*/g, ' ').replace(/\s+/g, ' '))
+    : esc(title).replace(/\s*\|\s*/g, '<br>');
+  root.innerHTML = `<div class="ranking-board${compactClass}${layoutClass}${badgeClass} name-${state.nameMode === 'marquee' ? 'marquee' : 'two-line'}${showSelect ? ` sel-on sel-${selFx}` : ''} af-${activeFx}${state.activeBarSync ? ' bar-sync' : ''}" style="
     --ranking-card-bg-rgb:${hexToRgb(state.overlayBgColor || '#2a2d37')};
     --ranking-card-bg-opacity:${((Number(state.overlayBgOpacity ?? 74)) / 100).toFixed(2)};
     --ranking-board-bg-rgb:${hexToRgb(state.overlayBoardColor || '#000000')};
@@ -149,16 +294,21 @@ function render(state = {}) {
     --rk-cols:${effCols};
     --rk-flow:${gridFlow};
     --rk-avatar-visual-scale:${avatarScale};
+    --rk-avatar-slot:${avatarSlot}px;
     --rk-gift-visual-scale:${giftScale};
+    --rk-badge-space:${badgeSpace.toFixed(2)}px;
     --rk-scale:${overlayScale}
   ">
-    <div class="ranking-title">${esc(state.title || 'TOP IDOL')}</div>
+    <div class="ranking-title">${titleHtml}</div>
     <div class="ranking-list">${visibleRows.length === 0 ? '<div class="ranking-empty">Chưa có dữ liệu thi đấu nhóm</div>' : visibleRows.map(r => rowHtml(r, state, selFxOn)).join('')}</div>
     ${state.active && state.showActive !== false ? `<div class="ranking-active-name ${activeLong ? 'long' : ''}">
       <div class="ranking-active-avatar">${avatarHtml(state.active.avatar, state.active.initials, state.active.avatarVersion, state.active.avatarKey)}</div>
       <div class="ranking-active-main"><div>${activeName}</div><b>${activePoints}</b></div>
     </div>` : ''}
   </div>`;
+  fitLayoutWidth();
+  fitTitle(); // sau khi dựng xong: thu nhỏ cỡ chữ tiêu đề cho vừa, không cắt ký tự
+  fitScores();
 }
 
 render({});

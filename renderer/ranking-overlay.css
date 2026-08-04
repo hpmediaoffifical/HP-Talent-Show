@@ -8,7 +8,9 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 #rankingRoot { width:max-content; max-width:none; padding:22px 20px; box-sizing:border-box; zoom:var(--rk-scale,1); }
 
 .ranking-board {
-  display:inline-grid; grid-template-columns:minmax(0,var(--rk-width, 116px)); width:var(--rk-width, 116px); min-width:0;
+  /* Board CO THEO NỘI DUNG: rộng = hàng dài nhất trong danh sách (ôm sát ký tự dài nhất, không dư nền phải).
+     Tiêu đề + Thanh dưới KHÔNG tính vào bề rộng (width:0;min-width:100% bên dưới) → chỉ tên/điểm quyết định. */
+  display:inline-grid; grid-template-columns:max-content; width:max-content; min-width:96px; max-width:240px;
   padding:6px; border-radius:10px; overflow:visible; color:#fff;
   /* Màu nền board tuỳ chỉnh — OBS-safe: phủ lớp trắng(đỉnh)→đen(đáy) lên màu đặc thay color-mix
      (CEF cũ của OBS không hiểu color-mix → nền board biến mất/đen).
@@ -21,18 +23,11 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   box-shadow:0 14px 38px rgba(0,0,0,calc(.46 * var(--ranking-board-bg-opacity, 1))), inset 0 0 0 1px rgba(255,255,255,calc(.06 * var(--ranking-board-bg-opacity, 1)));
   text-shadow:0 1px 3px rgba(0,0,0,.6);
 }
-.ranking-board { --rk-width:116px; }
-.ranking-board.cols-2 { --rk-width:130px; }
-.ranking-board.cols-3 { --rk-width:142px; }
-.ranking-board.cols-4 { --rk-width:152px; }
-.ranking-board:not(.hide-avatar) { --rk-width:142px; }
-.ranking-board:not(.hide-avatar):not(.hide-gift), .ranking-board:not(.hide-avatar):not(.hide-round) { --rk-width:152px; }
-.ranking-board.layout-grid { width:max-content; grid-template-columns:minmax(0,max-content); }
-/* Bản DỌC: thu hẹp đệm 2 bên (6px→4px) để card ôm sát viền ngoài hơn, thoáng mắt hơn.
-   Header/Footer bù margin ngang -4px để vẫn chạm đúng mép ngoài board. NGANG (grid) giữ nguyên. */
-.ranking-board:not(.layout-grid) { padding-left:4px; padding-right:4px; }
-.ranking-board:not(.layout-grid) .ranking-title { margin-left:-4px; margin-right:-4px; }
-.ranking-board:not(.layout-grid) .ranking-active-name { margin-left:-4px; margin-right:-4px; }
+/* Chừa chỗ cho badge Quà/Round (absolute góc phải) KHI còn hiện → không đè lên điểm.
+   Tắt cả hai (hide-gift + hide-round) thì bỏ chừa → card ôm sát ký tự. */
+.ranking-board:not(.layout-grid):not(.hide-gift) .ranking-row,
+.ranking-board:not(.layout-grid):not(.hide-round) .ranking-row { padding-right:20px; }
+.ranking-board.layout-grid { width:max-content; max-width:none; grid-template-columns:minmax(0,max-content); }
 
 /* Tiêu đề = HEADER ôm sát mép TRÊN board (đối xứng với footer Thanh dưới).
    margin âm -6px = padding board → chạm mép ngoài; ĐỈNH bo 10px khớp board, ĐÁY vuông.
@@ -40,20 +35,38 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-title {
   position:relative;
   box-sizing:border-box;
-  padding:7px 9px 9px; margin:-6px -6px 6px;
+  /* Lề NGANG rộng & đối xứng (13px) = chữ tiêu đề luôn cách đều 2 mép viền/khung skin, thoáng & cân;
+     fitTitle() tự thu cỡ chữ cho vừa phần còn lại nên không bao giờ chạm viền. */
+  padding:7px 13px 9px; margin:-6px -6px 6px;
   border-radius:10px 10px 0 0;
-  font-size:15px; font-weight:950; letter-spacing:.03em;
+  font-size:var(--rk-title-size, 15px); font-weight:950; letter-spacing:.03em;
   color:var(--ranking-title-color, #fff);
-  text-align:center; white-space:normal; line-height:1.1;
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  text-align:center; line-height:1.1;
+  /* MẶC ĐỊNH 1 HÀNG: không tự bẻ dòng — fitTitle() thu nhỏ cỡ chữ cho VỪA KHÍT bề ngang board
+     (thay vì để "TALENT SHOW" rớt 2 hàng chừa 2 bên trống). Gõ "|" ở ô Tiêu đề = tự chèn <br>
+     nên vẫn xuống dòng ĐÚNG CHỖ mình muốn; mỗi dòng vẫn được scale cho vừa. */
+  white-space:nowrap;
+  /* Không để tiêu đề nới rộng board (board ôm theo tên/điểm). width:0 = không tính vào bề rộng board;
+     min-width = TRÀN đủ 2 mép board (track + 2×padding 6px) nên nền xám ôm KHÍT trái↔phải, không lòi
+     nền mờ ở mép phải (margin âm chỉ dời, không nới bề rộng). Cao theo nội dung (nhiều dòng vẫn ôm đủ). */
+  width:0; min-width:calc(100% + 12px);
+  display:block; overflow:hidden;
   background:linear-gradient(180deg, rgba(46,43,58,.96), rgba(26,24,34,.94));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.07), 0 3px 10px rgba(0,0,0,.28);
 }
-/* Vạch nhấn dưới tiêu đề theo Màu Active — cho header ăn nhập footer/thanh dưới.
-   Gradient mờ 2 đầu, không glow (tránh bị overflow:hidden của title cắt). */
+/* Chốt an toàn: tiêu đề QUÁ DÀI (1 từ dài) đã thu tới cỡ nhỏ nhất mà vẫn tràn → cho xuống hàng
+   để không lòi ra ngoài board (fitTitle gắn class .wrap khi cần). */
+.ranking-title.wrap { white-space:normal; }
+/* Vạch nhấn dưới tiêu đề phủ gần hết nền: sáng ở tâm và mờ dần về hai mép. */
 .ranking-title::after {
   content:""; position:absolute; left:10px; right:10px; bottom:3px; height:2px; border-radius:2px;
-  background:linear-gradient(90deg, transparent, var(--ranking-streak-color, #67e8f9), transparent);
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(var(--ranking-streak-rgb, 103,232,249), .16) 16%,
+    var(--ranking-streak-color, #67e8f9) 50%,
+    rgba(var(--ranking-streak-rgb, 103,232,249), .16) 84%,
+    transparent 100%);
+  box-shadow:0 0 7px rgba(var(--ranking-streak-rgb, 103,232,249), .24);
   pointer-events:none;
 }
 .ranking-list { display:grid; gap:4px; overflow:visible; }
@@ -66,10 +79,32 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   background:rgba(var(--ranking-card-bg-rgb, 42,45,55), var(--ranking-card-bg-opacity, .74));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.2);
 }
-/* Top-3 kim loại: thêm sheen sáng mép TRÊN (inset 0 1px) tạo cảm giác kim loại bóng */
-.ranking-row.top-1 { background:linear-gradient(90deg, rgba(120,88,28,.9), rgba(46,38,28,.8)); box-shadow:inset 3px 0 0 rgba(255,218,95,.85), inset 0 1px 0 rgba(255,244,200,.28), inset 0 0 0 1px rgba(255,218,95,.18), 0 2px 8px rgba(0,0,0,.24); }
-.ranking-row.top-2 { background:linear-gradient(90deg, rgba(82,95,116,.86), rgba(38,42,52,.8)); box-shadow:inset 3px 0 0 rgba(198,216,248,.82), inset 0 1px 0 rgba(240,247,255,.28), inset 0 0 0 1px rgba(198,216,248,.16), 0 2px 8px rgba(0,0,0,.24); }
-.ranking-row.top-3 { background:linear-gradient(90deg, rgba(128,82,46,.86), rgba(45,36,30,.8)); box-shadow:inset 3px 0 0 rgba(251,146,60,.82), inset 0 1px 0 rgba(255,224,196,.26), inset 0 0 0 1px rgba(251,146,60,.16), 0 2px 8px rgba(0,0,0,.24); }
+/* Top-3 kim loại: thêm sheen sáng mép TRÊN (inset 0 1px) tạo cảm giác kim loại bóng.
+   --crown-c = màu vương miện theo hạng (dùng dù bật/tắt "màu TOP 123"). */
+.ranking-row.top-1 { --crown-c:#ffdf3f; background:linear-gradient(90deg, rgba(120,88,28,.9), rgba(46,38,28,.8)); box-shadow:inset 3px 0 0 rgba(255,218,95,.85), inset 0 1px 0 rgba(255,244,200,.28), inset 0 0 0 1px rgba(255,218,95,.18), 0 2px 8px rgba(0,0,0,.24); }
+.ranking-row.top-2 { --crown-c:#79d9ff; background:linear-gradient(90deg, rgba(82,95,116,.86), rgba(38,42,52,.8)); box-shadow:inset 3px 0 0 rgba(198,216,248,.82), inset 0 1px 0 rgba(240,247,255,.28), inset 0 0 0 1px rgba(198,216,248,.16), 0 2px 8px rgba(0,0,0,.24); }
+.ranking-row.top-3 { --crown-c:#e38cff; background:linear-gradient(90deg, rgba(128,82,46,.86), rgba(45,36,30,.8)); box-shadow:inset 3px 0 0 rgba(251,146,60,.82), inset 0 1px 0 rgba(255,224,196,.26), inset 0 0 0 1px rgba(251,146,60,.16), 0 2px 8px rgba(0,0,0,.24); }
+/* TẮT "màu TOP 123": nền + viền avatar TOP 1/2/3 về đồng đều như hàng thường + BỎ HẲN mọi hiệu ứng màu
+   (quầng sáng màu quanh vương miện) → chỉ còn đổ bóng tối trung tính, sạch như hàng thường.
+   Áp dụng cho cả overlay DỌC và NGANG (cùng class .hide-top-colors). */
+.ranking-board.hide-top-colors .ranking-row.top-1,
+.ranking-board.hide-top-colors .ranking-row.top-2,
+.ranking-board.hide-top-colors .ranking-row.top-3 {
+  background:rgba(var(--ranking-card-bg-rgb, 42,45,55), var(--ranking-card-bg-opacity, .74));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.2);
+}
+.ranking-board.hide-top-colors .ranking-row.top-1 .ranking-avatar,
+.ranking-board.hide-top-colors .ranking-row.top-2 .ranking-avatar,
+.ranking-board.hide-top-colors .ranking-row.top-3 .ranking-avatar {
+  border-color:rgba(148,163,184,.55); box-shadow:none;
+}
+/* Giữ màu kim loại riêng của vương miện TOP 1/2/3 ngay cả khi nền TOP trở về bình thường.
+   Chỉ bỏ quầng sáng màu để bảng vẫn gọn, còn thứ hạng nhìn vào là nhận ra ngay. */
+.ranking-board.hide-top-colors .ranking-row.top-1 .ranking-rank,
+.ranking-board.hide-top-colors .ranking-row.top-2 .ranking-rank,
+.ranking-board.hide-top-colors .ranking-row.top-3 .ranking-rank {
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.52));
+}
 /* ===== THUA (bị loại) — thẻ trầm xuống + RUY BĂNG chéo góc, thanh lịch & có gu.
    Bỏ chữ "X" thô cũ. OBS-safe: chỉ gradient/box-shadow tĩnh, không animation/filter động. ===== */
 .ranking-row.loser,
@@ -153,6 +188,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
    Luôn áp dụng cho hàng được VOTE. a1/a2 = độ đậm (mờ↔đậm) truyền từ JS.
    Lớp tối mỏng phía dưới giữ chữ trắng luôn dễ đọc dù màu nền sáng. */
 .ranking-row.active:not(.loser) {
+  --rk-active-fx-clip:inset(0 round 7px);
   background:
     linear-gradient(90deg,
       rgba(var(--ranking-active-bg-rgb, 255,202,58), var(--ranking-active-bg-opacity, .55)),
@@ -161,41 +197,23 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 }
 
 /* =============== (B) KIỂU NỀN ACTIVE = FX riêng, ĐỘC LẬP màu nền ===============
-   Nhóm ACCENT (phủ lên, vẫn thấy Màu nền A): shine · spotlight · sparkle · neon · pulse.
+   Nhóm ACCENT (phủ lên, vẫn thấy Màu nền A): shine · neon · royal · plasma · flash · live.
    Nhóm SKIN (tự thay phong cách, bỏ qua Màu nền A): gold · rainbow.
    Tất cả là ::after pointer-events:none, tuyệt đối KHÔNG đụng layout/điểm. */
 
-/* -- Óng ánh: dải sáng trắng quét, ép trong khung (biên độ ±40% → không lòi) -- */
+/* -- Óng ánh: dải sáng quét bằng background-position. Pseudo không dịch vị trí nên clip-path
+   luôn kẹp lớp quét dưới viền bo góc của card, không để dải sáng lòi sang hàng bên cạnh. -- */
 .ranking-board.af-shine .ranking-row.active:not(.loser)::after,
 .ranking-board.af-gold  .ranking-row.active:not(.loser)::after,
 .ranking-board.af-rainbow .ranking-row.active:not(.loser)::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 7px); will-change:transform;
+  clip-path:inset(0 round 7px); will-change:background-position;
   background:linear-gradient(105deg, transparent 40%, rgba(255,255,255,.5) 50%, transparent 60%);
+  background-size:250% 100%; background-position:0 0; background-repeat:no-repeat;
   animation:rankingActiveShine 2.4s ease-in-out infinite;
 }
 .ranking-board.af-gold .ranking-row.active:not(.loser)::after {
-  background:linear-gradient(105deg, transparent 40%, rgba(255,244,200,.62) 50%, transparent 60%);
-}
-
-/* -- Đèn quét: vầng sáng trắng lia ngang + thở -- */
-.ranking-board.af-spotlight .ranking-row.active:not(.loser)::after {
-  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 7px);
-  background:radial-gradient(90% 150% at 22% 50%, rgba(255,255,255,.55), rgba(255,255,255,.12) 40%, transparent 66%);
-  animation:rankingActiveSpot 2.6s ease-in-out infinite;
-}
-
-/* -- Lấp lánh: nhiều đốm sáng trắng nhấp nháy (gộp trong 1 background, luôn trong khung) -- */
-.ranking-board.af-sparkle .ranking-row.active:not(.loser)::after {
-  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 7px);
-  background:
-    radial-gradient(circle at 18% 32%, rgba(255,255,255,.95) 0, transparent 9%),
-    radial-gradient(circle at 63% 70%, rgba(255,255,255,.9) 0, transparent 8%),
-    radial-gradient(circle at 85% 26%, rgba(255,255,255,.85) 0, transparent 7%),
-    radial-gradient(circle at 42% 82%, rgba(255,255,255,.8) 0, transparent 7%);
-  animation:rankingActiveSparkle 1.5s ease-in-out infinite;
+  background-image:linear-gradient(105deg, transparent 40%, rgba(255,244,200,.62) 50%, transparent 60%);
 }
 
 /* -- Neon viền: viền phát sáng bên trong nhấp nháy (inset box-shadow → luôn trong khung).
@@ -208,19 +226,53 @@ body { display:flex; justify-content:center; align-items:flex-start; }
   animation:rankingActiveNeon 1.25s ease-in-out infinite;
 }
 
-/* -- Nhịp sáng: cả thẻ sáng-tối thở bằng lớp phủ trắng mỏng -- */
-.ranking-board.af-pulse .ranking-row.active:not(.loser)::after {
+/* -- Khung hoàng kim: khung vàng hai lớp, điểm sáng ở bốn góc; giữ nguyên màu nền đang chọn. -- */
+.ranking-board.af-royal .ranking-row.active:not(.loser)::after,
+.ranking-board.bar-sync.af-royal .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 7px);
-  background:rgba(255,255,255,.34);
-  animation:rankingActivePulse 1.4s ease-in-out infinite;
+  clip-path:var(--rk-active-fx-clip);
+  background:
+    radial-gradient(circle at 8% 19%, rgba(255,255,255,.96) 0, rgba(255,239,166,.86) 2px, transparent 5px),
+    radial-gradient(circle at 25% 10%, rgba(255,247,202,.9) 0, rgba(255,211,72,.74) 1px, transparent 4px),
+    radial-gradient(circle at 76% 90%, rgba(255,247,202,.9) 0, rgba(255,211,72,.74) 1px, transparent 4px),
+    radial-gradient(circle at 92% 81%, rgba(255,255,255,.96) 0, rgba(255,239,166,.86) 2px, transparent 5px);
+  animation:rankingActiveRoyal 1.55s ease-in-out infinite;
 }
 
-/* -- SKIN Vàng kim: nền vàng cố định (bỏ qua Màu nền A) + quét vàng óng ánh (::after ở trên) -- */
-.ranking-board.af-gold .ranking-row.active:not(.loser) {
+/* -- Plasma tím xanh: hai mép cyan/magenta như biển hiệu game, không phủ đục phần giữa. -- */
+.ranking-board.af-plasma .ranking-row.active:not(.loser)::after,
+.ranking-board.bar-sync.af-plasma .ranking-active-name::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:var(--rk-active-fx-clip);
+  background:linear-gradient(90deg, rgba(73,231,255,.18), transparent 27%, transparent 73%, rgba(242,100,255,.2));
+  animation:rankingActivePlasma 1.3s ease-in-out infinite;
+}
+
+/* -- Tia chớp: tia xanh-trắng mạnh chạy nhanh qua thẻ, dùng background-position để luôn nằm trong bo góc. -- */
+.ranking-board.af-flash .ranking-row.active:not(.loser)::after,
+.ranking-board.bar-sync.af-flash .ranking-active-name::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:var(--rk-active-fx-clip); will-change:background-position;
+  background:linear-gradient(108deg, transparent 35%, rgba(92,220,255,.08) 41%, rgba(180,246,255,.58) 47%, rgba(255,255,255,.98) 50%, rgba(180,246,255,.58) 53%, rgba(92,220,255,.08) 59%, transparent 65%);
+  background-size:300% 100%; background-position:0 0; background-repeat:no-repeat;
+  box-shadow:inset 0 0 0 1px rgba(165,241,255,.78), inset 0 0 10px rgba(74,218,255,.42);
+  animation:rankingActiveFlash 1.15s linear infinite;
+}
+
+/* -- LIVE đỏ hồng: viền broadcast đậm và hai đèn báo ở cạnh, nổi rõ trên mọi màu nền. -- */
+.ranking-board.af-live .ranking-row.active:not(.loser)::after,
+.ranking-board.bar-sync.af-live .ranking-active-name::after {
+  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
+  clip-path:var(--rk-active-fx-clip);
   background:
-    linear-gradient(100deg, rgba(158,116,34,.96), rgba(120,88,26,.6) 55%, rgba(58,44,16,.96)),
-    linear-gradient(90deg, rgba(20,16,10,.97), rgba(13,12,16,.97));
+    radial-gradient(circle at 11px 50%, rgba(255,255,255,.98) 0, rgba(255,163,191,.88) 2px, transparent 5px),
+    radial-gradient(circle at calc(100% - 11px) 50%, rgba(255,255,255,.98) 0, rgba(255,163,191,.88) 2px, transparent 5px);
+  animation:rankingActiveLive 1.05s ease-in-out infinite;
+}
+
+/* -- SKIN Vàng kim: một màu vàng đồng ổn định (bỏ qua Màu nền A); chỉ dải quét ở ::after chuyển động. -- */
+.ranking-board.af-gold .ranking-row.active:not(.loser) {
+  background:#9a6b18;
 }
 
 /* -- SKIN Cầu vồng: nền nhiều màu cố định (bỏ qua Màu nền A) + dải sáng quét -- */
@@ -232,17 +284,28 @@ body { display:flex; justify-content:center; align-items:flex-start; }
     linear-gradient(90deg, rgba(16,14,20,.9), rgba(11,10,16,.9));
 }
 
-@keyframes rankingActiveShine   { 0% { transform:translateX(-40%); } 55%, 100% { transform:translateX(40%); } }
-@keyframes rankingActivePulse   { 0%, 100% { opacity:.1; } 50% { opacity:.55; } }
-@keyframes rankingActiveSpot    { 0%, 100% { opacity:.4; transform:translateX(-5%); } 50% { opacity:.85; transform:translateX(5%); } }
+@keyframes rankingActiveShine   { 0% { background-position:0 0; } 55%, 100% { background-position:100% 0; } }
 @keyframes rankingActiveNeon    { 0%, 100% { opacity:.42; } 50% { opacity:1; } }
-@keyframes rankingActiveSparkle { 0%, 100% { opacity:.25; } 25% { opacity:.95; } 50% { opacity:.4; } 75% { opacity:1; } }
+@keyframes rankingActiveRoyal {
+  0%, 100% { opacity:.64; box-shadow:inset 0 0 0 1px rgba(255,225,126,.78), inset 0 0 0 3px rgba(128,78,6,.38), inset 0 0 8px rgba(255,192,30,.38); }
+  50% { opacity:1; box-shadow:inset 0 0 0 1px rgba(255,245,190,1), inset 0 0 0 3px rgba(144,86,7,.76), inset 0 0 17px rgba(255,197,36,.82); }
+}
+@keyframes rankingActivePlasma {
+  0%, 100% { opacity:.62; box-shadow:inset 2px 0 0 rgba(73,231,255,.74), inset -2px 0 0 rgba(242,100,255,.78), inset 0 0 8px rgba(118,155,255,.34); }
+  50% { opacity:1; box-shadow:inset 2px 0 0 rgba(151,247,255,1), inset -2px 0 0 rgba(255,173,255,1), inset 0 0 17px rgba(170,100,255,.78); }
+}
+@keyframes rankingActiveFlash { 0% { background-position:0 0; } 70%, 100% { background-position:100% 0; } }
+@keyframes rankingActiveLive {
+  0%, 100% { opacity:.58; box-shadow:inset 0 0 0 2px rgba(255,59,123,.76), inset 0 0 8px rgba(255,59,123,.32); }
+  50% { opacity:1; box-shadow:inset 0 0 0 2px rgba(255,150,185,1), inset 0 0 17px rgba(255,45,111,.82); }
+}
 
 /* =============== ĐỒNG BỘ THANH DƯỚI (người dẫn đầu) với Nền + Kiểu FX Active ===============
    Bật qua nút tích "Đồng bộ" → class .bar-sync trên .ranking-board. Thanh dưới = .ranking-active-name.
    Khi BẬT: nền màu + FX của thanh giống hệt hàng VOTE. Khi TẮT: giữ nguyên xanh ngọc mặc định.
    Dùng lại chính các keyframe của hàng VOTE. Không đụng layout (::after pointer-events:none). */
 .ranking-board.bar-sync .ranking-active-name {
+  --rk-active-fx-clip:inset(0 round 0 0 10px 10px);
   position:relative;
   background:
     linear-gradient(90deg,
@@ -256,9 +319,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 
 /* SKIN đè nền thanh (bỏ qua Màu nền A) */
 .ranking-board.bar-sync.af-gold .ranking-active-name {
-  background:
-    linear-gradient(100deg, rgba(158,116,34,.96), rgba(120,88,26,.6) 55%, rgba(58,44,16,.96)),
-    linear-gradient(90deg, rgba(20,16,10,.97), rgba(13,12,16,.97));
+  background:#9a6b18;
 }
 .ranking-board.bar-sync.af-rainbow .ranking-active-name {
   background:
@@ -273,70 +334,71 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-board.bar-sync.af-gold .ranking-active-name::after,
 .ranking-board.bar-sync.af-rainbow .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 0 0 10px 10px); will-change:transform;
+  clip-path:inset(0 round 0 0 10px 10px); will-change:background-position;
   background:linear-gradient(105deg, transparent 40%, rgba(255,255,255,.5) 50%, transparent 60%);
+  background-size:250% 100%; background-position:0 0; background-repeat:no-repeat;
   animation:rankingActiveShine 2.4s ease-in-out infinite;
 }
 .ranking-board.bar-sync.af-gold .ranking-active-name::after {
-  background:linear-gradient(105deg, transparent 40%, rgba(255,244,200,.62) 50%, transparent 60%);
-}
-.ranking-board.bar-sync.af-spotlight .ranking-active-name::after {
-  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 0 0 10px 10px);
-  background:radial-gradient(90% 150% at 22% 50%, rgba(255,255,255,.55), rgba(255,255,255,.12) 40%, transparent 66%);
-  animation:rankingActiveSpot 2.6s ease-in-out infinite;
-}
-.ranking-board.bar-sync.af-sparkle .ranking-active-name::after {
-  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 0 0 10px 10px);
-  background:
-    radial-gradient(circle at 18% 32%, rgba(255,255,255,.95) 0, transparent 9%),
-    radial-gradient(circle at 63% 70%, rgba(255,255,255,.9) 0, transparent 8%),
-    radial-gradient(circle at 85% 26%, rgba(255,255,255,.85) 0, transparent 7%),
-    radial-gradient(circle at 42% 82%, rgba(255,255,255,.8) 0, transparent 7%);
-  animation:rankingActiveSparkle 1.5s ease-in-out infinite;
+  background-image:linear-gradient(105deg, transparent 40%, rgba(255,244,200,.62) 50%, transparent 60%);
 }
 .ranking-board.bar-sync.af-neon .ranking-active-name::after {
   content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
   box-shadow:inset 0 0 0 2px rgba(125,240,255,.95), inset 0 0 13px rgba(125,240,255,.7);
   animation:rankingActiveNeon 1.25s ease-in-out infinite;
 }
-.ranking-board.bar-sync.af-pulse .ranking-active-name::after {
-  content:""; position:absolute; inset:0; z-index:5; border-radius:inherit; pointer-events:none;
-  clip-path:inset(0 round 0 0 10px 10px);
-  background:rgba(255,255,255,.34);
-  animation:rankingActivePulse 1.4s ease-in-out infinite;
-}
-
-.ranking-rank { position:relative; z-index:0; align-self:stretch; width:24px; min-width:0; display:grid; place-items:center; font-size:13px; font-weight:950; text-align:center; color:#f8fafc; }
-/* Lớp nền STT tối hơn — thanh dọc GỌN ôm vừa số thứ tự, KHÔNG chạm avatar, chừa khoảng cách đều 2 bên.
-   z-index:-1 để nằm TRÊN nền card nhưng DƯỚI số thứ tự; đối xứng left=right nên số cân giữa.
-   align-self:stretch cho cột cao suốt hàng → thanh phủ full chiều cao card.
-   2 ĐẦU (trên/dưới) mờ dần về trong suốt để không tạo mép cứng dính mép card → liền mạch, mềm mại. */
+/* Số/vương miện căn CHÍNH GIỮA ô hạng (không dời trái nữa vì chip đen giờ cũng căn giữa). */
+.ranking-rank { position:relative; z-index:0; align-self:stretch; box-sizing:border-box; width:24px; min-width:0; display:grid; place-items:center; font-size:13px; font-weight:600; text-align:center; color:#f8fafc; }
+/* Khối nền STT — DẢI ĐEN cao FULL hàng (chạm mép trên/dưới/trái card), chỉ BO GÓC TRÁI khớp card,
+   cạnh phải vuông (ngăn cách với avatar). Âm 5px/4px = bù padding card (padding:4px 6px 4px 5px)
+   để dải chạm đúng mép ngoài; right:-2px = lấn nhẹ vào khe trước avatar cho gọn.
+   z-index:-1: TRÊN nền card, DƯỚI số → số/vương miện nằm chính giữa dải. */
 .ranking-rank::before {
   content:""; position:absolute; z-index:-1;
-  top:-4px; bottom:-4px; left:1px; right:1px;
-  background:linear-gradient(180deg,
-    rgba(0,0,0,0) 0%,
-    rgba(0,0,0,.58) 20%,
-    rgba(0,0,0,.62) 80%,
-    rgba(0,0,0,0) 100%);
-  border-radius:5px;
+  left:-5px; top:-4px; bottom:-4px; right:-2px;
+  background:rgba(0,0,0,.9); /* đen đặc */
+  border-radius:6px 0 0 6px;
 }
-.ranking-board.layout-grid .ranking-rank::before { top:-3px; bottom:-3px; }
+/* Hàng active: viền streak bao quanh chip đen (thay cho kiểu "leo mép" cũ) */
+.ranking-row.active .ranking-rank::before {
+  box-shadow:0 0 0 2px var(--ranking-streak-color, #67e8f9);
+}
 .ranking-row.top-1 .ranking-rank, .ranking-row.top-2 .ranking-rank, .ranking-row.top-3 .ranking-rank {
   z-index:2; font-size:19px; line-height:1; filter:drop-shadow(0 2px 2px rgba(0,0,0,.52));
 }
-.ranking-row.top-1 .ranking-rank { filter:drop-shadow(0 0 5px rgba(255,218,95,.82)) drop-shadow(0 2px 2px rgba(0,0,0,.52)); }
-.ranking-row.top-2 .ranking-rank { filter:drop-shadow(0 0 5px rgba(198,216,248,.78)) drop-shadow(0 2px 2px rgba(0,0,0,.52)); }
-.ranking-row.top-3 .ranking-rank { filter:drop-shadow(0 0 5px rgba(251,146,60,.78)) drop-shadow(0 2px 2px rgba(0,0,0,.52)); }
+.ranking-row.top-1 .ranking-rank { filter:drop-shadow(0 0 5px rgba(255,223,63,.88)) drop-shadow(0 2px 2px rgba(0,0,0,.52)); }
+.ranking-row.top-2 .ranking-rank { filter:drop-shadow(0 0 5px rgba(121,217,255,.84)) drop-shadow(0 2px 2px rgba(0,0,0,.52)); }
+.ranking-row.top-3 .ranking-rank { filter:drop-shadow(0 0 5px rgba(227,140,255,.84)) drop-shadow(0 2px 2px rgba(0,0,0,.52)); }
+/* 👑 Vương miện TOP 1/2/3 — SVG tô theo --crown-c (vàng rực/xanh băng/tím hoàng gia), viền tối mảnh + đá quý sáng.
+   OBS-safe: chỉ fill/stroke tĩnh; quầng sáng đến từ filter drop-shadow của .top-x .ranking-rank ở trên. */
+.rk-crown { width:20px; height:17px; display:block; overflow:visible; }
+.ranking-board.layout-grid .rk-crown { width:22px; height:19px; }
+.rk-crown-body { fill:var(--crown-c, #ffdf3f); stroke:rgba(12,12,18,.78); stroke-width:.7; stroke-linejoin:round; }
+.rk-crown-gem { fill:#fff; opacity:.9; }
+/* Số hạng 1/2/3 nổi GIỮA vương miện — to cho dễ thấy nhưng nét THANH (không quá đậm).
+   position:absolute inset:0 + place-items:center → luôn canh giữa ô = giữa vương miện (vương miện cũng center).
+   Màu nâu-đậm ăn với kim loại vương miện + viền sáng mảnh cho tách nền, KHÔNG bôi đậm. */
+.rk-crown-num {
+  /* Căn vào ĐÚNG tâm vương miện: right:6px bù padding-right của .ranking-rank (nếu inset:0 số lệch phải);
+     translateY âm kéo số lên DẢI KIM LOẠI (tâm hình học SVG thấp hơn thân vì có đỉnh nhọn phía trên). */
+  position:absolute; top:0; left:0; right:4px; bottom:0; z-index:3; display:grid; place-items:center; pointer-events:none;
+  font-size:13px; font-weight:900; line-height:1; color:#fff; /* CHỮ TRẮNG nổi trên thân vương miện (giống mẫu) */
+  /* viền TỐI nhiều hướng bao quanh chữ trắng → rõ trên cả vương miện vàng/xanh/đỏ (không dùng -webkit-text-stroke để OBS/CEF vẽ đúng) */
+  text-shadow:
+    0 0 2px rgba(0,0,0,.9),
+    1px 0 0 rgba(0,0,0,.72), -1px 0 0 rgba(0,0,0,.72),
+    0 1px 0 rgba(0,0,0,.72), 0 -1px 0 rgba(0,0,0,.72),
+    1px 1px 1px rgba(0,0,0,.6), -1px 1px 1px rgba(0,0,0,.6);
+  transform:translateY(-1.5px); /* kéo lên giữa thân vương miện */
+}
+.ranking-board.layout-grid .rk-crown-num { font-size:14px; }
 /* KHÔNG bo tròn ảnh bằng overflow:hidden — OBS (OSR/CEF) KHÔNG vẽ <img> trong khối
    bị cắt-bo-góc bằng overflow (ra ô rỗng). Bo tròn TRỰC TIẾP trên <img> bên dưới.
    Nền dự phòng = logo HP để ảnh lỗi vẫn có hình, không ra vòng tròn rỗng. */
 .ranking-avatar {
-  width:23px; height:23px; display:grid; place-items:center; border-radius:50%;
+  width:25px; height:25px; display:grid; place-items:center; border-radius:50%;
   background:#fff url('/logo.png') center/72% no-repeat; color:#fff; font-size:10px; font-weight:950;
-  border:2px solid rgba(148,163,184,.55); transform:scale(var(--rk-avatar-visual-scale, 1)); transform-origin:center;
+  border:1px solid rgba(148,163,184,.55); transform:scale(var(--rk-avatar-visual-scale, 1)); transform-origin:center;
 }
 /* Top-3 kim loại: ring 2 lớp (viền màu podium + vành tối ngoài + quầng sáng mềm) */
 .ranking-row.top-1 .ranking-avatar { border-color:#f6cc45; box-shadow:0 0 0 1px rgba(120,80,12,.95), 0 0 6px 1px rgba(255,208,80,.55); }
@@ -345,14 +407,16 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-row.active .ranking-avatar { border-color:var(--ranking-streak-color, #67e8f9); }
 .ranking-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; background:transparent; }
 
-.ranking-main { min-width:0; max-width:88px; overflow:hidden; padding-right:5px; }
-.ranking-name { min-width:0; max-width:12.5ch; color:#f8fafc; font-size:10px; font-weight:950; line-height:1; overflow:hidden; white-space:nowrap; }
+.ranking-main { min-width:0; overflow:hidden; padding-right:2px; }
+.ranking-name { min-width:0; max-width:12.5ch; color:#f8fafc; font-size:12.5px; font-weight:400; line-height:1; overflow:hidden; white-space:nowrap; }
 .ranking-name span { display:block; width:max-content; }
 .ranking-name.long span { animation:rankingNameMarquee 6s linear infinite; }
 .ranking-name.long b { padding-left:22px; font:inherit; }
-.ranking-points { color:#fff; font-size:13px; font-weight:950; line-height:1; margin-top:2px; letter-spacing:.01em; }
+.ranking-points { color:#fff; font-size:12px; font-weight:600; line-height:1; margin-top:2px; letter-spacing:.01em; }
 .ranking-points.hidden-score { color:rgba(255,255,255,.6); font-size:15px; font-weight:950; letter-spacing:2px; line-height:1; }
 .ranking-group { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:7.5px; color:rgba(255,255,255,.62); margin-top:1px; text-transform:uppercase; letter-spacing:.02em; }
+/* Ẩn tên nhóm (khi chọn riêng 1 nhóm) → hàng còn 2 dòng (tên + điểm) nên thu HẸP chiều cao cho gọn. */
+.ranking-board.hide-groupname .ranking-row { min-height:31px; padding-top:3px; padding-bottom:3px; }
 
 .ranking-gift { position:absolute; right:3px; bottom:3px; display:grid; place-items:center; width:15px; height:15px; font-size:11px; opacity:.92; transform:scale(var(--rk-gift-visual-scale, 1)); transform-origin:right bottom; }
 .ranking-gift img { width:15px; height:15px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,.45)); }
@@ -380,6 +444,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
    đúng mép ngoài (border-box). ĐỈNH vuông góc, ĐÁY bo 10px khớp nền board bên dưới. */
 .ranking-active-name {
   box-sizing:border-box;
+  width:0; min-width:calc(100% + 12px); /* không nới rộng board, nhưng nền TRÀN khít 2 mép (track + 2×6px) */
   margin:6px -6px -6px; display:flex; align-items:center; justify-content:flex-start; gap:8px;
   min-height:40px; padding:6px 9px; border-radius:0 0 10px 10px;
   background:linear-gradient(90deg, rgba(38,183,185,.9), rgba(45,133,154,.94));
@@ -388,31 +453,225 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 }
 .ranking-active-avatar { width:26px; height:26px; flex:0 0 26px; display:grid; place-items:center; border-radius:50%; overflow:hidden; background:rgba(255,255,255,.24); color:#eaffff; font-size:10px; font-weight:950; }
 .ranking-active-avatar img { width:100%; height:100%; object-fit:cover; }
-.ranking-active-main { min-width:0; display:grid; gap:1px; font-size:12px; font-weight:900; white-space:nowrap; }
+.ranking-active-main { min-width:0; display:grid; gap:1px; font-size:13px; font-weight:400; white-space:nowrap; }
 .ranking-active-main div { overflow:hidden; text-overflow:ellipsis; }
-.ranking-active-main b { font-size:15px; font-weight:950; line-height:1; }
+.ranking-active-main b { font-size:14px; font-weight:950; line-height:1; }
 
-/* Grid layout — kích hoạt qua ?grid=1 */
+/* Grid layout — kích hoạt qua ?grid=1. Dữ liệu/thẻ lấy DỌC làm chuẩn; grid chỉ đổi cách xếp. */
+.ranking-board.layout-grid {
+  --rk-grid-row-height:38px;
+  --rk-grid-gap:3px;
+  --rk-grid-card-width:126px;
+  --rk-grid-min-width:86px;
+  --rk-grid-max-width:180px;
+}
+.ranking-board.layout-grid:not(.hide-avatar) { --rk-grid-min-width:106px; }
+.ranking-board.layout-grid.hide-groupname {
+  --rk-grid-row-height:31px;
+  --rk-grid-gap:2px;
+}
 .ranking-board.layout-grid .ranking-list {
   display:grid;
-  grid-template-rows:repeat(var(--rk-rows, 3), 50px);
-  grid-template-columns:repeat(var(--rk-cols, 3), 126px);
+  grid-template-rows:repeat(var(--rk-rows, 3), minmax(var(--rk-grid-row-height), max-content));
+  grid-template-columns:repeat(var(--rk-cols, 3), var(--rk-grid-card-width));
   grid-auto-flow:row;
-  gap:5px;
-  padding:1px;
+  gap:var(--rk-grid-gap);
+  padding:0;
 }
 .ranking-board.layout-grid.flow-column .ranking-list { grid-auto-flow:column; }
-.ranking-board.layout-grid .ranking-row { border-radius:6px; min-height:50px; padding:3px 5px; }
-.ranking-board.layout-grid .ranking-row.active { transform:scale(1.04); }
-.ranking-board.layout-grid .ranking-main { max-width:70px; }
-.ranking-board.layout-grid .ranking-name { max-width:9.5ch; }
-.ranking-board.layout-grid .ranking-active-name { margin:6px -6px -6px; border-radius:0 0 10px 10px; min-height:40px; }
+.ranking-board.layout-grid .ranking-row {
+  border-radius:6px;
+  min-height:var(--rk-grid-row-height);
+  padding:4px var(--rk-badge-space, 5px) 4px 2px;
+}
+.ranking-board.layout-grid.hide-groupname .ranking-row { padding-top:3px; padding-bottom:3px; }
+.ranking-board.layout-grid .ranking-main { max-width:none; padding-right:0; }
+.ranking-board.layout-grid .ranking-name { max-width:100%; }
+.ranking-board.layout-grid .ranking-active-name {
+  margin:6px -6px -6px;
+  border-radius:0 0 10px 10px;
+  min-height:38px;
+  padding:5px 7px;
+  gap:6px;
+  box-shadow:none;
+}
+.ranking-board.layout-grid .ranking-active-main { flex:1; }
+.ranking-board.layout-grid .ranking-title { padding-left:10px; padding-right:10px; white-space:nowrap; }
 .ranking-board.hide-avatar .ranking-row { grid-template-columns:24px minmax(0,1fr); }
 .ranking-board.hide-avatar .ranking-main { max-width:104px; }
 .ranking-board:not(.hide-avatar) .ranking-row { grid-template-columns:24px 25px minmax(0,1fr); }
 .ranking-board.hide-rank .ranking-row { grid-template-columns:25px minmax(0,1fr); }
 .ranking-board.hide-rank.hide-avatar .ranking-row { grid-template-columns:minmax(0,1fr); }
 .ranking-board.hide-rank.hide-avatar .ranking-main { max-width:112px; }
+
+/* Thẻ ngang dùng cùng mật độ thông tin với thẻ dọc: slot avatar theo Scale,
+   cột hạng gọn và tên/điểm được dùng hết phần nội dung còn lại. */
+.ranking-board.layout-grid:not(.hide-avatar) .ranking-row {
+  grid-template-columns:18px var(--rk-avatar-slot, 25px) minmax(0,1fr);
+  column-gap:6px;
+}
+.ranking-board.layout-grid:not(.hide-avatar) .ranking-avatar { transform-origin:left center; }
+.ranking-board.layout-grid.hide-avatar .ranking-row { grid-template-columns:18px minmax(0,1fr); }
+.ranking-board.layout-grid.hide-avatar:not(.hide-rank) .ranking-row { column-gap:6px; }
+.ranking-board.layout-grid.hide-rank:not(.hide-avatar) .ranking-row { grid-template-columns:var(--rk-avatar-slot, 25px) minmax(0,1fr); }
+.ranking-board.layout-grid.hide-rank.hide-avatar .ranking-row { grid-template-columns:minmax(0,1fr); }
+.ranking-board.layout-grid.hide-rank.hide-avatar .ranking-main { max-width:none; }
+.ranking-board.layout-grid .ranking-rank { width:18px; font-size:12px; font-weight:800; }
+.ranking-board.layout-grid .ranking-rank::before {
+  left:-2px;
+  right:-2px;
+  top:-4px;
+  bottom:-4px;
+  border-radius:6px 0 0 6px;
+}
+.ranking-board.layout-grid.hide-groupname .ranking-rank::before { top:-3px; bottom:-3px; }
+.ranking-board.layout-grid .rk-crown { width:18px; height:16px; }
+.ranking-board.layout-grid .rk-crown-num { font-size:14px; }
+.ranking-board.layout-grid .ranking-points,
+.ranking-board.layout-grid .ranking-active-main b {
+  display:block;
+  max-width:100%;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+/* Cùng trạng thái Active với DỌC: màu/nền vẫn giữ, nhưng không làm thẻ NGANG
+   phóng to hoặc tràn glow khiến rank, avatar và điểm nhìn như một trạng thái khác. */
+.ranking-board.layout-grid .ranking-row,
+.ranking-board.layout-grid .ranking-row.top-1,
+.ranking-board.layout-grid .ranking-row.top-2,
+.ranking-board.layout-grid .ranking-row.top-3 { box-shadow:none; }
+.ranking-board.layout-grid .ranking-row.active {
+  z-index:1;
+  transform:none;
+  box-shadow:none;
+  animation:none;
+}
+.ranking-board.layout-grid .ranking-row.active:not(.loser)::before { content:none; }
+.ranking-board.layout-grid .ranking-row.active .ranking-rank::before { box-shadow:none; }
+.ranking-board.layout-grid .ranking-row.top-1 .ranking-rank,
+.ranking-board.layout-grid .ranking-row.top-2 .ranking-rank,
+.ranking-board.layout-grid .ranking-row.top-3 .ranking-rank { filter:drop-shadow(0 1px 1px rgba(0,0,0,.55)); }
+.ranking-board.layout-grid .ranking-avatar,
+.ranking-board.layout-grid .ranking-row.top-1 .ranking-avatar,
+.ranking-board.layout-grid .ranking-row.top-2 .ranking-avatar,
+.ranking-board.layout-grid .ranking-row.top-3 .ranking-avatar { box-shadow:none; }
+
+/* DỌC dùng một bề rộng chung được JS đo theo hàng dài nhất, nên các hàng/header/footer
+   luôn thẳng mép nhưng không chừa mảng nền phải không cần thiết. */
+#rankingRoot.ranking-vertical { padding:4px; }
+.ranking-board:not(.layout-grid) {
+  --rk-width:120px;
+  --rk-min-width:100px;
+  --rk-max-width:180px;
+  grid-template-columns:minmax(0,1fr);
+  width:var(--rk-width);
+  min-width:0;
+  max-width:none;
+  padding:4px 0;
+  box-shadow:none;
+}
+.ranking-board:not(.layout-grid):not(.hide-avatar) { --rk-width:144px; --rk-min-width:108px; }
+.ranking-board:not(.layout-grid):not(.hide-avatar).hide-gift.hide-round { --rk-width:140px; }
+.ranking-board:not(.layout-grid).hide-avatar:not(.hide-gift),
+.ranking-board:not(.layout-grid).hide-avatar:not(.hide-round) { --rk-width:132px; }
+.ranking-board:not(.layout-grid):not(.hide-avatar):not(.hide-gift),
+.ranking-board:not(.layout-grid):not(.hide-avatar):not(.hide-round) { --rk-width:154px; }
+
+/* Header/footer trùng chính xác hai mép của board, không dùng min-width phần trăm vòng lặp. */
+.ranking-board:not(.layout-grid) .ranking-title {
+  width:100%;
+  min-width:0;
+  margin:-4px 0 4px;
+  padding-left:8px;
+  padding-right:8px;
+}
+.ranking-board:not(.layout-grid).hide-groupname .ranking-title { margin-bottom:2px; }
+.ranking-board:not(.layout-grid) .ranking-active-name {
+  width:100%;
+  min-width:0;
+  min-height:38px;
+  margin:4px 0 -4px;
+  padding:5px 7px;
+  gap:6px;
+  box-shadow:none;
+}
+.ranking-board:not(.layout-grid).hide-groupname .ranking-active-name { margin-top:2px; }
+.ranking-board:not(.layout-grid) .ranking-active-main { flex:1; }
+
+/* Dải hạng đen thu gọn còn 22px và tâm của số/vương miện trùng tuyệt đối với tâm dải. */
+.ranking-board:not(.layout-grid) .ranking-list { gap:3px; }
+.ranking-board:not(.layout-grid).hide-groupname .ranking-list { gap:2px; }
+.ranking-board:not(.layout-grid) .ranking-row {
+  grid-template-columns:18px minmax(0,1fr);
+  column-gap:3px;
+  padding:4px 5px 4px 2px;
+  box-shadow:none;
+}
+.ranking-board:not(.layout-grid).hide-groupname .ranking-row { min-height:31px; padding-top:3px; padding-bottom:3px; }
+.ranking-board:not(.layout-grid).has-badge .ranking-row,
+.ranking-board:not(.layout-grid).no-badge .ranking-row { padding-right:var(--rk-badge-space,5px); }
+/* Giữ khoảng thở thật quanh avatar, kể cả khi người dùng tăng cỡ avatar. */
+.ranking-board:not(.layout-grid):not(.hide-avatar) .ranking-row {
+  grid-template-columns:18px var(--rk-avatar-slot,25px) minmax(0,1fr);
+  column-gap:6px;
+}
+.ranking-board:not(.layout-grid):not(.hide-avatar) .ranking-avatar { transform-origin:left center; }
+.ranking-board:not(.layout-grid).hide-avatar .ranking-row { grid-template-columns:18px minmax(0,1fr); }
+.ranking-board:not(.layout-grid).hide-avatar:not(.hide-rank) .ranking-row { column-gap:6px; }
+.ranking-board:not(.layout-grid).hide-rank:not(.hide-avatar) .ranking-row { grid-template-columns:25px minmax(0,1fr); }
+.ranking-board:not(.layout-grid).hide-rank.hide-avatar .ranking-row { grid-template-columns:minmax(0,1fr); }
+.ranking-board:not(.layout-grid) .ranking-row.top-1,
+.ranking-board:not(.layout-grid) .ranking-row.top-2,
+.ranking-board:not(.layout-grid) .ranking-row.top-3 { box-shadow:none; }
+.ranking-board:not(.layout-grid) .ranking-rank {
+  width:18px;
+  font-size:12px;
+  font-weight:800;
+}
+.ranking-board:not(.layout-grid) .ranking-rank::before {
+  left:-2px;
+  right:-2px;
+  top:-4px;
+  bottom:-4px;
+  border-radius:6px 0 0 6px;
+}
+.ranking-board:not(.layout-grid).hide-groupname .ranking-rank::before { top:-3px; bottom:-3px; }
+.ranking-board:not(.layout-grid) .ranking-row.top-1 .ranking-rank,
+.ranking-board:not(.layout-grid) .ranking-row.top-2 .ranking-rank,
+.ranking-board:not(.layout-grid) .ranking-row.top-3 .ranking-rank {
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.55));
+}
+.ranking-board:not(.layout-grid) .rk-crown { width:18px; height:16px; }
+.ranking-board:not(.layout-grid) .rk-crown-num { font-size:14px; }
+
+/* Không còn viền/glow quanh từng hàng: mảng đen và mảng màu liền nhau. */
+.ranking-board:not(.layout-grid) .ranking-row.active {
+  z-index:1;
+  transform:none;
+  box-shadow:none;
+  animation:none;
+}
+.ranking-board:not(.layout-grid) .ranking-row.active:not(.loser)::before { content:none; }
+.ranking-board:not(.layout-grid) .ranking-row.active .ranking-rank::before { box-shadow:none; }
+.ranking-board:not(.layout-grid) .ranking-avatar,
+.ranking-board:not(.layout-grid) .ranking-row.top-1 .ranking-avatar,
+.ranking-board:not(.layout-grid) .ranking-row.top-2 .ranking-avatar,
+.ranking-board:not(.layout-grid) .ranking-row.top-3 .ranking-avatar { box-shadow:none; }
+
+/* Tận dụng toàn bộ bề rộng mảng màu; nếu số vẫn dài, JS sẽ thu cỡ chữ trước khi cắt. */
+.ranking-board:not(.layout-grid) .ranking-main { min-width:0; max-width:none; padding-right:0; }
+.ranking-board:not(.layout-grid) .ranking-name { max-width:100%; }
+.ranking-points,
+.ranking-active-main b {
+  display:block;
+  max-width:100%;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.rk-crown-num { right:0; }
 
 @keyframes rankingNameMarquee { 0% { transform:translateX(0); } 100% { transform:translateX(-50%); } }
 @keyframes rankingActivePop { 0% { transform:scale(1); } 60% { transform:scale(1.08); } 100% { transform:scale(1.05); } }

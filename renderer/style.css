@@ -148,9 +148,11 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .ov-quick-btn.on { color:#0a7d3a; border-color:rgba(16,185,90,.35); background:linear-gradient(180deg,#eafff2,#d9fbe8); box-shadow:0 8px 22px rgba(16,185,90,.18); }
 
 /* Bảng điều khiển ẩn/hiện overlay (panel LINK OVERLAY). */
-.ovl-vismgr .ovl-vis-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; align-items:start; }
+/* Xếp kiểu "gạch xây" (masonry) bằng CSS columns: thẻ thấp tự dồn khít lên chỗ trống của thẻ cao,
+   không chừa khoảng hở như grid. Cột tự lấp đầy theo bề rộng (mỗi cột ~260px). */
+.ovl-vismgr .ovl-vis-list { column-width:260px; column-gap:10px; }
 /* Mỗi NHÓM = 1 thẻ có màu nhận diện riêng (--ov-accent) để không nhìn nhầm. Nhóm nhiều overlay → xổ hàng con. */
-.ovl-vis-card { border:1px solid color-mix(in srgb, var(--ov-accent) 32%, #e6e8ec); border-left:4px solid var(--ov-accent); border-radius:12px; background:color-mix(in srgb, var(--ov-accent) 7%, #fff); padding:8px 11px; }
+.ovl-vis-card { display:inline-block; width:100%; break-inside:avoid; -webkit-column-break-inside:avoid; margin-bottom:10px; vertical-align:top; border:1px solid color-mix(in srgb, var(--ov-accent) 32%, #e6e8ec); border-left:4px solid var(--ov-accent); border-radius:12px; background:color-mix(in srgb, var(--ov-accent) 7%, #fff); padding:8px 11px; }
 .ovl-vis-head { display:flex; align-items:center; gap:8px; }
 .ovl-vis-card.multi .ovl-vis-head { margin-bottom:8px; padding-bottom:7px; border-bottom:1px dashed color-mix(in srgb, var(--ov-accent) 30%, #e6e8ec); }
 .ovl-vis-dot { flex:0 0 auto; width:10px; height:10px; border-radius:50%; background:var(--ov-accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--ov-accent) 24%, transparent); }
@@ -365,7 +367,8 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
   border-color: rgba(254,44,85,.3);
 }
 .lc-hero:hover { transform: translateY(-3px); }
-.lc-hero .lc-ava { width: 52px; height: 52px; border-radius: 15px; }
+/* Avatar TALENT SHOW = logo hp (PNG có lề trong suốt) → nền XANH khít logo cho hết hở trắng + viền đồng bộ màu logo. */
+.lc-hero .lc-ava { width: 52px; height: 52px; border-radius: 15px; background: linear-gradient(145deg, #57C9EE, #38B9E6); border-color: #38B9E6; }
 .lc-hero .lc-name { font-size: 16px; }
 .lc-hero .lc-hero-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; align-items: flex-start; }
 .lc-hero .lc-count { margin-top: 0; }
@@ -377,8 +380,8 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .lc-kc-band {
   grid-column: 1 / -1; display: flex; align-items: center; gap: 14px;
   padding: 11px 18px; border-radius: 16px;
-  background: linear-gradient(120deg, #12305e 0%, #1c4b8a 45%, #0f8bb0 100%);
-  color: #fff; box-shadow: 0 10px 26px rgba(20,70,140,.28); overflow: hidden; position: relative;
+  background: linear-gradient(120deg, #ff194f 0%, #fe2c55 45%, #ff5c8d 100%);
+  color: #fff; box-shadow: 0 10px 26px rgba(254,44,85,.30); overflow: hidden; position: relative;
 }
 .lc-kc-band::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -607,6 +610,22 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .pkg-members-toolbar .switch-row { margin:0; }
 .pkg-members-toolbar .switch-row b { font-size:13.5px; }
 .pkg-members-toolbar #pkgAutoColor { margin-left:auto; }
+.pkg-mvp-total-editor { margin-top:10px; border:1px solid rgba(245,158,11,.28); border-radius:13px; background:linear-gradient(135deg,#fffdf5,#fff); overflow:hidden; }
+.pkg-mvp-total-editor > summary { display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer; list-style:none; color:var(--tt-ink); font-size:13px; font-weight:950; user-select:none; }
+.pkg-mvp-total-editor > summary::-webkit-details-marker { display:none; }
+.pkg-mvp-total-editor > summary::after { content:'⌄'; margin-left:auto; color:var(--tt-ink-3); font-size:17px; transition:transform .15s ease; }
+.pkg-mvp-total-editor[open] > summary { border-bottom:1px solid rgba(245,158,11,.2); background:rgba(255,248,225,.58); }
+.pkg-mvp-total-editor[open] > summary::after { transform:rotate(180deg); }
+.pkg-mvp-total-editor__body { padding:11px 12px 12px; }
+.pkg-mvp-total-editor__body > p { margin:0 0 10px; color:var(--tt-ink-2); font-size:12px; line-height:1.45; }
+.pkg-mvp-total-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(235px,1fr)); gap:8px; }
+.pkg-mvp-total-row { display:grid; grid-template-columns:38px minmax(0,1fr) 72px auto; gap:8px; align-items:center; padding:8px; border:1px solid var(--tt-border); border-radius:11px; background:#fff; }
+.pkg-mvp-total-row > img { width:38px; height:38px; border-radius:50%; object-fit:cover; background:#fff; border:2px solid rgba(245,158,11,.55); }
+.pkg-mvp-total-name { min-width:0; display:grid; gap:2px; }
+.pkg-mvp-total-name b { overflow:hidden; color:var(--tt-ink); font-size:13px; text-overflow:ellipsis; white-space:nowrap; }
+.pkg-mvp-total-name small { color:var(--tt-ink-3); font-size:11px; font-weight:700; }
+.pkg-mvp-total-input { width:100%; min-width:0; background:#fffdf5; border:1px solid rgba(245,158,11,.38); border-radius:8px; padding:7px 5px; color:var(--tt-ink); font-size:14px; font-weight:900; text-align:center; }
+.pkg-mvp-total-save { min-width:42px; padding:7px 8px; }
 .pkg-member-list { display:grid; gap:10px; margin-top:12px; }
 .pkg-member { display:grid; grid-template-columns:minmax(220px, 1.2fr) 58px minmax(160px, .8fr) 64px 74px minmax(160px, 1fr) minmax(120px, 148px); gap:10px; align-items:center; padding:10px; border:1px solid var(--tt-border); border-radius:14px; background:linear-gradient(180deg,#fff,#fafbff); }
 .pkg-member:has(.pkg-member-check input:checked) { border-color:rgba(254,44,85,.38); box-shadow:0 5px 16px rgba(254,44,85,.08); }
@@ -963,7 +982,8 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 /* Hộp toggle bấm nhanh nằm cột trái — nổi bật để thao tác nhanh */
 .rk-toggle-box { border:1px solid var(--tt-border); border-radius:14px; background:linear-gradient(180deg,#fff,#fafbfe); box-shadow:0 6px 18px rgba(22,24,35,.045); padding:11px 12px; }
 .rk-toggle-box__title { display:block; margin-bottom:8px; color:var(--tt-ink-3); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
-.rk-toggle-box .rk-toggle-row { margin-top:0; flex-wrap:nowrap; gap:5px; }
+/* Cho phép các ô tích XUỐNG DÒNG khi thêm nhiều mục (vd "Tên nhóm") — tránh ô "Ẩn điểm" bị cắt/đè. */
+.rk-toggle-box .rk-toggle-row { margin-top:0; flex-wrap:wrap; row-gap:6px; gap:5px; }
 .rk-toggle-box .rk-toggle-row label { padding:6px 7px; font-size:11.5px; gap:5px; white-space:nowrap; }
 /* Hai nút copy link overlay (dọc/ngang) chuyển lên cột phải, lấp khoảng trống dưới Giao diện OBS */
 .rk-copy-actions { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:auto; }
@@ -2030,6 +2050,12 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .rk-links-panel label { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--tt-ink); cursor: pointer; }
 .rk-links-panel input { accent-color: #6366f1; }
 .rk-links-hint { font-size: 11px; color: var(--tt-ink-3); flex-basis: 100%; }
+.rk-links-report { font-size: 12px; line-height: 1.5; padding: 8px 12px; margin: 0 0 6px; border-radius: 10px; border: 1px solid #e5e7eb; background: #f9fafb; color: var(--tt-ink); }
+.rk-links-report.is-ok { border-color: #a7f3d0; background: #ecfdf5; color: #065f46; font-weight: 700; }
+.rk-links-report.is-bad { border-color: #fecaca; background: #fef2f2; color: #7f1d1d; }
+.rk-links-report-head { font-weight: 800; margin-bottom: 4px; }
+.rk-links-report-row { padding: 2px 0; border-top: 1px dashed #fecaca; }
+.rk-links-report-row:first-of-type { border-top: 0; }
 
 .gp-search {
   display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--tt-border);
@@ -2204,6 +2230,8 @@ button.tiny { padding:4px 7px; font-size:12px; }
 .pkg-member-check img { width:32px; height:32px; }
 .pkg-member .pkg-name, .pkg-streak-input { padding:7px 8px; font-size:13.5px; }
 .pkg-member .pkg-color { width:48px; }
+.pkg-mvp-total-editor__body { padding:9px 10px 10px; }
+.pkg-mvp-total-list { grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:7px; }
 .pkg-pick-gift img { width:22px; height:22px; }
 .pkg-note-card { margin:10px 0; padding:10px; border-radius:13px; }
 .score-command-panel { gap:9px; margin-bottom:10px; }

@@ -3,8 +3,18 @@ body { display:flex; justify-content:center; align-items:center; }
 #pkGroupRoot { width:min(calc(1440px * var(--pkg-scale,1)), calc(100vw - 24px)); box-sizing:border-box; }
 .pkg-board { width:100%; padding:0 calc(8px * var(--pkg-scale,1)) calc(8px * var(--pkg-scale,1)); border-radius:0; background:transparent; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,.65); }
 .pkg-title { display:flex; align-items:center; justify-content:center; min-height:calc(40px * var(--pkg-scale,1)); margin-top:calc(5px * var(--pkg-scale,1)); font-weight:950; }
+.pkg-title-row { display:inline-flex; align-items:center; justify-content:center; gap:calc(12px * var(--pkg-scale,1)); }
 .pkg-title b { min-width:calc(104px * var(--pkg-scale,1)); padding:calc(5px * var(--pkg-scale,1)) calc(18px * var(--pkg-scale,1)); border-radius:999px; background:rgba(17,24,39,.68); text-align:center; font-size:calc(var(--pkg-text,20px) * 1.08 * var(--pkg-scale,1)); color:#fff1a6; box-shadow:0 8px 22px rgba(0,0,0,.24); display:inline-flex; align-items:center; justify-content:center; gap:calc(7px * var(--pkg-scale,1)); }
+.pkg-title b:empty, .pkg-mvp-title[hidden] { display:none; }
 .pkg-board.status-finished .pkg-title b, .pkg-board.status-grace .pkg-title b { font-size:calc(var(--pkg-text,20px) * .92 * var(--pkg-scale,1)); padding:calc(4px * var(--pkg-scale,1)) calc(15px * var(--pkg-scale,1)); }
+.pkg-mvp-title { min-height:calc(34px * var(--pkg-scale,1)); display:inline-flex; align-items:center; gap:calc(8px * var(--pkg-scale,1)); padding:calc(3px * var(--pkg-scale,1)) calc(16px * var(--pkg-scale,1)) calc(3px * var(--pkg-scale,1)) calc(3px * var(--pkg-scale,1)); border-radius:999px; background:rgba(17,24,39,.68); box-shadow:0 8px 22px rgba(0,0,0,.24), inset 0 0 0 1px rgba(255,255,255,.12); white-space:nowrap; }
+.pkg-mvp-avatar { width:calc(34px * var(--pkg-scale,1)); height:calc(34px * var(--pkg-scale,1)); flex:0 0 auto; position:relative; z-index:1; display:block; overflow:hidden; border:calc(2px * var(--pkg-scale,1)) solid var(--mvp-c, #fff1a6); border-radius:50%; background:#fff url('/logo.png') center/72% no-repeat; box-shadow:0 2px 7px rgba(0,0,0,.42), 0 0 8px rgba(var(--mvp-cr, 255,215,90),.38); transform:scale(1.3); transform-origin:center; }
+.pkg-mvp-avatar img { width:100%; height:100%; object-fit:cover; }
+.pkg-mvp-title strong { color:#fff1a6; font-size:calc(var(--pkg-text,20px) * .92 * var(--pkg-scale,1)); font-weight:950; letter-spacing:.035em; line-height:1; text-shadow:0 2px 4px rgba(0,0,0,.55); }
+.pkg-mvp-streak { min-width:calc(var(--pkg-text,20px) * .78 * var(--pkg-scale,1)); padding-left:calc(7px * var(--pkg-scale,1)); border-left:1px solid rgba(255,255,255,.22); color:#fff; font-size:calc(var(--pkg-text,20px) * 1.08 * var(--pkg-scale,1)); font-weight:950; font-variant-numeric:tabular-nums; line-height:1; text-align:center; text-shadow:0 2px 4px rgba(0,0,0,.58); }
+/* Thanh máu rời nhau: MVP neo dưới đúng Creator ngoài cùng bên trái; trạng thái vẫn ở giữa board. */
+.pkg-board.mode-separated .pkg-title-row { position:relative; width:100%; min-height:calc(40px * var(--pkg-scale,1)); }
+.pkg-board.mode-separated .pkg-mvp-title { position:absolute; left:calc(var(--pkg-mvp-left, 0px) + calc(2px * var(--pkg-scale,1))); top:50%; transform:translateY(-50%); }
 .pkg-time-icon { position:relative; width:calc(21px * var(--pkg-scale,1)); height:calc(21px * var(--pkg-scale,1)); flex:0 0 auto; border:calc(3px * var(--pkg-scale,1)) solid currentColor; border-radius:50%; filter:drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
 .pkg-time-icon.clock::before { content:''; position:absolute; left:50%; top:50%; width:calc(2px * var(--pkg-scale,1)); height:calc(6px * var(--pkg-scale,1)); border-radius:999px; background:currentColor; transform:translate(-50%,-100%); transform-origin:50% 100%; }
 .pkg-time-icon.clock::after { content:''; position:absolute; left:50%; top:50%; width:calc(6px * var(--pkg-scale,1)); height:calc(2px * var(--pkg-scale,1)); border-radius:999px; background:currentColor; transform:translate(0,-50%); transform-origin:0 50%; }
@@ -40,11 +50,15 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkg-joined-names > div::after { content:''; position:absolute; left:0; top:50%; transform:translateY(-50%); width:min(calc(var(--pw, 116px) * var(--pkg-scale,1)), 100%); height:calc((var(--pkg-text,20px) * .58 * var(--pkg-name-scale,1) + 13px) * var(--pkg-scale,1)); border-radius:999px; background:linear-gradient(90deg, rgba(255,255,255,.16), rgba(255,255,255,.05) 36%, rgba(255,255,255,0) 100%), linear-gradient(90deg, rgba(var(--cr, 254,44,85),.96) 0%, rgba(var(--cr, 254,44,85),.82) 36%, rgba(var(--cr, 254,44,85),.30) 100%); border:1px solid rgba(255,255,255,.32); box-shadow:0 3px 10px rgba(0,0,0,.14), 0 0 8px rgba(var(--cr, 254,44,85),.28), inset 0 0 0 1px rgba(255,255,255,.08); }
 .pkg-joined-names img { width:calc(36px * var(--pkg-scale,1) * var(--pkg-name-scale,1)); height:calc(36px * var(--pkg-scale,1) * var(--pkg-name-scale,1)); margin:0 calc(6px * var(--pkg-scale,1) * var(--pkg-name-scale,1)) 0 0; border-radius:50%; object-fit:cover; border:3px solid var(--c); background:#fff; flex:0 0 auto; box-shadow:0 0 0 1px rgba(255,255,255,.8), 0 3px 8px rgba(0,0,0,.2); }
 .pkg-joined-names b { min-width:0; max-width:100%; flex:0 1 auto; color:var(--tc, #fff); font-size:calc(var(--pkg-text,20px) * .58 * var(--pkg-scale,1) * var(--pkg-name-scale,1)); font-weight:950; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; font-style:italic; text-shadow:var(--tsh, 0 2px 5px rgba(0,0,0,.65)); }
+.pkg-mvp-total { --pkg-mvp-total-size:calc(var(--pkg-text,20px) * .92 * var(--pkg-scale,1)); width:var(--pkg-mvp-total-size); height:var(--pkg-mvp-total-size); flex:0 0 auto; display:grid; place-items:center; border:calc(2px * var(--pkg-scale,1)) solid #ffe07c; border-radius:50%; background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 46%), rgba(17,24,39,.82); color:#fff4ba; font-size:calc(var(--pkg-text,20px) * .58 * var(--pkg-scale,1)); font-weight:950; font-variant-numeric:tabular-nums; line-height:1; text-shadow:0 2px 4px rgba(0,0,0,.72); box-shadow:0 3px 9px rgba(0,0,0,.35), 0 0 8px rgba(255,224,124,.28); }
+.pkg-mvp-total.is-wide { width:auto; min-width:var(--pkg-mvp-total-size); padding:0 calc(4px * var(--pkg-scale,1)); border-radius:999px; }
+.pkg-joined-names > div > .pkg-mvp-total { margin-left:calc(3px * var(--pkg-scale,1)); position:relative; z-index:3; }
 /* (2) Segment hẹp: ẩn chữ tên, chỉ giữ avatar (căn giữa cột) để khỏi chồng chữ lên nhau */
 .pkg-joined-names > div.narrow { justify-content:center; }
 .pkg-joined-names > div.narrow::after { display:none; }
 .pkg-joined-names > div.narrow > img { margin:0; }
 .pkg-joined-names > div.narrow > b { display:none; }
+.pkg-joined-names > div.narrow > .pkg-mvp-total { display:none; }
 /* (4) Vương miện leader gắn trên avatar */
 .pkg-crown { position:absolute; z-index:4; left:calc(-4px * var(--pkg-scale,1) * var(--pkg-name-scale,1)); top:calc(-11px * var(--pkg-scale,1) * var(--pkg-name-scale,1)); font-size:calc(17px * var(--pkg-scale,1) * var(--pkg-name-scale,1)); line-height:1; transform:rotate(-28deg); filter:drop-shadow(0 2px 2px rgba(0,0,0,.45)); pointer-events:none; }
 /* TOP 1 (leader): avatar + tên to hơn để nổi bật. Cột leader luôn rộng nhất nên
@@ -84,7 +98,13 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkg-segment b { position:absolute; z-index:4; inset:0; display:flex; flex-direction:row; align-items:center; justify-content:center; gap:calc(5px * var(--pkg-scale,1)); padding:0 calc(8px * var(--pkg-scale,1)); font-weight:950; color:var(--tc, #fff); white-space:nowrap; overflow:hidden; text-shadow:var(--tsh, 0 2px 6px rgba(0,0,0,.84)); line-height:1; }
 .pkg-segment b em { font-style:normal; display:inline-flex; align-items:center; gap:calc(4px * var(--pkg-scale,1)); font-size:calc(var(--pkg-text,20px) * 1.08 * var(--pkg-scale,1)); min-width:0; max-width:100%; overflow:hidden; }
 .pkg-segment b em .pkg-num { min-width:0; overflow:hidden; text-overflow:ellipsis; }
-.pkg-rank-tag { font-style:normal; font-size:calc(var(--pkg-text,20px) * .56 * var(--pkg-scale,1)); font-weight:900; letter-spacing:.01em; opacity:.94; flex:0 0 auto; }
+/* Nhãn "Hạng 1" là CHIP nền tối riêng (không mượn màu chữ --tc): chữ trắng luôn RÕ dù chip đè lên
+   phần fill đỏ sáng (mép trái) hay nền thanh tối — trước đây chữ trắng mờ trên fill đỏ sáng bị lệ
+   (contrast kém → "màu kì cục" & chữ như chìm dưới nền). Chip = làm rõ, tách khỏi SỐ điểm ở giữa. */
+.pkg-rank-tag { font-style:normal; font-size:calc(var(--pkg-text,20px) * .56 * var(--pkg-scale,1)); line-height:1; font-weight:900; letter-spacing:.01em; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; padding:calc(3px * var(--pkg-scale,1)) calc(8px * var(--pkg-scale,1)); border-radius:999px; background:rgba(17,20,28,.58); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.6); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
+/* Nhãn "Hạng 1" GHIM ra mép trái (ra khỏi luồng flex) → SỐ điểm luôn nằm CHÍNH GIỮA segment
+   (trước đây nhãn + số căn giữa như một cụm nên số bị đẩy lệch phải). Canh giữa dọc luôn. */
+.pkg-segment b .pkg-rank-tag { position:absolute; left:calc(10px * var(--pkg-scale,1)); top:50%; transform:translateY(-50%); }
 .pkg-segment.narrow b { padding:0 calc(3px * var(--pkg-scale,1)); }
 .pkg-segment.narrow b em { font-size:calc(var(--pkg-text,20px) * .9 * var(--pkg-scale,1)); }
 .pkg-segment.leader b { background:none; box-shadow:none; }
@@ -96,8 +116,6 @@ body { display:flex; justify-content:center; align-items:center; }
    overflow:visible để cụm avatar/ánh vàng TOP1 không bị cắt. */
 .pkg-joined-gifts > div { min-width:0; display:flex; justify-content:flex-start; align-items:center; gap:calc(4px * var(--pkg-scale,1)); min-height:calc(var(--pkg-gift,42px) * var(--pkg-scale,1)); overflow:visible; padding:0 0 0 calc(4px * var(--pkg-scale,1)); }
 .pkg-joined-gifts .pkg-gift { flex:0 0 auto; }
-/* Có huy hiệu MVP (nằm góc dưới-trái segment) → chừa lề trái để icon quà + avatar KHÔNG bị vòng MVP che. */
-.pkg-joined-gifts > div.has-mvp { padding-left:calc((var(--pkg-text,30px) * 2.05 + 16px) * var(--pkg-scale,1)); }
 
 /* ---- TOP người tặng quà: avatar chồng nửa lên nhau ---- */
 /* Kích thước avatar suy ra từ cỡ icon quà để luôn cân xứng khi phóng to/thu nhỏ. */
@@ -119,26 +137,38 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkg-card { width:calc(250px * var(--pkg-scale,1)); min-width:0; display:grid; gap:calc(9px * var(--pkg-scale,1)); }
 .pkg-card-head { display:grid; grid-template-columns:minmax(0,1fr); align-items:center; }
 .pkg-card-bar { position:relative; height:calc(max(30px, var(--pkg-text,20px) * 1.35) * var(--pkg-scale,1)); overflow:visible; border-radius:999px; background:linear-gradient(180deg, rgba(12,15,22,.30), rgba(44,50,64,.18)); box-shadow:inset 0 0 0 2px rgba(15,18,26,.28), inset 0 2px 6px rgba(0,0,0,.22), inset 0 -1px 0 rgba(255,255,255,.05), 0 6px 16px rgba(0,0,0,.16); }
+/* Rời nhau: mọi thanh máu có viền trắng nhạt để tách rõ khỏi nền tối. */
+#pkGroupRoot .pkg-board.mode-separated .pkg-card-bar::before { content:''; position:absolute; inset:0; z-index:6; border-radius:inherit; pointer-events:none; box-shadow:inset 0 0 0 2px rgba(255,255,255,.72); }
 /* Fill "vệt sao băng": đuôi bên trái mờ trong suốt → đầu đang tiến bên phải đậm & sáng nhất */
 /* width kế thừa biến --cw-<id> nội suy bằng rAF trên root (bỏ transition:width vì i bị dựng lại mỗi render). */
 /* OBS-safe fill "vệt sao băng": đuôi trái mờ (rgba --cr thấp) → đầu phải đặc; lớp sáng trắng phủ
    giữa thay color-mix #fff 20%. Không color-mix → thanh thẻ tách rời không bị trong suốt trên OBS. */
-.pkg-card-bar i { position:absolute; left:0; top:0; bottom:0; min-width:calc(42px * var(--pkg-scale,1)); overflow:hidden; border-radius:999px; background:linear-gradient(90deg, rgba(255,255,255,0) 20%, rgba(255,255,255,.22) 46%, rgba(255,255,255,0) 70%), linear-gradient(90deg, rgba(var(--cr, 254,44,85),.30) 0%, rgba(var(--cr, 254,44,85),.86) 46%, var(--c) 100%); box-shadow:inset -14px 0 22px -8px rgba(255,255,255,.3), 0 0 18px rgba(var(--cr, 254,44,85),.55); clip-path:inset(0 round 999px); }
-.pkg-card-bar i::before { content:''; position:absolute; top:0; bottom:0; left:-40px; right:-40px; opacity:.8; background-image:linear-gradient(115deg, transparent 0 44%, rgba(255,255,255,.16) 50%, transparent 56% 100%); background-size:40px 100%; background-repeat:repeat; will-change:transform; pointer-events:none; animation:pkgFlow 1s linear infinite; animation-delay:var(--pkg-flow-delay,0s); }
+/* CHỈ nhắm thanh fill = con TRỰC TIẾP (> i). Nhãn "Hạng 1" cũng là <i> nhưng NẰM TRONG <b> (cháu),
+   nếu để ".pkg-card-bar i" (0,1,1) nó sẽ đè cả nền gradient đỏ + bóng + shimmer lên chip Hạng 1
+   → "màu kì cục". Dùng ">" để fill không lem sang nhãn; chip Hạng 1 giữ nền tối riêng của nó. */
+.pkg-card-bar > i { position:absolute; left:0; top:0; bottom:0; min-width:calc(42px * var(--pkg-scale,1)); overflow:hidden; border-radius:999px; background:linear-gradient(90deg, rgba(255,255,255,0) 20%, rgba(255,255,255,.22) 46%, rgba(255,255,255,0) 70%), linear-gradient(90deg, rgba(var(--cr, 254,44,85),.30) 0%, rgba(var(--cr, 254,44,85),.86) 46%, var(--c) 100%); box-shadow:inset -14px 0 22px -8px rgba(255,255,255,.3), 0 0 18px rgba(var(--cr, 254,44,85),.55); clip-path:inset(0 round 999px); }
+.pkg-card-bar > i::before { content:''; position:absolute; top:0; bottom:0; left:-40px; right:-40px; opacity:.8; background-image:linear-gradient(115deg, transparent 0 44%, rgba(255,255,255,.16) 50%, transparent 56% 100%); background-size:40px 100%; background-repeat:repeat; will-change:transform; pointer-events:none; animation:pkgFlow 1s linear infinite; animation-delay:var(--pkg-flow-delay,0s); }
 /* Thẻ tách rời: vệt sáng chạy KHÍT trong phần fill (i đã overflow:hidden + clip-path bo tròn),
    tức đúng vùng điểm cao nhất của Hạng 1 — không tràn ra nền thanh hay sang thẻ bên cạnh. */
-.pkg-card-bar.leader i::after { content:''; position:absolute; left:0; top:0; bottom:0; width:32%; min-width:calc(24px * var(--pkg-scale,1)); max-width:calc(66px * var(--pkg-scale,1)); border-radius:999px; background:linear-gradient(90deg, transparent, rgba(255,255,255,.12), rgba(255,255,255,.74), rgba(255,255,255,.22), transparent); transform:skewX(-14deg) translateX(-160%); animation:pkgSparkSweep 1.9s ease-in-out infinite; animation-delay:var(--pkg-spark-delay, 0s); will-change:transform,opacity; pointer-events:none; }
-.pkg-card-bar b { position:absolute; z-index:3; inset:0; display:flex; flex-direction:row; align-items:baseline; justify-content:center; gap:calc(5px * var(--pkg-scale,1)); padding:0 calc(10px * var(--pkg-scale,1)); background:none; font-size:calc(var(--pkg-text,20px) * 1.3 * var(--pkg-scale,1)); font-weight:950; color:var(--tc, #fff); white-space:nowrap; text-shadow:var(--tsh, 0 2px 6px rgba(0,0,0,.86)); }
-.pkg-card-bar b .pkg-rank-tag { font-size:calc(var(--pkg-text,20px) * .68 * var(--pkg-scale,1)); }
+.pkg-card-bar.leader > i::after { content:''; position:absolute; left:0; top:0; bottom:0; width:32%; min-width:calc(24px * var(--pkg-scale,1)); max-width:calc(66px * var(--pkg-scale,1)); border-radius:999px; background:linear-gradient(90deg, transparent, rgba(255,255,255,.12), rgba(255,255,255,.74), rgba(255,255,255,.22), transparent); transform:skewX(-14deg) translateX(-160%); animation:pkgSparkSweep 1.9s ease-in-out infinite; animation-delay:var(--pkg-spark-delay, 0s); will-change:transform,opacity; pointer-events:none; }
+/* align-items:center + line-height:1 → SỐ điểm (font ~1.3× to gần bằng chiều cao thanh) canh giữa
+   DỌC gọn trong thanh, không bị baseline đẩy tràn xuống dưới đáy. justify-center + chip Hạng 1 nằm
+   absolute (ngoài luồng) → số luôn ở CHÍNH GIỮA trái–phải. */
+.pkg-card-bar b { position:absolute; z-index:3; inset:0; display:flex; flex-direction:row; align-items:center; justify-content:center; gap:calc(5px * var(--pkg-scale,1)); padding:0 calc(10px * var(--pkg-scale,1)); background:none; font-size:calc(var(--pkg-text,20px) * 1.3 * var(--pkg-scale,1)); line-height:1; font-weight:950; color:var(--tc, #fff); white-space:nowrap; text-shadow:var(--tsh, 0 2px 6px rgba(0,0,0,.86)); }
+/* TOP 1: nắn toàn bộ cụm lên nhẹ theo trục quang học. Font đậm có phần chân thấp hơn phần đầu,
+   nên căn hình học 50% vẫn trông bị võng xuống trong thanh. */
+.pkg-card.leader .pkg-card-bar > b { transform:translateY(calc(-2px * var(--pkg-scale,1))); }
+/* Khóa chiều cao chip thay vì để padding + line-box tự quyết. Grid đặt chữ vào đúng tâm chip,
+   do đó nền xám và "Hạng 1" cùng nằm chính giữa theo chiều dọc ở mọi cỡ scale. */
+.pkg-card-bar b .pkg-rank-tag { display:grid; place-items:center; height:calc(var(--pkg-text,20px) * .94 * var(--pkg-scale,1)); padding:0 calc(8px * var(--pkg-scale,1)); font-size:calc(var(--pkg-text,20px) * .68 * var(--pkg-scale,1)); line-height:.9; position:absolute; left:calc(10px * var(--pkg-scale,1)); top:50%; transform:translateY(-50%); }
 .pkg-card-person { width:calc(148px * var(--pkg-scale,1)); max-width:calc(148px * var(--pkg-scale,1)); justify-self:start; display:flex; align-items:center; justify-content:flex-start; gap:calc(7px * var(--pkg-scale,1)); min-width:0; padding:calc(4px * var(--pkg-scale,1)) calc(11px * var(--pkg-scale,1)) calc(4px * var(--pkg-scale,1)) calc(4px * var(--pkg-scale,1)); border-radius:999px; background:linear-gradient(90deg, rgba(255,255,255,.16), rgba(255,255,255,.05) 36%, rgba(255,255,255,0) 100%), linear-gradient(90deg, rgba(var(--cr, 254,44,85),.96) 0%, rgba(var(--cr, 254,44,85),.82) 36%, rgba(var(--cr, 254,44,85),.30) 100%); color:#fff; box-shadow:0 4px 12px rgba(0,0,0,.14), inset 0 0 0 1px rgba(255,255,255,.1); }
 .pkg-card-person img { width:calc(40px * var(--pkg-scale,1)); height:calc(40px * var(--pkg-scale,1)); border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,.88); background:#fff; box-shadow:none; flex:0 0 auto; }
 .pkg-card-person b { min-width:0; max-width:calc(88px * var(--pkg-scale,1)); color:var(--tc, #fff); font-size:calc(var(--pkg-text,20px) * .78 * var(--pkg-scale,1)); line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:var(--tsh, 0 2px 5px rgba(0,0,0,.65)); }
+/* Tổng MVP nổi trên góc phải thẻ tên: không chiếm chỗ trong flex nên tên Creator không bị "...". */
+.pkg-card-person.has-mvp-total { width:min(100%, calc(210px * var(--pkg-scale,1))); max-width:100%; position:relative; overflow:visible; }
+.pkg-card-person.has-mvp-total b { max-width:none; flex:1 1 auto; }
+.pkg-card-person.has-mvp-total .pkg-mvp-total { position:absolute; z-index:5; right:calc(5px * var(--pkg-scale,1)); top:calc(-17px * var(--pkg-scale,1)); margin:0; }
 .pkg-card-gifts { min-height:calc(var(--pkg-gift,42px) * var(--pkg-scale,1)); display:flex; justify-content:center; align-items:center; gap:calc(5px * var(--pkg-scale,1)); }
-/* Huy hiệu MVP chuỗi: vòng gọn hơn (≈2.05×), SỐ to & là tâm điểm, nhãn "MVP" nhỏ gọn phía trên
-   → cân đối khoa học: nhãn = cap trên, số chiếm ~60% đường kính, canh giữa quang học. */
-.pkg-streak { position:absolute; z-index:8; left:calc(8px * var(--pkg-scale,1)); bottom:calc(var(--pkg-text,30px) * -0.8 * var(--pkg-scale,1)); width:calc(var(--pkg-text,30px) * 2.05 * var(--pkg-scale,1)); height:calc(var(--pkg-text,30px) * 2.05 * var(--pkg-scale,1)); display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:50%; background:rgba(255,255,255,.97); color:var(--c); font-weight:950; line-height:1; text-shadow:none; border:calc(var(--pkg-text,30px) * .1 * var(--pkg-scale,1)) solid var(--c); box-shadow:0 5px 16px rgba(0,0,0,.3), inset 0 0 0 1px rgba(255,255,255,.55); }
-.pkg-streak small { display:block; font-size:calc(var(--pkg-text,30px) * .34 * var(--pkg-scale,1)); font-weight:950; letter-spacing:.03em; line-height:1; opacity:.92; margin-bottom:calc(var(--pkg-text,30px) * -0.02 * var(--pkg-scale,1)); }
-.pkg-streak em { display:block; font-style:normal; font-size:calc(var(--pkg-text,30px) * 1.34 * var(--pkg-scale,1)); font-weight:950; line-height:.86; letter-spacing:-.02em; }
 .pkg-boost { position:absolute; z-index:9; right:-24px; top:50%; width:62px; height:38px; transform:translateY(-50%); pointer-events:none; animation:pkgBoostPopRight 1.3s ease-out forwards; filter:drop-shadow(0 4px 8px rgba(0,0,0,.28)); }
 .pkg-segment .pkg-boost.dir-left { left:-24px; right:auto; animation-name:pkgBoostPopLeft; }
 .pkg-card-bar .pkg-boost { left:clamp(22px, var(--boost-left, 50%), calc(100% - 22px)); right:auto; transform:translate(-50%,-50%); }
