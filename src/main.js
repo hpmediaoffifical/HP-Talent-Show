@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const os = require('os');
 const { TikTokClient } = require('./tiktok-client');
 const { ObsOverlayServer } = require('./obs-overlay-server');
+const hostsSetup = require('./hosts-setup');
 
 const ROOT = path.join(__dirname, '..');
 // Đổi tên hiển thị app → "HP GROUP LIVE" NHƯNG giữ nguyên thư mục dữ liệu cũ.
@@ -36,6 +37,7 @@ const SETTINGS_PATH = path.join(CONFIG_DIR, 'settings.json');
 const CREATORS_PATH = path.join(CONFIG_DIR, 'creators.json');
 const GROUPS_PATH = path.join(CONFIG_DIR, 'groups.json');
 const PK_DUO_PATH = path.join(CONFIG_DIR, 'pk-duo.json');
+const KC_DUO_PATH = path.join(CONFIG_DIR, 'kc-duo.json');
 const PK_GROUP_PATH = path.join(CONFIG_DIR, 'pk-group.json');
 const MUSIC_LIST_PATH = path.join(CONFIG_DIR, 'music-list.json');
 const STICKER_PATH = path.join(CONFIG_DIR, 'sticker-dance.json');
@@ -113,6 +115,7 @@ ipcMain.on('app:confirmQuitResult', (_e, ok) => {
 });
 let overlayServer = null;
 let pkDuoEngine = null;
+let kcDuoEngine = null;
 let pkGroupEngine = null;
 let rankingEngine = null;
 let scoreEngine = null;
@@ -461,6 +464,7 @@ function rememberWindowBounds() {
 
 const REVIEW_META = {
   pkduo: { title: 'Review PK Đôi', getUrl: () => overlayServer?.getPkDuoUrl(), width: 900, height: 320 },
+  kcduo: { title: 'Review Giữ/Đổi', getUrl: () => overlayServer?.getKcDuoUrl(), width: 900, height: 320 },
   pkduofx: { title: 'Review PK Đôi FX', getUrl: () => overlayServer?.getPkDuoFxUrl(), width: 338, height: 600 },
   pkgroup: { title: 'Review PK Nhóm', getUrl: () => overlayServer?.getPkGroupUrl(), width: 1280, height: 420 },
   score: { title: 'Review Tính điểm', getUrl: () => overlayServer?.getScoreUrl(), width: 900, height: 300 },
@@ -746,6 +750,8 @@ function saveGroupProfiles(map) {
 }
 function loadPkDuoConfig() { return loadJson(PK_DUO_PATH, null); }
 function savePkDuoConfig(cfg) { saveJson(PK_DUO_PATH, cfg); }
+function loadKcDuoConfig() { return loadJson(KC_DUO_PATH, null); }
+function saveKcDuoConfig(cfg) { saveJson(KC_DUO_PATH, cfg); }
 // Ghi chú PK Nhóm: các câu MẶC ĐỊNH CŨ → tự nâng cấp sang câu mới khi load (chỉ đổi nếu đang là
 // text mặc định cũ; user tự sửa thì giữ nguyên). Giúp máy đang cài text cũ tự cập nhật sau khi mở app.
 const PKG_OLD_NOTES = [
@@ -1631,6 +1637,23 @@ class PkDuoEngine {
     else if (side === 'B') this.state.scoreB += Number(points) || 0;
     this._emit();
   }
+  // Test quà: cộng/trừ cho phe A/B điểm của quà phe đó × số lượng (dùng nút thử trong app).
+  // sign < 0 = TRỪ (lỡ cộng sai); trừ có kẹp về 0, không cho điểm âm.
+  testGift(side, qty = 1, sign = 1) {
+    const s = side === 'A' ? 'A' : (side === 'B' ? 'B' : null);
+    if (!s) return false;
+    const team = s === 'A' ? this.config.teamA : this.config.teamB;
+    const n = Math.max(1, Math.floor(Number(qty) || 1));
+    const gift = ((team && (team.gifts || team.joinGifts)) || [])[0] || {};
+    const per = this.config.pointsBy === 'diamond' ? Math.max(1, Number(gift.diamond) || 1) : 1;
+    let points = per * n;
+    if (sign < 0) {
+      const cur = s === 'A' ? (Number(this.state.scoreA) || 0) : (Number(this.state.scoreB) || 0);
+      points = -Math.min(cur, points); // không cho điểm âm
+    }
+    this.addPoints(s, points);
+    return { points, qty: n, giftName: gift.giftName || gift.name || '' };
+  }
   // Route 1 gift event → cộng cho phe nào.
   // Tính điểm khi 'running' VÀ trong Delay 'grace' (để bắt quà trễ do mạng chậm).
   // Chỉ ngừng khi Delay hết hẳn (status 'finished').
@@ -1700,6 +1723,291 @@ class PkDuoEngine {
           this.state.status = 'finished';
           this.state.userTeams = {};
           this._recordHistory();
+          this._clearTicker();
+        }
+      }
+      this._emit();
+    }, 250);
+    this._emit();
+  }
+  _clearTicker() { if (this._tick) { clearInterval(this._tick); this._tick = null; } }
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
+// GIỮ / ĐỔI (Keep/Change): trò "giữ ghế" người đang diễn. Phe A = GIỮ (giữ người hiện tại),
+// phe B = ĐỔI (đổi sang người mới). Kế thừa cơ chế tính điểm PK Đôi (Chọn Phe 1 quà + TikTok
+// theo UID người nhận trong LIVE nhóm) nhưng BỎ avatar/champions/FX. Thêm: ngưỡng "lật kèo"
+// (lợi thế người đương nhiệm), chuỗi "trụ vững ghế" (defendStreak), tên người kế, số vòng đã chạy.
+class KcDuoEngine {
+  constructor({ onState, getCreators, onConfigChange, onRankingPoints }) {
+    this.onState = onState;
+    this.onConfigChange = typeof onConfigChange === 'function' ? onConfigChange : null;
+    this.onRankingPoints = typeof onRankingPoints === 'function' ? onRankingPoints : null;
+    this.getCreators = typeof getCreators === 'function' ? getCreators : () => [];
+    this.config = {
+      // Mặc định GIỮ = HOA HỒNG (Rose TikTok, id 5655); ĐỔI để trống cho MC chọn quà khác (2 phe không trùng).
+      teamA: { name: 'KEEP/GIỮ', color: '#e60045', gifts: [{ giftName: 'Rose', giftId: '5655', icon: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp', diamond: 1 }] }, // Keep
+      teamB: { name: 'CHANGE/ĐỔI', color: '#00afdb', gifts: [] }, // Change
+      performerName: '', // người đang diễn (ghế nóng) — hiện trên thanh máu
+      nextName: '',      // người kế tiếp — nhập trước; khi ĐỔI thắng thì lên ghế
+      defendStreak: 0,   // số vòng người đang diễn giữ được ghế (reset khi ĐỔI thắng)
+      totalRounds: 0,    // tổng số vòng đã chạy (Số vòng)
+      flipMargin: 0,     // ngưỡng lật kèo: ĐỔI phải VƯỢT GIỮ hơn mức này mới thắng (0 = chỉ cần hơn)
+      flipMarginMode: 'percent', // 'percent' (% tổng điểm) | 'point' (điểm tuyệt đối)
+      durationSec: 90,
+      prepSec: 3,
+      delaySec: 5,
+      joinMode: false,    // false = cố định theo quà; true = Chọn Phe (quà kích hoạt)
+      creatorLive: false, // 🔴 TikTok: cộng theo người nhận thật (recipientCreatorId), khỏi chọn quà
+      linkRanking: false,
+      pointsBy: 'diamond',
+      content: 'GIỮ / ĐỔI',
+      timerPos: 'center', // vị trí đồng hồ giữa nội dung A/B: center | left | right
+      bgColor: '#000000',
+      bgOpacity: 88,
+      giftSize: 46,
+      textSize: 21,
+      overlayScale: 200,
+      startSound: '',
+      warningSound: '',
+      keepSound: '',   // GIỮ thắng
+      changeSound: '', // ĐỔI thắng
+      drawSound: '',
+      giftDisplayMode: 'scroll',
+      skin: 'auto',
+    };
+    this.state = {
+      status: 'idle', // 'idle' | 'prestart' | 'running' | 'grace' | 'finished'
+      remainingMs: 0,
+      scoreA: 0, scoreB: 0,
+      startedAt: 0,
+      endsAt: 0,
+      userTeams: {}, // userId -> 'A' | 'B' (cho joinMode)
+      graceElapsedMs: 0,
+      roundNo: 0,
+      historySaved: false,
+      winnerSide: '', // 'A' (GIỮ giữ ghế) | 'B' (ĐỔI người mới) — chốt lúc kết thúc
+    };
+    this._tick = null;
+    // Theo dõi combo x10/x1000 theo từng người+quà để cộng phần CHÊNH LỆCH mỗi nhịp (không mất, không đúp).
+    this._comboRepeats = new Map();
+  }
+  setConfig(patch) { this.config = { ...this.config, ...patch }; this._emit(); }
+  // Ngưỡng điểm ĐỔI cần vượt GIỮ để lật ghế (theo % tổng điểm hoặc điểm tuyệt đối).
+  _flipRequired() {
+    const m = Math.max(0, Number(this.config.flipMargin) || 0);
+    if (this.config.flipMarginMode === 'point') return m;
+    const tot = (Number(this.state.scoreA) || 0) + (Number(this.state.scoreB) || 0);
+    return tot * m / 100;
+  }
+  // Ai thắng: 'B' (ĐỔI) chỉ khi vượt GIỮ hơn ngưỡng; còn lại (kể cả HÒA / dưới ngưỡng) → 'A' (GIỮ giữ ghế).
+  _decideWinner() {
+    const a = Number(this.state.scoreA) || 0, b = Number(this.state.scoreB) || 0;
+    return (b - a) > this._flipRequired() ? 'B' : 'A';
+  }
+  getStateForOverlay() {
+    return {
+      status: this.state.status,
+      remainingMs: this.state.remainingMs,
+      startedAt: this.state.startedAt,
+      scoreA: this.state.scoreA,
+      scoreB: this.state.scoreB,
+      teamA: this.config.teamA,
+      teamB: this.config.teamB,
+      durationSec: this.config.durationSec,
+      prepSec: this.config.prepSec,
+      delaySec: this.config.delaySec,
+      joinMode: this.config.joinMode,
+      creatorLive: this.config.creatorLive,
+      pointsBy: this.config.pointsBy,
+      bgColor: this.config.bgColor,
+      bgOpacity: this.config.bgOpacity,
+      giftSize: this.config.giftSize,
+      textSize: this.config.textSize,
+      overlayScale: this.config.overlayScale,
+      content: this.config.content,
+      timerPos: this.config.timerPos || 'center',
+      push: this._pushPercent(),
+      startSound: this.config.startSound,
+      warningSound: this.config.warningSound,
+      keepSound: this.config.keepSound,
+      changeSound: this.config.changeSound,
+      drawSound: this.config.drawSound,
+      giftDisplayMode: this.config.giftDisplayMode,
+      roundNo: this.state.roundNo,
+      totalRounds: Math.max(0, Number(this.config.totalRounds) || 0),
+      defendStreak: Math.max(0, Number(this.config.defendStreak) || 0),
+      performerName: this.config.performerName || '',
+      nextName: this.config.nextName || '',
+      flipMargin: Math.max(0, Number(this.config.flipMargin) || 0),
+      flipMarginMode: this.config.flipMarginMode || 'percent',
+      winnerSide: this.state.winnerSide || '',
+      skin: this.config.skin || 'auto',
+    };
+  }
+  _pushPercent() {
+    const tot = this.state.scoreA + this.state.scoreB;
+    if (tot <= 0) return 0;
+    const raw = ((this.state.scoreA - this.state.scoreB) / tot) * 42;
+    return Math.max(-42, Math.min(42, Math.round(raw * 10) / 10));
+  }
+  start() {
+    if (this.state.status === 'running' || this.state.status === 'prestart') return;
+    this.state.status = 'prestart';
+    this.state.remainingMs = (this.config.prepSec || 0) * 1000;
+    this.state.scoreA = 0; this.state.scoreB = 0;
+    this.state.userTeams = {};
+    this.state.graceElapsedMs = 0;
+    this.state.startedAt = Date.now();
+    this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
+    this.state.historySaved = false;
+    this.state.winnerSide = '';
+    this._comboRepeats.clear();
+    this._runTicker();
+  }
+  stop() {
+    this.state.status = 'finished';
+    this.state.remainingMs = 0;
+    this.state.userTeams = {};
+    this._comboRepeats.clear();
+    this._recordResult();
+    this._clearTicker();
+    this._emit();
+  }
+  reset() {
+    // Reset trận nhưng GIỮ chuỗi trụ vững + tổng vòng + tên người diễn (giống PK giữ winStreak).
+    this._clearTicker();
+    this._comboRepeats.clear();
+    this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, historySaved: false, winnerSide: '' };
+    this._emit();
+  }
+  // RESET TẤT CẢ: reset trận + XOÁ chuỗi trụ vững, tổng vòng và người kế. Lưu file + báo renderer.
+  resetAll() {
+    this.reset();
+    this.config.defendStreak = 0;
+    this.config.totalRounds = 0;
+    this.config.nextName = '';
+    if (this.onConfigChange) { try { this.onConfigChange(); } catch {} }
+    this._emit();
+  }
+  // Chốt kết quả 1 lần/trận: cập nhật chuỗi trụ vững, tổng vòng, đưa người kế lên ghế nếu ĐỔI thắng.
+  _recordResult() {
+    if (this.state.historySaved || !this.state.startedAt) return;
+    this.state.historySaved = true;
+    const winnerSide = this._decideWinner();
+    this.state.winnerSide = winnerSide;
+    this.config.totalRounds = (Number(this.config.totalRounds) || 0) + 1;
+    if (winnerSide === 'A') {
+      // GIỮ thắng: người đương nhiệm giữ ghế → chuỗi trụ vững +1.
+      this.config.defendStreak = (Number(this.config.defendStreak) || 0) + 1;
+    } else {
+      // ĐỔI thắng: đổi người → chuỗi về 0; người kế (nếu đã nhập) lên ghế.
+      this.config.defendStreak = 0;
+      const next = String(this.config.nextName || '').trim();
+      if (next) { this.config.performerName = next; this.config.nextName = ''; }
+    }
+    if (this.onConfigChange) { try { this.onConfigChange(); } catch {} }
+  }
+  addPoints(side, points) {
+    if (side === 'A') this.state.scoreA += Number(points) || 0;
+    else if (side === 'B') this.state.scoreB += Number(points) || 0;
+    this._emit();
+  }
+  testGift(side, qty = 1, sign = 1) {
+    const s = side === 'A' ? 'A' : (side === 'B' ? 'B' : null);
+    if (!s) return false;
+    const team = s === 'A' ? this.config.teamA : this.config.teamB;
+    const n = Math.max(1, Math.floor(Number(qty) || 1));
+    const gift = ((team && (team.gifts || team.joinGifts)) || [])[0] || {};
+    const per = this.config.pointsBy === 'diamond' ? Math.max(1, Number(gift.diamond) || 1) : 1;
+    let points = per * n;
+    if (sign < 0) {
+      const cur = s === 'A' ? (Number(this.state.scoreA) || 0) : (Number(this.state.scoreB) || 0);
+      points = -Math.min(cur, points);
+    }
+    this.addPoints(s, points);
+    return { points, qty: n, giftName: gift.giftName || gift.name || '' };
+  }
+  routeGift(ev) {
+    if (this.state.status !== 'running' && this.state.status !== 'grace') return;
+    // Combo x10/x1000 (giftType 1): TikTok gửi nhiều nhịp repeatCount tăng dần rồi 1 gói repeatEnd.
+    // Cộng phần CHÊNH LỆCH của MỖI nhịp (giống TÍNH ĐIỂM) để điểm lên NGAY trong đếm lùi + thời gian
+    // Delay, và KHÔNG mất combo nếu gói chốt tới muộn (sau khi hết vòng) hoặc bị rớt mạng. Nhiều người
+    // combo cùng lúc vẫn đúng vì mỗi combo được khoá riêng theo người+quà (không đúp, không bỏ sót).
+    let repeat = Math.max(1, Number(ev.repeatCount) || 1);
+    if (Number(ev.giftType) === 1) {
+      const key = `${ev.uniqueId || ev.nickname || ev.avatar || 'anonymous'}:${ev.giftId || ev.giftName || 'gift'}`;
+      const now = Date.now();
+      const previous = this._comboRepeats.get(key);
+      let delta = repeat;
+      if (previous) {
+        if (repeat > previous.count) delta = repeat - previous.count;
+        else if (repeat === 1 && !ev.repeatEnd && now - previous.at > 1500) delta = 1; // combo mới không có gói chốt trước đó
+        else delta = 0;
+      }
+      if (ev.repeatEnd) this._comboRepeats.delete(key);
+      else this._comboRepeats.set(key, { count: repeat, at: now });
+      if (!delta) return;
+      repeat = delta;
+    }
+    const pts = this.config.pointsBy === 'diamond'
+      ? Math.max(1, resolveDiamond(ev)) * repeat
+      : repeat;
+    let side;
+    if (this.config.creatorLive) {
+      // 🔴 TikTok: cộng theo NGƯỜI NHẬN thật trong LIVE nhóm (recipientCreatorId từ toMemberId).
+      const rc = ev.recipientCreatorId;
+      side = rc ? (this.config.teamA?.creatorId === rc ? 'A' : (this.config.teamB?.creatorId === rc ? 'B' : null)) : null;
+    } else {
+      const inA = (this.config.teamA.gifts || []).some(g => giftMatches(g, ev));
+      const inB = (this.config.teamB.gifts || []).some(g => giftMatches(g, ev));
+      side = inA && !inB ? 'A' : (inB && !inA ? 'B' : null);
+      if (this.config.joinMode) {
+        const user = ev.uniqueId || ev.userId;
+        if (user) {
+          if (side) this.state.userTeams[user] = side;
+          else side = this.state.userTeams[user] || null;
+        }
+      }
+    }
+    if (!side) return;
+    if (side === 'A') this.state.scoreA += pts;
+    else this.state.scoreB += pts;
+    if (this.config.linkRanking && this.onRankingPoints) {
+      const team = side === 'A' ? this.config.teamA : this.config.teamB;
+      if (team && team.creatorId) this.onRankingPoints(team.creatorId, pts, ev);
+    }
+    this._emit();
+  }
+  _runTicker() {
+    this._clearTicker();
+    this._tick = setInterval(() => {
+      if (this.state.status === 'grace') {
+        this.state.graceElapsedMs = Math.min((this.config.delaySec || 0) * 1000, (this.state.graceElapsedMs || 0) + 250);
+        this.state.remainingMs = -this.state.graceElapsedMs;
+      } else {
+        this.state.remainingMs = Math.max(0, this.state.remainingMs - 250);
+      }
+      if (this.state.remainingMs <= 0) {
+        if (this.state.status === 'prestart') {
+          this.state.status = 'running';
+          this.state.remainingMs = (this.config.durationSec || 300) * 1000;
+          this.state.endsAt = Date.now() + this.state.remainingMs;
+        } else if (this.state.status === 'running') {
+          if ((this.config.delaySec || 0) > 0) {
+            this.state.status = 'grace';
+            this.state.graceElapsedMs = 0;
+            this.state.remainingMs = 0;
+          } else {
+            this.state.status = 'finished';
+            this.state.userTeams = {};
+            this._recordResult();
+            this._clearTicker();
+          }
+        } else if (this.state.status === 'grace' && Math.abs(this.state.remainingMs) >= (this.config.delaySec || 0) * 1000) {
+          this.state.status = 'finished';
+          this.state.userTeams = {};
+          this._recordResult();
           this._clearTicker();
         }
       }
@@ -1972,15 +2280,22 @@ class PkGroupEngine {
         return { uniqueId: g.uniqueId, nickname: g.nickname, avatar, avatarKey: avatarCacheKey(avatar), total: Math.round(g.total) };
       });
   }
-  testGift(id) {
+  // sign < 0 = TRỪ (lỡ cộng sai); trừ có kẹp về 0, không cho điểm âm.
+  testGift(id, qty = 1, sign = 1) {
     const participant = (this.config.participants || []).find(p => p.id === id || p.creatorId === id);
     if (!participant) return false;
     const gift = (participant.gifts || [])[0] || {};
-    const points = this.config.pointsBy === 'diamond'
+    const n = Math.max(1, Math.floor(Number(qty) || 1));
+    const per = this.config.pointsBy === 'diamond'
       ? Math.max(1, Number(gift.diamond) || 1)
       : 1;
+    let points = per * n;
+    if (sign < 0) {
+      const cur = Number(this.state.scores?.[participant.id]) || 0;
+      points = -Math.min(cur, points); // không cho điểm âm
+    }
     this.addPoints(participant.id, points);
-    return { points, giftName: gift.giftName || gift.name || '' };
+    return { points, qty: n, giftName: gift.giftName || gift.name || '' };
   }
   // Tính điểm khi 'running' VÀ trong Delay 'grace' (bắt quà trễ). Ngừng khi 'finished'.
   routeGift(ev) {
@@ -3438,7 +3753,7 @@ function rankingLivePoints(creatorId, points, ev) {
 // Nguồn chuẩn của trạng thái Liên kết: settings.rankingLinks { pkduo, pkgroup, sticker }.
 function getRankingLinks() {
   const l = (settings.rankingLinks && typeof settings.rankingLinks === 'object') ? settings.rankingLinks : {};
-  return { pkduo: !!l.pkduo, pkgroup: !!l.pkgroup, sticker: !!l.sticker };
+  return { pkduo: !!l.pkduo, pkgroup: !!l.pkgroup, sticker: !!l.sticker, kcduo: !!l.kcduo };
 }
 // Đẩy cờ linkRanking xuống từng engine để routeGift biết có cộng realtime hay không.
 function applyRankingLinksToEngines() {
@@ -3446,6 +3761,7 @@ function applyRankingLinksToEngines() {
   if (pkDuoEngine) pkDuoEngine.config.linkRanking = l.pkduo;
   if (pkGroupEngine) pkGroupEngine.config.linkRanking = l.pkgroup;
   if (stickerEngine) stickerEngine.config.linkRanking = l.sticker;
+  if (kcDuoEngine) kcDuoEngine.config.linkRanking = l.kcduo;
 }
 // Có nguồn Liên kết nào đang "sống" không → BXH ngưng tự cộng quà mặc định (tránh cộng trùng).
 // PK Đôi/Nhóm chỉ tính khi trận đang chạy; Đập Trứng/Dance tính bất cứ khi nào bật (bảng luôn nhận quà).
@@ -3453,7 +3769,8 @@ function anyLinkedGiftSourceActive() {
   const l = getRankingLinks();
   const pkDuoRun = l.pkduo && ['prestart', 'running', 'grace'].includes(pkDuoEngine?.state?.status);
   const pkGroupRun = l.pkgroup && ['prestart', 'running', 'grace'].includes(pkGroupEngine?.state?.status);
-  return !!(pkDuoRun || pkGroupRun || l.sticker);
+  const kcDuoRun = l.kcduo && ['prestart', 'running', 'grace'].includes(kcDuoEngine?.state?.status);
+  return !!(pkDuoRun || pkGroupRun || kcDuoRun || l.sticker);
 }
 // Đã có "hiệu lệnh BẮT ĐẦU" cho VOTE ở THI ĐẤU NHÓM chưa? = phiên 🎯 Tính điểm đang chạy
 // (đã bấm BẮT ĐẦU) HOẶC có trận Liên kết (PK Đôi/Nhóm) đang chạy. Chưa bắt đầu → VOTE không nhận điểm.
@@ -3515,6 +3832,26 @@ function bootstrapEngines() {
   });
   const savedPk = loadPkDuoConfig();
   if (savedPk) pkDuoEngine.setConfig(savedPk);
+  kcDuoEngine = new KcDuoEngine({
+    onState: (st) => {
+      overlayServer?.sendKcDuo(st);
+      broadcast('kcduo:state', st);
+      if (getRankingLinks().kcduo) rankingEngine?._emit();
+    },
+    // Engine tự cập nhật chuỗi trụ vững / tổng vòng / người kế sau trận → lưu file + báo renderer.
+    onConfigChange: () => {
+      saveKcDuoConfig(kcDuoEngine.config);
+      broadcast('kcduo:config', {
+        teamA: kcDuoEngine.config.teamA, teamB: kcDuoEngine.config.teamB,
+        defendStreak: kcDuoEngine.config.defendStreak, totalRounds: kcDuoEngine.config.totalRounds,
+        performerName: kcDuoEngine.config.performerName, nextName: kcDuoEngine.config.nextName,
+      });
+    },
+    getCreators: loadCreators,
+    onRankingPoints: rankingLivePoints,
+  });
+  const savedKc = loadKcDuoConfig();
+  if (savedKc) kcDuoEngine.setConfig(savedKc);
   pkGroupEngine = new PkGroupEngine({
     onState: (st) => {
       overlayServer?.sendPkGroup(st);
@@ -3601,6 +3938,7 @@ function bootstrapEngines() {
 
   // Phát state khởi tạo cho overlay khi mới connect
   pkDuoEngine._emit();
+  kcDuoEngine._emit();
   pkGroupEngine._emit();
   rankingEngine._emit();
   scoreEngine._emit();
@@ -3671,8 +4009,10 @@ function bootstrapTikTok() {
         giftIcon: d.giftIcon || '', repeat, totalCoin: coinEach * repeat,
       });
     }
-    // Score tự cộng phần chênh lệch của từng nhịp combo để điểm lên ngay, không chờ chốt streak.
+    // Score + Giữ/Đổi tự cộng phần chênh lệch của từng nhịp combo để điểm lên ngay, không chờ chốt
+    // streak → không mất combo x10/x1000 nếu gói chốt tới muộn/rớt sau khi hết vòng + thời gian Delay.
     scoreEngine?.routeGift(d);
+    kcDuoEngine?.routeGift(d);
     // Các game còn lại chỉ route khi streak kết thúc để tránh double-count khi user combo.
     if (d.shouldProcess) {
       pkDuoEngine?.routeGift(d);
@@ -3695,6 +4035,28 @@ function bootstrapTikTok() {
   ttClient.on('follow', (d) => { _cacheAvatar(d); });
   ttClient.on('share', (d) => { _cacheAvatar(d); });
   ttClient.on('roomUser', (d) => broadcast('tt:roomUser', d));
+}
+
+// Danh sách khoá ẩn/hiện overlay — MỖI nguồn OBS một khoá riêng để Hiện/Ẩn/Ghim độc lập.
+// Nhóm có nhiều overlay: PK Đôi (pkduo + pkduofx), Thi đấu (ranking dọc + rankinggrid ngang),
+// Tính điểm (score/scorebar/scorecard/scoretimer), Thẻ bài (cardflip + cardflipfx), Nhạc Dance (3 kênh).
+const OVERLAY_SCENE_KEYS = [
+  'pkduo', 'pkduofx', 'kcduo', 'pkgroup', 'ranking', 'rankinggrid',
+  'score', 'scorebar', 'scorecard', 'scoretimer', 'sticker', 'giftmenu',
+  'mvphonor', 'luckywheel', 'missiontrio', 'cardflip', 'cardflipfx',
+  'dancevideo', 'dancevideo2', 'dancevideo3', 'interact',
+];
+// Đọc cấu hình ẩn/hiện overlay (chuẩn hoá + mặc định): hiện hết, tự-theo-menu BẬT, ghim sẵn TƯƠNG TÁC + Menu Quà.
+function getOverlayVis() {
+  const raw = settings.overlayVisibility || {};
+  const vis = {}, pinned = {};
+  const rawVis = raw.vis || {}, rawPin = raw.pinned || {};
+  const firstRun = !raw.pinned; // chưa từng lưu ⇒ dùng ghim mặc định
+  for (const k of OVERLAY_SCENE_KEYS) {
+    vis[k] = rawVis[k] !== false;                       // mặc định hiện
+    pinned[k] = firstRun ? (k === 'interact' || k === 'giftmenu') : !!rawPin[k];
+  }
+  return { autoScene: raw.autoScene !== false, pinned, vis };
 }
 
 async function bootstrapOverlay() {
@@ -3738,8 +4100,31 @@ async function bootstrapOverlay() {
     onLog: (m) => broadcast('log', { source: 'overlay', message: m }),
   });
   await overlayServer.start();
+  // Khôi phục chế độ link copy. MẶC ĐỊNH BẬT TikTok Studio (hostname hpstudio.obs) khi chưa từng set;
+  // chỉ TẮT (về 127.0.0.1) nếu người dùng đã chủ động tắt (lưu false). (Cần hosts "127.0.0.1 hpstudio.obs".)
+  overlayServer.setLinkMode(settings.overlayTikTokLinks !== false);
+  // Khôi phục trạng thái ẩn/hiện overlay đã lưu (đẩy sau khi server chạy — mẫu re-emit như config khác).
+  overlayServer.setVisibility(getOverlayVis().vis);
+  // Đang bật chế độ TikTok mà máy chưa có dòng hosts → tự cài (UAC 1 lần). Chạy nền, không chặn khởi động.
+  if (overlayServer.isTikTokLinkMode() && !hostsSetup.hasOverlayHostEntry()) ensureOverlayHostsAndNotify(true);
   // Lưu sẵn avatar các creator/nhóm ra đĩa (không chặn khởi động).
   setTimeout(() => primeStoredAvatars().catch(() => {}), 1500);
+}
+
+// Kiểm tra (và tùy chọn tự cài) dòng hosts cho hostname overlay, rồi báo trạng thái cho renderer.
+// autoFix=true: thử nâng quyền ghi ngay (dùng lúc khởi động). autoFix=false: chỉ kiểm tra (dùng cho IPC status).
+let _hostsFixInFlight = false;
+async function ensureOverlayHostsAndNotify(autoFix) {
+  let present = hostsSetup.hasOverlayHostEntry();
+  if (!present && autoFix && !_hostsFixInFlight) {
+    _hostsFixInFlight = true;
+    try { present = await hostsSetup.ensureOverlayHostEntry(); } catch { present = hostsSetup.hasOverlayHostEntry(); }
+    _hostsFixInFlight = false;
+  }
+  const tiktok = !!overlayServer?.isTikTokLinkMode();
+  // "needed" = đang dùng chế độ TikTok mà lại thiếu dòng hosts → overlay sẽ trắng, cần cảnh báo.
+  broadcast('hosts:status', { present, needed: tiktok && !present, hostname: hostsSetup.OVERLAY_HOSTNAME });
+  return present;
 }
 
 // =================================================================
@@ -3972,6 +4357,7 @@ function registerIpc() {
     if (cfgWritten) {
       try { stickerEngine.setConfig(loadStickerConfig() || {}); } catch {}
       try { pkDuoEngine.setConfig(loadPkDuoConfig() || {}); } catch {}
+      try { kcDuoEngine.setConfig(loadKcDuoConfig() || {}); } catch {}
       try { pkGroupEngine.setConfig(loadPkGroupConfig() || {}); } catch {}
     }
     rankingEngine?._emit();
@@ -3986,8 +4372,57 @@ function registerIpc() {
   ipcMain.handle('pkduo:reset', () => { pkDuoEngine.reset(); return true; });
   ipcMain.handle('pkduo:resetAll', () => { pkDuoEngine.resetAll(); return true; });
   ipcMain.handle('pkduo:addPoints', (_e, { side, points }) => { pkDuoEngine.addPoints(side, points); return true; });
+  ipcMain.handle('pkduo:testGift', (_e, { side, qty, sign } = {}) => pkDuoEngine.testGift(side, qty, sign));
   ipcMain.handle('pkduo:getUrl', () => overlayServer.getPkDuoUrl());
   ipcMain.handle('pkduo:getFxUrl', () => overlayServer.getPkDuoFxUrl());
+
+  // Chế độ link overlay dùng chung cho MỌI nút copy: false = OBS (127.0.0.1), true = TikTok Studio (hostname).
+  ipcMain.handle('overlay:getLinkMode', () => overlayServer?.isTikTokLinkMode() || false);
+  ipcMain.handle('overlay:setLinkMode', (_e, on) => {
+    settings.overlayTikTokLinks = !!on;
+    saveSettings();
+    overlayServer?.setLinkMode(!!on);
+    // Vừa bật TikTok mà thiếu hosts → tự cài (UAC). Vừa tắt → chỉ cập nhật lại trạng thái banner.
+    if (on) ensureOverlayHostsAndNotify(true); else ensureOverlayHostsAndNotify(false);
+    return !!on;
+  });
+  // Ẩn/hiện overlay theo cảnh: renderer đọc trạng thái để dựng bảng điều khiển + nút nổi.
+  ipcMain.handle('overlay:getVisibility', () => getOverlayVis());
+  // Ghi patch {autoScene?, pinned?, vis?} → lưu + phát bản đồ vis mới tới mọi overlay đang mở.
+  ipcMain.handle('overlay:setVisibility', (_e, patch) => {
+    const cur = getOverlayVis();
+    const next = {
+      autoScene: patch && 'autoScene' in patch ? !!patch.autoScene : cur.autoScene,
+      pinned: patch && patch.pinned ? { ...cur.pinned, ...patch.pinned } : cur.pinned,
+      vis: patch && patch.vis ? { ...cur.vis, ...patch.vis } : cur.vis,
+    };
+    settings.overlayVisibility = next;
+    saveSettings();
+    overlayServer?.setVisibility(next.vis);
+    return next;
+  });
+  // Trạng thái dòng hosts cho hostname overlay (renderer hiện/ẩn banner cảnh báo).
+  ipcMain.handle('hosts:status', () => ({
+    present: hostsSetup.hasOverlayHostEntry(),
+    needed: !!overlayServer?.isTikTokLinkMode() && !hostsSetup.hasOverlayHostEntry(),
+    hostname: hostsSetup.OVERLAY_HOSTNAME,
+  }));
+  // Nút "Sửa nhanh": tự nâng quyền ghi dòng hosts (UAC). Trả về trạng thái sau khi ghi.
+  ipcMain.handle('hosts:fix', async () => {
+    const present = await ensureOverlayHostsAndNotify(true);
+    return { present, hostname: hostsSetup.OVERLAY_HOSTNAME };
+  });
+
+  // GIỮ / ĐỔI (Keep/Change)
+  ipcMain.handle('kcduo:getState', () => kcDuoEngine.getStateForOverlay());
+  ipcMain.handle('kcduo:setConfig', (_e, cfg) => { kcDuoEngine.setConfig(cfg); saveKcDuoConfig(kcDuoEngine.config); return kcDuoEngine.config; });
+  ipcMain.handle('kcduo:start', () => { kcDuoEngine.start(); return true; });
+  ipcMain.handle('kcduo:stop', () => { kcDuoEngine.stop(); return true; });
+  ipcMain.handle('kcduo:reset', () => { kcDuoEngine.reset(); return true; });
+  ipcMain.handle('kcduo:resetAll', () => { kcDuoEngine.resetAll(); return true; });
+  ipcMain.handle('kcduo:addPoints', (_e, { side, points }) => { kcDuoEngine.addPoints(side, points); return true; });
+  ipcMain.handle('kcduo:testGift', (_e, { side, qty, sign } = {}) => kcDuoEngine.testGift(side, qty, sign));
+  ipcMain.handle('kcduo:getUrl', () => overlayServer.getKcDuoUrl());
 
   // PK Group
   ipcMain.handle('pkgroup:getState', () => pkGroupEngine.getStateForOverlay());
@@ -3997,7 +4432,7 @@ function registerIpc() {
   ipcMain.handle('pkgroup:reset', () => { pkGroupEngine.reset(); return true; });
   ipcMain.handle('pkgroup:resetAll', () => { pkGroupEngine.resetAll(); savePkGroupConfig(pkGroupEngine.config); return true; });
   ipcMain.handle('pkgroup:addPoints', (_e, { id, points }) => { pkGroupEngine.addPoints(id, points); return true; });
-  ipcMain.handle('pkgroup:testGift', (_e, { id }) => pkGroupEngine.testGift(id));
+  ipcMain.handle('pkgroup:testGift', (_e, { id, qty, sign } = {}) => pkGroupEngine.testGift(id, qty, sign));
   ipcMain.handle('pkgroup:getUrl', () => overlayServer.getPkGroupUrl());
 
   // DANH SÁCH NHẠC (quà → clip audio). Audio phát ở renderer; main chỉ lưu cấu hình.
@@ -4306,6 +4741,7 @@ function registerIpc() {
     if (typeof patch.pkduo === 'boolean') next.pkduo = patch.pkduo;
     if (typeof patch.pkgroup === 'boolean') next.pkgroup = patch.pkgroup;
     if (typeof patch.sticker === 'boolean') next.sticker = patch.sticker;
+    if (typeof patch.kcduo === 'boolean') next.kcduo = patch.kcduo;
     settings.rankingLinks = next;
     saveSettings();
     applyRankingLinksToEngines();
@@ -4604,7 +5040,7 @@ app.whenReady().then(async () => {
   await bootstrapOverlay();
   // Overlay server sẵn sàng SAU khi engine đã nạp config đã lưu → phát lại state một lần
   // để OBS/Review nhận ĐÚNG cấu hình ngay khi kết nối, không phải chờ lần chỉnh sửa kế tiếp.
-  pkDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); cardFlipEngine?._emit(); danceVideoEngine?.emitAll();
+  pkDuoEngine?._emit(); kcDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); cardFlipEngine?._emit(); danceVideoEngine?.emitAll();
   overlayServer?.sendGiftMenu(giftMenuConfig);
   overlayServer?.sendInteract(interactConfig);
   createWindow();

@@ -130,4 +130,6 @@ function onState(st) {
   else if (!seq && handledBgSeq) { handledBgSeq = 0; stopBg(); }
 }
 
-connectSSE('/dance-video-events?ch=' + encodeURIComponent(CH) + '&token=' + encodeURIComponent(token), 'dancevideo', onState, { staleMs: 12000 });
+// Ẩn/hiện riêng từng kênh: WEBM 1=dancevideo · WEBM 2=dancevideo2 · WEBM 3=dancevideo3.
+const DANCE_VIS_KEY = { webm1: 'dancevideo', webm2: 'dancevideo2', webm3: 'dancevideo3' }[CH] || 'dancevideo';
+connectSSE('/dance-video-events?ch=' + encodeURIComponent(CH) + '&token=' + encodeURIComponent(token), 'dancevideo', onState, { staleMs: 12000, visKey: DANCE_VIS_KEY });

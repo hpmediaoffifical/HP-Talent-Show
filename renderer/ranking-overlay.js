@@ -163,4 +163,5 @@ function render(state = {}) {
 
 render({});
 // SSE tự hồi phục (overlay-sse.js) → overlay tự lên lại khi stream rớt/kẹt, không cần Ctrl+R.
-connectSSE(`/ranking-events?token=${encodeURIComponent(token)}`, 'ranking', render);
+// Ẩn/hiện riêng: bản NGANG (?grid=1) khoá 'rankinggrid', bản DỌC khoá 'ranking'.
+connectSSE(`/ranking-events?token=${encodeURIComponent(token)}`, 'ranking', render, { visKey: layoutGrid ? 'rankinggrid' : 'ranking' });

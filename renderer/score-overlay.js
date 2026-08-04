@@ -622,4 +622,6 @@ function render(state = {}) {
 
 render({});
 // SSE tự hồi phục (overlay-sse.js) → overlay tự lên lại khi stream rớt/kẹt, không cần Ctrl+R.
-connectSSE(`/score-events?token=${encodeURIComponent(token)}`, 'score', render);
+// Ẩn/hiện riêng theo kiểu ép cứng (?layout=): ĐƯỜNG ĐUA=scorebar · KÊU GỌI=scorecard · THỜI GIAN=scoretimer · mặc định=score.
+const SCORE_VIS_KEY = { bar: 'scorebar', card: 'scorecard', timer: 'scoretimer' }[forcedLayout] || 'score';
+connectSSE(`/score-events?token=${encodeURIComponent(token)}`, 'score', render, { visKey: SCORE_VIS_KEY });

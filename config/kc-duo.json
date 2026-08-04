@@ -1,0 +1,83 @@
+{
+  "teamA": {
+    "name": "KEEP/GIỮ",
+    "color": "#e60045",
+    "gifts": [
+      {
+        "giftName": "Rose",
+        "giftId": "5655",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
+        "diamond": 1
+      }
+    ],
+    "creatorId": "c_mrtg618ghjphi",
+    "creatorName": "Lucy",
+    "groupId": "g_mrtfzc0t6cmab",
+    "groupName": "HP• LOLLIPOP",
+    "nameOverride": true,
+    "giftOverride": true,
+    "fixedGifts": [],
+    "joinGifts": [
+      {
+        "giftName": "Rose",
+        "giftId": "5655",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
+        "diamond": 1
+      }
+    ]
+  },
+  "teamB": {
+    "name": "CHANGE/ĐỔI",
+    "color": "#00afdb",
+    "gifts": [
+      {
+        "giftName": "TikTok",
+        "giftId": "5269",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
+        "diamond": 1
+      }
+    ],
+    "creatorId": "c_mrtg5x00yt7lr",
+    "creatorName": "Celine",
+    "groupId": "g_mrtfzc0t6cmab",
+    "groupName": "HP• LOLLIPOP",
+    "nameOverride": true,
+    "giftOverride": true,
+    "fixedGifts": [],
+    "joinGifts": [
+      {
+        "giftName": "TikTok",
+        "giftId": "5269",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
+        "diamond": 1
+      }
+    ]
+  },
+  "performerName": "Meo",
+  "nextName": "Kira",
+  "defendStreak": 7,
+  "totalRounds": 7,
+  "flipMargin": 0,
+  "flipMarginMode": "point",
+  "durationSec": 10,
+  "prepSec": 0,
+  "delaySec": 7,
+  "joinMode": true,
+  "creatorLive": false,
+  "linkRanking": true,
+  "pointsBy": "diamond",
+  "content": "",
+  "timerPos": "center",
+  "bgColor": "#000000",
+  "bgOpacity": 0,
+  "giftSize": 46,
+  "textSize": 21,
+  "overlayScale": 200,
+  "startSound": "",
+  "warningSound": "",
+  "keepSound": "",
+  "changeSound": "",
+  "drawSound": "",
+  "giftDisplayMode": "scroll",
+  "skin": "auto"
+}

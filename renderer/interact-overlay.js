@@ -98,6 +98,9 @@ function applyConfig(cfg) {
   cfg = cfg || {};
   const op = Math.max(0, Math.min(100, Number(cfg.bgOpacity ?? 55))) / 100;
   root.style.setProperty('--feed-bg', `rgba(${hexToRgb(cfg.bgColor || '#000000')}, ${op})`);
+  // Kéo độ trong suốt về 0 = TRONG SUỐT HOÀN TOÀN: bỏ luôn nền/bóng của từng dòng
+  // (không chỉ nền khung) để chỉ còn chữ + avatar + icon nổi trên video.
+  root.dataset.transparent = op <= 0 ? '1' : '0';
   root.style.setProperty('--avatar', (Number(cfg.avatarSize) || 56) + 'px');
   root.style.setProperty('--name', (Number(cfg.nameSize) || 30) + 'px');
   root.style.setProperty('--comment', (Number(cfg.commentSize) || 34) + 'px');
@@ -195,6 +198,7 @@ function connect() {
       if (loadedVer === null) { loadedVer = v; return; }
       if (v !== loadedVer) { loadedVer = v; try { location.reload(); } catch {} }
     });
+    es.addEventListener('__vis', (e) => { bump(); try { window.applyOverlayVisibility && window.applyOverlayVisibility('interact', e.data); } catch {} });
     es.addEventListener('interact', (e) => { bump(); try { applyConfig(JSON.parse(e.data || '{}')); } catch {} });
     es.addEventListener('ichat', (e) => { bump(); try { handleEvent(JSON.parse(e.data || '{}'), 'chat'); } catch {} });
     es.addEventListener('igift', (e) => { bump(); try { handleEvent(JSON.parse(e.data || '{}'), 'gift'); } catch {} });

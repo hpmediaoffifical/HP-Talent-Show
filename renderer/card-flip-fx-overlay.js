@@ -274,4 +274,4 @@ function onData(st) {
 }
 
 try { warmAudio(); } catch (_) {}   // ấm sẵn ngữ cảnh âm thanh → tiếng phát tức thì lần đầu
-connectSSE(`/card-flip-events?token=${encodeURIComponent(token)}`, 'cardflip', onData);
+connectSSE(`/card-flip-events?token=${encodeURIComponent(token)}`, 'cardflip', onData, { visKey: 'cardflipfx' });

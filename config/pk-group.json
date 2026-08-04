@@ -1,140 +1,101 @@
 {
   "content": "PK NHÓM",
-  "groupId": "g_mrtg107e1aqmz",
+  "groupId": "g_mrtfzc0t6cmab",
   "layoutMode": "joined",
-  "playMode": "fixed",
+  "playMode": "join",
   "creatorLive": false,
   "linkRanking": true,
   "pointsBy": "diamond",
   "noteEnabled": true,
-  "noteText": "Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy",
+  "noteText": "",
   "noteBgColor": "#000000",
   "noteTextColor": "#ffea00",
   "noteSpeedSec": 19,
   "noteEffect": "soft",
-  "separatedGap": 30,
+  "separatedGap": 160,
   "autoTextContrast": true,
-  "durationSec": 15,
+  "durationSec": 615,
   "prepSec": 3,
   "delaySec": 5,
-  "textSize": 30,
-  "nameSize": 150,
-  "giftSize": 60,
-  "overlayScale": 185,
-  "selectFx": "versus",
+  "textSize": 35,
+  "nameSize": 80,
+  "giftSize": 50,
+  "overlayScale": 200,
+  "selectFx": "arrow",
+  "skin": "auto",
   "participants": [
     {
-      "id": "c_mrtg28mrb1ni1",
-      "creatorId": "c_mrtg28mrb1ni1",
-      "tiktokId": "raidenhyun",
-      "name": "Raiden",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=32669c64&x-expires=1785686400&x-signature=Fyq3iEX7XkA7l9huLswPQJyyTLQ%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#bc3cdd",
-      "giftOverride": false,
-      "gifts": [
-        {
-          "giftName": "Go Popular",
-          "giftId": "13651",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp",
-          "diamond": 1
-        }
-      ],
-      "streak": 0,
-      "score": 0,
-      "nameOverride": false,
-      "avatarKey": "d2f7a0ed10441222facb47f2e8bc147a6ab175f2"
-    },
-    {
-      "id": "c_mrtg2crd6d27p",
-      "creatorId": "c_mrtg2crd6d27p",
-      "tiktokId": "manhhao2309",
-      "name": "Im Xuhào",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=bc81fdc0&x-expires=1785686400&x-signature=YVSs2YxpgKfxxh48DJMiS66wyIU%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#3c7cdd",
-      "giftOverride": false,
-      "gifts": [
-        {
-          "giftName": "GG",
-          "giftId": "6064",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp",
-          "diamond": 1
-        }
-      ],
-      "streak": 0,
-      "score": 0,
-      "nameOverride": true,
-      "avatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b"
-    },
-    {
-      "id": "c_mrtg2obyczu0h",
-      "creatorId": "c_mrtg2obyczu0h",
-      "tiktokId": "callme.ice23",
-      "name": "I.CE",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/ceab283203632412f0469537c948036e~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=67f7de13&x-expires=1785686400&x-signature=pTxuoHwV9Ry%2Bz6qLmkoHyQlVJss%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#3cdd7c",
-      "giftOverride": false,
-      "gifts": [
-        {
-          "giftName": "Good Job",
-          "giftId": "231955",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/047bfa2dcc6813c72fd2d8f649ee8ee2.png~tplv-obj.webp",
-          "diamond": 1
-        }
-      ],
-      "streak": 0,
-      "score": 0,
-      "nameOverride": true,
-      "avatarKey": "257e01bcb983d9242993df341399fb664d63f4ed"
-    },
-    {
-      "id": "c_mrtg2s085v57p",
-      "creatorId": "c_mrtg2s085v57p",
-      "tiktokId": "gin.2264",
-      "name": "GIN",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/8ad8152cd28abca9114653858cf057c9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=6bcef627&x-expires=1785686400&x-signature=%2B%2F5m96n%2FRo5jdDTj8TQm%2BZImMYM%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-      "color": "#bcdd3c",
-      "giftOverride": false,
-      "gifts": [
-        {
-          "giftName": "Creeper",
-          "giftId": "54724",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/d686d45bd66e16b0aca8b0e5eb52a977.png~tplv-obj.webp",
-          "diamond": 1
-        }
-      ],
-      "streak": 1,
-      "score": 0,
-      "nameOverride": true,
-      "avatarKey": "3dafaf85608b5ed478ea2c98dc543fb5db28bf2f"
-    },
-    {
-      "id": "c_mrtg396ra59ws",
-      "creatorId": "c_mrtg396ra59ws",
-      "tiktokId": "d.one_2607",
-      "name": "D-ONE",
-      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/412869dc3e6fe48871a2754d67b12aae~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=3a335a7d&x-expires=1785686400&x-signature=5Ob34R4uMVrIb2DMmKEXQFoVZoM%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "id": "c_mrtg5so32eajw",
+      "creatorId": "c_mrtg5so32eajw",
+      "tiktokId": "melaina2212",
+      "name": "Elaina",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/690b222acb18816422fd68adce6fd829~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=8eb6a67f&x-expires=1785945600&x-signature=kek%2FgqXK0k%2BCtXiHT%2FuNjhxaE0w%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "color": "#dd3c3c",
       "giftOverride": false,
-      "gifts": [
-        {
-          "giftName": "Clap Clap",
-          "giftId": "231956",
-          "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/f2349d1d943c0c3bbcc03044268ee535.png~tplv-obj.webp",
-          "diamond": 1
-        }
-      ],
+      "gifts": [],
       "streak": 0,
-      "score": 0,
-      "nameOverride": true,
-      "avatarKey": "7a1835be3759ef22140264da0b92563b31d5f75e"
+      "nameOverride": false,
+      "score": 0
+    },
+    {
+      "id": "c_mrtg5x00yt7lr",
+      "creatorId": "c_mrtg5x00yt7lr",
+      "tiktokId": "celine_1111_",
+      "name": "Celine",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/28de018673f49a15d8d71489ce8c09e9~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=c8b288ab&x-expires=1785945600&x-signature=tueJ4aveDA556sHeN9a22ds%2FFDo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#bcdd3c",
+      "giftOverride": false,
+      "gifts": [],
+      "streak": 0,
+      "nameOverride": false,
+      "score": 0
+    },
+    {
+      "id": "c_mrtg618ghjphi",
+      "creatorId": "c_mrtg618ghjphi",
+      "tiktokId": "lucibabiii",
+      "name": "Lucy",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/e619335beca543449612c3d06ea89f0d~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=84f9ad81&x-expires=1785945600&x-signature=HpmafAGYNtloXObYMHho6GjUGQ4%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#3cdd7c",
+      "giftOverride": false,
+      "gifts": [],
+      "streak": 0,
+      "nameOverride": false,
+      "score": 0
+    },
+    {
+      "id": "c_mrtg64tozx2es",
+      "creatorId": "c_mrtg64tozx2es",
+      "tiktokId": "kiradaynee_06",
+      "name": "Kira",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/c2ad1238b69c9b28bcd5909e03e75e3f~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=57515e24&x-expires=1785945600&x-signature=%2F2qOjjz%2Bt8WcCygv7SKW1pFJqD8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#3c7cdd",
+      "giftOverride": false,
+      "gifts": [],
+      "streak": 0,
+      "nameOverride": false,
+      "score": 0
+    },
+    {
+      "id": "c_mrtg69i8utp8r",
+      "creatorId": "c_mrtg69i8utp8r",
+      "tiktokId": "camonvidaden.22",
+      "name": "Akii",
+      "avatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/626786a6484ccff6fa56a1f8528e3b8a~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=27e59c03&x-expires=1785945600&x-signature=rXNhLwGtNJIA8DN5ElSa4mxptts%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "color": "#bc3cdd",
+      "giftOverride": false,
+      "gifts": [],
+      "streak": 0,
+      "nameOverride": false,
+      "score": 0
     }
   ],
   "creatorColors": {
-    "c_mrtg396ra59ws": "#dd3c3c",
-    "c_mrtg2s085v57p": "#bcdd3c",
-    "c_mrtg2obyczu0h": "#3cdd7c",
-    "c_mrtg2crd6d27p": "#3c7cdd",
-    "c_mrtg28mrb1ni1": "#bc3cdd",
+    "c_mrtg396ra59ws": "#3c3cdd",
+    "c_mrtg2s085v57p": "#3cdddd",
+    "c_mrtg2obyczu0h": "#3cdd3c",
+    "c_mrtg2crd6d27p": "#dddd3c",
+    "c_mrtg28mrb1ni1": "#dd3c3c",
     "c_mrtg8p4yb0tkt": "#dd3c3c",
     "c_mrtg7ysm96v7y": "#dddd3c",
     "c_mrtg84hcxsx0c": "#3cdd3c",
@@ -146,7 +107,12 @@
     "c_mrtg5hryfktyi": "#3cdd7c",
     "c_mrtg3hpifvot2": "#3c7cdd",
     "c_mrtg3p5lx8k8q": "#bc3cdd",
-    "c_ms71nvzoicoaa": "#dd3cdd"
+    "c_ms71nvzoicoaa": "#dd3cdd",
+    "c_mrtg69i8utp8r": "#bc3cdd",
+    "c_mrtg5x00yt7lr": "#bcdd3c",
+    "c_mrtg5so32eajw": "#dd3c3c",
+    "c_mrtg64tozx2es": "#3c7cdd",
+    "c_mrtg618ghjphi": "#3cdd7c"
   },
   "smartColor": true
 }

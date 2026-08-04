@@ -4,9 +4,24 @@
 // Cách xử lý: watchdog (server heartbeat ~5s, quá ~12s không nhận gì ⇒ dựng lại) + onerror +
 // kiểm tra khi source hiện lại (visibility/online). Nhờ vậy overlay TỰ lên lại, không cần đụng OBS.
 (function () {
+  // ẨN/HIỆN overlay theo "cảnh": server phát event __vis = bản đồ {khoá -> bool}. Trang overlay tự
+  // thêm/bỏ class .ov-hidden trên <html> (CSS làm opacity:0 khi ẩn) — KHÔNG dừng video/animation nào,
+  // và cửa sổ Review (body.overlay-review) LUÔN hiện để xem trước. Khoá không có trong bản đồ ⇒ giữ nguyên.
+  window.applyOverlayVisibility = function (kind, data) {
+    try {
+      var map = typeof data === 'string' ? JSON.parse(data || '{}') : (data || {});
+      if (!map || typeof map !== 'object' || !(kind in map)) return;
+      document.documentElement.classList.toggle('ov-hidden', map[kind] === false);
+    } catch (_) {}
+  };
+
   window.connectSSE = function connectSSE(path, eventName, onData, opts) {
     opts = opts || {};
     const STALE = opts.staleMs || 12000; // ~2 nhịp heartbeat lỡ ⇒ coi như kẹt
+    // Khoá ẩn/hiện riêng cho từng overlay: mặc định = eventName (kênh dữ liệu SSE), nhưng các trang
+    // dùng CHUNG 1 kênh dữ liệu (pk-duo & FX, ranking dọc/ngang, score 4 kiểu, 3 kênh dance…) truyền
+    // visKey riêng để Hiện/Ẩn/Ghim ĐỘC LẬP từng nguồn OBS.
+    const VIS_KEY = opts.visKey || eventName;
     let es = null, lastAt = Date.now(), lastPayload = '', closed = false, reconnecting = false;
     // Phiên bản app lúc trang được tải. Khi server phát __ver KHÁC (sau khi cập nhật app) ⇒ tự reload
     // MỘT LẦN để lấy CSS/JS mới (server trả no-store nên reload = bản mới), KHỎI bấm Refresh/Reset trong OBS.
@@ -27,6 +42,7 @@
         if (loadedVer === null) { loadedVer = v; return; } // lần đầu = phiên bản đang chạy
         if (v !== loadedVer) { loadedVer = v; try { location.reload(); } catch (_) {} }
       });
+      es.addEventListener('__vis', function (e) { bump(); window.applyOverlayVisibility(VIS_KEY, e.data); });
       es.addEventListener(eventName, function (e) {
         bump();
         const payload = e.data || '{}';

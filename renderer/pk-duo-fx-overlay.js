@@ -236,4 +236,4 @@ function render(state = {}) {
 render({});
 // SSE tự hồi phục (connectSSE ở overlay-sse.js) → overlay tự lên lại khi stream rớt/kẹt,
 // không cần Ctrl+R hay tác động OBS lúc kết nối LIVE.
-connectSSE(`/pk-duo-events?token=${encodeURIComponent(token)}`, 'pkduo', render);
+connectSSE(`/pk-duo-events?token=${encodeURIComponent(token)}`, 'pkduo', render, { visKey: 'pkduofx' });

@@ -11,6 +11,15 @@ const path = require('path');
 const crypto = require('crypto');
 const { fileURLToPath } = require('url');
 
+// Host dùng để SINH chuỗi URL overlay cho người dùng copy (không ảnh hưởng bind/bảo mật — xem this.linkHost).
+// - Mặc định '127.0.0.1' cho OBS: loopback thuần, bất tử, không phụ thuộc gì.
+// - Chế độ TikTok Studio: đổi sang hostname vì TikTok LIVE Studio TỪ CHỐI URL IP trần
+//   (http://127.0.0.1:port → "Hãy nhập URL chính xác") nhưng CHẤP NHẬN hostname. Hostname này map về
+//   127.0.0.1 qua hosts file ("127.0.0.1 hpstudio.obs") nên vẫn 100% cục bộ, độ trễ 0, không cert, không DNS ngoài.
+// Server LUÔN bind '127.0.0.1' và chỉ nhận request loopback; request tới hpstudio.obs phân giải về 127.0.0.1
+// nên vẫn qua ải. Đổi host chỉ đổi chuỗi hiển thị/copy — OBS cũ đã cấu hình 127.0.0.1 không bị ảnh hưởng.
+const TIKTOK_STUDIO_HOST = 'hpstudio.obs';
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -31,6 +40,8 @@ class ObsOverlayServer {
     this.root = root;
     this.port = port;
     this.token = token || crypto.randomBytes(18).toString('hex');
+    // Host để SINH URL copy. Mặc định loopback (OBS). setLinkMode(true) đổi sang hostname cho TikTok Studio.
+    this.linkHost = '127.0.0.1';
     // Phiên bản asset (= version app). Phát kèm SSE để overlay tự reload khi ĐỔI phiên bản (sau cập nhật).
     this.assetVersion = String(assetVersion || '');
     this.onLog = onLog || (() => {});
@@ -48,12 +59,13 @@ class ObsOverlayServer {
     // riêng = mỗi loại có "ngân sách 6 kết nối" riêng, không tranh nhau. (Đã xác minh bằng netstat:
     // obs-browser-page giữ đúng 6 kết nối tới 18282, Vòng quay bị đói.)
     // NHẠC DANCE có 3 overlay độc lập, mỗi cái 1 cổng riêng (né trần 6 kết nối/host của CEF).
-    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8, 'mission-trio': 9, 'card-flip': 10, 'card-flip-fx': 11, 'dance-video-1': 12, 'dance-video-2': 13, 'dance-video-3': 14, 'interact': 15 };
-    this.portCount = 16;
+    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8, 'mission-trio': 9, 'card-flip': 10, 'card-flip-fx': 11, 'dance-video-1': 12, 'dance-video-2': 13, 'dance-video-3': 14, 'interact': 15, 'kc-duo': 16 };
+    this.portCount = 17;
     this.danceChannels = ['webm1', 'webm2', 'webm3'];
     this.servers = [];
     this._boundPorts = new Set();
     this.pkDuoClients = new Set();
+    this.kcDuoClients = new Set();
     this.pkGroupClients = new Set();
     this.rankingClients = new Set();
     this.scoreClients = new Set();
@@ -72,6 +84,7 @@ class ObsOverlayServer {
     // Mỗi kênh NHẠC DANCE 1 tập client + 1 state riêng.
     this.danceVideoClients = { webm1: new Set(), webm2: new Set(), webm3: new Set() };
     this.pkDuoState = {};
+    this.kcDuoState = {};
     this.pkGroupState = {};
     this.rankingState = {};
     this.scoreState = {};
@@ -83,6 +96,10 @@ class ObsOverlayServer {
     this.cardFlipState = {};
     this.interactState = {}; // config overlay TƯƠNG TÁC + QUÀ
     this.danceVideoState = { webm1: {}, webm2: {}, webm3: {} };
+    // ẨN/HIỆN overlay theo "cảnh": bản đồ {khoá cảnh (= tên sự kiện SSE) -> bool}. false = ẩn.
+    // App điều khiển; overlay tự làm TRONG SUỐT (opacity:0) khi khoá của nó = false. KHÔNG đụng engine
+    // (video/animation vẫn chạy, sự kiện vẫn bắn) — chỉ đổi hiển thị trên OBS/TikTok Studio.
+    this.visState = {};
     this.heartbeatTimer = null;
     // Cache avatar theo "danh tính ảnh" = PATH của URL (bỏ query chữ ký/expires): URL avatar TikTok
     // đã chứa hash ảnh trong path nên đổi ảnh = đổi path. Nhờ vậy URL ký lại (đổi x-signature/x-expires)
@@ -132,7 +149,7 @@ class ObsOverlayServer {
     clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
     const danceSets = this.danceChannels.map(ch => this.danceVideoClients[ch]);
-    for (const set of [this.pkDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients, this.missionTrioClients, this.cardFlipClients, this.interactClients, ...danceSets]) {
+    for (const set of [this.pkDuoClients, this.kcDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients, this.missionTrioClients, this.cardFlipClients, this.interactClients, ...danceSets]) {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
     }
@@ -141,36 +158,43 @@ class ObsOverlayServer {
     this._boundPorts.clear();
   }
 
-  getPkDuoUrl() { return `http://127.0.0.1:${this._portFor('pk-duo')}/pk-duo?token=${encodeURIComponent(this.token)}`; }
-  getPkDuoFxUrl() { return `http://127.0.0.1:${this._portFor('pk-duo-fx')}/pk-duo-fx?token=${encodeURIComponent(this.token)}`; }
-  getPkGroupUrl() { return `http://127.0.0.1:${this._portFor('pk-group')}/pk-group?token=${encodeURIComponent(this.token)}`; }
-  getRankingUrl() { return `http://127.0.0.1:${this._portFor('ranking')}/ranking?token=${encodeURIComponent(this.token)}`; }
-  getScoreUrl() { return `http://127.0.0.1:${this._portFor('score')}/score?token=${encodeURIComponent(this.token)}`; }
+  // Chế độ link copy: false = OBS (127.0.0.1), true = TikTok Studio (hostname map hosts→127.0.0.1).
+  // Chỉ đổi chuỗi URL sinh ra cho người dùng copy; KHÔNG đụng bind/bảo mật (vẫn loopback-only).
+  setLinkMode(tiktok) { this.linkHost = tiktok ? TIKTOK_STUDIO_HOST : '127.0.0.1'; return this.linkHost; }
+  isTikTokLinkMode() { return this.linkHost === TIKTOK_STUDIO_HOST; }
+
+  getPkDuoUrl() { return `http://${this.linkHost}:${this._portFor('pk-duo')}/pk-duo?token=${encodeURIComponent(this.token)}`; }
+  getKcDuoUrl() { return `http://${this.linkHost}:${this._portFor('kc-duo')}/kc-duo?token=${encodeURIComponent(this.token)}&v=1`; }
+  getPkDuoFxUrl() { return `http://${this.linkHost}:${this._portFor('pk-duo-fx')}/pk-duo-fx?token=${encodeURIComponent(this.token)}`; }
+  getPkGroupUrl() { return `http://${this.linkHost}:${this._portFor('pk-group')}/pk-group?token=${encodeURIComponent(this.token)}`; }
+  getRankingUrl() { return `http://${this.linkHost}:${this._portFor('ranking')}/ranking?token=${encodeURIComponent(this.token)}`; }
+  getScoreUrl() { return `http://${this.linkHost}:${this._portFor('score')}/score?token=${encodeURIComponent(this.token)}`; }
   // 2 nguồn OBS TÁCH KIỂU (ép cứng qua ?layout=) — dùng chung state/SSE /score-events (cùng điểm/đồng hồ),
   // nhưng mỗi link render CỐ ĐỊNH 1 phong cách để bật/tắt con mắt + đặt vị trí độc lập trong OBS.
   getScoreBarUrl() { return `${this.getScoreUrl()}&layout=bar`; }
   getScoreCardUrl() { return `${this.getScoreUrl()}&layout=card`; }
   getScoreTimerUrl() { return `${this.getScoreUrl()}&layout=timer`; }
-  getStickerUrl() { return `http://127.0.0.1:${this._portFor('sticker')}/sticker?token=${encodeURIComponent(this.token)}`; }
-  getMvpHonorUrl() { return `http://127.0.0.1:${this._portFor('mvp-honor')}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
-  getLuckyWheelUrl() { return `http://127.0.0.1:${this._portFor('lucky-wheel')}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=15`; }
-  getGiftMenuUrl() { return `http://127.0.0.1:${this._portFor('gift-menu')}/gift-menu?token=${encodeURIComponent(this.token)}&v=2`; }
-  getMissionTrioUrl(mode) { const m = mode === 'horizontal' ? 'horizontal' : 'vertical'; return `http://127.0.0.1:${this._portFor('mission-trio')}/mission-trio?token=${encodeURIComponent(this.token)}&mode=${m}&v=2`; }
-  getCardFlipUrl() { return `http://127.0.0.1:${this._portFor('card-flip')}/card-flip?token=${encodeURIComponent(this.token)}&v=5`; }
+  getStickerUrl() { return `http://${this.linkHost}:${this._portFor('sticker')}/sticker?token=${encodeURIComponent(this.token)}`; }
+  getMvpHonorUrl() { return `http://${this.linkHost}:${this._portFor('mvp-honor')}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
+  getLuckyWheelUrl() { return `http://${this.linkHost}:${this._portFor('lucky-wheel')}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=15`; }
+  getGiftMenuUrl() { return `http://${this.linkHost}:${this._portFor('gift-menu')}/gift-menu?token=${encodeURIComponent(this.token)}&v=2`; }
+  getMissionTrioUrl(mode) { const m = mode === 'horizontal' ? 'horizontal' : 'vertical'; return `http://${this.linkHost}:${this._portFor('mission-trio')}/mission-trio?token=${encodeURIComponent(this.token)}&mode=${m}&v=2`; }
+  getCardFlipUrl() { return `http://${this.linkHost}:${this._portFor('card-flip')}/card-flip?token=${encodeURIComponent(this.token)}&v=5`; }
   // Overlay "lật 3D" toàn màn hình — DÙNG CHUNG stream /card-flip-events (không cần set/route riêng),
   // nhưng ở cổng riêng để né trần 6 kết nối/host của CEF.
-  getCardFlipFxUrl() { return `http://127.0.0.1:${this._portFor('card-flip-fx')}/card-flip-fx?token=${encodeURIComponent(this.token)}&v=7`; }
-  getInteractUrl() { return `http://127.0.0.1:${this._portFor('interact')}/interact?token=${encodeURIComponent(this.token)}&v=1`; }
+  getCardFlipFxUrl() { return `http://${this.linkHost}:${this._portFor('card-flip-fx')}/card-flip-fx?token=${encodeURIComponent(this.token)}&v=7`; }
+  getInteractUrl() { return `http://${this.linkHost}:${this._portFor('interact')}/interact?token=${encodeURIComponent(this.token)}&v=1`; }
   // Mỗi kênh NHẠC DANCE 1 link OBS riêng (cổng riêng + ?ch=).
   _danceChan(ch) { return this.danceChannels.includes(ch) ? ch : 'webm1'; }
   getDanceVideoUrl(ch) {
     ch = this._danceChan(ch);
     const idx = { webm1: 1, webm2: 2, webm3: 3 }[ch];
-    return `http://127.0.0.1:${this._portFor('dance-video-' + idx)}/dance-video?token=${encodeURIComponent(this.token)}&ch=${ch}&v=2`;
+    return `http://${this.linkHost}:${this._portFor('dance-video-' + idx)}/dance-video?token=${encodeURIComponent(this.token)}&ch=${ch}&v=2`;
   }
   danceVideoClientCount(ch) { const s = this.danceVideoClients[this._danceChan(ch)]; return s ? s.size : 0; }
 
   sendPkDuo(state) { this.pkDuoState = state || {}; this._broadcast(this.pkDuoClients, 'pkduo', this.pkDuoState); }
+  sendKcDuo(state) { this.kcDuoState = state || {}; this._broadcast(this.kcDuoClients, 'kcduo', this.kcDuoState); }
   sendPkGroup(state) { this.pkGroupState = state || {}; this._broadcast(this.pkGroupClients, 'pkgroup', this.pkGroupState); }
   sendRanking(state) { this.rankingState = state || {}; this._broadcast(this.rankingClients, 'ranking', this.rankingState); }
   sendScore(state) { this.scoreState = state || {}; this._broadcast(this.scoreClients, 'score', this.scoreState); }
@@ -203,12 +227,34 @@ class ObsOverlayServer {
     for (const res of set) { try { res.write(body); } catch {} }
   }
 
+  // Mọi tập client (dùng cho tín hiệu chung như ẩn/hiện overlay theo cảnh).
+  _allClientSets() {
+    return [
+      this.pkDuoClients, this.kcDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients,
+      this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients,
+      this.missionTrioClients, this.cardFlipClients, this.interactClients,
+      ...this.danceChannels.map(ch => this.danceVideoClients[ch]),
+    ];
+  }
+  _broadcastAll(event, data) {
+    const body = `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
+    for (const set of this._allClientSets()) for (const res of set) { try { res.write(body); } catch {} }
+  }
+  // Dòng SSE ẩn/hiện overlay (gửi kèm khi client mới kết nối + mỗi nhịp heartbeat để tự chữa lành nếu rớt gói).
+  _visPayload() { return `event: __vis\ndata: ${JSON.stringify(this.visState || {})}\n\n`; }
+  // App gọi để đặt bản đồ ẩn/hiện overlay theo cảnh. Phát ngay tới MỌI overlay đang mở.
+  setVisibility(map) {
+    this.visState = (map && typeof map === 'object') ? map : {};
+    this._broadcastAll('__vis', this.visState);
+  }
+
   _heartbeat() {
     // Gửi lại STATE hiện tại như một event thật (không chỉ comment keep-alive).
     // → vừa giữ SSE sống trên OBS CEF, vừa để overlay tự vẽ lại định kỳ,
     //   tránh trường hợp overlay bị "treo/ẩn" sau một lúc khi có gói tin bị rớt.
     const beats = [
       [this.pkDuoClients, 'pkduo', this.pkDuoState],
+      [this.kcDuoClients, 'kcduo', this.kcDuoState],
       [this.pkGroupClients, 'pkgroup', this.pkGroupState],
       [this.rankingClients, 'ranking', this.rankingState],
       [this.scoreClients, 'score', this.scoreState],
@@ -223,7 +269,7 @@ class ObsOverlayServer {
       [this.interactClients, 'interact', this.interactState],
       ...this.danceChannels.map(ch => [this.danceVideoClients[ch], 'dancevideo', this.danceVideoState[ch]]),
     ];
-    const ver = `event: __ver\ndata: ${this.assetVersion}\n\n`;
+    const ver = `event: __ver\ndata: ${this.assetVersion}\n\n` + this._visPayload();
     for (const [set, event, data] of beats) {
       const body = ver + `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
       for (const res of set) {
@@ -244,6 +290,8 @@ class ObsOverlayServer {
     const staticMap = {
       '/pk-duo-overlay.js': 'renderer/pk-duo-overlay.js',
       '/pk-duo-overlay.css': 'renderer/pk-duo-overlay.css',
+      '/kc-duo-overlay.js': 'renderer/kc-duo-overlay.js',
+      '/kc-duo-overlay.css': 'renderer/kc-duo-overlay.css',
       '/pk-duo-fx-overlay.js': 'renderer/pk-duo-fx-overlay.js',
       '/pk-duo-fx-overlay.css': 'renderer/pk-duo-fx-overlay.css',
       '/pk-group-overlay.js': 'renderer/pk-group-overlay.js',
@@ -355,6 +403,9 @@ class ObsOverlayServer {
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo') {
       return this._serveFile(path.join(this.root, 'renderer', 'pk-duo-overlay.html'), res);
     }
+    if (req.method === 'GET' && reqUrl.pathname === '/kc-duo') {
+      return this._serveFile(path.join(this.root, 'renderer', 'kc-duo-overlay.html'), res);
+    }
     // Overlay FX toàn màn hình: dùng CHUNG stream điểm /pk-duo-events (không cần client set/route data riêng).
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo-fx') {
       return this._serveFile(path.join(this.root, 'renderer', 'pk-duo-fx-overlay.html'), res);
@@ -398,6 +449,7 @@ class ObsOverlayServer {
 
     // SSE event streams
     if (req.method === 'GET' && reqUrl.pathname === '/pk-duo-events') return this._sse(req, res, this.pkDuoClients, 'pkduo', this.pkDuoState);
+    if (req.method === 'GET' && reqUrl.pathname === '/kc-duo-events') return this._sse(req, res, this.kcDuoClients, 'kcduo', this.kcDuoState);
     if (req.method === 'GET' && reqUrl.pathname === '/pk-group-events') return this._sse(req, res, this.pkGroupClients, 'pkgroup', this.pkGroupState);
     if (req.method === 'GET' && reqUrl.pathname === '/ranking-events') return this._sse(req, res, this.rankingClients, 'ranking', this.rankingState);
     if (req.method === 'GET' && reqUrl.pathname === '/score-events') return this._sse(req, res, this.scoreClients, 'score', this.scoreState);
@@ -446,7 +498,7 @@ class ObsOverlayServer {
     res.flushHeaders?.();
     // Tell EventSource to recover quickly if OBS/CEF does close the connection.
     // Kèm event __ver (phiên bản app): overlay ghi nhớ lúc mở, tự reload khi thấy version ĐỔI (sau cập nhật).
-    res.write(`retry: 1500\n:event stream connected\n\nevent: __ver\ndata: ${this.assetVersion}\n\nevent: ${evName}\ndata: ${JSON.stringify(initialState || {})}\n\n`);
+    res.write(`retry: 1500\n:event stream connected\n\nevent: __ver\ndata: ${this.assetVersion}\n\n` + this._visPayload() + `event: ${evName}\ndata: ${JSON.stringify(initialState || {})}\n\n`);
     set.add(res);
     req.on('close', () => set.delete(res));
   }
@@ -462,7 +514,7 @@ class ObsOverlayServer {
     });
     res.socket?.setNoDelay(true);
     res.flushHeaders?.();
-    let body = `retry: 1500\n:event stream connected\n\nevent: __ver\ndata: ${this.assetVersion}\n\nevent: interact\ndata: ${JSON.stringify(this.interactState || {})}\n\n`;
+    let body = `retry: 1500\n:event stream connected\n\nevent: __ver\ndata: ${this.assetVersion}\n\n` + this._visPayload() + `event: interact\ndata: ${JSON.stringify(this.interactState || {})}\n\n`;
     const replay = [
       ...this.interactChatBuf.map(e => ['ichat', e]),
       ...this.interactGiftBuf.map(e => ['igift', e]),

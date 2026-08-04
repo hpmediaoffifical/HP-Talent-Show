@@ -45,8 +45,35 @@ const api = {
     reset: () => ipcRenderer.invoke('pkduo:reset'),
     resetAll: () => ipcRenderer.invoke('pkduo:resetAll'),
     addPoints: (side, points) => ipcRenderer.invoke('pkduo:addPoints', { side, points }),
+    testGift: (side, qty, sign) => ipcRenderer.invoke('pkduo:testGift', { side, qty, sign }),
     getUrl: () => ipcRenderer.invoke('pkduo:getUrl'),
     getFxUrl: () => ipcRenderer.invoke('pkduo:getFxUrl'),
+  },
+  // Chế độ link overlay dùng chung: false = OBS (127.0.0.1), true = TikTok Studio (hostname hpstudio.obs).
+  overlay: {
+    getLinkMode: () => ipcRenderer.invoke('overlay:getLinkMode'),
+    setLinkMode: (on) => ipcRenderer.invoke('overlay:setLinkMode', on),
+    // Ẩn/hiện overlay theo cảnh (tự-theo-menu + ghim + bật/tắt tay).
+    getVisibility: () => ipcRenderer.invoke('overlay:getVisibility'),
+    setVisibility: (patch) => ipcRenderer.invoke('overlay:setVisibility', patch),
+  },
+  // Dòng hosts "127.0.0.1 hpstudio.obs" cho link TikTok Studio: kiểm tra trạng thái / tự cài (UAC).
+  hosts: {
+    status: () => ipcRenderer.invoke('hosts:status'),
+    fix: () => ipcRenderer.invoke('hosts:fix'),
+  },
+
+  // ===== GIỮ / ĐỔI (Keep/Change) =====
+  kcduo: {
+    getState: () => ipcRenderer.invoke('kcduo:getState'),
+    setConfig: (cfg) => ipcRenderer.invoke('kcduo:setConfig', cfg),
+    start: () => ipcRenderer.invoke('kcduo:start'),
+    stop: () => ipcRenderer.invoke('kcduo:stop'),
+    reset: () => ipcRenderer.invoke('kcduo:reset'),
+    resetAll: () => ipcRenderer.invoke('kcduo:resetAll'),
+    addPoints: (side, points) => ipcRenderer.invoke('kcduo:addPoints', { side, points }),
+    testGift: (side, qty, sign) => ipcRenderer.invoke('kcduo:testGift', { side, qty, sign }),
+    getUrl: () => ipcRenderer.invoke('kcduo:getUrl'),
   },
 
   // ===== PK Nhóm =====
@@ -58,7 +85,7 @@ const api = {
     reset: () => ipcRenderer.invoke('pkgroup:reset'),
     resetAll: () => ipcRenderer.invoke('pkgroup:resetAll'),
     addPoints: (id, points) => ipcRenderer.invoke('pkgroup:addPoints', { id, points }),
-    testGift: (id) => ipcRenderer.invoke('pkgroup:testGift', { id }),
+    testGift: (id, qty, sign) => ipcRenderer.invoke('pkgroup:testGift', { id, qty, sign }),
     getUrl: () => ipcRenderer.invoke('pkgroup:getUrl'),
   },
 
@@ -294,10 +321,11 @@ const api = {
     const allowed = new Set([
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
-      'pkduo:state', 'pkduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'cardflip:state', 'dancevideo:ended',
+      'pkduo:state', 'pkduo:config', 'kcduo:state', 'kcduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'cardflip:state', 'dancevideo:ended',
       'history:changed', 'scoreHistory:changed', 'rankingHistory:changed', 'ranking:links',
       'tt:recipientLearned',
       'app:confirmQuit',
+      'hosts:status',
       'log',
     ]);
     if (!allowed.has(channel)) return () => {};

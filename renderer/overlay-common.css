@@ -1,4 +1,9 @@
 /* Common reset for OBS Browser Source overlays */
+/* Ẩn/hiện overlay theo cảnh (app điều khiển qua SSE __vis). Dùng opacity nên video/animation vẫn chạy,
+   sự kiện "phát xong" vẫn bắn → KHÔNG lệch thuật toán. Chỉ ảnh hưởng OBS/TikTok Studio; cửa sổ Review
+   (body.overlay-review) LUÔN hiện để xem trước. Chuyển mượt bằng fade nhẹ. */
+body:not(.overlay-review) { transition: opacity .18s linear; }
+html.ov-hidden body:not(.overlay-review) { opacity: 0 !important; pointer-events: none !important; }
 html, body { margin: 0; padding: 0; background: transparent; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; color: #fff; overflow: hidden; text-rendering: geometricPrecision; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 * { box-sizing: border-box; }
 img { display: block; max-width: 100%; image-rendering: auto; }

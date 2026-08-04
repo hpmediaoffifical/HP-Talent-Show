@@ -70,6 +70,15 @@
 }
 .feed-sec.gift .feed-item { background: rgba(255, 205, 60, .13); }
 
+/* Độ trong suốt nền = 0% → TRONG SUỐT HOÀN TOÀN: bỏ nền + bóng của từng dòng và
+   vạch chia, chỉ giữ chữ/avatar/icon (bóng chữ vẫn còn để đọc rõ trên video). */
+.feed-root[data-transparent="1"] .feed-item,
+.feed-root[data-transparent="1"] .feed-sec.gift .feed-item {
+  background: transparent;
+  box-shadow: none;
+}
+.feed-root[data-transparent="1"] .feed-split-grip { background: rgba(255, 255, 255, .18); box-shadow: none; }
+
 @keyframes feedIn {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }

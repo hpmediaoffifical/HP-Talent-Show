@@ -287,18 +287,6 @@ function render(state = {}) {
   // Tính theo % bề ngang overlay (inner ≈ 1440 − padding·2 = 1424px; hệ số scale tự triệt tiêu).
   const BOARD_W = 1424;
   const pkgText = Math.max(14, Math.min(60, parseInt(state.textSize, 10) || 30)); // = --pkg-text (px, scale 1)
-  // Thanh có đủ chỗ cho cả % không? Ước bề rộng chữ (Hạng + Điểm + %) theo cỡ chữ thật rồi so với
-  // bề ngang segment. Không đủ → BỎ % cho gọn (điểm + hạng vẫn giữ). Font-size khớp CSS .pkg-segment.
-  const pctFitsIn = (p, isLeader, score, pct) => {
-    const numFont = pkgText * (isLeader ? 1.5 : 1.08);
-    const rankFont = pkgText * (isLeader ? 0.74 : 0.56);
-    const pctFont = pkgText * (isLeader ? 0.58 : 0.52);
-    const need = 16 /* padding 8+8 */
-      + (isLeader ? textPx('Hạng 1', rankFont, 900) + 4 /* gap em */ : 0)
-      + textPx(fmt(score), numFont, 950)
-      + 5 /* gap b */ + textPx(pct + '%', pctFont, 850);
-    return need <= widthOf(p) / 100 * BOARD_W;
-  };
   const giftPx = Math.max(28, Math.min(120, parseInt(state.giftSize, 10) || 60));
   const donorFitPct = (list) => {
     const n = Math.min(3, (Array.isArray(list) ? list : []).length);
@@ -309,9 +297,6 @@ function render(state = {}) {
     const buffer = donorPx * 0.8;                             // đệm: phải đẩy thêm ~1 avatar mới hiện lại
     return (iconPx + 4 + clusterPx + buffer) / BOARD_W * 100;
   };
-  const pctOf = (p) => total > 0
-    ? Math.round((Number(p.score) || 0) / total * 100)
-    : Math.round(100 / Math.max(1, participants.length));
   // Cỡ chữ tên (đồng bộ board style) để ĐO bề rộng tên → nền pill dài ĐÚNG theo tên (fit-content thông
   // minh): cột đủ rộng thì tên hiện đầy đủ và nền chỉ dài thêm, cột hẹp thì nền kẹp 100% cột + tên cắt gọn.
   const nameScaleM = Math.max(.9, Math.min(3, ((parseInt(state.nameSize, 10) || 100) / 100) * 1.5));
@@ -334,13 +319,11 @@ function render(state = {}) {
           const narrow = widthOf(p) < NARROW_W;
           const score = Number(p.score) || 0;
           const streak = Number(p.streak) || 0;
-          const pct = pctOf(p);
           const tc = textColorFor(p.color);
           const edge = `${i === 0 ? ' is-first' : ''}${i === participants.length - 1 ? ' is-last' : ''}`;
           const num = `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`;
           const crowned = isLeader && leaderChanged;
-          const showPct = !narrow && pctFitsIn(p, isLeader, score, pct); // thanh chật → lọc bỏ % cho gọn
-          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i>${num}` : num}</em>${showPct ? `<small class="pkg-pct">${pct}%</small>` : ''}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
+          return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i>${num}` : num}</em></b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}${streak > 0 ? `<span class="pkg-streak" title="MVP ${fmt(streak)}"><small>MVP</small><em>${fmt(streak)}</em></span>` : ''}</div>`;
         }).join('')}</div>
         <div class="pkg-joined-gifts">${participants.map(p => {
           const showDonors = widthOf(p) >= donorFitPct(p.topDonors);

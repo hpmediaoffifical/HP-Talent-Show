@@ -236,6 +236,7 @@
         <button class="nav-btn active" data-tab="connect" title="TƯƠNG TÁC"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span><span class="nav-txt">TƯƠNG TÁC</span></button>
         <button class="nav-btn" data-tab="score" title="TÍNH ĐIỂM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><span class="nav-txt">TÍNH ĐIỂM</span></button>
         <button class="nav-btn" data-tab="pkduo" title="PK ĐÔI"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/></svg></span><span class="nav-txt">PK ĐÔI</span></button>
+        <button class="nav-btn" data-tab="kcduo" title="GIỮ / ĐỔI"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span class="nav-txt">GIỮ / ĐỔI</span></button>
         <button class="nav-btn" data-tab="pkgroup" title="PK NHÓM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5a2.121 2.121 0 0 1 3 3L9 16l-4 1 1-4Z"/><path d="M8.5 8.5a2.121 2.121 0 0 0-3 3L15 21l4-1-1-4Z"/></svg></span><span class="nav-txt">PK NHÓM</span></button>
         <button class="nav-btn" data-tab="ranking" title="THI ĐẤU NHÓM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span><span class="nav-txt">THI ĐẤU NHÓM</span></button>
         <button class="nav-btn" data-tab="musiclist" title="NHẠC DANCE"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span><span class="nav-txt">NHẠC DANCE</span></button>
@@ -280,6 +281,10 @@
           <span title="Coin">🪙 <b id="stDiamond">0</b></span>
           <span title="Người tặng (unique)">👤 <b id="stDonors">0</b></span>
         </div>
+        <!-- Nút nổi bật/tắt overlay của tính năng đang xem (hiện khi tab hiện tại có overlay). -->
+        <div class="ov-quick" id="ovQuick" hidden>
+          <button id="ovQuickBtn" class="ov-quick-btn" type="button"></button>
+        </div>
       </header>
 
       <section class="panel active" data-panel="connect">
@@ -291,7 +296,7 @@
             </div>
           </div>
           <div class="card">
-            <h3>💬 TƯƠNG TÁC <span class="log-tools"><button class="ghost tiny" id="feedQuickReview" type="button" title="Mở/đóng cửa sổ Review overlay gộp TƯƠNG TÁC + QUÀ (1080×1920)">🖥 Overlay</button><button class="ghost tiny" id="feedQuickCopy" type="button" title="Copy link OBS overlay gộp (1080×1920)">📋</button><button class="ghost tiny" id="chatFontDown" type="button">A-</button><button class="ghost tiny" id="chatFontUp" type="button">A+</button></span></h3>
+            <h3>💬 TƯƠNG TÁC <span class="log-tools"><button class="ghost tiny" id="feedQuickReview" type="button" title="Mở/đóng cửa sổ Review overlay gộp TƯƠNG TÁC + QUÀ (1080×1920)">🖥 Overlay</button><button class="ghost tiny" id="feedQuickCopy" type="button" title="Copy link OBS overlay gộp (1080×1920)">📋</button><details class="feed-op"><summary class="ghost tiny" title="Độ mờ / trong suốt nền overlay TƯƠNG TÁC (kéo về 0% = trong suốt hoàn toàn)">🌗 Nền</summary><div class="feed-op-menu"><label class="feed-op-head">Độ mờ nền <b id="feedOpQuickVal">55%</b></label><input id="feedOpQuick" type="range" min="0" max="100" value="55" /><span class="feed-op-hint">Kéo về <b>0% = trong suốt hoàn toàn</b>. Chỉ đổi nền — màu chữ giữ nguyên.</span></div></details><button class="ghost tiny" id="chatFontDown" type="button">A-</button><button class="ghost tiny" id="chatFontUp" type="button">A+</button></span></h3>
             <div class="log-list" id="chatList"></div>
           </div>
           <div class="card">
@@ -445,10 +450,17 @@
             <select id="pkPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
             <button id="pkHistory" class="ghost" type="button">📜 Lịch sử</button>
             <details class="pk-quick">
-              <summary title="Test nhanh & link OBS">🧪 Nhanh</summary>
+              <summary title="Test quà & link OBS">🧪 Nhanh</summary>
               <div class="pk-quick-menu">
-                <button id="pkAddA" class="ghost tiny" type="button">+100 A</button>
-                <button id="pkAddB" class="ghost tiny" type="button">+100 B</button>
+                <label class="pk-test-qty">Số lượng <input id="pkTestQty" type="number" min="1" max="9999" value="1" title="Số lượng quà test" /></label>
+                <div class="pk-test-grid">
+                  <span class="pk-test-side">A</span>
+                  <button id="pkAddA" class="pk-add" type="button" title="Cộng điểm quà cho phe A">＋</button>
+                  <button id="pkSubA" class="pk-sub" type="button" title="Trừ điểm phe A (lỡ cộng sai)">－</button>
+                  <span class="pk-test-side">B</span>
+                  <button id="pkAddB" class="pk-add" type="button" title="Cộng điểm quà cho phe B">＋</button>
+                  <button id="pkSubB" class="pk-sub" type="button" title="Trừ điểm phe B (lỡ cộng sai)">－</button>
+                </div>
                 <button id="pkCopyUrl" class="ghost" type="button">📋OBS</button>
               </div>
             </details>
@@ -570,7 +582,7 @@
                     <option value="off">Tắt</option>
                   </select>
                 </label>
-                <label>🎨 Skin mùa lễ <span class="cfg-adv__hint" id="pkSkinHint" style="font-weight:400;display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom"></span>
+                <label>🎨 Skin mùa lễ
                   <select id="pkSkin">
                     <option value="auto">🗓️ Tự động theo ngày</option>
                     <option value="none">Không (mặc định)</option>
@@ -582,6 +594,7 @@
                     <option value="trungthu">🌕 Trung thu</option>
                     <option value="birthday">🎂 Sinh nhật</option>
                   </select>
+                  <span class="cfg-adv__hint skin-month-hint" id="pkSkinHint"></span>
                 </label>
                 <label class="full">Scale PK Đôi OBS
                   <div class="range-inline">
@@ -641,6 +654,178 @@
 
           <input id="pkSndStart" type="hidden" /><input id="pkSndWarn" type="hidden" /><input id="pkSndAwin" type="hidden" /><input id="pkSndBwin" type="hidden" /><input id="pkSndDraw" type="hidden" />
 
+        </div>
+      </section>
+
+      <section class="panel" data-panel="kcduo">
+        <div class="panel-head">
+          <h1>🔁 Giữ / Đổi</h1>
+          <label class="menu-link-toggle" title="Khi bật: mỗi quà vào phe (có gắn Creator) tự cộng realtime vào 🏆 THI ĐẤU NHÓM"><input id="kcLinkRanking" type="checkbox" /> 🔗 Liên kết 🏆 THI ĐẤU NHÓM</label>
+        </div>
+
+        <div class="card pkduo-cfg">
+          <div class="pk-live-preview">
+            <h3>Theo dõi ván Giữ / Đổi</h3>
+            <div class="pk-preview" id="kcPreview"></div>
+          </div>
+
+          <div class="form-actions pk-action-row">
+            <button id="kcStart" class="primary" type="button">▶ BẮT ĐẦU</button>
+            <button id="kcReset" class="ghost" type="button" title="Reset điểm/trạng thái ván, GIỮ chuỗi trụ ghế + số vòng">↺ Reset</button>
+            <button id="kcResetAll" class="ghost danger" type="button" title="Xoá tất cả: điểm, chuỗi trụ ghế, số vòng và người kế (không hoàn tác)">🗑️ RESET TẤT CẢ</button>
+            <label class="pk-row-field" title="Chế độ chơi">🎮 Chế độ
+              <select id="kcJoinMode">
+                <option value="false" title="Quà rơi vào phe đã gán sẵn">Cố Định</option>
+                <option value="true" title="Chỉ chọn 1 quà kích hoạt cho mỗi phe">Chọn Phe</option>
+                <option value="creator" title="Tự cộng theo người nhận thật trong LIVE nhóm (UID) — khỏi chọn quà">TikTok</option>
+              </select>
+            </label>
+            <select id="kcPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
+            <details class="pk-quick">
+              <summary title="Test quà & link OBS">🧪 Nhanh</summary>
+              <div class="pk-quick-menu">
+                <label class="pk-test-qty">Số lượng <input id="kcTestQty" type="number" min="1" max="9999" value="1" title="Số lượng quà test" /></label>
+                <div class="pk-test-grid">
+                  <span class="pk-test-side">GIỮ</span>
+                  <button id="kcAddA" class="pk-add" type="button" title="Cộng điểm quà cho phe GIỮ">＋</button>
+                  <button id="kcSubA" class="pk-sub" type="button" title="Trừ điểm phe GIỮ">－</button>
+                  <span class="pk-test-side">ĐỔI</span>
+                  <button id="kcAddB" class="pk-add" type="button" title="Cộng điểm quà cho phe ĐỔI">＋</button>
+                  <button id="kcSubB" class="pk-sub" type="button" title="Trừ điểm phe ĐỔI">－</button>
+                </div>
+                <button id="kcCopyUrl" class="ghost" type="button">📋OBS</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="form-grid">
+            <div class="full pk-content-row">
+              <label class="pk-content-field">Nội dung hiển thị <input id="kcContent" placeholder="GIỮ / ĐỔI" maxlength="30" /></label>
+              <div class="time-zone">
+                <div class="time-zone__head"><span class="tz-ico">⏱️</span> Thời gian chạy</div>
+                <div class="time-zone__fields">
+                  <label class="time-seg"><input id="kcDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
+                  <span class="time-seg__sep">:</span>
+                  <label class="time-seg"><input id="kcDurM" type="number" min="0" max="59" value="1" /><span>phút</span></label>
+                  <span class="time-seg__sep">:</span>
+                  <label class="time-seg"><input id="kcDurS" type="number" min="0" max="59" value="30" /><span>giây</span></label>
+                </div>
+              </div>
+            </div>
+
+            <label>🎤 Người đang diễn <input id="kcPerformer" maxlength="30" list="kcMemberNames" placeholder="Chọn nhanh hoặc gõ tên" title="Người đang trên ghế nóng — bấm để chọn nhanh thành viên trong nhóm" /></label>
+            <label>➡️ Người kế tiếp <input id="kcNextName" maxlength="30" list="kcMemberNames" placeholder="Chọn nhanh hoặc gõ tên" title="Khi ĐỔI thắng, người này tự lên làm người đang diễn — bấm để chọn nhanh thành viên trong nhóm" /></label>
+            <datalist id="kcMemberNames"></datalist>
+            <label>🔥 MVP CHUỖI <input id="kcDefend" type="number" min="0" max="999" value="0" title="Chuỗi trụ ghế — số vòng người đang diễn đã giữ được ghế (sửa tay nếu cần)" /></label>
+            <label>🔁 VÒNG ĐẤU <input id="kcRounds" type="number" min="0" max="9999" value="0" title="Tổng số vòng đã chơi (sửa tay nếu cần)" /></label>
+
+            <div class="pk-match-setup full">
+              <section class="pk-team-workspace pk-team-workspace-a">
+                <div class="pk-team-config pk-team-config-a">
+                  <div class="pk-team-config-head"><b>🟢 GIỮ</b><span>Phe giữ người đang diễn</span></div>
+                  <label>Nhóm <select id="kcAgroup"><option value="">— Chọn nhóm —</option></select></label>
+                  <label>Thành viên tính điểm <select id="kcAcreator"><option value="">— Chọn thành viên —</option></select></label>
+                  <label>Tên hiển thị <input id="kcAname" maxlength="20" /></label>
+                  <label>Màu phe <input id="kcAcolor" type="color" value="#e60045" /></label>
+                </div>
+                <div class="pk-team" data-team="A">
+                  <h3>QUÀ TÍNH ĐIỂM · GIỮ</h3>
+                  <div class="pk-gifts" id="kcAgifts"></div>
+                  <div class="pk-team-foot">
+                    <button class="primary tiny kc-pick-master" data-team="A" type="button">+ Thêm quà</button>
+                  </div>
+                </div>
+              </section>
+              <section class="pk-team-workspace pk-team-workspace-b">
+                <div class="pk-team-config pk-team-config-b">
+                  <div class="pk-team-config-head"><b>🔴 ĐỔI</b><span>Phe đổi sang người mới</span></div>
+                  <label>Nhóm <select id="kcBgroup"><option value="">— Chọn nhóm —</option></select></label>
+                  <label>Thành viên tính điểm <select id="kcBcreator"><option value="">— Chọn thành viên —</option></select></label>
+                  <label>Tên hiển thị <input id="kcBname" maxlength="20" /></label>
+                  <label>Màu phe <input id="kcBcolor" type="color" value="#00afdb" /></label>
+                </div>
+                <div class="pk-team" data-team="B">
+                  <h3>QUÀ TÍNH ĐIỂM · ĐỔI</h3>
+                  <div class="pk-gifts" id="kcBgifts"></div>
+                  <div class="pk-team-foot">
+                    <button class="primary tiny kc-pick-master" data-team="B" type="button">+ Thêm quà</button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <details class="cfg-adv">
+            <summary>
+              <span class="cfg-adv__ico">⚖️</span>
+              <span>Luật lật kèo &amp; đồng hồ</span>
+              <span class="cfg-adv__hint">lợi thế người đương nhiệm</span>
+              <span class="cfg-adv__chev">▾</span>
+            </summary>
+            <div class="cfg-adv__body">
+              <div class="form-grid">
+                <div class="cfg-adv__note full">Phe ĐỔI phải VƯỢT phe GIỮ hơn ngưỡng này mới lật được ghế. Hòa hoặc dưới ngưỡng → người đang diễn GIỮ ghế.</div>
+                <label>Ngưỡng lật kèo <input id="kcFlipMargin" type="number" min="0" max="100000" value="0" title="0 = chỉ cần ĐỔI hơn GIỮ là thắng" /></label>
+                <label>Đơn vị ngưỡng
+                  <select id="kcFlipMode">
+                    <option value="percent">% tổng điểm</option>
+                    <option value="point">Điểm tuyệt đối</option>
+                  </select>
+                </label>
+                <label>⏱️ Vị trí đồng hồ
+                  <select id="kcTimerPos">
+                    <option value="center">Ở giữa</option>
+                    <option value="left">Lệch trái (gần GIỮ)</option>
+                    <option value="right">Lệch phải (gần ĐỔI)</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <details class="cfg-adv">
+            <summary>
+              <span class="cfg-adv__ico">⚙️</span>
+              <span>Giao diện &amp; thời gian</span>
+              <span class="cfg-adv__hint">chỉnh một lần</span>
+              <span class="cfg-adv__chev">▾</span>
+            </summary>
+            <div class="cfg-adv__body">
+              <div class="form-grid">
+                <label>Thời gian chuẩn bị (giây) <input id="kcPrep" type="number" min="0" max="120" value="3" /></label>
+                <label>Delay sau kết thúc (giây) <input id="kcDelay" type="number" min="0" max="120" value="5" /></label>
+                <!-- Bỏ "Màu nền / độ đậm": overlay Giữ/Đổi luôn nền trong suốt, tùy chọn này vô tác dụng trên OBS -->
+                <label>Cỡ chữ tên phe (px) <input id="kcTextSize" type="number" min="14" max="42" value="21" /></label>
+                <label>Cỡ icon quà (px) <input id="kcGiftSize" type="number" min="28" max="90" value="46" /></label>
+                <label>Hiển thị quà OBS
+                  <select id="kcGiftDisplayMode">
+                    <option value="scroll">Cuộn ngang vô hạn</option>
+                    <option value="wrap">Đứng yên</option>
+                  </select>
+                </label>
+                <label>🎨 Skin mùa lễ
+                  <select id="kcSkin">
+                    <option value="auto">🗓️ Tự động theo ngày</option>
+                    <option value="none">Không (mặc định)</option>
+                    <option value="tet">🧧 Tết truyền thống</option>
+                    <option value="noel">🎄 Noel</option>
+                    <option value="halloween">🎃 Halloween</option>
+                    <option value="newyear">🎆 Năm mới</option>
+                    <option value="valentine">💗 Valentine</option>
+                    <option value="trungthu">🌕 Trung thu</option>
+                    <option value="birthday">🎂 Sinh nhật</option>
+                  </select>
+                  <span class="cfg-adv__hint skin-month-hint" id="kcSkinHint"></span>
+                </label>
+                <label class="full">Scale Giữ/Đổi OBS
+                  <div class="range-inline">
+                    <input id="kcOverlayScale" type="range" min="80" max="300" step="5" value="200" />
+                    <span id="kcOverlayScaleValue" class="prefix">200%</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -751,7 +936,7 @@
                     <option value="off">Tắt</option>
                   </select>
                 </label>
-                <label>🎨 Skin mùa lễ <span class="cfg-adv__hint" id="pkgSkinHint" style="font-weight:400;display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom">trang trí thanh máu theo dịp</span>
+                <label>🎨 Skin mùa lễ
                   <select id="pkgSkin">
                     <option value="auto">🗓️ Tự động theo ngày</option>
                     <option value="none">Không (mặc định)</option>
@@ -763,6 +948,7 @@
                     <option value="trungthu">🌕 Trung thu</option>
                     <option value="birthday">🎂 Sinh nhật</option>
                   </select>
+                  <span class="cfg-adv__hint skin-month-hint" id="pkgSkinHint"></span>
                 </label>
                 <label class="full">Scale PK Nhóm OBS
                   <div class="range-inline">
@@ -2182,6 +2368,28 @@
         <h1>🔗 Link Overlay & Review</h1>
         <p class="sub">Copy link vào <b>Browser Source</b> của OBS, hoặc mở <b>CỬA SỔ</b> để xem trước.</p>
 
+        <div class="card ovl-linkmode">
+          <label class="switch-row" title="Đổi host trong mọi link copy: TikTok Studio cần hostname (hpstudio.obs) vì nó từ chối 127.0.0.1">
+            <input id="ovlTikTokLinks" type="checkbox" /><span></span>
+            <b>Link cho TikTok LIVE Studio</b>
+          </label>
+          <p class="sub" id="ovlLinkModeHint" style="margin:6px 0 0">TẮT = link OBS (<code>127.0.0.1</code>). BẬT = đổi mọi nút copy sang <code>http://hpstudio.obs:…</code> để dán được vào TikTok Studio (cần đã cài dòng hosts). OBS thì link nào cũng chạy.</p>
+          <div id="ovlHostsBanner" class="ovl-hosts-banner" hidden>
+            <span class="ovl-hosts-msg">⚠️ Máy chưa có dòng <code>127.0.0.1 hpstudio.obs</code> — link TikTok Studio sẽ không chạy.</span>
+            <button id="ovlHostsFix" class="primary" type="button">🔧 Sửa nhanh</button>
+          </div>
+          <div id="ovlHostsOk" class="ovl-hosts-ok" hidden>✅ Đã cài dòng hosts — link TikTok Studio sẵn sàng.</div>
+        </div>
+
+        <div class="card ovl-vismgr">
+          <label class="switch-row" title="Vào tab game nào thì tự hiện overlay game đó, ẩn các game khác">
+            <input id="ovlAutoScene" type="checkbox" /><span></span>
+            <b>Tự hiện / ẩn overlay theo menu</b>
+          </label>
+          <p class="sub" style="margin:6px 0 10px">BẬT: mở tính năng nào → overlay của nó tự lên sóng, các tính năng khác tự tắt. Overlay <b>ghim 📌</b> luôn hiện dù chuyển đi đâu. Bạn vẫn bấm tay <b>Hiện/Ẩn</b> từng cái bên dưới, hoặc dùng nút nổi 🟢 ở thanh trên khi đang mở tính năng. Ẩn = overlay trong suốt trên OBS/TikTok (không tắt engine, không dừng nhạc/video).</p>
+          <div class="ovl-vis-list" id="ovlVisList"></div>
+        </div>
+
         <div class="card overlay-links">
           <div class="ovl-row">
             <label>⚔️ PK Đôi</label>
@@ -2202,6 +2410,16 @@
             <input class="review-bg-picker" data-review-bg="pkduofx" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="pkduofx" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="pkduofx" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>🔁 GIỮ / ĐỔI</label>
+            <button class="primary" data-copy="urlKc" type="button">📋COPY OBS (1520×?)</button>
+            <button class="ghost" data-review-toggle="kcduo" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="kcduo" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="kcduo" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="kcduo" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="kcduo" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="kcduo" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
             <label>🧩 PK NHÓM</label>
@@ -2409,7 +2627,7 @@
           <div class="if-sub">Nền</div>
           <div class="if-grid">
             <label class="if-color">Màu nền <input type="color" id="ifBgColor" value="#000000" /></label>
-            <label class="if-range">Độ trong suốt nền <span class="if-val" id="ifBgOpacityVal">55%</span>
+            <label class="if-range" title="Kéo về 0% = trong suốt hoàn toàn (bỏ luôn nền từng dòng, chỉ còn chữ + avatar + icon)">Độ trong suốt nền <span class="if-val" id="ifBgOpacityVal">55%</span>
               <input type="range" id="ifBgOpacity" min="0" max="100" value="55" /></label>
           </div>
           <div class="if-sub">Kích thước</div>

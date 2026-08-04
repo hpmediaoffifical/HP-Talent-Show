@@ -111,13 +111,145 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
   // để mỗi lúc chỉ 1 nhóm mở (tránh danh sách quá dài gây lỗi hiển thị).
   const grp = b.closest('.nav-group');
   if (grp) { openNavGroupExclusive(grp); }
-  if (id === 'set-overlay') refreshOverlayUrls();
+  if (id === 'set-overlay') { refreshOverlayUrls(); ovBuildVisList?.(); ovSyncUI?.(); }
   if (id === 'mvphonor') mvpRenderStage?.();
   if (id === 'luckywheel') { lwRefreshSpinners?.(); renderLwPreview?.(); }
   if (id === 'mtrio') mtOnShow?.();
   if (id === 'cardflip') cfOnShow?.();
   if (id === 'groups') loadKcData?.(); // nạp KIM CƯƠNG TỔNG cho Hồ Sơ Nhóm
+  // Ẩn/hiện overlay theo cảnh: mở tab có overlay → tự áp cảnh (nếu bật) + cập nhật nút nổi thanh trên.
+  ovOnTab?.(id);
 }));
+
+// ===== Ẩn/hiện overlay theo "cảnh" (tự-theo-menu + ghim + bật/tắt tay) =====
+// Cơ chế: app phát bản đồ {khoá cảnh -> bool} về server → mọi overlay tự làm trong suốt khi khoá của nó
+// = false (không đụng engine/nhạc/video). Khoá cảnh = tên sự kiện SSE (pk-duo & FX chung 'pkduo', v.v.).
+// Bản đăng ký overlay theo NHÓM (scene) → mỗi nhóm gồm ≥1 overlay OBS riêng (mỗi cái 1 khoá vis độc lập).
+// color = màu nhận diện nhóm (viền/nền nhạt) để KHÔNG nhìn nhầm giữa các nhóm; trải đều vòng màu.
+const OV_SCENES = [
+  { scene: 'pkduo',       label: '⚔️ PK Đôi',       color: '#ef4444', items: [{ key: 'pkduo', name: 'Thanh máu' }, { key: 'pkduofx', name: 'Hiệu ứng FX' }] },
+  { scene: 'kcduo',       label: '🔁 Giữ / Đổi',    color: '#6366f1', items: [{ key: 'kcduo', name: 'Overlay' }] },
+  { scene: 'pkgroup',     label: '🧩 PK Nhóm',      color: '#22c55e', items: [{ key: 'pkgroup', name: 'Overlay' }] },
+  { scene: 'ranking',     label: '🏆 Thi đấu nhóm', color: '#f59e0b', items: [{ key: 'ranking', name: 'Dọc' }, { key: 'rankinggrid', name: 'Ngang' }] },
+  { scene: 'score',       label: '🎯 Tính điểm',    color: '#3b82f6', items: [{ key: 'score', name: 'Bảng' }, { key: 'scorebar', name: 'Đường đua' }, { key: 'scorecard', name: 'Kêu gọi' }, { key: 'scoretimer', name: 'Thời gian' }] },
+  { scene: 'sticker',     label: '🥚 Đập trứng',    color: '#f97316', items: [{ key: 'sticker', name: 'Overlay' }] },
+  { scene: 'giftmenu',    label: '🎁 Menu Quà',     color: '#a855f7', items: [{ key: 'giftmenu', name: 'Overlay' }] },
+  { scene: 'mvphonor',    label: '🏅 Vinh danh',    color: '#eab308', items: [{ key: 'mvphonor', name: 'Overlay' }] },
+  { scene: 'luckywheel',  label: '🎡 Vòng quay',    color: '#ec4899', items: [{ key: 'luckywheel', name: 'Overlay' }] },
+  { scene: 'missiontrio', label: '📋 Bộ ba',        color: '#14b8a6', items: [{ key: 'missiontrio', name: 'Overlay' }] },
+  { scene: 'cardflip',    label: '🃏 Thẻ bài',      color: '#8b5cf6', items: [{ key: 'cardflip', name: 'Bảng' }, { key: 'cardflipfx', name: 'Lật 3D' }] },
+  { scene: 'dancevideo',  label: '🎵 Nhạc Dance',   color: '#0ea5e9', items: [{ key: 'dancevideo', name: 'WEBM 1' }, { key: 'dancevideo2', name: 'WEBM 2' }, { key: 'dancevideo3', name: 'WEBM 3' }] },
+  { scene: 'interact',    label: '💬 Tương tác',    color: '#64748b', items: [{ key: 'interact', name: 'Overlay' }] },
+];
+const OV_SCENE_BY = Object.fromEntries(OV_SCENES.map(s => [s.scene, s]));
+const OV_KEYS_OF = (scene) => (OV_SCENE_BY[scene]?.items || []).map(i => i.key);
+// Tab (data-tab) → cảnh overlay tương ứng. Tab không có overlay (creators/groups/set-*) không đổi cảnh.
+const OV_TAB_TO_SCENE = { connect: 'interact', score: 'score', pkduo: 'pkduo', kcduo: 'kcduo', pkgroup: 'pkgroup', ranking: 'ranking', musiclist: 'dancevideo', stickerdance: 'sticker', mvphonor: 'mvphonor', luckywheel: 'luckywheel', mtrio: 'missiontrio', cardflip: 'cardflip' };
+const OV_SCENE_LABEL = Object.fromEntries(OV_SCENES.map(s => [s.scene, s.label]));
+let ovVis = { autoScene: true, pinned: {}, vis: {} };
+
+function ovCurrentTab() { return document.querySelector('.nav-btn.active')?.dataset.tab || ''; }
+
+async function ovLoadVisibility() {
+  try { ovVis = await api.overlay.getVisibility(); } catch { ovVis = { autoScene: true, pinned: { interact: true, giftmenu: true }, vis: {} }; }
+  ovVis.vis = ovVis.vis || {}; ovVis.pinned = ovVis.pinned || {};
+  ovBuildVisList(); ovSyncUI();
+}
+async function ovSave(patch) {
+  try { ovVis = await api.overlay.setVisibility(patch); } catch {}
+  ovVis.vis = ovVis.vis || {}; ovVis.pinned = ovVis.pinned || {};
+  ovSyncUI();
+}
+// Áp cảnh: hiện các overlay của cảnh đang mở (theo lựa chọn tay, mặc định hiện), ẩn overlay các cảnh
+// khác — TRỪ overlay đang ghim (giữ nguyên). Xét theo TỪNG khoá overlay để nhóm nhiều overlay vẫn đúng.
+function ovApplyScene(scene) {
+  if (!scene) return;
+  const vis = {};
+  for (const s of OV_SCENES) {
+    const active = s.scene === scene;
+    for (const it of s.items) {
+      const k = it.key;
+      if (active || ovVis.pinned[k]) vis[k] = ovVis.vis[k] !== false; // cảnh mở/ghim: tôn trọng chọn tay
+      else vis[k] = false;                                           // cảnh khác không ghim: ẩn
+    }
+  }
+  ovSave({ vis });
+}
+// Gọi khi đổi tab: nếu bật tự-theo-menu và tab có overlay → áp cảnh. Luôn cập nhật nút nổi.
+function ovOnTab(tabId) {
+  const sc = OV_TAB_TO_SCENE[tabId];
+  if (ovVis.autoScene && sc) ovApplyScene(sc);
+  ovUpdateTopToggle(tabId);
+}
+// Nút nổi ở thanh trên: phản ánh + bật/tắt nhanh overlay của tab đang xem.
+function ovUpdateTopToggle(tabId) {
+  const wrap = document.getElementById('ovQuick');
+  const btn = document.getElementById('ovQuickBtn');
+  if (!wrap || !btn) return;
+  const sc = OV_TAB_TO_SCENE[tabId != null ? tabId : ovCurrentTab()];
+  if (!sc) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  // Nhóm có nhiều overlay: "đang hiện" = còn ÍT NHẤT 1 overlay hiện.
+  const on = OV_KEYS_OF(sc).some(k => ovVis.vis[k] !== false);
+  btn.dataset.scene = sc;
+  btn.classList.toggle('on', on);
+  btn.textContent = (on ? '🟢 ' : '⚪ ') + OV_SCENE_LABEL[sc].replace(/^\S+\s/, '') + (on ? ' · đang hiện' : ' · đang ẩn');
+  btn.title = on ? 'Overlay đang HIỆN trên OBS/TikTok — bấm để ẩn tất cả' : 'Overlay đang ẨN — bấm để hiện tất cả';
+}
+// Dựng bảng điều khiển từng overlay trong panel LINK OVERLAY (1 lần).
+function ovBuildVisList() {
+  const box = document.getElementById('ovlVisList');
+  if (!box || box.dataset.built) return;
+  box.innerHTML = OV_SCENES.map(s => {
+    const multi = s.items.length > 1;
+    const btns = (k) => `<button class="ovl-vis-toggle" data-vis-toggle="${k}" type="button"></button>
+      <button class="ovl-vis-pin" data-vis-pin="${k}" type="button">📌 Ghim</button>`;
+    const head = `<div class="ovl-vis-head"><span class="ovl-vis-dot"></span><span class="ovl-vis-title">${s.label}</span>${
+      multi ? `<span class="ovl-vis-count">${s.items.length} overlay</span>` : btns(s.items[0].key)}</div>`;
+    const rows = multi ? `<div class="ovl-vis-items">${s.items.map(it => `
+      <div class="ovl-vis-item"><span class="ovl-vis-iname">${it.name}</span>${btns(it.key)}</div>`).join('')}</div>` : '';
+    return `<div class="ovl-vis-card${multi ? ' multi' : ''}" data-scene="${s.scene}" style="--ov-accent:${s.color}">${head}${rows}</div>`;
+  }).join('');
+  box.dataset.built = '1';
+  box.querySelectorAll('[data-vis-toggle]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.visToggle;
+    ovSave({ vis: { [k]: ovVis.vis[k] === false } }); // đảo: đang ẩn(false) → hiện(true) và ngược lại
+  }));
+  box.querySelectorAll('[data-vis-pin]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.visPin;
+    ovSave({ pinned: { [k]: !ovVis.pinned[k] } });
+  }));
+}
+// Đồng bộ mọi nút/checkbox theo trạng thái hiện tại.
+function ovSyncUI() {
+  const auto = document.getElementById('ovlAutoScene');
+  if (auto) auto.checked = ovVis.autoScene !== false;
+  document.querySelectorAll('[data-vis-toggle]').forEach(b => {
+    const on = ovVis.vis[b.dataset.visToggle] !== false;
+    b.classList.toggle('on', on);
+    b.textContent = on ? '🟢 Hiện' : '⚪ Ẩn';
+  });
+  document.querySelectorAll('[data-vis-pin]').forEach(b => {
+    const pinned = !!ovVis.pinned[b.dataset.visPin];
+    b.classList.toggle('on', pinned);
+    b.title = pinned ? 'Đang ghim (luôn hiện) — bấm để bỏ ghim' : 'Ghim: luôn hiện, không bị tự ẩn khi chuyển menu';
+  });
+  ovUpdateTopToggle(ovCurrentTab());
+}
+// Nút nổi thanh trên: đảo hiện/ẩn cảnh của tab đang xem.
+document.getElementById('ovQuickBtn')?.addEventListener('click', () => {
+  const sc = document.getElementById('ovQuickBtn').dataset.scene;
+  if (!sc) return;
+  const keys = OV_KEYS_OF(sc);
+  const anyOn = keys.some(k => ovVis.vis[k] !== false);
+  const vis = {}; keys.forEach(k => vis[k] = !anyOn); // đang hiện → ẩn HẾT; đang ẩn → hiện HẾT
+  ovSave({ vis });
+});
+// Công tắc tổng "Tự hiện/ẩn theo menu".
+document.getElementById('ovlAutoScene')?.addEventListener('change', (e) => {
+  const on = e.target.checked;
+  ovSave({ autoScene: on }).then(() => { if (on) { const sc = OV_TAB_TO_SCENE[ovCurrentTab()]; if (sc) ovApplyScene(sc); } });
+});
 
 // ===== Ngăn menu con (parent gập/mở) =====
 // Kiểu accordion: mở 1 nhóm thì đóng hết nhóm còn lại (chỉ 1 nhóm mở tại một thời điểm).
@@ -204,6 +336,7 @@ let creators = [];
 let groups = [];
 let giftMaster = []; // [{id, name, icon, webm, diamond}]
 let pkCfg = null;
+let kcCfg = null; // GIỮ / ĐỔI (Keep/Change)
 let pkGroupCfg = null;
 let musicItems = [];                 // DANH SÁCH NHẠC: [{giftId, giftName, icon, diamond, audioPath, volume}]
 let musicCfg = { duckWaiting: true, bgEnabled: false, paused: false };
@@ -1625,7 +1758,24 @@ function wireMusicSections(scope) {
 }
 // Popup quản lý danh sách nhạc của 1 quà (gọn hơn khi có nhiều file): thêm / nghe thử / xoá từng file.
 let audioModalPreview = null;
-function stopAudioModalPreview() { if (audioModalPreview) { try { audioModalPreview.pause(); } catch {} audioModalPreview = null; } }
+let audioModalPreviewBtn = null;
+// Trả nút "Nghe thử" đang phát về biểu tượng ▶ ban đầu.
+function resetAudioModalPreviewBtn() { if (audioModalPreviewBtn) { audioModalPreviewBtn.textContent = '▶'; audioModalPreviewBtn.title = 'Nghe/xem thử'; audioModalPreviewBtn.classList.remove('is-playing'); audioModalPreviewBtn = null; } }
+function stopAudioModalPreview() { if (audioModalPreview) { try { audioModalPreview.pause(); } catch {} audioModalPreview = null; } resetAudioModalPreviewBtn(); }
+// Phát 1 file nghe thử với nút bấm dạng bật/tắt: bấm lần nữa (hoặc bấm nút khác) là dừng.
+function toggleAudioModalPreview(btn, src, volume, isVideo) {
+  // Đang phát chính file này → bấm lại để dừng.
+  if (audioModalPreviewBtn === btn) { stopAudioModalPreview(); return; }
+  stopAudioModalPreview();
+  const el = document.createElement(isVideo ? 'video' : 'audio');
+  el.src = src;
+  el.volume = clampVol01(volume);
+  el.addEventListener('ended', () => { if (audioModalPreview === el) stopAudioModalPreview(); });
+  audioModalPreview = el;
+  audioModalPreviewBtn = btn;
+  btn.textContent = '⏸'; btn.title = 'Dừng'; btn.classList.add('is-playing');
+  el.play().catch(() => { toast('Không phát được file này', 'error'); stopAudioModalPreview(); });
+}
 // Nhãn tốc độ hiển thị (rate + %).
 function musicSpeedLabel(speed) { const s = Number(speed) || 0; return `${musicRate(s).toFixed(2)}×` + (s ? ` (${s > 0 ? '+' : ''}${s}%)` : ''); }
 function clampVolInt(v) { return Number.isFinite(Number(v)) ? Math.max(0, Math.min(100, Math.round(Number(v)))) : 100; }
@@ -1720,10 +1870,7 @@ function openAudioModal(m) {
       : '<div class="ml-modal-empty">Chưa có nhạc mở màn. Bấm “＋ Thêm nhạc trước”.</div>';
     preListEl.querySelectorAll('.ml-pre-play').forEach(btn => btn.addEventListener('click', () => {
       const ai = Number(btn.closest('.ml-modal-item').dataset.ai);
-      stopAudioModalPreview();
-      audioModalPreview = new Audio(filePathToUrl(m.preAudios[ai]));
-      audioModalPreview.volume = clampVol01(m.preVolume);
-      audioModalPreview.play().catch(() => toast('Không phát được file này', 'error'));
+      toggleAudioModalPreview(btn, filePathToUrl(m.preAudios[ai]), m.preVolume, false);
     }));
     preListEl.querySelectorAll('.ml-pre-del').forEach(btn => btn.addEventListener('click', () => {
       const ai = Number(btn.closest('.ml-modal-item').dataset.ai);
@@ -1744,11 +1891,7 @@ function openAudioModal(m) {
       : '<div class="ml-modal-empty">Chưa có file nào. Bấm “＋ Thêm nhạc” hoặc “🎬 Thêm video”.</div>';
     listEl.querySelectorAll('.ml-modal-play').forEach(btn => btn.addEventListener('click', () => {
       const ai = Number(btn.closest('.ml-modal-item').dataset.ai);
-      stopAudioModalPreview();
-      audioModalPreview = document.createElement(isVideoFile(m.audios[ai]) ? 'video' : 'audio');
-      audioModalPreview.src = filePathToUrl(m.audios[ai]);
-      audioModalPreview.volume = clampVol01(m.volume);
-      audioModalPreview.play().catch(() => toast('Không phát được file này', 'error'));
+      toggleAudioModalPreview(btn, filePathToUrl(m.audios[ai]), m.volume, isVideoFile(m.audios[ai]));
     }));
     listEl.querySelectorAll('.ml-modal-del').forEach(btn => btn.addEventListener('click', () => {
       const ai = Number(btn.closest('.ml-modal-item').dataset.ai);
@@ -4379,6 +4522,7 @@ async function init() {
   await refreshGroupProfiles();
   setBootStatus('Đang tải cấu hình'); setBootProgress(74);
   await loadPkConfig();
+  await loadKcConfig();
   await loadPkGroupConfig();
   await loadRankingConfig();
   await loadScoreConfig();
@@ -4391,6 +4535,7 @@ async function init() {
   await loadCardFlipConfig();
   setBootStatus('Đang chuẩn bị overlay OBS'); setBootProgress(88);
   await refreshOverlayUrls();
+  await ovLoadVisibility();
   await loadSettings();
   setBootStatus('Sẵn sàng!'); setBootProgress(100);
   wireTtEvents();
@@ -4399,6 +4544,7 @@ async function init() {
   wireCreatorTab();
   wireGroupTab();
   wirePkDuoTab();
+  wireKcDuoTab();
   wirePkGroupTab();
   wireHistoryUI();
   wireRankingTab();
@@ -4650,7 +4796,18 @@ async function checkForUpdate(manual = false) {
 }
 
 function checkUpdatesOnStartup() {
-  setTimeout(() => checkForUpdate(false), 1800);
+  setTimeout(async () => {
+    await checkForUpdate(false);
+    // Tự thông báo khi có bản mới: hỏi Có/Không ngay lúc mở app → đồng ý thì tải & cài luôn,
+    // khỏi phải tự vào phần Cài đặt tìm nút. Từ chối thì vẫn còn banner + nút để cài sau.
+    if (latestUpdateInfo?.hasUpdate) {
+      const ok = await askConfirm(
+        `Đã có bản mới v${latestUpdateInfo.latest} (bạn đang dùng v${latestUpdateInfo.current || '—'}). Tải và cài đặt ngay bây giờ?`,
+        '🎉 Có bản cập nhật mới'
+      );
+      if (ok) installLatestUpdate();
+    }
+  }, 1800);
 }
 
 async function installLatestUpdate() {
@@ -6952,8 +7109,10 @@ function wirePkDuoTab() {
     await window.api.pkduo.resetAll();
     toast('🗑️ Đã reset tất cả PK Đôi (kể cả chuỗi WIN)', 'success');
   });
-  $('#pkAddA').addEventListener('click', async () => { await window.api.pkduo.addPoints('A', 100); });
-  $('#pkAddB').addEventListener('click', async () => { await window.api.pkduo.addPoints('B', 100); });
+  $('#pkAddA').addEventListener('click', () => testPkDuoGift('A', 1));
+  $('#pkAddB').addEventListener('click', () => testPkDuoGift('B', 1));
+  $('#pkSubA')?.addEventListener('click', () => testPkDuoGift('A', -1));
+  $('#pkSubB')?.addEventListener('click', () => testPkDuoGift('B', -1));
   $('#pkCopyUrl').addEventListener('click', async () => {
     const url = await window.api.pkduo.getUrl();
     await window.api.shell.copyText(url);
@@ -6965,6 +7124,18 @@ function wirePkDuoTab() {
   document.addEventListener('click', (e) => {
     document.querySelectorAll('details.pk-quick[open]').forEach(d => { if (!d.contains(e.target)) d.removeAttribute('open'); });
   });
+}
+
+// Test quà PK Đôi: cộng/trừ quà phe A/B × số lượng nhập ở popup 🧪 Nhanh (sign<0 = trừ).
+async function testPkDuoGift(side, sign = 1) {
+  await window.api.pkduo.setConfig(collectPkCfg());
+  const qty = Math.max(1, parseInt($('#pkTestQty')?.value, 10) || 1);
+  const res = await window.api.pkduo.testGift(side, qty, sign);
+  if (!res) { toast('Không test được quà phe này', 'error'); return; }
+  const team = side === 'A' ? pkCfg.teamA : pkCfg.teamB;
+  const name = team?.name || (side === 'A' ? 'TEAM A' : 'TEAM B');
+  const sgn = res.points < 0 ? '−' : '+';
+  toast(`${name}: ${sgn}${formatNumber(Math.abs(res.points))} (×${res.qty})${res.giftName ? ` · ${res.giftName}` : ''}`, 'success');
 }
 
 async function updatePkConfig() {
@@ -7081,6 +7252,461 @@ function renderPkPreview(st) {
   const topB = Array.isArray(st.topB) ? st.topB : [];
   if ($('#pkTopA')) $('#pkTopA').innerHTML = topA.slice(0, 3).map(giverHtml).join('');
   if ($('#pkTopB')) $('#pkTopB').innerHTML = topB.slice(0, 3).map(giverHtml).join('');
+}
+
+// ============================================================
+// GIỮ / ĐỔI (Keep/Change) — kế thừa cơ chế PK Đôi (Chọn Phe 1 quà + TikTok theo UID),
+// bỏ avatar/champions/FX; thêm ghế nóng, chuỗi trụ ghế, số vòng, ngưỡng lật kèo, vị trí đồng hồ.
+// ============================================================
+function kcGetTeam(side) { return side === 'A' ? kcCfg.teamA : kcCfg.teamB; }
+function kcGiftModeKey() { return kcCfg?.joinMode ? 'joinGifts' : 'fixedGifts'; }
+function normalizeKcTeam(team, fallback) {
+  const t = { ...fallback, ...(team || {}) };
+  t.fixedGifts = Array.isArray(t.fixedGifts) ? t.fixedGifts : (Array.isArray(t.gifts) ? t.gifts : []);
+  t.joinGifts = Array.isArray(t.joinGifts) ? t.joinGifts : [];
+  t.gifts = Array.isArray(t.gifts) ? t.gifts : t.fixedGifts;
+  return t;
+}
+// Quà mặc định của Giữ/Đổi: HOA HỒNG (Rose) trên TikTok (id 5655) — lấy icon chuẩn từ giftMaster, có fallback.
+function kcRoseGift() {
+  const m = giftMaster.find(g => String(g.id) === '5655') || giftMaster.find(g => /^rose$/i.test(String(g.name || '').trim()));
+  return m ? giftToPkGift(m) : { giftName: 'Rose', giftId: '5655', icon: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp', diamond: 1 };
+}
+function syncKcActiveGifts() {
+  if (!kcCfg) return;
+  const key = kcCfg.joinMode ? 'joinGifts' : 'fixedGifts';
+  if (kcCfg.joinMode) {
+    kcCfg.teamA.joinGifts = (kcCfg.teamA.joinGifts || []).slice(0, 1);
+    kcCfg.teamB.joinGifts = (kcCfg.teamB.joinGifts || []).slice(0, 1);
+  }
+  kcCfg.teamA.gifts = kcCfg.teamA[key] || [];
+  kcCfg.teamB.gifts = kcCfg.teamB[key] || [];
+}
+function saveKcActiveGifts() {
+  const key = kcGiftModeKey();
+  kcCfg.teamA[key] = kcCfg.joinMode ? (kcCfg.teamA.gifts || []).slice(0, 1) : (kcCfg.teamA.gifts || []);
+  kcCfg.teamB[key] = kcCfg.joinMode ? (kcCfg.teamB.gifts || []).slice(0, 1) : (kcCfg.teamB.gifts || []);
+}
+
+async function loadKcConfig() {
+  const st = await window.api.kcduo.getState();
+  kcCfg = {
+    teamA: normalizeKcTeam(st.teamA, { name: 'KEEP/GIỮ', color: '#e60045' }),
+    teamB: normalizeKcTeam(st.teamB, { name: 'CHANGE/ĐỔI', color: '#00afdb' }),
+    performerName: st.performerName || '', nextName: st.nextName || '',
+    defendStreak: Math.max(0, Number(st.defendStreak) || 0), totalRounds: Math.max(0, Number(st.totalRounds) || 0),
+    flipMargin: Math.max(0, Number(st.flipMargin) || 0), flipMarginMode: st.flipMarginMode === 'point' ? 'point' : 'percent',
+    durationSec: st.durationSec || 90, prepSec: st.prepSec ?? 3, delaySec: st.delaySec ?? 5,
+    joinMode: !!st.joinMode, creatorLive: !!st.creatorLive, pointsBy: st.pointsBy || 'diamond',
+    content: st.content == null ? 'GIỮ / ĐỔI' : st.content, timerPos: ['left', 'right', 'center'].includes(st.timerPos) ? st.timerPos : 'center',
+    giftSize: st.giftSize || 46, textSize: st.textSize || 21, overlayScale: st.overlayScale || 200,
+    giftDisplayMode: st.giftDisplayMode || 'scroll', skin: st.skin || 'auto',
+    startSound: st.startSound || '', warningSound: st.warningSound || '', keepSound: st.keepSound || '', changeSound: st.changeSound || '', drawSound: st.drawSound || '',
+  };
+  // Mặc định quà tính điểm GIỮ = HOA HỒNG khi chưa cấu hình (không đụng ĐỔI để 2 phe không trùng quà).
+  if (!kcCfg.creatorLive) {
+    const key = kcCfg.joinMode ? 'joinGifts' : 'fixedGifts';
+    if (!(kcCfg.teamA[key] || []).length) { kcCfg.teamA[key] = [kcRoseGift()]; scheduleKcAutoSave(); }
+  }
+  syncKcActiveGifts();
+  renderKcCreatorSelects();
+  // Mặc định chọn NHÓM chỉ định (nhóm đang hoạt động ở launcher, hoặc nhóm đã lưu) + THÀNH VIÊN
+  // tính điểm cho cả A/B — để điểm vào 🏆 THI ĐẤU NHÓM như các gameplay khác (không hiện lên overlay).
+  const kcGid = activeGroupId || kcCfg.teamA?.groupId || kcCfg.teamB?.groupId || '';
+  if (kcGid) { applyKcDefaultMembers(kcGid); scheduleKcAutoSave(); }
+  $('#kcContent').value = kcCfg.content || '';
+  $('#kcPerformer').value = kcCfg.performerName || '';
+  $('#kcNextName').value = kcCfg.nextName || '';
+  $('#kcDefend').value = kcCfg.defendStreak;
+  $('#kcRounds').value = kcCfg.totalRounds;
+  $('#kcFlipMargin').value = kcCfg.flipMargin;
+  $('#kcFlipMode').value = kcCfg.flipMarginMode;
+  $('#kcTimerPos').value = kcCfg.timerPos;
+  $('#kcAname').value = kcCfg.teamA?.name || 'KEEP/GIỮ';
+  $('#kcAcolor').value = normalizeHexColor(kcCfg.teamA?.color, '#e60045');
+  $('#kcBname').value = kcCfg.teamB?.name || 'CHANGE/ĐỔI';
+  $('#kcBcolor').value = normalizeHexColor(kcCfg.teamB?.color, '#00afdb');
+  const d = kcCfg.durationSec || 90;
+  $('#kcDurH').value = Math.floor(d / 3600);
+  $('#kcDurM').value = Math.floor((d % 3600) / 60);
+  $('#kcDurS').value = d % 60;
+  $('#kcPrep').value = kcCfg.prepSec;
+  $('#kcDelay').value = kcCfg.delaySec;
+  $('#kcJoinMode').value = kcCfg.creatorLive ? 'creator' : String(kcCfg.joinMode);
+  $('#kcPointsBy').value = kcCfg.pointsBy;
+  $('#kcTextSize').value = kcCfg.textSize;
+  $('#kcGiftSize').value = kcCfg.giftSize;
+  $('#kcGiftDisplayMode').value = kcCfg.giftDisplayMode || 'scroll';
+  $('#kcOverlayScale').value = kcCfg.overlayScale;
+  $('#kcOverlayScaleValue').textContent = `${$('#kcOverlayScale').value}%`;
+  if ($('#kcSkin')) { $('#kcSkin').value = kcCfg.skin || 'auto'; updateSkinHint('kcSkin', 'kcSkinHint'); }
+  renderKcGifts();
+  renderKcPreview(st);
+}
+
+function renderKcCreatorSelects() {
+  if (!kcCfg || !$('#kcAgroup')) return;
+  for (const side of ['A', 'B']) {
+    const groupSel = $(`#kc${side}group`);
+    const gs = visibleGroups();
+    const current = kcGetTeam(side).groupId || '';
+    groupSel.innerHTML = '<option value="">— Chọn nhóm —</option>' + gs.map(g => `<option value="${escapeAttr(g.id)}">${escapeHtml(g.name)}</option>`).join('');
+    groupSel.value = gs.some(g => g.id === current) ? current : '';
+    renderKcCreatorSelect(side);
+  }
+  renderKcMemberNames();
+}
+// Gợi ý chọn nhanh tên người đang diễn / người kế tiếp = tên thành viên (creator) trong nhóm,
+// khỏi gõ tay. Dùng <datalist> nên vẫn cho phép gõ tự do. Gộp cả 2 phe + đang chỉnh, khử trùng.
+function renderKcMemberNames() {
+  const dl = document.getElementById('kcMemberNames');
+  if (!dl) return;
+  const names = new Set();
+  visibleCreators().forEach(c => {
+    const n = (c.nickname || c.tiktokId || '').trim();
+    if (n) names.add(n);
+  });
+  [kcCfg?.teamA?.creatorName, kcCfg?.teamB?.creatorName].forEach(n => { if (n && n.trim()) names.add(n.trim()); });
+  dl.innerHTML = [...names].map(n => `<option value="${escapeAttr(n)}"></option>`).join('');
+}
+function renderKcCreatorSelect(side) {
+  const team = kcGetTeam(side);
+  const groupId = $(`#kc${side}group`)?.value || team.groupId || '';
+  const sel = $(`#kc${side}creator`);
+  if (!sel) return;
+  const current = sel.value || team.creatorId || '';
+  const filtered = visibleCreators().filter(c => !groupId || c.groupId === groupId);
+  sel.innerHTML = '<option value="">— Chọn thành viên —</option>' + filtered.map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.nickname || c.tiktokId)}</option>`).join('');
+  sel.value = filtered.some(c => c.id === current) ? current : '';
+}
+function applyKcCreator(side, opts = {}) {
+  const team = kcGetTeam(side);
+  const group = groups.find(g => g.id === $(`#kc${side}group`).value);
+  const creator = creators.find(c => c.id === $(`#kc${side}creator`).value);
+  team.groupId = group?.id || '';
+  team.groupName = group?.name || '';
+  team.creatorId = creator?.id || '';
+  team.creatorName = creator?.nickname || creator?.tiktokId || '';
+  if (opts.syncName && creator && !team.nameOverride) {
+    team.name = creator.nickname || creator.tiktokId || team.name;
+  }
+  if (creator && kcCfg?.joinMode && (opts.applyDefaultGift || !(team.joinGifts || []).length)) {
+    const gift = creatorDefaultGift(creator);
+    if (gift) {
+      team.joinGifts = [gift];
+      team.gifts = team.joinGifts;
+      team.giftOverride = false;
+      renderKcGifts();
+    }
+  }
+  $(`#kc${side}name`).value = team.name || (side === 'A' ? 'GIỮ' : 'ĐỔI');
+}
+// Mặc định gán NHÓM chỉ định + THÀNH VIÊN tính điểm cho cả 2 phe (giống PK Đôi), nhưng KHÔNG đổi
+// tên phe (giữ nhãn GIỮ/ĐỔI trên overlay) và KHÔNG đụng quà tính điểm. Giữ thành viên đã chọn nếu
+// còn trong nhóm; phe chưa chọn thì lấy thành viên kế chưa dùng để 2 phe không trùng người.
+function applyKcDefaultMembers(groupId) {
+  const group = groups.find(g => g.id === groupId);
+  if (!group) return;
+  const members = membersOfGroup(groupId);
+  const used = new Set();
+  for (const side of ['A', 'B']) {
+    const team = kcGetTeam(side);
+    let creator = members.find(c => c.id === team.creatorId && !used.has(c.id));
+    if (!creator) creator = members.find(c => !used.has(c.id));
+    if (creator) used.add(creator.id);
+    team.groupId = group.id;
+    team.groupName = group.name;
+    team.creatorId = creator?.id || '';
+    team.creatorName = creator?.nickname || creator?.tiktokId || '';
+    const gsel = $(`#kc${side}group`); if (gsel) gsel.value = group.id;
+    renderKcCreatorSelect(side);
+    const csel = $(`#kc${side}creator`); if (csel) csel.value = creator?.id || '';
+  }
+  renderKcMemberNames();
+}
+
+function renderKcGifts() {
+  const joinMode = !!kcCfg?.joinMode;
+  const creatorLive = !!kcCfg?.creatorLive;
+  for (const side of ['A', 'B']) {
+    const wrap = $(`#kc${side}gifts`);
+    if (!wrap) continue;
+    wrap.dataset.team = side;
+    wrap.innerHTML = '';
+    const team = kcGetTeam(side);
+    if (creatorLive) {
+      const hint = document.createElement('span');
+      hint.className = 'muted tiny';
+      hint.textContent = '📡 TikTok: tính theo Creator người nhận — không cần chọn quà';
+      wrap.appendChild(hint);
+      continue;
+    }
+    (team.gifts || []).forEach((g, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.title = g.giftName || g.giftId || '';
+      chip.innerHTML = `${g.icon ? `<img src="${escapeAttr(g.icon)}" />` : '🎁'}<button type="button">×</button>`;
+      chip.querySelector('button').addEventListener('click', () => {
+        team.gifts.splice(i, 1);
+        saveKcActiveGifts();
+        if (joinMode) { team.giftOverride = false; applyKcCreator(side, { applyDefaultGift: true }); }
+        renderKcGifts();
+        scheduleKcAutoSave();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+  $$('.kc-pick-master').forEach(btn => { btn.textContent = joinMode ? 'Chọn quà kích hoạt' : '+ Thêm quà'; });
+}
+
+function kcGiftIds(side) {
+  const team = kcGetTeam(side);
+  return new Set((team.gifts || []).map(g => String(g.giftId || g.id || '')));
+}
+function addKcGifts(side, gifts) {
+  const team = kcGetTeam(side);
+  const other = side === 'A' ? kcCfg.teamB : kcCfg.teamA;
+  team.gifts = team.gifts || [];
+  if (kcCfg.joinMode) {
+    const first = gifts?.[0];
+    if (!first) return [];
+    const g = first.giftName ? first : giftToPkGift(first);
+    const id = String(g.giftId || g.id || '');
+    if (id && (other.gifts || []).some(x => String(x.giftId || x.id || '') === id)) return [];
+    team.gifts = [g];
+    team.joinGifts = team.gifts;
+    team.giftOverride = true;
+    return [g];
+  }
+  const existing = new Set(team.gifts.map(g => String(g.giftId || g.id || '')));
+  const blocked = new Set((other.gifts || []).map(g => String(g.giftId || g.id || '')));
+  const added = [];
+  for (const g of gifts) {
+    const id = String(g.id || g.giftId);
+    if (existing.has(id) || blocked.has(id)) continue;
+    const pkGift = g.giftName ? g : giftToPkGift(g);
+    team.gifts.push(pkGift);
+    existing.add(id);
+    added.push(pkGift);
+  }
+  return added;
+}
+
+const _kcSaver = makeAutoSaver(() => {
+  if (!kcCfg) return;
+  return window.api.kcduo.setConfig(collectKcCfg()).catch(() => {});
+});
+function scheduleKcAutoSave() { _kcSaver.schedule(); }
+
+function collectKcCfg() {
+  saveKcActiveGifts();
+  kcCfg.teamA.name = $('#kcAname').value.trim() || 'KEEP/GIỮ';
+  kcCfg.teamB.name = $('#kcBname').value.trim() || 'CHANGE/ĐỔI';
+  applyKcCreator('A');
+  applyKcCreator('B');
+  saveKcActiveGifts();
+  const h = Number($('#kcDurH').value) || 0;
+  const m = Number($('#kcDurM').value) || 0;
+  const s = Number($('#kcDurS').value) || 0;
+  const durationSec = Math.max(5, h * 3600 + m * 60 + s);
+  return {
+    teamA: { ...kcCfg.teamA, name: $('#kcAname').value.trim() || 'KEEP/GIỮ', color: $('#kcAcolor').value, gifts: kcCfg.teamA.gifts || [] },
+    teamB: { ...kcCfg.teamB, name: $('#kcBname').value.trim() || 'CHANGE/ĐỔI', color: $('#kcBcolor').value, gifts: kcCfg.teamB.gifts || [] },
+    performerName: $('#kcPerformer').value.trim(),
+    nextName: $('#kcNextName').value.trim(),
+    defendStreak: Math.max(0, parseInt($('#kcDefend').value, 10) || 0),
+    totalRounds: Math.max(0, parseInt($('#kcRounds').value, 10) || 0),
+    flipMargin: Math.max(0, Number($('#kcFlipMargin').value) || 0),
+    flipMarginMode: $('#kcFlipMode').value === 'point' ? 'point' : 'percent',
+    timerPos: $('#kcTimerPos').value,
+    durationSec,
+    prepSec: Number($('#kcPrep').value) || 0,
+    delaySec: Number($('#kcDelay').value) || 0,
+    joinMode: $('#kcJoinMode').value === 'true',
+    creatorLive: $('#kcJoinMode').value === 'creator',
+    pointsBy: $('#kcPointsBy').value,
+    giftSize: Number($('#kcGiftSize').value),
+    giftDisplayMode: $('#kcGiftDisplayMode').value,
+    textSize: Number($('#kcTextSize').value),
+    overlayScale: Math.max(80, Math.min(300, Number($('#kcOverlayScale').value) || 200)),
+    content: $('#kcContent').value.trim(),
+    startSound: gameplaySoundValue('scSndStart'),
+    warningSound: gameplaySoundValue('scSndWarn'),
+    keepSound: gameplaySoundValue('scSndSuccess'),
+    changeSound: gameplaySoundValue('scSndSuccess'),
+    drawSound: gameplaySoundValue('scSndFail'),
+    skin: $('#kcSkin') ? $('#kcSkin').value : 'auto',
+  };
+}
+
+// State từ engine (~1s/nhịp) mang cấu hình ĐÃ LƯU — chỉ đọc để cập nhật chỉ số động (điểm/vòng/trụ),
+// KHÔNG gộp đè kcCfg (tránh cuốn phăng quà/tên đang chỉnh tay chưa auto-save).
+function renderKcPreview(st) {
+  if (!st) return;
+  const sec = Math.ceil((st.remainingMs || 0) / 1000);
+  const statusText = st.status === 'prestart' ? `Sắp bắt đầu — ${sec}s`
+    : st.status === 'running' ? `Đang chạy — ${sec}s`
+    : st.status === 'grace' ? 'ĐANG TÍNH ĐIỂM'
+    : st.status === 'finished' ? (st.winnerSide === 'B' ? 'KẾT THÚC · ĐỔI NGƯỜI' : 'KẾT THÚC · GIỮ GHẾ')
+    : 'Chờ bắt đầu';
+  const a = st.teamA || {}; const b = st.teamB || {};
+  const running = ['prestart', 'running', 'grace'].includes(st.status);
+  const startBtn = $('#kcStart');
+  if (startBtn) {
+    startBtn.dataset.running = running ? 'true' : 'false';
+    startBtn.textContent = running ? '■ DỪNG' : '▶ BẮT ĐẦU';
+    startBtn.classList.toggle('primary', !running);
+    startBtn.classList.toggle('warn', running);
+  }
+  const push = Number(st.push || 0);
+  const seat = String(st.performerName || '').trim();
+  const box = $('#kcPreview');
+  if (!box) return;
+  box.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:8px; width:100%; max-width:680px">
+      <div style="display:flex; justify-content:space-between; font-size:12px; opacity:.85">
+        <span>MVP: <b>${formatNumber(st.defendStreak || 0)}</b></span>
+        ${seat ? `<span>🎤 <b>${escapeHtml(seat)}</b></span>` : ''}
+        <span>🔁 Vòng: <b>${formatNumber(st.totalRounds || 0)}</b></span>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; font-size:13px; opacity:.92">
+        <b style="color:${escapeAttr(a.color || '#22c55e')}">${escapeHtml(a.name || 'GIỮ')}</b>
+        <span style="text-align:center">${escapeHtml(statusText)}</span>
+        <b style="text-align:right; color:${escapeAttr(b.color || '#ef4444')}">${escapeHtml(b.name || 'ĐỔI')}</b>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px">
+        <strong style="font-size:24px; min-width:70px; text-align:center; line-height:1">${formatNumber(st.scoreA || 0)}</strong>
+        <div style="flex:1; height:18px; border-radius:10px; background:linear-gradient(90deg, ${escapeAttr(a.color || '#22c55e')} 0 ${50 + push}%, ${escapeAttr(b.color || '#ef4444')} ${50 + push}% 100%); transition:all .3s"></div>
+        <strong style="font-size:24px; min-width:70px; text-align:center; line-height:1">${formatNumber(st.scoreB || 0)}</strong>
+      </div>
+    </div>`;
+}
+
+// Broadcast kcduo:config (engine tự cập nhật sau ván) → đồng bộ các ô chỉ số + tên phe.
+function applyKcConfigBroadcast(cfg) {
+  if (!cfg || !kcCfg) return;
+  if (typeof cfg.defendStreak === 'number') { kcCfg.defendStreak = cfg.defendStreak; if (document.activeElement !== $('#kcDefend')) $('#kcDefend').value = cfg.defendStreak; }
+  if (typeof cfg.totalRounds === 'number') { kcCfg.totalRounds = cfg.totalRounds; if (document.activeElement !== $('#kcRounds')) $('#kcRounds').value = cfg.totalRounds; }
+  if (typeof cfg.performerName === 'string') { kcCfg.performerName = cfg.performerName; if (document.activeElement !== $('#kcPerformer')) $('#kcPerformer').value = cfg.performerName; }
+  if (typeof cfg.nextName === 'string') { kcCfg.nextName = cfg.nextName; if (document.activeElement !== $('#kcNextName')) $('#kcNextName').value = cfg.nextName; }
+}
+
+async function testKcDuoGift(side, sign = 1) {
+  await window.api.kcduo.setConfig(collectKcCfg());
+  const qty = Math.max(1, parseInt($('#kcTestQty')?.value, 10) || 1);
+  const res = await window.api.kcduo.testGift(side, qty, sign);
+  if (!res) { toast('Không test được quà phe này', 'error'); return; }
+  const team = side === 'A' ? kcCfg.teamA : kcCfg.teamB;
+  const name = team?.name || (side === 'A' ? 'GIỮ' : 'ĐỔI');
+  const sgn = res.points < 0 ? '−' : '+';
+  toast(`${name}: ${sgn}${formatNumber(Math.abs(res.points))} (×${res.qty})${res.giftName ? ` · ${res.giftName}` : ''}`, 'success');
+}
+
+function wireKcDuoTab() {
+  if (!$('#kcJoinMode')) return;
+  $('#kcJoinMode').addEventListener('change', () => {
+    saveKcActiveGifts();
+    const mode = $('#kcJoinMode').value;
+    kcCfg.creatorLive = mode === 'creator';
+    kcCfg.joinMode = mode === 'true';
+    syncKcActiveGifts();
+    if (kcCfg.creatorLive) {
+      renderKcGifts();
+      scheduleKcAutoSave();
+      toast('📡 Chế độ TikTok: tự cộng theo Creator người nhận — khỏi chọn quà.', 'success');
+      return;
+    }
+    if (kcCfg.joinMode) {
+      applyKcCreator('A', { applyDefaultGift: !(kcCfg.teamA.joinGifts || []).length });
+      applyKcCreator('B', { applyDefaultGift: !(kcCfg.teamB.joinGifts || []).length });
+    }
+    renderKcGifts();
+    scheduleKcAutoSave();
+    toast(kcCfg.joinMode ? 'Đang chỉnh quà Chọn Phe' : 'Đang chỉnh quà Cố định');
+  });
+
+  for (const side of ['A', 'B']) {
+    $(`#kc${side}group`).addEventListener('change', () => {
+      renderKcCreatorSelect(side);
+      const csel = $(`#kc${side}creator`);
+      if (csel && !csel.value) { // tự chọn thành viên đầu (khác phe kia) nếu nhóm mới chưa có ai
+        const otherId = kcGetTeam(side === 'A' ? 'B' : 'A').creatorId;
+        const first = membersOfGroup($(`#kc${side}group`).value).find(c => c.id !== otherId);
+        if (first) csel.value = first.id;
+      }
+      applyKcCreator(side); // không syncName/không ép quà: giữ nhãn GIỮ/ĐỔI + quà tính điểm
+      scheduleKcAutoSave();
+    });
+    $(`#kc${side}creator`).addEventListener('change', () => {
+      applyKcCreator(side); // chỉ gán người tính điểm, giữ nhãn phe + quà
+      scheduleKcAutoSave();
+    });
+    $(`#kc${side}name`).addEventListener('input', () => {
+      const t = kcGetTeam(side);
+      if (t) t.nameOverride = true;
+    });
+  }
+
+  $$('.kc-pick-master').forEach(btn => btn.addEventListener('click', async () => {
+    const side = btn.dataset.team;
+    const otherSide = side === 'A' ? 'B' : 'A';
+    const otherTeam = kcGetTeam(otherSide);
+    const otherLabel = (otherTeam.name || (otherSide === 'A' ? 'GIỮ' : 'ĐỔI')).trim();
+    const otherIds = [...kcGiftIds(otherSide)];
+    const usedBy = Object.fromEntries(otherIds.map(id => [id, `Phe ${otherLabel}`]));
+    const selected = await GiftPicker.open({
+      title: kcCfg.joinMode ? `🎁 Chọn 1 quà kích hoạt cho phe ${otherSide === 'A' ? 'ĐỔI' : 'GIỮ'}` : `🎁 Chọn quà cho phe ${side === 'A' ? 'GIỮ' : 'ĐỔI'}`,
+      multi: !kcCfg.joinMode,
+      disabledIds: otherIds,
+      usedBy,
+      selected: [...kcGiftIds(side)],
+    });
+    const picked = Array.isArray(selected) ? selected : (selected ? [selected] : []);
+    if (!picked.length) return;
+    const added = addKcGifts(side, picked);
+    saveKcActiveGifts();
+    renderKcGifts();
+    scheduleKcAutoSave();
+    toast(added.length ? `Đã thêm quà cho phe ${side === 'A' ? 'GIỮ' : 'ĐỔI'}` : 'Không thêm được (trùng phe kia?)', added.length ? 'success' : 'error');
+  }));
+
+  $('#kcOverlayScale').addEventListener('input', () => {
+    $('#kcOverlayScaleValue').textContent = `${$('#kcOverlayScale').value}%`;
+    scheduleKcAutoSave();
+  });
+  ['kcContent', 'kcPerformer', 'kcNextName', 'kcDefend', 'kcRounds', 'kcFlipMargin', 'kcFlipMode', 'kcTimerPos', 'kcAname', 'kcBname', 'kcAcolor', 'kcBcolor', 'kcDurH', 'kcDurM', 'kcDurS', 'kcPrep', 'kcDelay', 'kcPointsBy', 'kcTextSize', 'kcGiftSize', 'kcGiftDisplayMode', 'kcSkin'].forEach(id => {
+    const el = $('#' + id);
+    if (!el) return;
+    el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', scheduleKcAutoSave);
+  });
+  wireSkinHint('kcSkin', 'kcSkinHint');
+
+  $('#kcStart').addEventListener('click', async () => {
+    if ($('#kcStart').dataset.running === 'true') { await window.api.kcduo.stop(); return; }
+    if (!requireLive('BẮT ĐẦU Giữ/Đổi')) return;
+    await window.api.kcduo.setConfig(collectKcCfg());
+    await window.api.kcduo.start();
+  });
+  $('#kcReset').addEventListener('click', async () => { await window.api.kcduo.reset(); });
+  $('#kcResetAll')?.addEventListener('click', async () => {
+    if (!confirm('RESET TẤT CẢ Giữ/Đổi?\nXoá điểm, chuỗi trụ ghế, số vòng và người kế (không hoàn tác).')) return;
+    await window.api.kcduo.resetAll();
+    toast('🗑️ Đã reset tất cả Giữ/Đổi', 'success');
+  });
+  $('#kcAddA').addEventListener('click', () => testKcDuoGift('A', 1));
+  $('#kcAddB').addEventListener('click', () => testKcDuoGift('B', 1));
+  $('#kcSubA')?.addEventListener('click', () => testKcDuoGift('A', -1));
+  $('#kcSubB')?.addEventListener('click', () => testKcDuoGift('B', -1));
+  $('#kcCopyUrl').addEventListener('click', async () => {
+    const url = await window.api.kcduo.getUrl();
+    await window.api.shell.copyText(url);
+    toast('📋 Đã copy link Giữ/Đổi', 'success');
+  });
+  document.querySelectorAll('.panel[data-panel="kcduo"] .pk-quick-menu button').forEach(b =>
+    b.addEventListener('click', () => b.closest('details.pk-quick')?.removeAttribute('open')));
+
+  window.api.on('kcduo:state', (st) => renderKcPreview(st));
+  window.api.on('kcduo:config', (cfg) => applyKcConfigBroadcast(cfg));
 }
 
 // ============================================================
@@ -7314,8 +7940,11 @@ function renderPkGroupMembers() {
         <button class="ghost tiny pkg-pick-gift${override ? ' is-override' : ''}" type="button" title="${override ? 'Đang ghi đè quà — bấm để đổi' : 'Đang theo quà mặc định của Creator (realtime)'}">${gift?.icon ? `<img src="${escapeAttr(gift.icon)}" />` : '🎁'} ${escapeHtml(gift?.giftName || gift?.name || 'Chọn quà')}</button>
         ${override ? '<button class="ghost tiny pkg-reset-gift" type="button" title="Về quà mặc định">🔄</button>' : ''}
       </div>
-      <button class="primary tiny pkg-test-gift" type="button">Test quà</button>
-      <button class="ghost tiny pkg-add-point" type="button">+1</button>
+      <div class="pkg-test-cell" title="Nhập số lượng rồi bấm ＋ để cộng điểm (quà × số lượng), － để trừ khi lỡ cộng sai">
+        <input class="pkg-test-qty" type="number" min="1" max="9999" value="1" aria-label="Số lượng quà test" />
+        <button class="pkg-test-gift" type="button" title="Cộng điểm (quà × số lượng)">＋</button>
+        <button class="pkg-test-minus" type="button" title="Trừ điểm (lỡ cộng sai)">－</button>
+      </div>
     </div>`;
   }).join('');
   wrap.querySelectorAll('.pkg-member').forEach(row => {
@@ -7357,19 +7986,18 @@ function renderPkGroupMembers() {
       schedulePkGroupAutoSave();
       toast(`🔄 ${p.name || creator.nickname || creator.tiktokId} về quà mặc định`, 'success');
     });
-    row.querySelector('.pkg-add-point').addEventListener('click', async () => {
-      syncPkGroupMembersFromDom();
-      const p = pkGroupCfg.participants.find(x => x.creatorId === creator.id || x.id === creator.id);
-      if (p) await window.api.pkgroup.addPoints(p.id, 1);
-    });
-    row.querySelector('.pkg-test-gift').addEventListener('click', async () => {
+    const pkgTestPoints = async (sign) => {
       await window.api.pkgroup.setConfig(collectPkGroupCfg());
       const p = pkGroupCfg.participants.find(x => x.creatorId === creator.id || x.id === creator.id);
       if (!p) { toast('Cần tích chọn thành viên trước', 'error'); return; }
-      const res = await window.api.pkgroup.testGift(p.id);
+      const qty = Math.max(1, parseInt(row.querySelector('.pkg-test-qty')?.value, 10) || 1);
+      const res = await window.api.pkgroup.testGift(p.id, qty, sign);
       if (!res) { toast('Không test được quà thành viên này', 'error'); return; }
-      toast(`Test ${p.name}: +${formatNumber(res.points)}${res.giftName ? ` (${res.giftName})` : ''}`, 'success');
-    });
+      const sgn = res.points < 0 ? '−' : '+';
+      toast(`${p.name}: ${sgn}${formatNumber(Math.abs(res.points))} (×${res.qty})${res.giftName ? ` · ${res.giftName}` : ''}`, 'success');
+    };
+    row.querySelector('.pkg-test-gift').addEventListener('click', () => pkgTestPoints(1));
+    row.querySelector('.pkg-test-minus').addEventListener('click', () => pkgTestPoints(-1));
     row.querySelector('.pkg-move-up').addEventListener('click', () => movePkGroupParticipant(creator.id, -1));
     row.querySelector('.pkg-move-down').addEventListener('click', () => movePkGroupParticipant(creator.id, 1));
   });
@@ -7679,11 +8307,12 @@ async function loadRankingConfig() {
 
 // ===== Liên kết trò chơi → THI ĐẤU NHÓM (đồng bộ mọi ô tích: tiêu đề từng tab + bảng tổng) =====
 // 4 trò: pkduo/pkgroup/sticker dùng settings.rankingLinks; score dùng scoreLinkRanking (cơ chế riêng).
-let rankingLinks = { pkduo: false, pkgroup: false, sticker: false };
-const GAME_LINK_LABEL = { pkduo: 'PK Đôi', pkgroup: 'PK Nhóm', score: 'Tính điểm', sticker: 'Đập Trứng/Dance' };
+let rankingLinks = { pkduo: false, pkgroup: false, sticker: false, kcduo: false };
+const GAME_LINK_LABEL = { pkduo: 'PK Đôi', kcduo: 'Giữ/Đổi', pkgroup: 'PK Nhóm', score: 'Tính điểm', sticker: 'Đập Trứng/Dance' };
 // Mỗi trò có nhiều ô tích (tiêu đề + bảng tổng, riêng score còn ô trong thẻ) → luôn set cùng lúc.
 const GAME_LINK_BOXES = {
   pkduo: ['#pkLinkRanking', '#rkLinkPkduo'],
+  kcduo: ['#kcLinkRanking'],
   pkgroup: ['#pkgLinkRanking', '#rkLinkPkgroup'],
   score: ['#scLinkTop', '#rkLinkScore'],
   sticker: ['#sdLinkRanking', '#rkLinkSticker'],
@@ -9098,12 +9727,12 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, pkfx, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx, interact, giftMenu, dance1, dance2, dance3, scBar, scCard, scTimer] = await Promise.all([
-    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(), window.api.interact.getUrl(),
+  const [pk, pkfx, kc, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx, interact, giftMenu, dance1, dance2, dance3, scBar, scCard, scTimer] = await Promise.all([
+    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.kcduo.getUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(), window.api.interact.getUrl(),
     window.api.giftmenu.getUrl(), window.api.dancevideo.getUrl('webm1'), window.api.dancevideo.getUrl('webm2'), window.api.dancevideo.getUrl('webm3'),
     window.api.score.getBarUrl(), window.api.score.getCardUrl(), window.api.score.getTimerUrl(),
   ]);
-  const urls = { urlPk: pk, urlPkFx: pkfx, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx, urlInteract: interact, urlGiftMenu: giftMenu, urlDance1: dance1, urlDance2: dance2, urlDance3: dance3, urlScBar: scBar, urlScCard: scCard, urlScTimer: scTimer };
+  const urls = { urlPk: pk, urlPkFx: pkfx, urlKc: kc, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx, urlInteract: interact, urlGiftMenu: giftMenu, urlDance1: dance1, urlDance2: dance2, urlDance3: dance3, urlScBar: scBar, urlScCard: scCard, urlScTimer: scTimer };
   $$('[data-copy]').forEach(button => { button.dataset.url = urls[button.dataset.copy]; });
   await refreshReviewButtons();
 }
@@ -9153,6 +9782,39 @@ function wireOverlaysTab() {
     await window.api.shell.copyText(v);
     toast('📋 Đã copy', 'success');
   }));
+
+  // Công tắc chế độ link dùng chung: OBS (127.0.0.1) ↔ TikTok Studio (hpstudio.obs). Áp cho MỌI nút copy.
+  const linkModeToggle = $('#ovlTikTokLinks');
+  // Banner trạng thái dòng hosts: chỉ hiện cảnh báo khi ĐANG bật TikTok mà thiếu hosts.
+  function applyHostsStatus(st) {
+    const banner = $('#ovlHostsBanner'), ok = $('#ovlHostsOk');
+    if (!banner || !ok) return;
+    const needed = !!st?.needed;               // bật TikTok + thiếu hosts → cần sửa
+    const present = !!st?.present;
+    banner.hidden = !needed;
+    ok.hidden = !(present && !!linkModeToggle?.checked); // đang dùng TikTok và đã có hosts → báo sẵn sàng
+  }
+  function refreshHostsBanner() { window.api.hosts?.status().then(applyHostsStatus).catch(() => {}); }
+  if (linkModeToggle) {
+    window.api.overlay?.getLinkMode().then(on => { linkModeToggle.checked = !!on; refreshHostsBanner(); }).catch(() => {});
+    linkModeToggle.addEventListener('change', async () => {
+      const on = linkModeToggle.checked;
+      await window.api.overlay?.setLinkMode(on).catch(() => {});
+      await refreshOverlayUrls(); // cập nhật lại dataset các nút data-copy (nút trong từng tab tự lấy link mới khi bấm)
+      refreshHostsBanner();
+      toast(on ? '🔗 Link chuyển sang TikTok Studio (hpstudio.obs)' : '🔗 Link về OBS (127.0.0.1)', 'success');
+    });
+  }
+  // Nút "Sửa nhanh": tự nâng quyền (UAC) ghi dòng hosts, rồi cập nhật banner.
+  $('#ovlHostsFix')?.addEventListener('click', async () => {
+    toast('Đang xin quyền để ghi hosts… (bấm "Yes" ở cửa sổ UAC)', 'info');
+    const r = await window.api.hosts?.fix().catch(() => null);
+    if (r?.present) toast('✅ Đã cài dòng hosts — link TikTok Studio sẵn sàng', 'success');
+    else toast('Chưa ghi được hosts (bị từ chối quyền admin?). Thử lại hoặc thêm tay.', 'error');
+    refreshHostsBanner();
+  });
+  // Main tự cài hosts lúc khởi động → nhận trạng thái để cập nhật banner mà không cần hỏi lại.
+  window.api.on?.('hosts:status', applyHostsStatus);
 
   $$('[data-review-toggle]').forEach(btn => btn.addEventListener('click', async () => {
     const type = btn.dataset.reviewToggle;
@@ -9227,6 +9889,8 @@ function fillInteractUI(cfg) {
   set('ifComment', cfg.commentSize ?? 34);
   set('ifGift', cfg.giftSize ?? 32);
   set('ifSplit', Math.round((Number(cfg.splitRatio) || 0.5) * 100));
+  set('feedOpQuick', cfg.bgOpacity ?? 55);
+  const feedOpVal = $('#feedOpQuickVal'); if (feedOpVal) feedOpVal.textContent = (cfg.bgOpacity ?? 55) + '%';
   $('#ifBgOpacityVal').textContent = (cfg.bgOpacity ?? 55) + '%';
   $('#ifAvatarVal').textContent = cfg.avatarSize ?? 56;
   $('#ifNameVal').textContent = cfg.nameSize ?? 30;
@@ -9270,6 +9934,22 @@ async function wireInteractConfig() {
   ['ifShowGift', 'ifShowChat', 'ifShowAvatar', 'ifShowGiftName', 'ifShowRepeat', 'ifShowCoin',
     'ifNewest', 'ifBgColor', 'ifBgOpacity', 'ifAvatar', 'ifName', 'ifComment', 'ifGift', 'ifSplit']
     .forEach(id => { const el = $('#' + id); if (el) el.addEventListener('input', saveFromUI); });
+
+  // Thanh trượt nhanh ở khung 💬 TƯƠNG TÁC: chỉ chỉnh độ mờ/trong suốt NỀN overlay (giữ nguyên màu chữ).
+  // Đồng bộ 2 chiều với thanh trong CÀI ĐẶT; chỉ vá bgOpacity lên config hiện tại để không mất tuỳ chỉnh khác.
+  const feedOpQuick = $('#feedOpQuick');
+  if (feedOpQuick) feedOpQuick.addEventListener('input', async () => {
+    const v = Math.max(0, Math.min(100, Number(feedOpQuick.value) || 0));
+    const lbl = $('#feedOpQuickVal'); if (lbl) lbl.textContent = v + '%';
+    const s = $('#ifBgOpacity'); if (s) s.value = v;
+    const sv = $('#ifBgOpacityVal'); if (sv) sv.textContent = v + '%';
+    const cfg = { ...(interactCfg || {}), bgOpacity: v };
+    try { interactCfg = await window.api.interact.setConfig(cfg); } catch {}
+  });
+  // Bấm ra ngoài thì đóng popover 🌗 Nền
+  document.addEventListener('click', (e) => {
+    const d = $('.feed-op[open]'); if (d && !d.contains(e.target)) d.removeAttribute('open');
+  });
 }
 
 // ============================================================

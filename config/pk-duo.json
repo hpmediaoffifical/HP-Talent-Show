@@ -4,14 +4,14 @@
     "color": "#fe2c55",
     "gifts": [
       {
-        "giftName": "Blow a kiss",
-        "giftId": "10716",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/cdb55940740d5c83879b2934f9a7d08e.png~tplv-obj.webp",
+        "giftName": "Rose",
+        "giftId": "5655",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
         "diamond": 1
       }
     ],
-    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=32669c64&x-expires=1785686400&x-signature=Fyq3iEX7XkA7l9huLswPQJyyTLQ%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
-    "creatorAvatarKey": "d2f7a0ed10441222facb47f2e8bc147a6ab175f2",
+    "creatorAvatar": "../logo/hp-logo.png",
+    "creatorAvatarKey": "fee126084b0f34e3b18971ae6a977e86c763f5ef",
     "fixedGifts": [
       {
         "giftName": "Blow a kiss",
@@ -20,26 +20,34 @@
         "diamond": 1
       }
     ],
-    "joinGifts": [],
-    "groupId": "g_mrtg107e1aqmz",
-    "groupName": "HP•VITAMIN B",
-    "creatorId": "c_mrtg28mrb1ni1",
-    "creatorName": "Raiden",
+    "joinGifts": [
+      {
+        "giftName": "Rose",
+        "giftId": "5655",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
+        "diamond": 1
+      }
+    ],
+    "groupId": "g_mrtfzc0t6cmab",
+    "groupName": "HP• LOLLIPOP",
+    "creatorId": "",
+    "creatorName": "",
     "winStreak": 0,
-    "nameOverride": false
+    "nameOverride": false,
+    "giftOverride": true
   },
   "teamB": {
     "name": "Xuhao",
     "color": "#25f4ee",
     "gifts": [
       {
-        "giftName": "Cake Slice",
-        "giftId": "6784",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.webp",
+        "giftName": "TikTok",
+        "giftId": "5269",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
         "diamond": 1
       }
     ],
-    "creatorAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=bc81fdc0&x-expires=1785686400&x-signature=YVSs2YxpgKfxxh48DJMiS66wyIU%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+    "creatorAvatar": "../logo/hp-logo.png",
     "creatorAvatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b",
     "fixedGifts": [
       {
@@ -49,18 +57,26 @@
         "diamond": 1
       }
     ],
-    "joinGifts": [],
-    "groupId": "g_mrtg107e1aqmz",
-    "groupName": "HP•VITAMIN B",
-    "creatorId": "c_mrtg2crd6d27p",
-    "creatorName": "Xuhao",
+    "joinGifts": [
+      {
+        "giftName": "TikTok",
+        "giftId": "5269",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
+        "diamond": 1
+      }
+    ],
+    "groupId": "g_mrtfzc0t6cmab",
+    "groupName": "HP• LOLLIPOP",
+    "creatorId": "",
+    "creatorName": "",
     "winStreak": 1,
-    "nameOverride": false
+    "nameOverride": false,
+    "giftOverride": true
   },
-  "durationSec": 90,
-  "prepSec": 3,
-  "delaySec": 5,
-  "joinMode": false,
+  "durationSec": 60,
+  "prepSec": 1,
+  "delaySec": 7,
+  "joinMode": true,
   "creatorLive": false,
   "linkRanking": true,
   "pointsBy": "diamond",
@@ -69,7 +85,7 @@
   "bgOpacity": 88,
   "giftSize": 46,
   "textSize": 21,
-  "overlayScale": 195,
+  "overlayScale": 200,
   "startSound": "",
   "warningSound": "",
   "teamASound": "",
@@ -85,5 +101,6 @@
   "championsEnabled": true,
   "championNames": false,
   "arrowStyle": "random",
-  "selectFx": "random"
+  "selectFx": "random",
+  "skin": "auto"
 }

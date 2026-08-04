@@ -85,14 +85,12 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkg-segment b em { font-style:normal; display:inline-flex; align-items:center; gap:calc(4px * var(--pkg-scale,1)); font-size:calc(var(--pkg-text,20px) * 1.08 * var(--pkg-scale,1)); min-width:0; max-width:100%; overflow:hidden; }
 .pkg-segment b em .pkg-num { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .pkg-rank-tag { font-style:normal; font-size:calc(var(--pkg-text,20px) * .56 * var(--pkg-scale,1)); font-weight:900; letter-spacing:.01em; opacity:.94; flex:0 0 auto; }
-.pkg-segment b small.pkg-pct { font-size:calc(var(--pkg-text,20px) * .52 * var(--pkg-scale,1)); font-weight:850; opacity:.78; letter-spacing:.02em; flex:0 0 auto; }
 .pkg-segment.narrow b { padding:0 calc(3px * var(--pkg-scale,1)); }
 .pkg-segment.narrow b em { font-size:calc(var(--pkg-text,20px) * .9 * var(--pkg-scale,1)); }
 .pkg-segment.leader b { background:none; box-shadow:none; }
 /* TOP 1 (leader): SỐ to hơn hẳn (điểm là ngôi sao), nhãn Hạng 1 vẫn nhỏ gọn — segment dẫn đầu rộng nhất nên đủ chỗ */
 .pkg-segment.leader:not(.narrow) b em { font-size:calc(var(--pkg-text,20px) * 1.5 * var(--pkg-scale,1)); }
 .pkg-segment.leader:not(.narrow) b .pkg-rank-tag { font-size:calc(var(--pkg-text,20px) * .74 * var(--pkg-scale,1)); }
-.pkg-segment.leader:not(.narrow) b small.pkg-pct { font-size:calc(var(--pkg-text,20px) * .58 * var(--pkg-scale,1)); }
 .pkg-joined-gifts { align-items:start; padding:calc(4px * var(--pkg-scale,1)) 0 0; }
 /* Icon quà + cụm avatar TOP tặng canh TRÁI mép mỗi segment (giống ảnh 2) để tách xa nhau, thoáng hơn.
    overflow:visible để cụm avatar/ánh vàng TOP1 không bị cắt. */

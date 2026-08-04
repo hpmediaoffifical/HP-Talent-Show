@@ -11,7 +11,7 @@
   "showCount": false,
   "edgeStops": true,
   "autoRemove": true,
-  "spinCount": 5,
+  "spinCount": 7,
   "selectedSpinner": null,
   "segments": [
     {
@@ -22,14 +22,31 @@
       "color": "#00e0c7",
       "weight": 10,
       "jackpot": false,
-      "won": false,
-      "drawn": false,
-      "wonBy": "",
-      "wonAvatar": "",
+      "won": true,
+      "drawn": true,
+      "wonBy": "Xuhao",
+      "wonAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=a4db82aa&x-expires=1785945600&x-signature=knMxB3zJZnqEXrASuEkcg%2FEwDeY%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
       "wonCreatorId": "",
       "contestCreatorId": "",
       "contestOrder": 0,
       "contestSpinId": ""
+    },
+    {
+      "id": "lw_grddpn9",
+      "text": "Số 10",
+      "note": "",
+      "type": "info",
+      "color": "#4c8dff",
+      "weight": 10,
+      "jackpot": false,
+      "won": true,
+      "drawn": false,
+      "wonBy": "Xuhao",
+      "wonAvatar": "https://p19-common-sign.tiktokcdn-us.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.webp?dr=9640&refresh_token=a4db82aa&x-expires=1785945600&x-signature=knMxB3zJZnqEXrASuEkcg%2FEwDeY%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=2472a6c6&idc=useast8",
+      "wonCreatorId": "c_mrtg2crd6d27p",
+      "contestCreatorId": "c_mrtg2crd6d27p",
+      "contestOrder": 10,
+      "contestSpinId": "sp_msdltvdf_2"
     },
     {
       "id": "lw_zciibcr",
@@ -166,26 +183,27 @@
       "contestCreatorId": "",
       "contestOrder": 0,
       "contestSpinId": ""
-    },
-    {
-      "id": "lw_grddpn9",
-      "text": "Số 10",
-      "note": "",
-      "type": "info",
-      "color": "#4c8dff",
-      "weight": 10,
-      "jackpot": false,
-      "won": false,
-      "drawn": false,
-      "wonBy": "",
-      "wonAvatar": "",
-      "wonCreatorId": "",
-      "contestCreatorId": "",
-      "contestOrder": 0,
-      "contestSpinId": ""
     }
   ],
   "history": [
+    {
+      "id": "sp_msdltvdf_2",
+      "time": "2026-08-03T19:10:41.427Z",
+      "member": "Xuhao",
+      "segId": "lw_grddpn9",
+      "text": "Số 10",
+      "note": "",
+      "type": "info"
+    },
+    {
+      "id": "sp_msdltkno_1",
+      "time": "2026-08-03T19:10:27.540Z",
+      "member": "Xuhao",
+      "segId": "lw_f5lcoga",
+      "text": "Số 2",
+      "note": "",
+      "type": "info"
+    },
     {
       "id": "sp_ms7g0agw_4",
       "time": "2026-07-30T11:41:06.177Z",
