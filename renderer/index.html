@@ -682,7 +682,7 @@
               </select>
             </label>
             <label class="pk-row-field pk-tiktok-combine" title="Kết hợp TikTok: quà tặng đúng Creator của phe (chọn trên hộp quà TikTok) tự cộng cho phe đó — không cần chọn quà. Vẫn giữ chế độ nền: quà không nhắm ai thì tính theo Cố Định/Chọn Phe.">
-              <input type="checkbox" id="kcTiktokCombine" checked disabled /> 📡 Kết hợp TikTok
+              <input type="checkbox" id="kcTiktokCombine" checked /> 📡 Kết hợp TikTok
             </label>
             <select id="kcPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
             <details class="pk-quick">
@@ -717,9 +717,8 @@
               </div>
             </div>
 
-            <label>🎤 Người đang diễn <input id="kcPerformer" maxlength="30" list="kcMemberNames" placeholder="Chọn nhanh hoặc gõ tên" title="Người đang trên ghế nóng — bấm để chọn nhanh thành viên trong nhóm" /></label>
-            <label>➡️ Người kế tiếp <input id="kcNextName" maxlength="30" list="kcMemberNames" placeholder="Chọn nhanh hoặc gõ tên" title="Khi ĐỔI thắng, người này tự lên làm người đang diễn — bấm để chọn nhanh thành viên trong nhóm" /></label>
-            <datalist id="kcMemberNames"></datalist>
+            <label>🎤 Người đang diễn <select id="kcPerformer" title="Chỉ chọn thành viên thuộc nhóm đã chọn; có thể đổi lại bất kỳ lúc nào"><option value="">— Chọn người đang diễn —</option></select></label>
+            <label>➡️ Người kế tiếp <select id="kcNextName" title="Chỉ chọn thành viên thuộc nhóm đã chọn; có thể đổi lại bất kỳ lúc nào"><option value="">— Chọn người kế tiếp —</option></select></label>
             <label>🔥 MVP CHUỖI <input id="kcDefend" type="number" min="0" max="999" value="0" title="Chuỗi trụ ghế — số vòng người đang diễn đã giữ được ghế (sửa tay nếu cần)" /></label>
             <label>🔁 VÒNG ĐẤU <input id="kcRounds" type="number" min="0" max="9999" value="0" title="Tổng số vòng đã chơi (sửa tay nếu cần)" /></label>
 

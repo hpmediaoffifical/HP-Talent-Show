@@ -205,9 +205,9 @@ function render(state = {}) {
   root.innerHTML = `<div class="${boardClass}" style="${boardStyle}">
     ${titleHtml}
     <div class="kc-topline">
-      <b class="kc-name a">${esc(shortName(a.name || 'KEEP/GIỮ'))}</b>
+      <span class="kc-team-label a"><b class="kc-name a">${esc(shortName(a.name || 'KEEP/GIỮ'))}</b>${resultA}</span>
       ${timerHtml}
-      <b class="kc-name b">${esc(shortName(b.name || 'CHANGE/ĐỔI'))}</b>
+      <span class="kc-team-label b">${resultB}<b class="kc-name b">${esc(shortName(b.name || 'CHANGE/ĐỔI'))}</b></span>
     </div>
     <div class="kc-barrow">
       <span class="kc-gift left">${giftLane(a.gifts, giftMode)}</span>
@@ -219,7 +219,6 @@ function render(state = {}) {
         <span class="kc-flare" aria-hidden="true"></span>
         <strong class="kc-score a">${fmt(state.scoreA)}</strong>
         <strong class="kc-score b">${fmt(state.scoreB)}</strong>
-        ${resultA}${resultB}
       </div>
       <span class="kc-gift right">${giftLane(b.gifts, giftMode)}</span>
     </div>

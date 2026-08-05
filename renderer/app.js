@@ -5264,6 +5264,7 @@ async function refreshCreators() {
   renderPkCreatorSelects?.();
   renderPkGroupMembers?.();
   renderScoreCreatorSelect?.();
+  renderKcCreatorSelects?.();
   propagateDefaultGiftToBattles();
   propagateCreatorNamesToBattles();
   checkDuplicateDefaultGifts();
@@ -5578,6 +5579,10 @@ async function setActiveGroup(id) {
   if (activeGroupId !== prevGroupId) {
     window.api.ranking.setConfig({ showGroupName: !activeGroupId }).catch(() => {});
   }
+  if (activeGroupId && kcCfg) {
+    applyKcDefaultMembers(activeGroupId);
+    scheduleKcAutoSave();
+  }
   applyActiveGroupMode();
 }
 
@@ -5616,6 +5621,8 @@ function applyActiveGroupMode() {
   renderPkGroupGroupSelect?.();
   renderPkGroupMembers?.();
   renderScoreCreatorSelect?.();
+  renderKcCreatorSelects?.();
+  renderKcCreatorSelects?.();
   // Sticker Dance: mỗi nhóm một bảng quà riêng ('' = TALENT SHOW dùng file gốc).
   switchStickerGroup?.(activeGroupId);
   // Menu Quà: mỗi nhóm một bảng menu riêng.
@@ -6174,6 +6181,7 @@ async function refreshGroups() {
   renderPkGroupGroupSelect?.();
   renderPkGroupMembers?.();
   renderScoreCreatorSelect?.();
+  renderKcCreatorSelects?.();
 }
 
 // Avatar TikTok là URL ký có tham số 'x-expires' → hết hạn sau ~vài giờ. Nhóm (và creator) lưu URL
@@ -7312,7 +7320,7 @@ function saveKcActiveGifts() {
 
 async function loadKcConfig() {
   const st = await window.api.kcduo.getState();
-  const needsForcedDefaults = st.teamA?.name !== 'KEEP/GIỮ' || st.teamB?.name !== 'CHANGE/ĐỔI' || st.tiktokCombine !== true;
+  const needsForcedDefaults = st.teamA?.name !== 'KEEP/GIỮ' || st.teamB?.name !== 'CHANGE/ĐỔI';
   kcCfg = {
     teamA: normalizeKcTeam(st.teamA, { name: 'KEEP/GIỮ', color: '#e60045' }),
     teamB: normalizeKcTeam(st.teamB, { name: 'CHANGE/ĐỔI', color: '#00afdb' }),
@@ -7320,7 +7328,7 @@ async function loadKcConfig() {
     defendStreak: Math.max(0, Number(st.defendStreak) || 0), totalRounds: Math.max(0, Number(st.totalRounds) || 0),
     flipMargin: Math.max(0, Number(st.flipMargin) || 0), flipMarginMode: st.flipMarginMode === 'point' ? 'point' : 'percent',
     durationSec: st.durationSec || 90, prepSec: st.prepSec ?? 3, delaySec: st.delaySec ?? 5,
-    joinMode: !!st.joinMode, tiktokCombine: true, pointsBy: st.pointsBy || 'diamond',
+    joinMode: !!st.joinMode, tiktokCombine: st.tiktokCombine !== false, pointsBy: st.pointsBy || 'diamond',
     content: st.content == null ? 'GIỮ / ĐỔI' : st.content, timerPos: ['left', 'right', 'center'].includes(st.timerPos) ? st.timerPos : 'center',
     giftSize: st.giftSize || 46, textSize: st.textSize || 21, overlayScale: st.overlayScale || 200,
     giftDisplayMode: st.giftDisplayMode || 'scroll', skin: st.skin || 'auto',
@@ -7333,10 +7341,9 @@ async function loadKcConfig() {
   }
   syncKcActiveGifts();
   renderKcCreatorSelects();
-  // Mặc định chọn NHÓM chỉ định (nhóm đang hoạt động ở launcher, hoặc nhóm đã lưu) + THÀNH VIÊN
-  // tính điểm cho cả A/B — để điểm vào 🏆 THI ĐẤU NHÓM như các gameplay khác (không hiện lên overlay).
-  const kcGid = activeGroupId || kcCfg.teamA?.groupId || kcCfg.teamB?.groupId || '';
-  if (kcGid) { applyKcDefaultMembers(kcGid); scheduleKcAutoSave(); }
+  // Khi app đang khóa vào một nhóm, nhóm đó là mặc định của cả hai phe.
+  // Ở TALENT SHOW vẫn giữ lựa chọn nhóm riêng của từng phe đã lưu.
+  if (activeGroupId) { applyKcDefaultMembers(activeGroupId); scheduleKcAutoSave(); }
   $('#kcContent').value = kcCfg.content || '';
   $('#kcPerformer').value = kcCfg.performerName || '';
   $('#kcNextName').value = kcCfg.nextName || '';
@@ -7374,29 +7381,41 @@ function renderKcCreatorSelects() {
   for (const side of ['A', 'B']) {
     const groupSel = $(`#kc${side}group`);
     const gs = visibleGroups();
-    const current = kcGetTeam(side).groupId || '';
+    const groupField = groupSel.closest('label');
+    if (groupField) groupField.hidden = !!activeGroupId;
+    const current = activeGroupId || kcGetTeam(side).groupId || '';
     groupSel.innerHTML = '<option value="">— Chọn nhóm —</option>' + gs.map(g => `<option value="${escapeAttr(g.id)}">${escapeHtml(g.name)}</option>`).join('');
     groupSel.value = gs.some(g => g.id === current) ? current : '';
     renderKcCreatorSelect(side);
   }
   renderKcMemberNames();
 }
-// Gợi ý chọn nhanh tên người đang diễn / người kế tiếp = tên thành viên (creator) trong nhóm,
-// khỏi gõ tay. Dùng <datalist> nên vẫn cho phép gõ tự do. Gộp cả 2 phe + đang chỉnh, khử trùng.
+// Người đang diễn / người kế tiếp chỉ lấy từ các nhóm đã chọn ở Giữ/Đổi. Khi 2 phe dùng
+// hai nhóm khác nhau thì gộp thành viên của cả hai, nhưng không khóa lựa chọn đã chọn.
+function kcMemberGroupIds() {
+  if (activeGroupId) return [activeGroupId];
+  return [...new Set(['A', 'B'].map(side => $(`#kc${side}group`)?.value).filter(Boolean))];
+}
 function renderKcMemberNames() {
-  const dl = document.getElementById('kcMemberNames');
-  if (!dl) return;
-  const names = new Set();
-  visibleCreators().forEach(c => {
-    const n = (c.nickname || c.tiktokId || '').trim();
-    if (n) names.add(n);
-  });
-  [kcCfg?.teamA?.creatorName, kcCfg?.teamB?.creatorName].forEach(n => { if (n && n.trim()) names.add(n.trim()); });
-  dl.innerHTML = [...names].map(n => `<option value="${escapeAttr(n)}"></option>`).join('');
+  const groupIds = kcMemberGroupIds();
+  const members = groupIds.length
+    ? creators.filter(c => groupIds.includes(c.groupId))
+    : visibleCreators();
+  const names = [...new Set(members.map(c => (c.nickname || c.tiktokId || '').trim()).filter(Boolean))];
+  for (const [id, placeholder] of [
+    ['kcPerformer', '— Chọn người đang diễn —'],
+    ['kcNextName', '— Chọn người kế tiếp —'],
+  ]) {
+    const select = $('#' + id);
+    if (!select) continue;
+    const current = select.value;
+    select.innerHTML = `<option value="">${placeholder}</option>` + names.map(n => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join('');
+    select.value = names.includes(current) ? current : '';
+  }
 }
 function renderKcCreatorSelect(side) {
   const team = kcGetTeam(side);
-  const groupId = $(`#kc${side}group`)?.value || team.groupId || '';
+  const groupId = activeGroupId || $(`#kc${side}group`)?.value || team.groupId || '';
   const sel = $(`#kc${side}creator`);
   if (!sel) return;
   const current = sel.value || team.creatorId || '';
@@ -7406,7 +7425,7 @@ function renderKcCreatorSelect(side) {
 }
 function applyKcCreator(side, opts = {}) {
   const team = kcGetTeam(side);
-  const group = groups.find(g => g.id === $(`#kc${side}group`).value);
+  const group = groups.find(g => g.id === (activeGroupId || $(`#kc${side}group`).value));
   const creator = creators.find(c => c.id === $(`#kc${side}creator`).value);
   team.groupId = group?.id || '';
   team.groupName = group?.name || '';
@@ -7542,7 +7561,7 @@ function collectKcCfg() {
     prepSec: Number($('#kcPrep').value) || 0,
     delaySec: Number($('#kcDelay').value) || 0,
     joinMode: $('#kcJoinMode').value === 'true',
-    tiktokCombine: true,
+    tiktokCombine: !!$('#kcTiktokCombine')?.checked,
     pointsBy: $('#kcPointsBy').value,
     giftSize: Number($('#kcGiftSize').value),
     giftDisplayMode: $('#kcGiftDisplayMode').value,
@@ -7636,10 +7655,11 @@ function wireKcDuoTab() {
     toast(kcCfg.joinMode ? 'Đang chỉnh quà Chọn Phe' : 'Đang chỉnh quà Cố định');
   });
   $('#kcTiktokCombine')?.addEventListener('change', () => {
-    $('#kcTiktokCombine').checked = true;
-    kcCfg.tiktokCombine = true;
+    kcCfg.tiktokCombine = $('#kcTiktokCombine').checked;
     scheduleKcAutoSave();
-    toast('📡 Kết hợp TikTok luôn bật: quà tặng đúng Creator của phe tự cộng.', 'success');
+    toast(kcCfg.tiktokCombine
+      ? '📡 Kết hợp TikTok BẬT: quà tặng đúng Creator của phe tự cộng — chọn đúng Creator khi tặng trên TikTok.'
+      : '📡 Kết hợp TikTok TẮT — chỉ tính theo chế độ nền.', 'success');
   });
 
   for (const side of ['A', 'B']) {
@@ -7652,6 +7672,7 @@ function wireKcDuoTab() {
         if (first) csel.value = first.id;
       }
       applyKcCreator(side); // không syncName/không ép quà: giữ nhãn GIỮ/ĐỔI + quà tính điểm
+      renderKcMemberNames();
       scheduleKcAutoSave();
     });
     $(`#kc${side}creator`).addEventListener('change', () => {

@@ -1884,7 +1884,6 @@ class KcDuoEngine {
     this.config = { ...this.config, ...patch };
     this.config.teamA = { ...(this.config.teamA || {}), name: 'KEEP/GIỮ', nameOverride: true };
     this.config.teamB = { ...(this.config.teamB || {}), name: 'CHANGE/ĐỔI', nameOverride: true };
-    this.config.tiktokCombine = true;
     migrateTiktokMode(this.config);
     this._emit();
   }
@@ -2000,9 +1999,31 @@ class KcDuoEngine {
       // ĐỔI thắng: đổi người → chuỗi về 0; người kế (nếu đã nhập) lên ghế.
       this.config.defendStreak = 0;
       const next = String(this.config.nextName || '').trim();
-      if (next) { this.config.performerName = next; this.config.nextName = ''; }
+      if (next) this.config.performerName = next;
+      // Tự đề xuất người kế tiếp mới (xoay vòng, không trùng người đang diễn) thay cho việc bỏ trống
+      // để MC phải tự chọn. Đây chỉ là GỢI Ý mặc định — MC vẫn đổi lại được ở ô "Người kế tiếp".
+      this.config.nextName = this._suggestNextName(this.config.performerName);
     }
     if (this.onConfigChange) { try { this.onConfigChange(); } catch {} }
+  }
+  // Gợi ý người kế tiếp từ danh sách thành viên các nhóm đang dùng (2 phe), xoay vòng theo vị trí
+  // người đang diễn để cảm giác lần lượt và KHÔNG trùng người đang diễn. Trả '' nếu không có ai khác.
+  _suggestNextName(currentPerformer) {
+    const cur = String(currentPerformer || '').trim();
+    const groupIds = [...new Set([this.config.teamA?.groupId, this.config.teamB?.groupId].filter(Boolean).map(String))];
+    let members = this.getCreators() || [];
+    if (groupIds.length) members = members.filter(c => groupIds.includes(String(c.groupId || '')));
+    const names = [...new Set(members.map(c => String(c.nickname || c.tiktokId || '').trim()).filter(Boolean))];
+    if (!names.length || (names.length === 1 && names[0] === cur)) return '';
+    // Xoay vòng: lấy người NGAY SAU người đang diễn trong danh sách; nếu không tìm thấy thì lấy người đầu khác.
+    const idx = names.indexOf(cur);
+    if (idx >= 0) {
+      for (let i = 1; i <= names.length; i++) {
+        const cand = names[(idx + i) % names.length];
+        if (cand && cand !== cur) return cand;
+      }
+    }
+    return names.find(n => n !== cur) || '';
   }
   addPoints(side, points) {
     if (side === 'A') this.state.scoreA += Number(points) || 0;
@@ -4012,7 +4033,7 @@ function bootstrapEngines() {
   const savedKc = loadKcDuoConfig();
   if (savedKc) {
     kcDuoEngine.setConfig(savedKc);
-    if (savedKc.teamA?.name !== 'KEEP/GIỮ' || savedKc.teamA?.nameOverride !== true || savedKc.teamB?.name !== 'CHANGE/ĐỔI' || savedKc.teamB?.nameOverride !== true || savedKc.tiktokCombine !== true) saveKcDuoConfig(kcDuoEngine.config);
+    if (savedKc.teamA?.name !== 'KEEP/GIỮ' || savedKc.teamA?.nameOverride !== true || savedKc.teamB?.name !== 'CHANGE/ĐỔI' || savedKc.teamB?.nameOverride !== true) saveKcDuoConfig(kcDuoEngine.config);
   }
   pkGroupEngine = new PkGroupEngine({
     onState: (st) => {
