@@ -480,12 +480,38 @@ function getLiveConnectionConfig(groupId) {
   };
 }
 
-function syncLiveConnectionUi(groupId, updateUsername = true) {
+function syncLiveConnectionUi(groupId, updateUsername = true, force = false) {
   const live = getLiveConnectionConfig(groupId);
   autoConnectPref = !!live.autoConnect;
   if ($('#autoConnectChk')) $('#autoConnectChk').checked = autoConnectPref;
-  if (updateUsername && !ttConnected && !ttConnecting && $('#ttUsername')) $('#ttUsername').value = live.username;
+  // Bình thường KHÔNG đổi ô ID khi đang LIVE/kết nối (giữ id đang chạy). Nhưng khi ĐỔI NHÓM thật
+  // (force) hoặc mở popup, phải nạp lại ID theo ĐÚNG nhóm đang chọn → tránh hiện id nhóm khác.
+  if (updateUsername && (force || (!ttConnected && !ttConnecting)) && $('#ttUsername')) $('#ttUsername').value = live.username;
   return live;
+}
+
+// Dọn lỗi rò rỉ ID: một ID LIVE riêng (override) TRÙNG tiktokId của NHÓM KHÁC gần như chắc chắn là
+// dữ liệu bị stamp nhầm khi lướt nhóm lúc đang kết nối → gỡ bỏ để mỗi nhóm về đúng ID của mình.
+function sanitizeLeakedLiveOverrides() {
+  const otherIds = new Set(groups.map(g => normalizeId(g.tiktokId)).filter(Boolean));
+  const pending = [];
+  for (const g of groups) {
+    const gid = g.id;
+    const profile = groupProfiles[gid];
+    const live = profile && profile.live;
+    if (!live || typeof live !== 'object') continue;
+    const override = normalizeId(live.username);
+    if (!override) continue;
+    const ownId = normalizeId(g.tiktokId);
+    // Override = id của MỘT nhóm khác (không phải id của chính nhóm này) → rò rỉ, xoá đi.
+    if (override !== ownId && otherIds.has(override)) {
+      const nextLive = { ...live };
+      delete nextLive.username;
+      groupProfiles[gid] = { ...profile, live: nextLive };
+      pending.push(saveGroupProfilePatch(gid, { live: nextLive }));
+    }
+  }
+  return Promise.allSettled(pending);
 }
 
 function saveLiveConnectionConfig(groupId, patch = {}) {
@@ -4618,6 +4644,7 @@ async function init() {
   setBootStatus('Đang tải nhóm'); setBootProgress(62);
   await refreshGroups();
   await refreshGroupProfiles();
+  await sanitizeLeakedLiveOverrides();
   setBootStatus('Đang tải cấu hình'); setBootProgress(74);
   await loadPkConfig();
   await loadKcConfig();
@@ -5309,17 +5336,21 @@ function wireConnectTab() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#connectModal')?.hidden) closeConnectModal(); });
   $('#autoConnectChk')?.addEventListener('change', (e) => {
     autoConnectPref = e.target.checked;
-    saveLiveConnectionConfig(activeGroupId, {
-      username: $('#ttUsername')?.value || '',
-      autoConnect: autoConnectPref,
-    });
+    // CHỈ lưu tuỳ chọn tự-kết-nối; KHÔNG kèm username (lúc đang LIVE ô ID có thể là id nhóm khác → rò rỉ).
+    saveLiveConnectionConfig(activeGroupId, { autoConnect: autoConnectPref });
   });
   $('#ttUsername').addEventListener('change', () => {
+    // Chỉ lưu ID khi người dùng THỰC SỰ sửa ô (không đang kết nối/kết nối dở) → tránh stamp id nhóm khác.
+    if (ttConnected || ttConnecting) return;
     saveLiveConnectionConfig(activeGroupId, { username: $('#ttUsername').value });
   });
   $('#ttUsername').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnConnect').click(); });
   $('#modeSelect')?.addEventListener('change', async (e) => {
-    saveLiveConnectionConfig(activeGroupId, { username: $('#ttUsername')?.value || '' });
+    // Lưu ID đang gõ cho nhóm ĐANG chọn TRƯỚC khi đổi — nhưng KHÔNG khi đang kết nối (ô đang giữ id đã
+    // kết nối, có thể của nhóm khác → nếu lưu sẽ rò rỉ sang nhóm bị rời đi).
+    if (!ttConnected && !ttConnecting) {
+      saveLiveConnectionConfig(activeGroupId, { username: $('#ttUsername')?.value || '' });
+    }
     await setActiveGroup(e.target.value);
   });
 }
@@ -5327,6 +5358,9 @@ function wireConnectTab() {
 function openConnectModal() {
   const m = $('#connectModal');
   if (!m) return;
+  // Luôn đồng bộ dropdown + ô ID theo ĐÚNG nhóm đang chọn mỗi lần mở (kể cả đang kết nối) → khỏi hiện id nhóm khác.
+  renderModeSelect();
+  syncLiveConnectionUi(activeGroupId, true, true);
   m.hidden = false;
   setTimeout(() => $('#ttUsername')?.focus(), 30);
 }
@@ -5589,6 +5623,15 @@ async function clearCreatorGiftQuick(id) {
   toast(`🗑 Đã gỡ quà mặc định của ${c.nickname || c.tiktokId}`, 'success');
 }
 
+// Chip UID nhận quà cho mỗi dòng thành viên: có UID → tích xanh + số (phát hiện nhanh ai đã lấy),
+// chưa có → cảnh báo vàng để biết cần "Lấy UID". Dùng chung cho danh sách Creator + Hồ sơ nhóm.
+function uidBadge(c) {
+  const uid = c && c.userId ? String(c.userId) : '';
+  return uid
+    ? `<span class="cc-uid ok" title="UID nhận quà: ${escapeAttr(uid)}">✓ UID ${escapeHtml(uid)}</span>`
+    : `<span class="cc-uid no" title="Chưa có UID nhận quà — bấm Cài đặt rồi 🎯 Lấy UID">⚠ Chưa có UID</span>`;
+}
+
 function createCreatorRow(c, g) {
   const creatorKey = c.id || c.tiktokId || '';
   const div = document.createElement('div');
@@ -5602,6 +5645,7 @@ function createCreatorRow(c, g) {
         </div>
         <div class="cc-meta">
           ${g ? `<span class="cc-group-pill" style="background:${escapeAttr(g.color || '#FE2C55')}">${escapeHtml(g.name)}</span>` : '<span>Chưa thuộc nhóm</span>'}
+          ${uidBadge(c)}
         </div>
         <div class="cc-gift-wrap">
           <div class="cc-gift cc-gift-pick" data-gift="${escapeAttr(creatorKey)}" role="button" tabindex="0" title="Bấm để chọn quà mặc định">
@@ -5672,8 +5716,9 @@ async function setActiveGroup(id) {
   if (sel && sel.value !== activeGroupId) sel.value = activeGroupId;
   const bar = $('#bottomLive');
   if (bar) bar.classList.toggle('mode-group', !!activeGroupId);
-  // ID LIVE và tuỳ chọn tự kết nối là dữ liệu RIÊNG từng nhóm; không thay khi đang LIVE/kết nối.
-  syncLiveConnectionUi(activeGroupId);
+  // ID LIVE và tuỳ chọn tự kết nối là dữ liệu RIÊNG từng nhóm. Khi ĐỔI nhóm thật → nạp lại ID theo
+  // đúng nhóm mới (kể cả đang kết nối) để không hiện id nhóm khác; refresh nền cùng nhóm thì giữ nguyên.
+  syncLiveConnectionUi(activeGroupId, true, activeGroupId !== prevGroupId);
   savedActiveGroupId = activeGroupId;
   window.api.settings.set({ lastActiveGroupId: activeGroupId }).catch(() => {});
   // Chọn nhóm từ launcher/popup không tự phát sự kiện change. Đồng bộ select PK Nhóm về nhóm mới
@@ -6264,7 +6309,7 @@ function wireCreatorTab() {
     await refreshCreators();
     btn.disabled = false;
     btn.textContent = orig;
-    toast(`🎯 Học ID: ${ok} thành viên OK${fail ? ` · ${fail} chưa lấy được (tặng thử để Học ID riêng)` : ''}`, ok ? 'success' : 'error');
+    toast(`🎯 Lấy UID: ${ok} thành viên OK${fail ? ` · ${fail} chưa lấy được (tặng thử để Lấy UID riêng)` : ''}`, ok ? 'success' : 'error');
   });
 
   // 🎯 Học ID: bật chế độ chộp ID người nhận từ quà KẾ TIẾP trong LIVE nhóm.
@@ -6275,15 +6320,15 @@ function wireCreatorTab() {
     _learningRecipient = !_learningRecipient;
     try { await window.api.creators.armLearnRecipient(_learningRecipient); } catch {}
     learnBtn.classList.toggle('learning', _learningRecipient);
-    learnBtn.textContent = _learningRecipient ? '👂 Đang nghe…' : '🎯 Học ID';
+    learnBtn.textContent = _learningRecipient ? '👂 Đang nghe…' : '🎯 Lấy UID';
     toast(_learningRecipient
       ? '👂 Hãy tặng thử 1 quà cho thành viên này trong LIVE — app sẽ chộp ID người nhận'
-      : 'Đã tắt Học ID');
+      : 'Đã tắt Lấy UID');
   });
   window.api.on('tt:recipientLearned', (d) => {
     if (!_learningRecipient) return;
     _learningRecipient = false;
-    if (learnBtn) { learnBtn.classList.remove('learning'); learnBtn.textContent = '🎯 Học ID'; }
+    if (learnBtn) { learnBtn.classList.remove('learning'); learnBtn.textContent = '🎯 Lấy UID'; }
     if ($('#crUserId') && d?.userId) $('#crUserId').value = String(d.userId);
     const who = d?.name ? ` (${d.name})` : '';
     toast(`✅ Đã bắt ID người nhận${who}: ${d?.userId || '?'} — nhớ bấm 💾 Lưu`, 'success');
@@ -6510,7 +6555,7 @@ function renderGroupDossier(g, list) {
         <img class="gdm-ava" src="${escapeAttr(c.avatar || '../logo/hp-logo.png')}" alt="" style="border-color:${escapeAttr(color)}" />
         <div class="gdm-body">
           <div class="gdm-name">${escapeHtml(c.nickname || c.tiktokId || '')}</div>
-          <div class="gdm-handle">@${escapeHtml(c.tiktokId || '')}</div>
+          <div class="gdm-handle">@${escapeHtml(c.tiktokId || '')} ${uidBadge(c)}</div>
           <div class="cc-gift-wrap">
             <div class="gdm-gift${gift ? '' : ' is-empty'}" data-gift="${escapeAttr(memberKey)}" role="button" tabindex="0" title="Bấm để chọn quà riêng">
               ${gift?.icon ? `<img src="${escapeAttr(gift.icon)}" alt=""/>` : '🎁'}

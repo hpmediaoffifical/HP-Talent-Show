@@ -1,17 +1,17 @@
 {
   "teamA": {
-    "name": "Raiden",
+    "name": "Elaina",
     "color": "#fe2c55",
     "gifts": [
       {
-        "giftName": "Rose",
-        "giftId": "5655",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
+        "giftName": "Go Popular",
+        "giftId": "13651",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp",
         "diamond": 1
       }
     ],
     "creatorAvatar": "../logo/hp-logo.png",
-    "creatorAvatarKey": "fee126084b0f34e3b18971ae6a977e86c763f5ef",
+    "creatorAvatarKey": "479cb38d9c52adc5ea870543cf1831131e1fc108",
     "fixedGifts": [
       {
         "giftName": "Blow a kiss",
@@ -22,33 +22,33 @@
     ],
     "joinGifts": [
       {
-        "giftName": "Rose",
-        "giftId": "5655",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
+        "giftName": "Go Popular",
+        "giftId": "13651",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp",
         "diamond": 1
       }
     ],
-    "groupId": "g_mrtfzc0t6cmab",
-    "groupName": "HP• LOLLIPOP",
+    "groupId": "g_mrtg107e1aqmz",
+    "groupName": "HP•VITAMIN B",
     "creatorId": "",
     "creatorName": "",
     "winStreak": 0,
     "nameOverride": false,
-    "giftOverride": true
+    "giftOverride": false
   },
   "teamB": {
-    "name": "Xuhao",
+    "name": "Celine",
     "color": "#25f4ee",
     "gifts": [
       {
-        "giftName": "TikTok",
-        "giftId": "5269",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
+        "giftName": "Congratulations",
+        "giftId": "14543",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8e73d843b23a9e68f8d3cf8c46fc0bee.png~tplv-obj.webp",
         "diamond": 1
       }
     ],
     "creatorAvatar": "../logo/hp-logo.png",
-    "creatorAvatarKey": "0128dad7fe0a69573000e40ba39776efe08f9d3b",
+    "creatorAvatarKey": "774223d32da9e265f81ed6371cd2b47d0b9f5a37",
     "fixedGifts": [
       {
         "giftName": "Cake Slice",
@@ -59,25 +59,26 @@
     ],
     "joinGifts": [
       {
-        "giftName": "TikTok",
-        "giftId": "5269",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
+        "giftName": "Congratulations",
+        "giftId": "14543",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8e73d843b23a9e68f8d3cf8c46fc0bee.png~tplv-obj.webp",
         "diamond": 1
       }
     ],
-    "groupId": "g_mrtfzc0t6cmab",
-    "groupName": "HP• LOLLIPOP",
+    "groupId": "g_mrtg107e1aqmz",
+    "groupName": "HP•VITAMIN B",
     "creatorId": "",
     "creatorName": "",
     "winStreak": 1,
     "nameOverride": false,
-    "giftOverride": true
+    "giftOverride": false
   },
   "durationSec": 60,
   "prepSec": 1,
   "delaySec": 7,
   "joinMode": true,
   "creatorLive": false,
+  "tiktokCombine": false,
   "linkRanking": true,
   "pointsBy": "diamond",
   "content": "PK ĐÔI",

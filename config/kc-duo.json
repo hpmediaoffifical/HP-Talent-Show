@@ -10,10 +10,10 @@
         "diamond": 1
       }
     ],
-    "creatorId": "c_mrtg618ghjphi",
-    "creatorName": "Lucy",
-    "groupId": "g_mrtfzc0t6cmab",
-    "groupName": "HP• LOLLIPOP",
+    "creatorId": "c_mrtg3hpifvot2",
+    "creatorName": "Mila",
+    "groupId": "g_mrtfzmllcbctz",
+    "groupName": "HP•BLACKSWAN 🦢",
     "nameOverride": true,
     "giftOverride": true,
     "fixedGifts": [],
@@ -28,7 +28,7 @@
   },
   "teamB": {
     "name": "CHANGE/ĐỔI",
-    "color": "#00afdb",
+    "color": "#10caf9",
     "gifts": [
       {
         "giftName": "TikTok",
@@ -37,10 +37,10 @@
         "diamond": 1
       }
     ],
-    "creatorId": "c_mrtg5x00yt7lr",
-    "creatorName": "Celine",
-    "groupId": "g_mrtfzc0t6cmab",
-    "groupName": "HP• LOLLIPOP",
+    "creatorId": "c_mrtg3m6gzufnt",
+    "creatorName": "Hihi",
+    "groupId": "g_mrtfzmllcbctz",
+    "groupName": "HP•BLACKSWAN 🦢",
     "nameOverride": true,
     "giftOverride": true,
     "fixedGifts": [],
@@ -53,10 +53,19 @@
       }
     ]
   },
-  "performerName": "Meo",
-  "nextName": "Kira",
-  "defendStreak": 7,
-  "totalRounds": 7,
+  "performerName": "",
+  "nextName": "",
+  "rotationOrder": [
+    "Pooh",
+    "Rinnie",
+    "Mint",
+    "Hanny",
+    "Yún Yùn Yun 🪱",
+    "Zyzy"
+  ],
+  "rotationSkip": [],
+  "defendStreak": 0,
+  "totalRounds": 0,
   "flipMargin": 0,
   "flipMarginMode": "point",
   "durationSec": 10,
@@ -64,6 +73,7 @@
   "delaySec": 7,
   "joinMode": true,
   "creatorLive": false,
+  "tiktokCombine": true,
   "linkRanking": true,
   "pointsBy": "diamond",
   "content": "",

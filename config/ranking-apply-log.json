@@ -628,5 +628,19 @@
         "delta": 1200
       }
     ]
+  },
+  {
+    "id": "ap_msew08yhrqdk9",
+    "at": 1785861801305,
+    "source": "score",
+    "label": "🎯 Tính điểm (chưa đạt)",
+    "entries": [
+      {
+        "creatorId": "c_mrtg69i8utp8r",
+        "tiktokId": "camonvidaden.22",
+        "name": "Akii",
+        "delta": 43
+      }
+    ]
   }
 ]
