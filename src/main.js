@@ -1777,12 +1777,14 @@ class PkDuoEngine {
     const s = this.state;
     return { state: { ...s, gifters: { A: [...(s.gifters?.A || new Map())], B: [...(s.gifters?.B || new Map())] } } };
   }
-  restoreRuntime(snap) {
+  restoreRuntime(snap, opts = {}) {
     if (!snap || !snap.state) return;
     const s = snap.state;
     const toMap = (arr) => new Map(Array.isArray(arr) ? arr : []);
     this.state = { ...this.state, ...s, gifters: { A: toMap(s.gifters?.A), B: toMap(s.gifters?.B) } };
-    if (['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
+    // Chỉ chạy TIẾP đồng hồ khi phiên trước vừa lưu (crash-relaunch nhanh). Mở lại muộn (opts.resume=false)
+    // thì đóng băng: vẫn giữ đủ điểm nhưng KHÔNG để trận cũ tự đếm về 0 rồi âm thầm ghi lịch sử/chuỗi WIN.
+    if (opts.resume && ['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
   }
   reset() {
     this._clearTicker();
@@ -2108,10 +2110,11 @@ class KcDuoEngine {
   }
   // Chống mất khi văng: chụp/khôi phục điểm GIỮ/ĐỔI + đồng hồ (chuỗi trụ vững/tổng vòng nằm ở config, lưu riêng).
   snapshotRuntime() { return { state: this.state }; }
-  restoreRuntime(s) {
+  restoreRuntime(s, opts = {}) {
     if (!s || !s.state || typeof s.state !== 'object') return;
     this.state = { ...this.state, ...s.state };
-    if (['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
+    // Chỉ chạy tiếp đồng hồ khi phiên trước vừa lưu; mở lại muộn thì đóng băng (khỏi tự chốt vòng ngoài ý muốn).
+    if (opts.resume && ['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
   }
   reset() {
     // Reset trận nhưng GIỮ chuỗi trụ vững + tổng vòng + tên người diễn (giống PK giữ winStreak).
@@ -2482,13 +2485,15 @@ class PkGroupEngine {
     for (const k of Object.keys(s.gifters || {})) gifters[k] = [...(s.gifters[k] || new Map())];
     return { state: { ...s, gifters } };
   }
-  restoreRuntime(snap) {
+  restoreRuntime(snap, opts = {}) {
     if (!snap || !snap.state || typeof snap.state !== 'object') return;
     const s = snap.state;
     const gifters = {};
     for (const k of Object.keys(s.gifters || {})) gifters[k] = new Map(Array.isArray(s.gifters[k]) ? s.gifters[k] : []);
     this.state = { ...this.state, ...s, gifters };
-    if (['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
+    // Chỉ chạy tiếp đồng hồ khi phiên trước vừa lưu; mở lại muộn thì đóng băng — tránh trận cũ tự chốt vòng
+    // rồi âm thầm cộng chuỗi WIN + ghi MVP vĩnh viễn vào hồ sơ Creator (onMvpAward) ngay khi mở app.
+    if (opts.resume && ['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
   }
   reset() {
     this._clearTicker();
@@ -3585,10 +3590,11 @@ class ScoreEngine {
   }
   // Chống mất khi văng: chụp/khôi phục điểm + đồng hồ đang đếm (endAt là mốc tuyệt đối nên tiếp đúng giờ còn lại).
   snapshotRuntime() { return { state: this.state }; }
-  restoreRuntime(s) {
+  restoreRuntime(s, opts = {}) {
     if (!s || !s.state || typeof s.state !== 'object') return;
     this.state = { ...this.state, ...s.state };
-    if (['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
+    // Chỉ chạy tiếp đồng hồ khi phiên trước vừa lưu; mở lại muộn thì đóng băng số điểm (khỏi tự tính thắng/thua).
+    if (opts.resume && ['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
   }
   reset() {
     this._clearTicker();
@@ -4347,11 +4353,15 @@ function bootstrapEngines() {
   try {
     const rt = loadJson(LIVE_RUNTIME_PATH, null);
     if (rt && typeof rt === 'object') {
+      // "fresh" = phiên trước vừa lưu (≤3 phút) → coi như crash-relaunch nhanh, cho chạy tiếp đồng hồ trận.
+      // Mở lại muộn hơn → chỉ khôi phục ĐIỂM (đóng băng đồng hồ), tránh trận cũ tự chốt vòng âm thầm
+      // (ghi lịch sử/chuỗi WIN/MVP ngoài ý muốn ngay khi mở app).
+      const opt = { resume: Number.isFinite(Number(rt.savedAt)) && (Date.now() - Number(rt.savedAt)) < 180000 };
       try { rankingEngine.restoreRuntime(rt.ranking); } catch {}
-      try { scoreEngine.restoreRuntime(rt.score); } catch {}
-      try { pkDuoEngine.restoreRuntime(rt.pkduo); } catch {}
-      try { kcDuoEngine.restoreRuntime(rt.kcduo); } catch {}
-      try { pkGroupEngine.restoreRuntime(rt.pkgroup); } catch {}
+      try { scoreEngine.restoreRuntime(rt.score, opt); } catch {}
+      try { pkDuoEngine.restoreRuntime(rt.pkduo, opt); } catch {}
+      try { kcDuoEngine.restoreRuntime(rt.kcduo, opt); } catch {}
+      try { pkGroupEngine.restoreRuntime(rt.pkgroup, opt); } catch {}
     }
   } catch {}
 
