@@ -41,7 +41,7 @@ function avatarHtml(url, initials = '?', version = '', key = '') {
   const src = mediaUrl(url, version, key);
   return `<img src="${esc(src)}" alt="${esc(initials || '')}" onerror="avRetry(this)" />`;
 }
-let _nameMaxChars = 8; // ngưỡng SỐ KÝ TỰ để chạy chữ (đặt trong render từ cấu hình nameMaxChars).
+let _nameMaxChars = 6; // ngưỡng SỐ KÝ TỰ để chạy chữ (đặt trong render từ cấu hình nameMaxChars).
 function nameHtml(name, className) {
   const text = String(name || 'Idol');
   const safe = esc(text);
@@ -220,7 +220,7 @@ function render(state = {}) {
   // 🎨 Skin mùa lễ (dùng chung) — trang trí ở <body>, độc lập với việc dựng lại root mỗi render.
   if (window.OverlaySkin) OverlaySkin.applySkin(state.skin);
   // Ngưỡng SỐ KÝ TỰ để chạy chữ tên (user chỉnh trong THI ĐẤU NHÓM); dùng ở nameHtml + đặt bề rộng khung tên.
-  _nameMaxChars = Math.max(3, Math.min(40, Number(state.nameMaxChars) || 8));
+  _nameMaxChars = Math.max(3, Math.min(40, Number(state.nameMaxChars) || 6));
   const gridRows = Math.max(1, Number(state.gridRows) || 3);
   const gridCols = Math.max(1, Number(state.gridCols) || 3);
   const gridFlow = state.gridFlow === 'column' ? 'column' : 'row';

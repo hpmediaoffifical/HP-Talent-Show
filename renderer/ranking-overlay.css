@@ -409,14 +409,16 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 
 .ranking-main { min-width:0; overflow:hidden; padding-right:2px; }
 /* Khung tên = ngưỡng ký tự (--rk-name-ch, user chỉnh) → tên tới ngưỡng vừa khít, dài hơn thì .long chạy chữ.
-   +0.5ch chừa hở nhẹ để tên ĐÚNG ngưỡng không bị cắt sát mép. */
-.ranking-name { min-width:0; max-width:calc((var(--rk-name-ch, 8) + 0.5) * 1ch); color:#f8fafc; font-size:12.5px; font-weight:700; line-height:1; overflow:hidden; white-space:nowrap; }
+   +0.5ch chừa hở nhẹ để tên ĐÚNG ngưỡng không bị cắt sát mép.
+   width:max-content = khung ÔM SÁT chữ THẬT (tên ngắn không chiếm đủ ngưỡng → nền xám thu về sát chữ),
+   max-width kẹp ở ngưỡng → tên dài hơn ngưỡng bị cắt & CHẠY CHỮ trong đúng khung này (không kéo dài bảng). */
+.ranking-name { min-width:0; width:max-content; max-width:calc((var(--rk-name-ch, 8) + 0.5) * 1ch); color:#f8fafc; font-size:12.5px; font-weight:700; line-height:1; overflow:hidden; white-space:nowrap; }
 .ranking-name span { display:block; width:max-content; }
 /* Chữ chạy khi tên > 8 ký tự: span chứa 2 đoạn <i> giống hệt (mỗi đoạn kèm khoảng đệm phải) → dịch -50% đúng
    1 đoạn → lặp vô hạn liền mạch. Duration 7s KHỚP NAME_MARQUEE_DUR_MS (JS đồng bộ pha, khỏi giật). OBS-safe:
    chỉ transform (không filter/color-mix). */
 .ranking-name.long span { animation:rankingNameMarquee 7s linear infinite; will-change:transform; }
-.ranking-name.long i { font-style:normal; padding-right:26px; }
+.ranking-name.long i { font-style:normal; padding-right:16px; }
 .ranking-points { color:#fff; font-size:12px; font-weight:600; line-height:1; margin-top:2px; letter-spacing:.01em; }
 .ranking-points.hidden-score { color:rgba(255,255,255,.6); font-size:15px; font-weight:950; letter-spacing:2px; line-height:1; }
 .ranking-group { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:7.5px; color:rgba(255,255,255,.62); margin-top:1px; text-transform:uppercase; letter-spacing:.02em; }
@@ -491,7 +493,8 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 }
 .ranking-board.layout-grid.hide-groupname .ranking-row { padding-top:3px; padding-bottom:3px; }
 .ranking-board.layout-grid .ranking-main { max-width:none; padding-right:0; }
-.ranking-board.layout-grid .ranking-name { max-width:100%; }
+/* Khung tên bám NGƯỠNG ký tự (không phải 100%) → card ôm sát tên/điểm; tên vượt ngưỡng chạy chữ trong khung. */
+.ranking-board.layout-grid .ranking-name { max-width:calc((var(--rk-name-ch, 8) + 0.5) * 1ch); }
 .ranking-board.layout-grid .ranking-active-name {
   margin:6px -6px -6px;
   border-radius:0 0 10px 10px;
@@ -667,7 +670,9 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 
 /* Tận dụng toàn bộ bề rộng mảng màu; nếu số vẫn dài, JS sẽ thu cỡ chữ trước khi cắt. */
 .ranking-board:not(.layout-grid) .ranking-main { min-width:0; max-width:none; padding-right:0; }
-.ranking-board:not(.layout-grid) .ranking-name { max-width:100%; }
+/* Khung tên bám NGƯỠNG ký tự (không phải 100%) → bảng KHÔNG nở theo tên dài nhất; tên vượt ngưỡng chạy chữ
+   trong khung. Bề ngang bảng do người dùng chủ động qua ô "ngưỡng ký tự" (Hiển thị OBS). */
+.ranking-board:not(.layout-grid) .ranking-name { max-width:calc((var(--rk-name-ch, 8) + 0.5) * 1ch); }
 .ranking-points,
 .ranking-active-main b {
   display:block;
