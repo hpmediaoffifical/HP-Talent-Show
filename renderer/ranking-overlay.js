@@ -43,15 +43,10 @@ function avatarHtml(url, initials = '?', version = '', key = '') {
 }
 function nameHtml(name, className) {
   const text = String(name || 'Idol');
-  // Đếm theo CODE-POINT (emoji 🔥 / • / dấu cách đều = 1) đúng chuẩn "8 ký tự". [...text] tách theo code-point,
-  // khác text.length (đơn vị UTF-16: 🔥 = 2) nên "NPC•YAN 🔥" = 9 → chạy chữ (trước kia .length=10 ≤ 12 nên tràn).
-  const long = [...text].length > 8;
   const safe = esc(text);
-  if (!long) return `<div class="${className}" title="${safe}"><span>${safe}</span></div>`;
-  // Chạy chữ LIỀN MẠCH (phải→trái, lặp vô hạn): 2 đoạn GIỐNG HỆT, mỗi đoạn kèm khoảng đệm phải → span dịch
-  // translateX(-50%) đúng bằng 1 đoạn → đoạn 2 rơi vào đúng vị trí đoạn 1 = không có mối nối/giật.
-  const seg = `<i>${safe}</i>`;
-  return `<div class="${className} long" title="${safe}"><span>${seg}${seg}</span></div>`;
+  // Luôn dựng 1 span tĩnh; SAU render setupNameMarquee() sẽ ĐO: tên nào TRÀN khung mới cho chạy chữ (dựa trên
+  // bề rộng THỰC TẾ — emoji/ký tự rộng tính đúng — không phụ thuộc đếm ký tự nên không bị hụt như trước).
+  return `<div class="${className}" title="${safe}"><span>${safe}</span></div>`;
 }
 
 // Marker "đang thi đấu" (kiểu chọn nhân vật game) — 4 kiểu FX trong 1 phần tử; CSS chỉ hiện đúng
@@ -208,13 +203,22 @@ function fitLayoutWidth() {
   board.style.setProperty(layoutGrid ? '--rk-grid-card-width' : '--rk-width', `${Math.max(min, Math.min(max, Math.ceil(needed)))}px`);
 }
 
-// Chữ chạy (tên > 8 ký tự): overlay dựng lại innerHTML mỗi nhịp state (khi LIVE, ~250ms) → mọi CSS animation
-// bị RESTART từ đầu → chữ đứng yên/giật. Đồng bộ PHA theo đồng hồ chung: đặt animation-delay ÂM = vị trí hiện
-// tại trong chu kỳ (khớp duration 7s ở CSS) để phần tử vừa dựng lại chạy TIẾP đúng chỗ → liền mạch, mượt.
+// Chữ chạy tên dài — ĐO SAU render: tên nào TRÀN khung (.ranking-name overflow) mới cho chạy, bất kể số ký tự
+// (emoji/ký tự rộng tính đúng theo px). Dựng 2 đoạn <i> giống hệt (đệm phải) → translateX(-50%) = đúng 1 đoạn
+// → lặp vô hạn liền mạch. Overlay dựng lại innerHTML mỗi nhịp state (LIVE ~250ms) → animation restart; đồng bộ
+// PHA theo đồng hồ chung (animation-delay ÂM, khớp duration 7s) để phần tử vừa dựng chạy TIẾP đúng chỗ, mượt.
 const NAME_MARQUEE_DUR_MS = 7000;
-function syncNameMarquee() {
+function setupNameMarquee() {
   const delay = '-' + ((Date.now() % NAME_MARQUEE_DUR_MS) / 1000).toFixed(2) + 's';
-  root.querySelectorAll('.ranking-name.long span').forEach(el => { el.style.animationDelay = delay; });
+  root.querySelectorAll('.ranking-name').forEach(nameEl => {
+    const span = nameEl.querySelector(':scope > span');
+    if (!span) return;
+    if (span.scrollWidth <= nameEl.clientWidth + 1) return; // vừa khung → đứng yên
+    const txt = esc(span.textContent || '');
+    nameEl.classList.add('long');
+    span.innerHTML = `<i>${txt}</i><i>${txt}</i>`;
+    span.style.animationDelay = delay;
+  });
 }
 
 function render(state = {}) {
@@ -326,7 +330,7 @@ function render(state = {}) {
   fitLayoutWidth();
   fitTitle(); // sau khi dựng xong: thu nhỏ cỡ chữ tiêu đề cho vừa, không cắt ký tự
   fitScores();
-  syncNameMarquee(); // chữ chạy tên dài chạy tiếp đúng pha, không giật khi dựng lại DOM
+  setupNameMarquee(); // tên tràn khung → chạy chữ (đo sau khi đã chốt bề rộng), đồng bộ pha chống giật
 }
 
 render({});
