@@ -8,6 +8,7 @@ config/group-profiles.json
 config/match-history.json
 config/score-history.json
 config/ranking-history.json
+config/live-runtime.json
 config/kc-data.json
 config/kc-months.json
 config/*.bak

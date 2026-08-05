@@ -55,6 +55,8 @@ const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
 const SCORE_HISTORY_PATH = path.join(CONFIG_DIR, 'score-history.json');
 const RANKING_HISTORY_PATH = path.join(CONFIG_DIR, 'ranking-history.json');
 const RANKING_APPLY_LOG_PATH = path.join(CONFIG_DIR, 'ranking-apply-log.json');
+// Trạng thái ĐANG CHẠY (điểm số LIVE của các engine) — ghi liên tục để chống mất khi văng/mất điện.
+const LIVE_RUNTIME_PATH = path.join(CONFIG_DIR, 'live-runtime.json');
 const KC_DATA_PATH = path.join(CONFIG_DIR, 'kc-data.json');
 const KC_MONTHS_PATH = path.join(CONFIG_DIR, 'kc-months.json');
 const GIFT_MASTER_PATH = path.join(CONFIG_DIR, 'gift-master.json');
@@ -177,6 +179,40 @@ function saveJson(p, data) {
 function uid(prefix = '') {
   return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
+
+// =================================================================
+// LƯU TRẠNG THÁI ĐANG CHẠY (điểm số LIVE) — chống mất khi văng/mất điện
+// -----------------------------------------------------------------
+// Cấu hình (config) của mỗi engine đã được lưu file riêng, NHƯNG điểm số tích
+// luỹ realtime (this.scores / this.state) chỉ nằm trong RAM → văng đột ngột là
+// mất sạch, mở lại chỉ còn snapshot cũ. Ở đây ghi LIÊN TỤC toàn bộ state runtime
+// của Ranking/Tính điểm/PK Đôi/Giữ-Đổi/PK Nhóm xuống live-runtime.json (ghi
+// nguyên tử qua saveJson) rồi KHÔI PHỤC khi mở lại → dù crash vẫn tiếp tục đúng
+// điểm ngay thời điểm đó (tối đa mất ~0.6s do gộp ghi, flush=0 khi thoát êm).
+let _runtimeSaveTimer = null;
+let _runtimeDirty = false;
+function collectLiveRuntime() {
+  const out = { savedAt: Date.now(), v: 1 };
+  try { if (rankingEngine) out.ranking = rankingEngine.snapshotRuntime(); } catch {}
+  try { if (scoreEngine) out.score = scoreEngine.snapshotRuntime(); } catch {}
+  try { if (pkDuoEngine) out.pkduo = pkDuoEngine.snapshotRuntime(); } catch {}
+  try { if (kcDuoEngine) out.kcduo = kcDuoEngine.snapshotRuntime(); } catch {}
+  try { if (pkGroupEngine) out.pkgroup = pkGroupEngine.snapshotRuntime(); } catch {}
+  return out;
+}
+function saveLiveRuntimeNow() {
+  _runtimeDirty = false;
+  if (_runtimeSaveTimer) { clearTimeout(_runtimeSaveTimer); _runtimeSaveTimer = null; }
+  try { saveJson(LIVE_RUNTIME_PATH, collectLiveRuntime()); } catch {}
+}
+// Gộp các nhịp emit dồn dập (ticker 250ms + bão quà) thành tối đa 1 lần ghi / 600ms.
+// KHÔNG reset timer mỗi lần gọi → luôn có mốc ghi trong vòng 600ms kể cả khi hoạt động liên tục.
+function scheduleLiveRuntimeSave() {
+  _runtimeDirty = true;
+  if (_runtimeSaveTimer) return;
+  _runtimeSaveTimer = setTimeout(() => { _runtimeSaveTimer = null; if (_runtimeDirty) saveLiveRuntimeNow(); }, 600);
+}
+function flushLiveRuntime() { if (_runtimeDirty || _runtimeSaveTimer) saveLiveRuntimeNow(); }
 function loadSettings() {
   const def = {
     overlayToken: crypto.randomBytes(18).toString('hex'),
@@ -1736,6 +1772,18 @@ class PkDuoEngine {
     this._clearTicker();
     this._emit();
   }
+  // Chống mất khi văng: chụp/khôi phục điểm 2 phe + TOP người tặng (Map → mảng để ghi JSON) + đồng hồ.
+  snapshotRuntime() {
+    const s = this.state;
+    return { state: { ...s, gifters: { A: [...(s.gifters?.A || new Map())], B: [...(s.gifters?.B || new Map())] } } };
+  }
+  restoreRuntime(snap) {
+    if (!snap || !snap.state) return;
+    const s = snap.state;
+    const toMap = (arr) => new Map(Array.isArray(arr) ? arr : []);
+    this.state = { ...this.state, ...s, gifters: { A: toMap(s.gifters?.A), B: toMap(s.gifters?.B) } };
+    if (['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
+  }
   reset() {
     this._clearTicker();
     this._comboRepeats.clear();
@@ -2050,6 +2098,13 @@ class KcDuoEngine {
     this._recordResult();
     this._clearTicker();
     this._emit();
+  }
+  // Chống mất khi văng: chụp/khôi phục điểm GIỮ/ĐỔI + đồng hồ (chuỗi trụ vững/tổng vòng nằm ở config, lưu riêng).
+  snapshotRuntime() { return { state: this.state }; }
+  restoreRuntime(s) {
+    if (!s || !s.state || typeof s.state !== 'object') return;
+    this.state = { ...this.state, ...s.state };
+    if (['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
   }
   reset() {
     // Reset trận nhưng GIỮ chuỗi trụ vững + tổng vòng + tên người diễn (giống PK giữ winStreak).
@@ -2406,6 +2461,21 @@ class PkGroupEngine {
     this._recordHistory();
     this._clearTicker();
     this._emit();
+  }
+  // Chống mất khi văng: chụp/khôi phục điểm + chuỗi WIN + TOP người tặng (mỗi participant có 1 Map → mảng).
+  snapshotRuntime() {
+    const s = this.state;
+    const gifters = {};
+    for (const k of Object.keys(s.gifters || {})) gifters[k] = [...(s.gifters[k] || new Map())];
+    return { state: { ...s, gifters } };
+  }
+  restoreRuntime(snap) {
+    if (!snap || !snap.state || typeof snap.state !== 'object') return;
+    const s = snap.state;
+    const gifters = {};
+    for (const k of Object.keys(s.gifters || {})) gifters[k] = new Map(Array.isArray(s.gifters[k]) ? s.gifters[k] : []);
+    this.state = { ...this.state, ...s, gifters };
+    if (['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
   }
   reset() {
     this._clearTicker();
@@ -3202,6 +3272,14 @@ class RankingEngine {
     this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
   }
   setConfig(patch) { this.config = { ...this.config, ...patch }; this._emit(); }
+  // Chống mất khi văng: chụp/khôi phục điểm tích luỹ realtime (config lưu riêng, không đụng ở đây).
+  snapshotRuntime() { return { round: this.round, scores: this.scores, activeId: this.activeId }; }
+  restoreRuntime(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.scores && typeof s.scores === 'object') this.scores = s.scores;
+    if (Number.isFinite(Number(s.round))) this.round = Number(s.round);
+    if (s.activeId != null) this.activeId = s.activeId;
+  }
   reset() { this.scores = {}; this.activeId = null; this._comboRepeats.clear(); this._emit(); }
   startRound() { this.round++; this.scores = {}; this._comboRepeats.clear(); this._emit(); }
   setActive(id) { this.activeId = id; this._emit(); }
@@ -3484,6 +3562,13 @@ class ScoreEngine {
     if (Object.prototype.hasOwnProperty.call(next, 'themePreset') && next.themePreset !== 'custom' && !SCORE_THEME_IDS.has(next.themePreset)) Object.assign(next, SCORE_THEME_FALLBACK);
     this.config = { ...this.config, ...next };
     this._emit();
+  }
+  // Chống mất khi văng: chụp/khôi phục điểm + đồng hồ đang đếm (endAt là mốc tuyệt đối nên tiếp đúng giờ còn lại).
+  snapshotRuntime() { return { state: this.state }; }
+  restoreRuntime(s) {
+    if (!s || !s.state || typeof s.state !== 'object') return;
+    this.state = { ...this.state, ...s.state };
+    if (['prestart', 'running', 'grace'].includes(this.state.status)) this._runTicker();
   }
   reset() {
     this._clearTicker();
@@ -4107,6 +4192,7 @@ function bootstrapEngines() {
       broadcast('pkduo:state', st);
       // Liên kết → BXH THI ĐẤU NHÓM vẽ lại để đánh dấu/bỏ đánh dấu người đang thi đấu theo trận.
       if (getRankingLinks().pkduo) rankingEngine?._emit();
+      scheduleLiveRuntimeSave(); // chống mất điểm khi văng
     },
     onResult: appendMatchHistory,
     // Engine tự cập nhật chuỗi WIN sau trận → lưu file + báo renderer để ô "Chuỗi WIN" đồng bộ.
@@ -4124,6 +4210,7 @@ function bootstrapEngines() {
       overlayServer?.sendKcDuo(st);
       broadcast('kcduo:state', st);
       if (getRankingLinks().kcduo) rankingEngine?._emit();
+      scheduleLiveRuntimeSave(); // chống mất điểm khi văng
     },
     // Engine tự cập nhật chuỗi trụ vững / tổng vòng / người kế sau trận → lưu file + báo renderer.
     onConfigChange: () => {
@@ -4148,6 +4235,7 @@ function bootstrapEngines() {
       broadcast('pkgroup:state', st);
       // Liên kết → BXH THI ĐẤU NHÓM vẽ lại để đánh dấu/bỏ đánh dấu người đang thi đấu theo trận.
       if (getRankingLinks().pkgroup) rankingEngine?._emit();
+      scheduleLiveRuntimeSave(); // chống mất điểm khi văng
     },
     onResult: appendMatchHistory,
     getCreators: loadCreators,
@@ -4162,6 +4250,7 @@ function bootstrapEngines() {
     onState: (st) => {
       overlayServer?.sendRanking(st);
       broadcast('ranking:state', st);
+      scheduleLiveRuntimeSave(); // chống mất điểm khi văng
     },
     getCreators: loadCreators,
     getGroups: loadGroups,
@@ -4174,6 +4263,7 @@ function bootstrapEngines() {
     onState: (st) => {
       overlayServer?.sendScore(st);
       broadcast('score:state', st);
+      scheduleLiveRuntimeSave(); // chống mất điểm khi văng
     },
   });
   if (settings.score) scoreEngine.setConfig(settings.score);
@@ -4229,6 +4319,21 @@ function bootstrapEngines() {
   const savedGiftMenu = loadGiftMenuConfig();
   if (savedGiftMenu && typeof savedGiftMenu === 'object') giftMenuConfig = savedGiftMenu;
   interactConfig = normalizeInteractConfig(loadInteractConfig());
+
+  // KHÔI PHỤC điểm số đang chạy của phiên trước (chống mất khi văng/mất điện).
+  // Nạp SAU khi đã áp config (setConfig) để state runtime (điểm/chuỗi/đồng hồ) đè lên
+  // giá trị khởi tạo; nếu phiên trước đang giữa vòng thì đồng hồ tự chạy tiếp tới khi chốt.
+  // Muốn bắt đầu MỚI sạch: bấm Reset (Reset ghi state 0 xuống file → mở lại là 0).
+  try {
+    const rt = loadJson(LIVE_RUNTIME_PATH, null);
+    if (rt && typeof rt === 'object') {
+      try { rankingEngine.restoreRuntime(rt.ranking); } catch {}
+      try { scoreEngine.restoreRuntime(rt.score); } catch {}
+      try { pkDuoEngine.restoreRuntime(rt.pkduo); } catch {}
+      try { kcDuoEngine.restoreRuntime(rt.kcduo); } catch {}
+      try { pkGroupEngine.restoreRuntime(rt.pkgroup); } catch {}
+    }
+  } catch {}
 
   // Phát state khởi tạo cho overlay khi mới connect
   pkDuoEngine._emit();
@@ -4565,7 +4670,7 @@ function registerIpc() {
   ipcMain.handle('data:counts', () => ({ creators: loadCreators().length, groups: loadGroups().length }));
   // File cấu hình CHUNG bỏ qua khi xuất/nhập: đã có ở cấp cao (creators/groups/group-profiles),
   // và settings.json (chứa token OBS / khoá bản quyền — máy-riêng, không nên chép sang máy khác).
-  const CONFIG_EXPORT_SKIP = new Set(['creators.json', 'groups.json', 'group-profiles.json', 'settings.json']);
+  const CONFIG_EXPORT_SKIP = new Set(['creators.json', 'groups.json', 'group-profiles.json', 'settings.json', 'live-runtime.json']);
   // Đọc mọi *.json trong CONFIG_DIR (trừ bản .bak và danh sách bỏ qua) → gói cấu hình CHUNG.
   const collectSharedConfigs = () => {
     const out = {};
@@ -5441,10 +5546,16 @@ app.whenReady().then(async () => {
 });
 
 // Thoát theo chương trình (app.quit ở bất kỳ đâu) → đánh dấu để cửa sổ chính không hỏi lại.
-app.on('before-quit', () => { isQuitting = true; });
+app.on('before-quit', () => { isQuitting = true; try { flushLiveRuntime(); } catch {} });
 
 app.on('window-all-closed', () => {
+  try { flushLiveRuntime(); } catch {}
   try { ttClient?.disconnect(); } catch {}
   try { overlayServer?.stop(); } catch {}
   if (process.platform !== 'darwin') app.quit();
 });
+
+// Lưới an toàn cuối cùng: bất kỳ đường thoát nào của tiến trình chính (kể cả app.exit) đều ghi nốt
+// điểm số đang chờ. saveJson là đồng bộ nên chạy được ở 'exit'. Crash cứng/mất điện thì đã có bản ghi
+// gần nhất (≤0.6s) từ scheduleLiveRuntimeSave — vẫn đúng thời điểm sự cố.
+process.on('exit', () => { try { flushLiveRuntime(); } catch {} });
