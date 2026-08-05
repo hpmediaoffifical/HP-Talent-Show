@@ -803,7 +803,13 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .kc-order-empty { color: var(--tt-ink-3); font-size: 12px; font-weight: 700; padding: 6px 2px; }
 .kc-order-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--tt-border); border-radius: 10px; background: var(--tt-bg); }
 .kc-order-idx { flex: 0 0 auto; min-width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--tt-pink); color: #fff; font-size: 12px; font-weight: 800; }
+.kc-order-join { flex: 0 0 auto; display: inline-flex; align-items: center; cursor: pointer; }
+.kc-order-check { width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--tt-pink); }
 .kc-order-name { flex: 1 1 auto; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kc-order-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--tt-bg-3); color: var(--tt-ink-2); font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; vertical-align: middle; text-decoration: none; }
+.kc-order-row.kc-order-off { opacity: .55; background: var(--tt-bg-2); }
+.kc-order-row.kc-order-off .kc-order-idx { background: var(--tt-ink-3); }
+.kc-order-row.kc-order-off .kc-order-name { text-decoration: line-through; text-decoration-color: var(--tt-ink-3); }
 .kc-order-btns { flex: 0 0 auto; display: inline-flex; gap: 4px; }
 .kc-order-btns button { width: 28px; height: 26px; padding: 0; border-radius: 7px; border: 1px solid var(--tt-border); background: var(--tt-bg-2); color: var(--tt-ink); font-size: 14px; font-weight: 800; line-height: 1; }
 .kc-order-btns button:hover:not(:disabled) { background: var(--tt-pink); border-color: var(--tt-pink); color: #fff; }

@@ -1852,6 +1852,7 @@ class KcDuoEngine {
       performerName: '', // người đang diễn (ghế nóng) — hiện trên thanh máu
       nextName: '',      // người kế tiếp — nhập trước; khi ĐỔI thắng thì lên ghế
       rotationOrder: [], // thứ tự lượt diễn (mảng tên) — MC xếp theo vị trí thật; điều khiển gợi ý người kế tiếp
+      rotationSkip: [],  // tên các thành viên OFFLINE / không tham gia — bị bỏ qua khi xoay vòng chọn người kế
       defendStreak: 0,   // số vòng người đang diễn giữ được ghế (reset khi ĐỔI thắng)
       totalRounds: 0,    // tổng số vòng đã chạy (Số vòng)
       flipMargin: 0,     // ngưỡng lật kèo: ĐỔI phải VƯỢT GIỮ hơn mức này mới thắng (0 = chỉ cần hơn)
@@ -1950,6 +1951,7 @@ class KcDuoEngine {
       performerName: this.config.performerName || '',
       nextName: this.config.nextName || '',
       rotationOrder: Array.isArray(this.config.rotationOrder) ? this.config.rotationOrder : [],
+      rotationSkip: Array.isArray(this.config.rotationSkip) ? this.config.rotationSkip : [],
       flipMargin: Math.max(0, Number(this.config.flipMargin) || 0),
       flipMarginMode: this.config.flipMarginMode || 'percent',
       winnerSide: this.state.winnerSide || '',
@@ -2032,16 +2034,19 @@ class KcDuoEngine {
     let names = [...new Set(members.map(c => String(c.nickname || c.tiktokId || '').trim()).filter(Boolean))];
     // Xếp theo THỨ TỰ LƯỢT DIỄN đã lưu để xoay vòng đúng vị trí thật (hàng ngang / vòng tròn).
     names = orderNamesByRotation(names, this.config.rotationOrder);
-    if (!names.length || (names.length === 1 && names[0] === cur)) return '';
-    // Xoay vòng: lấy người NGAY SAU người đang diễn trong danh sách; nếu không tìm thấy thì lấy người đầu khác.
+    // Bỏ qua người OFFLINE / không tham gia (rotationSkip) khi chọn người kế — nhưng vẫn giữ trong
+    // danh sách để tính vị trí xoay vòng (chỉ không được CHỌN làm người kế).
+    const skip = new Set((Array.isArray(this.config.rotationSkip) ? this.config.rotationSkip : []).map(n => String(n || '').trim()));
+    if (!names.length) return '';
+    // Xoay vòng: lấy người NGAY SAU người đang diễn còn tham gia; không có thì lấy người đầu khác còn tham gia.
     const idx = names.indexOf(cur);
     if (idx >= 0) {
       for (let i = 1; i <= names.length; i++) {
         const cand = names[(idx + i) % names.length];
-        if (cand && cand !== cur) return cand;
+        if (cand && cand !== cur && !skip.has(cand)) return cand;
       }
     }
-    return names.find(n => n !== cur) || '';
+    return names.find(n => n !== cur && !skip.has(n)) || '';
   }
   addPoints(side, points) {
     if (side === 'A') this.state.scoreA += Number(points) || 0;
@@ -2062,6 +2067,20 @@ class KcDuoEngine {
     }
     this.addPoints(s, points);
     return { points, qty: n, giftName: gift.giftName || gift.name || '' };
+  }
+  // Tra 🎤 Người đang diễn (theo tên đã chọn) về creatorId trong nhóm đã chọn để cộng ranking ĐÚNG người.
+  // Không khớp (chưa chọn / khách lạ ngoài nhóm) → '' → bỏ qua cộng ranking (theo lựa chọn của MC).
+  _performerCreatorId() {
+    const name = String(this.config.performerName || '').trim();
+    if (!name) return '';
+    const groupIds = [...new Set([this.config.teamA?.groupId, this.config.teamB?.groupId].filter(Boolean).map(String))];
+    let members = this.getCreators() || [];
+    if (groupIds.length) members = members.filter(c => groupIds.includes(String(c.groupId || '')));
+    const exact = members.find(c => String(c.nickname || c.tiktokId || '').trim() === name);
+    if (exact) return exact.id || '';
+    const key = normRecipientName(name); // khớp mềm: bỏ dấu/emoji/khoảng trắng lạ
+    const soft = members.find(c => normRecipientName(String(c.nickname || c.tiktokId || '')) === key);
+    return soft ? (soft.id || '') : '';
   }
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
@@ -2092,8 +2111,11 @@ class KcDuoEngine {
     if (side === 'A') this.state.scoreA += pts;
     else this.state.scoreB += pts;
     if (this.config.linkRanking && this.onRankingPoints) {
-      const team = side === 'A' ? this.config.teamA : this.config.teamB;
-      if (team && team.creatorId) this.onRankingPoints(team.creatorId, pts, ev);
+      // Điểm ranking DỒN VỀ 🎤 Người đang diễn (cả quà GIỮ lẫn ĐỔI) — hợp luồng xoay vòng lượt diễn,
+      // vì mọi tương tác trong lượt là do người đang diễn tạo ra. Thanh máu GIỮ/ĐỔI vẫn tách phe như cũ.
+      // Chưa chọn / tra không ra người diễn → bỏ qua, KHÔNG cộng (tránh cộng nhầm creator phe).
+      const cid = this._performerCreatorId();
+      if (cid) this.onRankingPoints(cid, pts, ev);
     }
     this._emit();
   }

@@ -7448,6 +7448,7 @@ async function loadKcConfig() {
     teamB: normalizeKcTeam(st.teamB, { name: 'CHANGE/ĐỔI', color: '#00afdb' }),
     performerName: st.performerName || '', nextName: st.nextName || '',
     rotationOrder: Array.isArray(st.rotationOrder) ? st.rotationOrder.map(n => String(n || '').trim()).filter(Boolean) : [],
+    rotationSkip: Array.isArray(st.rotationSkip) ? st.rotationSkip.map(n => String(n || '').trim()).filter(Boolean) : [],
     defendStreak: Math.max(0, Number(st.defendStreak) || 0), totalRounds: Math.max(0, Number(st.totalRounds) || 0),
     flipMargin: Math.max(0, Number(st.flipMargin) || 0), flipMarginMode: st.flipMarginMode === 'point' ? 'point' : 'percent',
     durationSec: st.durationSec || 90, prepSec: st.prepSec ?? 3, delaySec: st.delaySec ?? 5,
@@ -7552,7 +7553,19 @@ function renderKcMemberNames() {
   }
   renderKcOrderList();
 }
-// Bảng "Thứ tự lượt diễn": mỗi thành viên 1 dòng với nút ↑ / ↓ để đổi vị trí.
+// Tên thành viên OFFLINE / không tham gia lượt này (bỏ tích) — bị bỏ qua khi xoay vòng chọn người kế.
+function kcIsSkipped(name) {
+  return (kcCfg?.rotationSkip || []).map(n => String(n || '').trim()).includes(String(name || '').trim());
+}
+function setKcSkipped(name, skipped) {
+  if (!kcCfg) return;
+  const nm = String(name || '').trim();
+  let arr = (kcCfg.rotationSkip || []).map(n => String(n || '').trim()).filter(Boolean);
+  if (skipped) { if (!arr.includes(nm)) arr.push(nm); }
+  else arr = arr.filter(n => n !== nm);
+  kcCfg.rotationSkip = arr;
+}
+// Bảng "Thứ tự lượt diễn": mỗi thành viên 1 dòng — ô tích tham gia + nút ↑ / ↓ đổi vị trí.
 function renderKcOrderList() {
   const box = $('#kcOrderList');
   if (!box) return;
@@ -7561,15 +7574,21 @@ function renderKcOrderList() {
     box.innerHTML = '<div class="kc-order-empty">Chưa có thành viên trong nhóm đã chọn.</div>';
     return;
   }
-  box.innerHTML = names.map((n, i) => `
-    <div class="kc-order-row" data-name="${escapeAttr(n)}">
+  box.innerHTML = names.map((n, i) => {
+    const off = kcIsSkipped(n);
+    return `
+    <div class="kc-order-row${off ? ' kc-order-off' : ''}" data-name="${escapeAttr(n)}">
       <span class="kc-order-idx">${i + 1}</span>
-      <span class="kc-order-name" title="${escapeAttr(n)}">${escapeHtml(n)}</span>
+      <label class="kc-order-join" title="Bỏ tích nếu thành viên OFFLINE / không tham gia lượt này — sẽ bị bỏ qua khi xoay vòng">
+        <input type="checkbox" class="kc-order-check"${off ? '' : ' checked'} />
+      </label>
+      <span class="kc-order-name" title="${escapeAttr(n)}">${escapeHtml(n)}${off ? ' <span class="kc-order-tag">nghỉ</span>' : ''}</span>
       <span class="kc-order-btns">
         <button type="button" data-dir="-1" title="Lên trên"${i === 0 ? ' disabled' : ''}>↑</button>
         <button type="button" data-dir="1" title="Xuống dưới"${i === names.length - 1 ? ' disabled' : ''}>↓</button>
       </span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 // Đổi chỗ 1 thành viên theo hướng dir (-1 lên / +1 xuống); lưu lại rotationOrder rồi vẽ lại.
 function moveKcOrder(name, dir) {
@@ -7721,6 +7740,7 @@ function collectKcCfg() {
     performerName: $('#kcPerformer').value.trim(),
     nextName: $('#kcNextName').value.trim(),
     rotationOrder: Array.isArray(kcCfg.rotationOrder) ? kcCfg.rotationOrder : [],
+    rotationSkip: Array.isArray(kcCfg.rotationSkip) ? kcCfg.rotationSkip : [],
     defendStreak: Math.max(0, parseInt($('#kcDefend').value, 10) || 0),
     totalRounds: Math.max(0, parseInt($('#kcRounds').value, 10) || 0),
     flipMargin: Math.max(0, Number($('#kcFlipMargin').value) || 0),
@@ -7860,6 +7880,16 @@ function wireKcDuoTab() {
     if (!btn) return;
     const name = btn.closest('.kc-order-row')?.dataset.name;
     if (name) moveKcOrder(name, Number(btn.dataset.dir));
+  });
+  // Ô tích tham gia: bỏ tích = OFFLINE → thêm vào rotationSkip (bị bỏ qua khi xoay vòng chọn người kế).
+  $('#kcOrderList')?.addEventListener('change', (e) => {
+    const cb = e.target.closest('.kc-order-check');
+    if (!cb) return;
+    const name = cb.closest('.kc-order-row')?.dataset.name;
+    if (!name) return;
+    setKcSkipped(name, !cb.checked);
+    renderKcOrderList();
+    scheduleKcAutoSave();
   });
 
   $$('.kc-pick-master').forEach(btn => btn.addEventListener('click', async () => {
