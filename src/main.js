@@ -182,6 +182,8 @@ function loadSettings() {
     compactUiVersion: COMPACT_UI_VERSION,
     lastUsername: '',
     autoConnect: false,
+    lastActiveGroupId: null,
+    talentShowUsername: '',
     windowBounds: null,
     overlay: {
       width: 2160,
@@ -1825,6 +1827,18 @@ class PkDuoEngine {
 // phe B = ĐỔI (đổi sang người mới). Kế thừa cơ chế tính điểm PK Đôi (Chọn Phe 1 quà + TikTok
 // theo UID người nhận trong LIVE nhóm) nhưng BỎ avatar/champions/FX. Thêm: ngưỡng "lật kèo"
 // (lợi thế người đương nhiệm), chuỗi "trụ vững ghế" (defendStreak), tên người kế, số vòng đã chạy.
+// Sắp lại danh sách tên theo THỨ TỰ LƯỢT DIỄN đã lưu (order): tên có trong order lên trước đúng thứ tự;
+// tên chưa xếp (thành viên mới / lạ) nối vào cuối theo thứ tự gốc. Tên trong order không còn tồn tại bị bỏ.
+function orderNamesByRotation(names, order) {
+  const set = new Set(names), seen = new Set(), out = [];
+  for (const n of (Array.isArray(order) ? order : [])) {
+    const s = String(n || '').trim();
+    if (s && set.has(s) && !seen.has(s)) { out.push(s); seen.add(s); }
+  }
+  for (const n of names) if (!seen.has(n)) { out.push(n); seen.add(n); }
+  return out;
+}
+
 class KcDuoEngine {
   constructor({ onState, getCreators, onConfigChange, onRankingPoints }) {
     this.onState = onState;
@@ -1837,6 +1851,7 @@ class KcDuoEngine {
       teamB: { name: 'CHANGE/ĐỔI', color: '#00afdb', gifts: [] }, // Change
       performerName: '', // người đang diễn (ghế nóng) — hiện trên thanh máu
       nextName: '',      // người kế tiếp — nhập trước; khi ĐỔI thắng thì lên ghế
+      rotationOrder: [], // thứ tự lượt diễn (mảng tên) — MC xếp theo vị trí thật; điều khiển gợi ý người kế tiếp
       defendStreak: 0,   // số vòng người đang diễn giữ được ghế (reset khi ĐỔI thắng)
       totalRounds: 0,    // tổng số vòng đã chạy (Số vòng)
       flipMargin: 0,     // ngưỡng lật kèo: ĐỔI phải VƯỢT GIỮ hơn mức này mới thắng (0 = chỉ cần hơn)
@@ -1934,6 +1949,7 @@ class KcDuoEngine {
       defendStreak: Math.max(0, Number(this.config.defendStreak) || 0),
       performerName: this.config.performerName || '',
       nextName: this.config.nextName || '',
+      rotationOrder: Array.isArray(this.config.rotationOrder) ? this.config.rotationOrder : [],
       flipMargin: Math.max(0, Number(this.config.flipMargin) || 0),
       flipMarginMode: this.config.flipMarginMode || 'percent',
       winnerSide: this.state.winnerSide || '',
@@ -2013,7 +2029,9 @@ class KcDuoEngine {
     const groupIds = [...new Set([this.config.teamA?.groupId, this.config.teamB?.groupId].filter(Boolean).map(String))];
     let members = this.getCreators() || [];
     if (groupIds.length) members = members.filter(c => groupIds.includes(String(c.groupId || '')));
-    const names = [...new Set(members.map(c => String(c.nickname || c.tiktokId || '').trim()).filter(Boolean))];
+    let names = [...new Set(members.map(c => String(c.nickname || c.tiktokId || '').trim()).filter(Boolean))];
+    // Xếp theo THỨ TỰ LƯỢT DIỄN đã lưu để xoay vòng đúng vị trí thật (hàng ngang / vòng tròn).
+    names = orderNamesByRotation(names, this.config.rotationOrder);
     if (!names.length || (names.length === 1 && names[0] === cur)) return '';
     // Xoay vòng: lấy người NGAY SAU người đang diễn trong danh sách; nếu không tìm thấy thì lấy người đầu khác.
     const idx = names.indexOf(cur);
@@ -5058,6 +5076,8 @@ function registerIpc() {
   ipcMain.handle('settings:get', () => ({
     lastUsername: settings.lastUsername,
     autoConnect: !!settings.autoConnect,
+    lastActiveGroupId: typeof settings.lastActiveGroupId === 'string' ? settings.lastActiveGroupId : null,
+    talentShowUsername: settings.talentShowUsername || '',
     signApiKey: settings.signApiKey ? '•••' : '',
     sessionId: settings.sessionId ? '•••' : '',
     ttTargetIdc: settings.ttTargetIdc,
@@ -5086,6 +5106,8 @@ function registerIpc() {
         settings.audio = { ...(settings.audio || {}), ...patch.audio };
       }
       if (typeof patch.autoConnect === 'boolean') settings.autoConnect = patch.autoConnect;
+      if (typeof patch.lastActiveGroupId === 'string' || patch.lastActiveGroupId === null) settings.lastActiveGroupId = patch.lastActiveGroupId;
+      if (typeof patch.talentShowUsername === 'string') settings.talentShowUsername = patch.talentShowUsername.trim().replace(/^@/, '');
       if (typeof patch.scoreLinkRanking === 'boolean') settings.scoreLinkRanking = patch.scoreLinkRanking;
       if (typeof patch.scoreLinkVoteLock === 'boolean') settings.scoreLinkVoteLock = patch.scoreLinkVoteLock;
       if (typeof patch.autoRecognizeRecipient === 'boolean') settings.autoRecognizeRecipient = patch.autoRecognizeRecipient;

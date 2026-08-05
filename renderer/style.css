@@ -798,6 +798,17 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 /* Nhãn phân lớp bên trong ngăn (vd: "Overlay FX") */
 .cfg-adv__note { grid-column: 1 / -1; margin: -2px 0 2px; color: var(--tt-ink-3); font-size: 11.5px; font-weight: 700; }
 
+/* ===== Thứ tự lượt diễn (Giữ/Đổi) ===== */
+.kc-order-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.kc-order-empty { color: var(--tt-ink-3); font-size: 12px; font-weight: 700; padding: 6px 2px; }
+.kc-order-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--tt-border); border-radius: 10px; background: var(--tt-bg); }
+.kc-order-idx { flex: 0 0 auto; min-width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--tt-pink); color: #fff; font-size: 12px; font-weight: 800; }
+.kc-order-name { flex: 1 1 auto; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kc-order-btns { flex: 0 0 auto; display: inline-flex; gap: 4px; }
+.kc-order-btns button { width: 28px; height: 26px; padding: 0; border-radius: 7px; border: 1px solid var(--tt-border); background: var(--tt-bg-2); color: var(--tt-ink); font-size: 14px; font-weight: 800; line-height: 1; }
+.kc-order-btns button:hover:not(:disabled) { background: var(--tt-pink); border-color: var(--tt-pink); color: #fff; }
+.kc-order-btns button:disabled { opacity: .35; cursor: default; }
+
 /* ===== Avatar dropdown (nhóm / creator) ===== */
 .av-select { position: relative; display: block; width: 100%; }
 .av-select > select { display: none; } /* select gốc: ẩn nhưng giữ value + change */

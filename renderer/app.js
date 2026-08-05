@@ -367,11 +367,12 @@ function danceChannelOf(item) { const o = String(item && item.overlay || 'webm1'
 // Nhận diện file VIDEO theo đuôi (bỏ query) → phát trên overlay OBS; còn lại (mp3…) phát trong app.
 function isVideoFile(p) { return /\.(mp4|webm|mov|m4v|ogv|mkv)$/i.test(String(p || '').split('?')[0].split('#')[0]); }
 let stickerCfg = null;               // STICKER DANCE config (editor model)
-let groupProfiles = {}; // { [groupId]: { pkGroup, defaultGift, stats } } — thông số riêng mỗi nhóm
+let groupProfiles = {}; // { [groupId]: { live, pkGroup, defaultGift, stats } } — thông số riêng mỗi nhóm
 let currentEditingCreator = null;
 let currentEditingGroup = null;
 let stats = { gifts: 0, diamond: 0, donors: new Set(), viewers: 0 };
 let ttConnected = false;
+let ttConnecting = false;
 let liveUsername = '';
 // Bản DEV (chạy nguồn) = true → mở khoá mọi tính năng để test. Bản CÀI = false → cần LIVE.
 // Nạp 1 lần lúc khởi động (initLicenseGate); mặc định false để bản CÀI an toàn nếu chưa kịp nạp.
@@ -379,6 +380,11 @@ let IS_DEV = false;
 let activeGroupId = ''; // '' = TALENT SHOW (mở tất cả); id = chỉ nhóm đó. KHÔNG lưu vào settings.
 const TALENT_SHOW_CONNECT_ID = 'hpmedia.official'; // ID TikTok đại diện của 🎤 TALENT SHOW (tự điền ô kết nối)
 let autoConnectPref = false; // Tự động kết nối khi mở app (popup Kết nối).
+let defaultAutoConnectPref = false; // Cài đặt cũ/TALENT SHOW, dùng làm mặc định khi nhóm chưa chọn riêng.
+let savedActiveGroupId = null;
+let savedLastUsername = '';
+let talentShowUsername = '';
+let activeGroupChangeSeq = 0;
 let scoreLinkRanking = false;
 let scoreLinkVoteLock = false;
 let latestScoreState = null;
@@ -456,6 +462,84 @@ function creatorGiftUsage(exceptCreatorId = '', groupId = null) {
 }
 
 function normalizeId(value) { return String(value || '').trim().replace(/^@/, '').toLowerCase(); }
+
+function getLiveConnectionConfig(groupId) {
+  const gid = String(groupId || '');
+  if (!gid) {
+    return {
+      username: normalizeId(talentShowUsername) || TALENT_SHOW_CONNECT_ID,
+      autoConnect: defaultAutoConnectPref,
+    };
+  }
+  const group = groups.find(g => g.id === gid);
+  const profile = getGroupProfile(gid);
+  const live = profile.live && typeof profile.live === 'object' && !Array.isArray(profile.live) ? profile.live : {};
+  return {
+    username: normalizeId(live.username) || normalizeId(group?.tiktokId),
+    autoConnect: typeof live.autoConnect === 'boolean' ? live.autoConnect : defaultAutoConnectPref,
+  };
+}
+
+function syncLiveConnectionUi(groupId, updateUsername = true) {
+  const live = getLiveConnectionConfig(groupId);
+  autoConnectPref = !!live.autoConnect;
+  if ($('#autoConnectChk')) $('#autoConnectChk').checked = autoConnectPref;
+  if (updateUsername && !ttConnected && !ttConnecting && $('#ttUsername')) $('#ttUsername').value = live.username;
+  return live;
+}
+
+function saveLiveConnectionConfig(groupId, patch = {}) {
+  const gid = String(groupId || '');
+  const hasUsername = Object.prototype.hasOwnProperty.call(patch, 'username');
+  if (!gid) {
+    const settingsPatch = {};
+    if (hasUsername) {
+      talentShowUsername = normalizeId(patch.username);
+      settingsPatch.talentShowUsername = talentShowUsername;
+    }
+    if (typeof patch.autoConnect === 'boolean') {
+      defaultAutoConnectPref = patch.autoConnect;
+      autoConnectPref = patch.autoConnect;
+      settingsPatch.autoConnect = patch.autoConnect;
+    }
+    return Object.keys(settingsPatch).length
+      ? window.api.settings.set(settingsPatch).catch(() => {})
+      : Promise.resolve();
+  }
+
+  const profile = getGroupProfile(gid);
+  const live = profile.live && typeof profile.live === 'object' && !Array.isArray(profile.live) ? { ...profile.live } : {};
+  if (hasUsername) {
+    const username = normalizeId(patch.username);
+    const groupUsername = normalizeId(groups.find(g => g.id === gid)?.tiktokId);
+    if (username && username !== groupUsername) live.username = username;
+    else delete live.username;
+  }
+  if (typeof patch.autoConnect === 'boolean') live.autoConnect = patch.autoConnect;
+  return saveGroupProfilePatch(gid, { live });
+}
+
+function getStartupGroupId() {
+  if (typeof savedActiveGroupId === 'string') {
+    return !savedActiveGroupId || groups.some(g => g.id === savedActiveGroupId) ? savedActiveGroupId : null;
+  }
+  if (!savedLastUsername) return null;
+  return groups.find(g => normalizeId(g.tiktokId) === savedLastUsername)?.id || '';
+}
+
+async function restoreAutoConnection() {
+  const groupId = getStartupGroupId();
+  if (groupId == null) return false;
+  const live = getLiveConnectionConfig(groupId);
+  if (!live.autoConnect || !live.username) return false;
+  await setActiveGroup(groupId);
+  const activeLive = getLiveConnectionConfig(activeGroupId);
+  if (activeGroupId !== groupId || !activeLive.autoConnect || !activeLive.username) return false;
+  setTimeout(() => {
+    if (activeGroupId === groupId && !ttConnected && !ttConnecting) startConnect(activeLive.username);
+  }, 900);
+  return true;
+}
 
 // ===== Bộ lọc theo chế độ nhóm =====
 function visibleGroups() { return activeGroupId ? groups.filter(g => g.id === activeGroupId) : groups; }
@@ -4579,16 +4663,11 @@ async function init() {
   startLiveTickerAutoRefresh();
   checkUpdatesOnStartup();
 
-  // Tự động kết nối khi mở app (nếu bật trong popup Kết nối và đã có ID).
-  if (autoConnectPref && !ttConnected && $('#ttUsername')?.value.trim()) {
-    setTimeout(() => { if (!ttConnected) startConnect($('#ttUsername').value.trim()); }, 900);
-  }
-
-  // Màn hình chọn nhóm (DANH SÁCH NHÓM) khi mở app: vào thẳng đây cho gọn/khoa học,
-  // chỉ cần KEY đã kích hoạt và có ít nhất 1 nhóm. Không còn phụ thuộc tự-động-kết-nối
-  // (auto-connect vẫn chạy nền; user chọn nhóm rồi "Vào ứng dụng").
   const licenseOk = $('#licenseOverlay')?.hidden !== false;
-  if (licenseOk && groups.length) openGroupLauncher(true);
+  // Khôi phục đúng nhóm trước rồi mới tự kết nối. Không dùng ID toàn cục của nhóm khác.
+  const autoConnectionScheduled = licenseOk && await restoreAutoConnection();
+  // Không có tự kết nối thì vẫn buộc chọn nhóm như trước.
+  if (licenseOk && groups.length && !autoConnectionScheduled) openGroupLauncher(true);
 
   // Nền: tự lấy lại avatar nhóm/creator theo ID TikTok nếu thiếu hoặc URL đã hết hạn.
   autoRefetchStaleAvatars();
@@ -4941,6 +5020,7 @@ function wireTtEvents() {
     if ($('#hostNick')) $('#hostNick').textContent = info.nickname || info.username;
     if ($('#hostHandle')) $('#hostHandle').textContent = '@' + info.username + (info.roomId ? ` · room ${info.roomId}` : '');
     if ($('#hostTitle')) $('#hostTitle').textContent = info.title || '';
+    ttConnecting = false;
     ttConnected = true;
     liveUsername = info.username || $('#ttUsername').value.trim();
     $('#btnConnect').disabled = false;
@@ -4954,6 +5034,7 @@ function wireTtEvents() {
     $('#bottomLive')?.classList.remove('is-live');
     $('#connLabel').textContent = 'Đã ngắt';
     $('#connHost').textContent = '';
+    ttConnecting = false;
     ttConnected = false;
     liveUsername = '';
     $('#btnConnect').disabled = false;
@@ -4973,6 +5054,7 @@ function wireTtEvents() {
     $('#bottomLive')?.classList.remove('is-live');
     $('#connLabel').textContent = 'Lỗi';
     toast('⚠ ' + msg, 'error');
+    ttConnecting = false;
     ttConnected = false;
     liveUsername = '';
     $('#btnConnect').disabled = false;
@@ -5227,10 +5309,19 @@ function wireConnectTab() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#connectModal')?.hidden) closeConnectModal(); });
   $('#autoConnectChk')?.addEventListener('change', (e) => {
     autoConnectPref = e.target.checked;
-    window.api.settings.set({ autoConnect: autoConnectPref }).catch(() => {});
+    saveLiveConnectionConfig(activeGroupId, {
+      username: $('#ttUsername')?.value || '',
+      autoConnect: autoConnectPref,
+    });
+  });
+  $('#ttUsername').addEventListener('change', () => {
+    saveLiveConnectionConfig(activeGroupId, { username: $('#ttUsername').value });
   });
   $('#ttUsername').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnConnect').click(); });
-  $('#modeSelect')?.addEventListener('change', (e) => setActiveGroup(e.target.value));
+  $('#modeSelect')?.addEventListener('change', async (e) => {
+    saveLiveConnectionConfig(activeGroupId, { username: $('#ttUsername')?.value || '' });
+    await setActiveGroup(e.target.value);
+  });
 }
 
 function openConnectModal() {
@@ -5246,12 +5337,30 @@ function closeConnectModal() {
 
 // Bắt đầu kết nối TikTok LIVE với ID cho trước (dùng chung cho nút thanh dưới + popup).
 async function startConnect(u) {
+  if (ttConnecting) return;
+  const groupId = activeGroupId;
   u = String(u || '').trim().replace(/^@/, '');
   if (!u) { toast('Nhập ID TikTok LIVE trước đã.', 'error'); return; }
+  ttConnecting = true;
+  await saveLiveConnectionConfig(groupId, { username: u });
   $('#connDot').classList.add('connecting');
   $('#connLabel').textContent = 'Đang kết nối...';
   $('#btnConnect').disabled = true;
-  try { await window.api.tt.connect(u); } catch (e) { toast('⚠ ' + e.message, 'error'); }
+  try {
+    const result = await window.api.tt.connect(u);
+    if (result?.ok === false) throw new Error(result.error || 'Không thể kết nối TikTok LIVE.');
+  } catch (e) {
+    $('#connDot').classList.remove('connecting');
+    $('#bottomLive')?.classList.remove('is-live');
+    $('#connLabel').textContent = 'Lỗi';
+    $('#btnConnect').textContent = '▶ Kết nối';
+    $('#btnConnect').classList.add('primary');
+    $('#btnConnect').classList.remove('ghost');
+    toast('⚠ ' + e.message, 'error');
+  } finally {
+    ttConnecting = false;
+    if (!ttConnected) $('#btnConnect').disabled = false;
+  }
 }
 
 // ============================================================
@@ -5542,8 +5651,10 @@ function renderModeSelect() {
 }
 
 async function setActiveGroup(id) {
+  const nextGroupId = String(id || '');
+  const changeSeq = ++activeGroupChangeSeq;
   const prevGroupId = activeGroupId; // để biết lựa chọn nhóm có ĐỔI thật không (chỉ auto khi đổi)
-  activeGroupId = id || '';
+  activeGroupId = nextGroupId;
   // Đổi nhóm (nhất là chọn từ launcher "bên ngoài") → NẠP LẠI Creator/Nhóm mới nhất từ main
   // (avatar vừa fetch, thành viên vừa đổi) để vào APP hiện ĐẦY ĐỦ thông tin + avatar nhóm mới,
   // không dính dữ liệu cũ trong bộ nhớ renderer.
@@ -5552,6 +5663,8 @@ async function setActiveGroup(id) {
     groups = await window.api.groups.list();
     await refreshGroupProfiles?.();
   } catch {}
+  // Người dùng đổi nhanh nhiều nhóm: chỉ lần chọn mới nhất mới được phép cập nhật UI/lưu ID.
+  if (changeSeq !== activeGroupChangeSeq) return false;
   // Nhóm vừa chọn không còn tồn tại → về TALENT SHOW cho an toàn.
   if (activeGroupId && !groups.some(g => g.id === activeGroupId)) activeGroupId = '';
   // Đồng bộ dropdown Chế độ (khi gọi từ launcher/lập trình, không phải từ sự kiện change).
@@ -5559,13 +5672,10 @@ async function setActiveGroup(id) {
   if (sel && sel.value !== activeGroupId) sel.value = activeGroupId;
   const bar = $('#bottomLive');
   if (bar) bar.classList.toggle('mode-group', !!activeGroupId);
-  // Tự điền TikTok ID đại diện vào ô kết nối (vẫn cho sửa), không đụng khi đang LIVE:
-  // - Nhóm cụ thể → tiktokId của nhóm; - TALENT SHOW (tất cả) → hpmedia.official.
-  if (!ttConnected) {
-    const g = activeGroupId ? groups.find(x => x.id === activeGroupId) : null;
-    const repId = g ? (g.tiktokId || '') : TALENT_SHOW_CONNECT_ID;
-    if (repId && $('#ttUsername')) $('#ttUsername').value = repId;
-  }
+  // ID LIVE và tuỳ chọn tự kết nối là dữ liệu RIÊNG từng nhóm; không thay khi đang LIVE/kết nối.
+  syncLiveConnectionUi(activeGroupId);
+  savedActiveGroupId = activeGroupId;
+  window.api.settings.set({ lastActiveGroupId: activeGroupId }).catch(() => {});
   // Chọn nhóm từ launcher/popup không tự phát sự kiện change. Đồng bộ select PK Nhóm về nhóm mới
   // và nạp lại hồ sơ/thành viên đầy đủ (kể cả khi giá trị select trùng) → luôn thấy đúng nhóm mới.
   // selectAllPkGroupMembers chỉ điền khi participants rỗng nên không ghi đè lựa chọn thủ công.
@@ -5584,6 +5694,7 @@ async function setActiveGroup(id) {
     scheduleKcAutoSave();
   }
   applyActiveGroupMode();
+  return true;
 }
 
 // Bật/tắt 🏆 Chế độ thi đấu (đồng bộ STT sang THI ĐẤU NHÓM). silent=true dùng khi tự đổi theo chế độ (không toast/không hỏi).
@@ -5642,6 +5753,7 @@ function applyActiveGroupMode() {
 // ============================================================
 let launcherSelId = null; // null = chưa chọn; '' = TALENT SHOW; id = nhóm cụ thể
 let launcherMandatory = false; // true = màn chọn nhóm bắt buộc khi mở app (không cho X/Esc thoát)
+let launcherEntering = false;
 
 function membersOfGroup(groupId) {
   return creators.filter(c => c.groupId === groupId);
@@ -5925,13 +6037,23 @@ function closeGroupLauncher() {
   if (ov) ov.hidden = true;
 }
 
-function enterFromLauncher() {
-  if (launcherSelId == null) return; // chưa chọn → không cho vào
-  setActiveGroup(launcherSelId);
-  launcherMandatory = false; // đã chọn hợp lệ → mở khoá để đóng màn
-  closeGroupLauncher();
-  const g = launcherSelId ? groups.find(x => x.id === launcherSelId) : null;
-  toast(g ? `👥 Vào nhóm: ${g.name || g.tiktokId}` : '🎤 Vào TALENT SHOW (tất cả nhóm)', 'success');
+async function enterFromLauncher() {
+  if (launcherSelId == null || launcherEntering) return; // chưa chọn → không cho vào
+  const selectedId = launcherSelId;
+  launcherEntering = true;
+  const enter = $('#launcherEnter');
+  if (enter) enter.disabled = true;
+  try {
+    await setActiveGroup(selectedId);
+    if (activeGroupId !== selectedId) return;
+    launcherMandatory = false; // đã chọn hợp lệ → mở khoá để đóng màn
+    closeGroupLauncher();
+    const g = selectedId ? groups.find(x => x.id === selectedId) : null;
+    toast(g ? `👥 Vào nhóm: ${g.name || g.tiktokId}` : '🎤 Vào TALENT SHOW (tất cả nhóm)', 'success');
+  } finally {
+    launcherEntering = false;
+    if (!$('#groupLauncher')?.hidden) markLauncherSelection();
+  }
 }
 
 function wireGroupLauncher() {
@@ -6600,9 +6722,9 @@ function getGroupProfile(groupId) {
 // Ghi 1 phần hồ sơ của nhóm (merge). Cập nhật cục bộ ngay để UI đồng bộ, rồi lưu file.
 function saveGroupProfilePatch(groupId, patch) {
   const gid = String(groupId || '');
-  if (!gid) return;
+  if (!gid) return Promise.resolve(null);
   groupProfiles[gid] = { ...(groupProfiles[gid] || {}), ...(patch || {}) };
-  window.api.groupProfiles.save(gid, patch)
+  return window.api.groupProfiles.save(gid, patch)
     .then(saved => { if (saved) groupProfiles[gid] = saved; })
     .catch(() => {});
 }
@@ -7325,6 +7447,7 @@ async function loadKcConfig() {
     teamA: normalizeKcTeam(st.teamA, { name: 'KEEP/GIỮ', color: '#e60045' }),
     teamB: normalizeKcTeam(st.teamB, { name: 'CHANGE/ĐỔI', color: '#00afdb' }),
     performerName: st.performerName || '', nextName: st.nextName || '',
+    rotationOrder: Array.isArray(st.rotationOrder) ? st.rotationOrder.map(n => String(n || '').trim()).filter(Boolean) : [],
     defendStreak: Math.max(0, Number(st.defendStreak) || 0), totalRounds: Math.max(0, Number(st.totalRounds) || 0),
     flipMargin: Math.max(0, Number(st.flipMargin) || 0), flipMarginMode: st.flipMarginMode === 'point' ? 'point' : 'percent',
     durationSec: st.durationSec || 90, prepSec: st.prepSec ?? 3, delaySec: st.delaySec ?? 5,
@@ -7396,12 +7519,27 @@ function kcMemberGroupIds() {
   if (activeGroupId) return [activeGroupId];
   return [...new Set(['A', 'B'].map(side => $(`#kc${side}group`)?.value).filter(Boolean))];
 }
-function renderKcMemberNames() {
+// Tên thành viên (đã gộp/khử trùng) của các nhóm đang chọn, theo THỨ TỰ GỐC (lúc thêm vào nhóm).
+function kcCurrentMemberNames() {
   const groupIds = kcMemberGroupIds();
   const members = groupIds.length
     ? creators.filter(c => groupIds.includes(c.groupId))
     : visibleCreators();
-  const names = [...new Set(members.map(c => (c.nickname || c.tiktokId || '').trim()).filter(Boolean))];
+  return [...new Set(members.map(c => (c.nickname || c.tiktokId || '').trim()).filter(Boolean))];
+}
+// Sắp lại theo THỨ TỰ LƯỢT DIỄN đã lưu (kcCfg.rotationOrder): tên đã xếp lên trước đúng thứ tự;
+// thành viên mới (chưa xếp) nối vào cuối theo thứ tự gốc. Tên lạ trong order tự bị bỏ qua.
+function kcOrderedNames(names) {
+  const set = new Set(names), seen = new Set(), out = [];
+  for (const n of (kcCfg?.rotationOrder || [])) {
+    const s = String(n || '').trim();
+    if (s && set.has(s) && !seen.has(s)) { out.push(s); seen.add(s); }
+  }
+  for (const n of names) if (!seen.has(n)) { out.push(n); seen.add(n); }
+  return out;
+}
+function renderKcMemberNames() {
+  const names = kcOrderedNames(kcCurrentMemberNames());
   for (const [id, placeholder] of [
     ['kcPerformer', '— Chọn người đang diễn —'],
     ['kcNextName', '— Chọn người kế tiếp —'],
@@ -7412,6 +7550,36 @@ function renderKcMemberNames() {
     select.innerHTML = `<option value="">${placeholder}</option>` + names.map(n => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join('');
     select.value = names.includes(current) ? current : '';
   }
+  renderKcOrderList();
+}
+// Bảng "Thứ tự lượt diễn": mỗi thành viên 1 dòng với nút ↑ / ↓ để đổi vị trí.
+function renderKcOrderList() {
+  const box = $('#kcOrderList');
+  if (!box) return;
+  const names = kcOrderedNames(kcCurrentMemberNames());
+  if (!names.length) {
+    box.innerHTML = '<div class="kc-order-empty">Chưa có thành viên trong nhóm đã chọn.</div>';
+    return;
+  }
+  box.innerHTML = names.map((n, i) => `
+    <div class="kc-order-row" data-name="${escapeAttr(n)}">
+      <span class="kc-order-idx">${i + 1}</span>
+      <span class="kc-order-name" title="${escapeAttr(n)}">${escapeHtml(n)}</span>
+      <span class="kc-order-btns">
+        <button type="button" data-dir="-1" title="Lên trên"${i === 0 ? ' disabled' : ''}>↑</button>
+        <button type="button" data-dir="1" title="Xuống dưới"${i === names.length - 1 ? ' disabled' : ''}>↓</button>
+      </span>
+    </div>`).join('');
+}
+// Đổi chỗ 1 thành viên theo hướng dir (-1 lên / +1 xuống); lưu lại rotationOrder rồi vẽ lại.
+function moveKcOrder(name, dir) {
+  const names = kcOrderedNames(kcCurrentMemberNames());
+  const i = names.indexOf(name), j = i + dir;
+  if (i < 0 || j < 0 || j >= names.length) return;
+  [names[i], names[j]] = [names[j], names[i]];
+  if (kcCfg) kcCfg.rotationOrder = names;
+  renderKcMemberNames();
+  scheduleKcAutoSave();
 }
 function renderKcCreatorSelect(side) {
   const team = kcGetTeam(side);
@@ -7552,6 +7720,7 @@ function collectKcCfg() {
     teamB: { ...kcCfg.teamB, name: 'CHANGE/ĐỔI', nameOverride: true, color: $('#kcBcolor').value, gifts: kcCfg.teamB.gifts || [] },
     performerName: $('#kcPerformer').value.trim(),
     nextName: $('#kcNextName').value.trim(),
+    rotationOrder: Array.isArray(kcCfg.rotationOrder) ? kcCfg.rotationOrder : [],
     defendStreak: Math.max(0, parseInt($('#kcDefend').value, 10) || 0),
     totalRounds: Math.max(0, parseInt($('#kcRounds').value, 10) || 0),
     flipMargin: Math.max(0, Number($('#kcFlipMargin').value) || 0),
@@ -7684,6 +7853,14 @@ function wireKcDuoTab() {
       if (t) t.nameOverride = true;
     });
   }
+
+  // Thứ tự lượt diễn: bấm ↑ / ↓ để đổi vị trí thành viên (uỷ quyền sự kiện trên cả danh sách).
+  $('#kcOrderList')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-dir]');
+    if (!btn) return;
+    const name = btn.closest('.kc-order-row')?.dataset.name;
+    if (name) moveKcOrder(name, Number(btn.dataset.dir));
+  });
 
   $$('.kc-pick-master').forEach(btn => btn.addEventListener('click', async () => {
     const side = btn.dataset.team;
@@ -10105,9 +10282,17 @@ async function wireInteractConfig() {
 // ============================================================
 async function loadSettings() {
   const s = await window.api.settings.get();
-  if (s.lastUsername) $('#ttUsername').value = s.lastUsername;
-  autoConnectPref = !!s.autoConnect;
-  if ($('#autoConnectChk')) $('#autoConnectChk').checked = autoConnectPref;
+  savedActiveGroupId = typeof s.lastActiveGroupId === 'string' ? s.lastActiveGroupId : null;
+  savedLastUsername = normalizeId(s.lastUsername);
+  talentShowUsername = normalizeId(s.talentShowUsername);
+  // Chuyển dữ liệu bản cũ: ID toàn cục khớp nhóm nào thì nhóm đó sẽ được khôi phục lúc tự kết nối.
+  // Nếu không khớp nhóm nào, đó là ID TALENT SHOW cũ.
+  if (!talentShowUsername && (savedActiveGroupId === ''
+    || (savedActiveGroupId == null && savedLastUsername && !groups.some(g => normalizeId(g.tiktokId) === savedLastUsername)))) {
+    talentShowUsername = savedLastUsername;
+  }
+  defaultAutoConnectPref = !!s.autoConnect;
+  syncLiveConnectionUi(activeGroupId);
   scoreLinkRanking = !!s.scoreLinkRanking;
   scoreLinkVoteLock = !!s.scoreLinkVoteLock;
   if (typeof applyGameLinksToUI === 'function') applyGameLinksToUI(); // đồng bộ mọi ô Liên kết (tiêu đề + bảng tổng)
