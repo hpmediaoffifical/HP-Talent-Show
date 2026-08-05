@@ -1880,7 +1880,14 @@ class KcDuoEngine {
     // Theo dõi combo x10/x1000 theo từng người+quà để cộng phần CHÊNH LỆCH mỗi nhịp (không mất, không đúp).
     this._comboRepeats = new Map();
   }
-  setConfig(patch) { this.config = { ...this.config, ...patch }; migrateTiktokMode(this.config); this._emit(); }
+  setConfig(patch) {
+    this.config = { ...this.config, ...patch };
+    this.config.teamA = { ...(this.config.teamA || {}), name: 'KEEP/GIỮ', nameOverride: true };
+    this.config.teamB = { ...(this.config.teamB || {}), name: 'CHANGE/ĐỔI', nameOverride: true };
+    this.config.tiktokCombine = true;
+    migrateTiktokMode(this.config);
+    this._emit();
+  }
   // Ngưỡng điểm ĐỔI cần vượt GIỮ để lật ghế (theo % tổng điểm hoặc điểm tuyệt đối).
   _flipRequired() {
     const m = Math.max(0, Number(this.config.flipMargin) || 0);
@@ -4003,7 +4010,10 @@ function bootstrapEngines() {
     onRankingPoints: rankingLivePoints,
   });
   const savedKc = loadKcDuoConfig();
-  if (savedKc) kcDuoEngine.setConfig(savedKc);
+  if (savedKc) {
+    kcDuoEngine.setConfig(savedKc);
+    if (savedKc.teamA?.name !== 'KEEP/GIỮ' || savedKc.teamA?.nameOverride !== true || savedKc.teamB?.name !== 'CHANGE/ĐỔI' || savedKc.teamB?.nameOverride !== true || savedKc.tiktokCombine !== true) saveKcDuoConfig(kcDuoEngine.config);
+  }
   pkGroupEngine = new PkGroupEngine({
     onState: (st) => {
       overlayServer?.sendPkGroup(st);

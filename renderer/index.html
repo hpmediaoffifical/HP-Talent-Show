@@ -682,7 +682,7 @@
               </select>
             </label>
             <label class="pk-row-field pk-tiktok-combine" title="Kết hợp TikTok: quà tặng đúng Creator của phe (chọn trên hộp quà TikTok) tự cộng cho phe đó — không cần chọn quà. Vẫn giữ chế độ nền: quà không nhắm ai thì tính theo Cố Định/Chọn Phe.">
-              <input type="checkbox" id="kcTiktokCombine" /> 📡 Kết hợp TikTok
+              <input type="checkbox" id="kcTiktokCombine" checked disabled /> 📡 Kết hợp TikTok
             </label>
             <select id="kcPointsBy" hidden><option value="diamond">🪙 Coin</option></select>
             <details class="pk-quick">
@@ -729,7 +729,7 @@
                   <div class="pk-team-config-head"><b>🟢 GIỮ</b><span>Phe giữ người đang diễn</span></div>
                   <label>Nhóm <select id="kcAgroup"><option value="">— Chọn nhóm —</option></select></label>
                   <label>Thành viên tính điểm <select id="kcAcreator"><option value="">— Chọn thành viên —</option></select></label>
-                  <label>Tên hiển thị <input id="kcAname" maxlength="20" /></label>
+                  <label>Tên hiển thị <input id="kcAname" maxlength="20" readonly title="Luôn dùng tên mặc định KEEP/GIỮ" /></label>
                   <label>Màu phe <input id="kcAcolor" type="color" value="#e60045" /></label>
                 </div>
                 <div class="pk-team" data-team="A">
@@ -745,7 +745,7 @@
                   <div class="pk-team-config-head"><b>🔴 ĐỔI</b><span>Phe đổi sang người mới</span></div>
                   <label>Nhóm <select id="kcBgroup"><option value="">— Chọn nhóm —</option></select></label>
                   <label>Thành viên tính điểm <select id="kcBcreator"><option value="">— Chọn thành viên —</option></select></label>
-                  <label>Tên hiển thị <input id="kcBname" maxlength="20" /></label>
+                  <label>Tên hiển thị <input id="kcBname" maxlength="20" readonly title="Luôn dùng tên mặc định CHANGE/ĐỔI" /></label>
                   <label>Màu phe <input id="kcBcolor" type="color" value="#00afdb" /></label>
                 </div>
                 <div class="pk-team" data-team="B">

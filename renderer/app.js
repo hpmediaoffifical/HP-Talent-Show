@@ -7282,6 +7282,8 @@ function kcGetTeam(side) { return side === 'A' ? kcCfg.teamA : kcCfg.teamB; }
 function kcGiftModeKey() { return kcCfg?.joinMode ? 'joinGifts' : 'fixedGifts'; }
 function normalizeKcTeam(team, fallback) {
   const t = { ...fallback, ...(team || {}) };
+  t.name = fallback.name;
+  t.nameOverride = true;
   t.fixedGifts = Array.isArray(t.fixedGifts) ? t.fixedGifts : (Array.isArray(t.gifts) ? t.gifts : []);
   t.joinGifts = Array.isArray(t.joinGifts) ? t.joinGifts : [];
   t.gifts = Array.isArray(t.gifts) ? t.gifts : t.fixedGifts;
@@ -7310,6 +7312,7 @@ function saveKcActiveGifts() {
 
 async function loadKcConfig() {
   const st = await window.api.kcduo.getState();
+  const needsForcedDefaults = st.teamA?.name !== 'KEEP/GIỮ' || st.teamB?.name !== 'CHANGE/ĐỔI' || st.tiktokCombine !== true;
   kcCfg = {
     teamA: normalizeKcTeam(st.teamA, { name: 'KEEP/GIỮ', color: '#e60045' }),
     teamB: normalizeKcTeam(st.teamB, { name: 'CHANGE/ĐỔI', color: '#00afdb' }),
@@ -7317,7 +7320,7 @@ async function loadKcConfig() {
     defendStreak: Math.max(0, Number(st.defendStreak) || 0), totalRounds: Math.max(0, Number(st.totalRounds) || 0),
     flipMargin: Math.max(0, Number(st.flipMargin) || 0), flipMarginMode: st.flipMarginMode === 'point' ? 'point' : 'percent',
     durationSec: st.durationSec || 90, prepSec: st.prepSec ?? 3, delaySec: st.delaySec ?? 5,
-    joinMode: !!st.joinMode, tiktokCombine: !!(st.tiktokCombine || st.creatorLive), pointsBy: st.pointsBy || 'diamond',
+    joinMode: !!st.joinMode, tiktokCombine: true, pointsBy: st.pointsBy || 'diamond',
     content: st.content == null ? 'GIỮ / ĐỔI' : st.content, timerPos: ['left', 'right', 'center'].includes(st.timerPos) ? st.timerPos : 'center',
     giftSize: st.giftSize || 46, textSize: st.textSize || 21, overlayScale: st.overlayScale || 200,
     giftDisplayMode: st.giftDisplayMode || 'scroll', skin: st.skin || 'auto',
@@ -7363,6 +7366,7 @@ async function loadKcConfig() {
   if ($('#kcSkin')) { $('#kcSkin').value = kcCfg.skin || 'auto'; updateSkinHint('kcSkin', 'kcSkinHint'); }
   renderKcGifts();
   renderKcPreview(st);
+  if (needsForcedDefaults) scheduleKcAutoSave();
 }
 
 function renderKcCreatorSelects() {
@@ -7513,8 +7517,10 @@ function scheduleKcAutoSave() { _kcSaver.schedule(); }
 
 function collectKcCfg() {
   saveKcActiveGifts();
-  kcCfg.teamA.name = $('#kcAname').value.trim() || 'KEEP/GIỮ';
-  kcCfg.teamB.name = $('#kcBname').value.trim() || 'CHANGE/ĐỔI';
+  kcCfg.teamA.name = 'KEEP/GIỮ';
+  kcCfg.teamA.nameOverride = true;
+  kcCfg.teamB.name = 'CHANGE/ĐỔI';
+  kcCfg.teamB.nameOverride = true;
   applyKcCreator('A');
   applyKcCreator('B');
   saveKcActiveGifts();
@@ -7523,8 +7529,8 @@ function collectKcCfg() {
   const s = Number($('#kcDurS').value) || 0;
   const durationSec = Math.max(5, h * 3600 + m * 60 + s);
   return {
-    teamA: { ...kcCfg.teamA, name: $('#kcAname').value.trim() || 'KEEP/GIỮ', color: $('#kcAcolor').value, gifts: kcCfg.teamA.gifts || [] },
-    teamB: { ...kcCfg.teamB, name: $('#kcBname').value.trim() || 'CHANGE/ĐỔI', color: $('#kcBcolor').value, gifts: kcCfg.teamB.gifts || [] },
+    teamA: { ...kcCfg.teamA, name: 'KEEP/GIỮ', nameOverride: true, color: $('#kcAcolor').value, gifts: kcCfg.teamA.gifts || [] },
+    teamB: { ...kcCfg.teamB, name: 'CHANGE/ĐỔI', nameOverride: true, color: $('#kcBcolor').value, gifts: kcCfg.teamB.gifts || [] },
     performerName: $('#kcPerformer').value.trim(),
     nextName: $('#kcNextName').value.trim(),
     defendStreak: Math.max(0, parseInt($('#kcDefend').value, 10) || 0),
@@ -7536,7 +7542,7 @@ function collectKcCfg() {
     prepSec: Number($('#kcPrep').value) || 0,
     delaySec: Number($('#kcDelay').value) || 0,
     joinMode: $('#kcJoinMode').value === 'true',
-    tiktokCombine: !!$('#kcTiktokCombine')?.checked,
+    tiktokCombine: true,
     pointsBy: $('#kcPointsBy').value,
     giftSize: Number($('#kcGiftSize').value),
     giftDisplayMode: $('#kcGiftDisplayMode').value,
@@ -7630,11 +7636,10 @@ function wireKcDuoTab() {
     toast(kcCfg.joinMode ? 'Đang chỉnh quà Chọn Phe' : 'Đang chỉnh quà Cố định');
   });
   $('#kcTiktokCombine')?.addEventListener('change', () => {
-    kcCfg.tiktokCombine = $('#kcTiktokCombine').checked;
+    $('#kcTiktokCombine').checked = true;
+    kcCfg.tiktokCombine = true;
     scheduleKcAutoSave();
-    toast(kcCfg.tiktokCombine
-      ? '📡 Kết hợp TikTok BẬT: quà tặng đúng Creator của phe tự cộng — chọn đúng Creator khi tặng trên TikTok.'
-      : '📡 Kết hợp TikTok TẮT — chỉ tính theo chế độ nền.', 'success');
+    toast('📡 Kết hợp TikTok luôn bật: quà tặng đúng Creator của phe tự cộng.', 'success');
   });
 
   for (const side of ['A', 'B']) {

@@ -19,10 +19,10 @@ body { display:flex; justify-content:center; align-items:center; }
 
 /* ===== Hàng tên đội + đồng hồ (tên TRÊN thanh máu) — cao cố định ===== */
 .kc-topline { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; height:1.9em; margin-bottom:7px; }
-.kc-name { display:inline-flex; align-items:center; min-width:0; font-size:var(--kc-text, 21px); font-weight:950; letter-spacing:.01em; white-space:nowrap; overflow:hidden;
+.kc-name { display:inline-flex; align-items:center; width:fit-content; max-width:100%; min-width:0; padding:.14em .46em; border:1px solid rgba(255,255,255,.58); border-radius:.32em; background:rgba(5,8,20,.22); font-size:var(--kc-text, 21px); font-weight:950; letter-spacing:.01em; white-space:nowrap; overflow:hidden;
   text-shadow:0 2px 8px rgba(0,0,0,.95), 0 0 14px currentColor; }
-.kc-name.a { color:var(--kc-a, #22c55e); justify-content:flex-start; }
-.kc-name.b { color:var(--kc-b, #ef4444); justify-content:flex-end; text-align:right; }
+.kc-name.a { color:var(--kc-a, #22c55e); justify-self:start; }
+.kc-name.b { color:var(--kc-b, #ef4444); justify-self:end; text-align:right; }
 
 /* Đồng hồ / trạng thái — KHÔNG nền, chỉ chữ (đếm lùi, BẮT ĐẦU, TÍNH ĐIỂM, KẾT THÚC). */
 .kc-timer { display:inline-flex; align-items:center; justify-content:center; gap:8px; color:#fff;
