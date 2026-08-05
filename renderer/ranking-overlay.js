@@ -183,7 +183,9 @@ function fitLayoutWidth() {
     const name = main.querySelector('.ranking-name');
     const points = main.querySelector('.ranking-points');
     const text = Math.max(
-      name ? labelWidth(name, name.title || name.textContent) : 0,
+      // Kẹp đóng góp bề rộng của TÊN theo đúng KHUNG đã giới hạn (name.clientWidth = max-width) — KHÔNG đo tên
+      // đầy đủ. Nhờ vậy bảng KHÔNG nở to để ôm trọn tên dài → bảng gọn/hẹp lại, và tên dài TRÀN khung → chạy chữ.
+      name ? Math.min(labelWidth(name, name.title || name.textContent), name.clientWidth || 9999) : 0,
       points ? labelWidth(points, points.textContent) : 0,
     );
     needed = Math.max(needed, row.offsetWidth - main.clientWidth + text + 2);
