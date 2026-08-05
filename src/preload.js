@@ -180,6 +180,7 @@ const api = {
     play: (cmd) => ipcRenderer.invoke('dancevideo:play', cmd),
     stopMain: (channel) => ipcRenderer.invoke('dancevideo:stopMain', channel),
     setSpeed: (cmd) => ipcRenderer.invoke('dancevideo:setSpeed', cmd),
+    setPaused: (cmd) => ipcRenderer.invoke('dancevideo:setPaused', cmd),
     playBackground: (cmd) => ipcRenderer.invoke('dancevideo:playBackground', cmd),
     stopBackground: (channel) => ipcRenderer.invoke('dancevideo:stopBackground', channel),
     stopAll: () => ipcRenderer.invoke('dancevideo:stopAll'),
@@ -314,6 +315,13 @@ const api = {
     confirmQuitResult: (ok) => ipcRenderer.send('app:confirmQuitResult', !!ok),
   },
 
+  // ===== Cửa sổ DANH SÁCH PHÁT tách rời (chỉ xem) =====
+  playlist: {
+    open: () => ipcRenderer.invoke('playlist:open'),
+    isOpen: () => ipcRenderer.invoke('playlist:isOpen'),
+    push: (data) => ipcRenderer.send('playlist:push', data),
+  },
+
   // ===== OBS WebSocket (reset overlay) =====
   obs: {
     // Trả chuỗi xác thực OBS WebSocket v5 (mật khẩu nằm ở main, renderer không thấy).
@@ -327,6 +335,7 @@ const api = {
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
       'pkduo:state', 'pkduo:config', 'kcduo:state', 'kcduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'cardflip:state', 'dancevideo:ended',
       'history:changed', 'scoreHistory:changed', 'rankingHistory:changed', 'ranking:links',
+      'playlist:update', 'playlist:requestState',
       'tt:recipientLearned',
       'app:confirmQuit',
       'hosts:status',

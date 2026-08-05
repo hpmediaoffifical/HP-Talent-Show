@@ -1713,10 +1713,11 @@
             <h3>▶ DANH SÁCH PHÁT</h3>
             <span class="mlq-count hint" id="mlqCount">Đang chờ: 0</span>
             <span class="mlq-spacer"></span>
-            <button id="mlqSkip" class="ghost tiny" type="button" title="Bỏ qua mục đang phát (audio/video)">⏭ Bỏ qua</button>
-            <button id="mlqShuffle" class="ghost tiny" type="button" title="Xáo trộn ngẫu nhiên thứ tự hàng chờ">🎲 Xúc xắc</button>
-            <label class="mlq-clearn">Xóa <input id="mlqClearNum" type="number" min="1" value="10" /> cái</label>
-            <button id="mlqClearN" class="ghost tiny" type="button">Xóa N</button>
+            <button id="mlqPause" class="mlq-iconbtn" type="button" title="Tạm dừng / tiếp tục mục đang phát (không xóa hàng chờ)">⏸</button>
+            <button id="mlqSkip" class="mlq-iconbtn" type="button" title="Bỏ qua mục đang phát (audio/video)">⏭</button>
+            <button id="mlqPopout" class="mlq-iconbtn" type="button" title="Tách DANH SÁCH PHÁT ra cửa sổ riêng để các bạn xem">🖥</button>
+            <button id="mlqShuffle" class="mlq-iconbtn" type="button" title="Xáo trộn ngẫu nhiên thứ tự hàng chờ">🎲</button>
+            <span class="mlq-clearn"><input id="mlqClearNum" type="number" min="1" value="10" title="Số quà đầu hàng chờ sẽ xóa" /><button id="mlqClearN" class="ghost tiny" type="button" title="Xóa N quà đầu hàng chờ">Xóa</button></span>
             <label class="mlq-limit" title="Số mục hiển thị tối đa (còn lại chờ ngoài, tự đẩy lên)">Hiển thị <input id="mlqLimit" type="number" min="1" max="500" value="50" /></label>
             <button id="mlqClearAll" class="ghost tiny danger" type="button">Xóa tất cả</button>
           </div>
@@ -1724,6 +1725,7 @@
             <div class="mlq-rail" id="mlqRail"></div>
             <button class="ghost tiny mlq-rail-gear" id="mlqRailGear" type="button" title="Cài kích thước icon & số đếm">⚙</button>
             <div class="mlq-rail-settings" id="mlqRailSettings" hidden>
+              <button type="button" class="mlq-rail-settings-close" id="mlqRailSettingsClose" title="Đóng">✕</button>
               <label>Icon<input type="range" id="mlqRailIcon" min="0.7" max="1.8" step="0.05" value="1" /></label>
               <label>Số<input type="range" id="mlqRailCount" min="0.7" max="2" step="0.05" value="1" /></label>
               <label class="mlq-rail-switch"><input type="checkbox" id="mlqRailBg" checked /> Nền dưới số</label>

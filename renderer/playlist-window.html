@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DANH SÁCH PHÁT</title>
+  <style>
+    :root {
+      --bg: #17122b; --bg2: #221a3d; --card: #1e1738; --border: #362b57;
+      --ink: #f3f0ff; --ink2: #c9c1e6; --ink3: #8f86b3; --pink: #fe2c55; --amber: #ff9a3d;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--bg); color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      display: flex; flex-direction: column;
+    }
+    header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--bg2), var(--bg));
+    }
+    header h1 { margin: 0; font-size: 16px; letter-spacing: .3px; }
+    #count { color: var(--ink3); font-size: 12.5px; }
+    #pausedTag { margin-left: auto; display: none; background: rgba(0,0,0,.5); color: #fff; font-weight: 800; font-size: 12px; padding: 4px 11px; border-radius: 999px; }
+    body.paused #pausedTag { display: inline-block; }
+    main { flex: 1; overflow-y: auto; padding: 14px 16px 24px; }
+    main::-webkit-scrollbar { width: 8px; }
+    main::-webkit-scrollbar-thumb { background: #4a3d70; border-radius: 999px; }
+    main::-webkit-scrollbar-thumb:hover { background: #5d4d8a; }
+    main::-webkit-scrollbar-track { background: transparent; }
+    .now-label { font-size: 11.5px; font-weight: 800; letter-spacing: 1px; color: var(--pink); text-transform: uppercase; margin: 0 0 7px; }
+    .queue-label { font-size: 11.5px; font-weight: 800; letter-spacing: 1px; color: var(--ink3); text-transform: uppercase; margin: 18px 0 7px; }
+    .item {
+      display: flex; align-items: center; gap: 11px;
+      padding: 9px 13px; margin-bottom: 8px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    }
+    .item.live { background: rgba(254,44,85,.12); border-color: var(--pink); border-width: 2px; }
+    body.paused .item.live { opacity: .6; filter: saturate(.5); }
+    .item .num { min-width: 22px; text-align: center; font-weight: 800; color: var(--ink3); font-size: 14px; }
+    .item.live .num { color: var(--pink); }
+    .item img { width: 34px; height: 34px; object-fit: contain; border-radius: 8px; flex: none; }
+    .item .name { font-weight: 800; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item .file { color: var(--ink2); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item .ov { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--amber); background: rgba(255,154,61,.14); padding: 2px 8px; border-radius: 999px; flex: none; }
+    .item .live-tag { margin-left: auto; font-style: normal; font-weight: 800; font-size: 11.5px; color: var(--pink); flex: none; }
+    .idle { padding: 22px; text-align: center; color: var(--ink3); font-size: 13px; }
+    .more { color: var(--ink3); font-size: 12.5px; padding: 6px 2px; }
+    /* item name/file share the middle column so long text truncates instead of pushing */
+    .item .mid { min-width: 0; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>▶ DANH SÁCH PHÁT</h1>
+    <span id="count">Đang chờ: 0</span>
+    <span id="pausedTag">⏸ Đã tạm dừng</span>
+  </header>
+  <main id="body">
+    <div class="idle">Đang chờ dữ liệu từ HP GROUP LIVE…</div>
+  </main>
+  <script src="playlist-window.js"></script>
+</body>
+</html>

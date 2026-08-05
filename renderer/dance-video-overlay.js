@@ -123,6 +123,11 @@ function onState(st) {
   } else if (handledMainId !== null) {
     handledMainId = null; stopMain();
   }
+  // ⏸ Tạm dừng / tiếp tục clip đang phát (điều khiển từ DANH SÁCH PHÁT).
+  if (handledMainId !== null && vMain.style.display !== 'none') {
+    if (st.paused) { try { vMain.pause(); } catch (_) {} }
+    else if (vMain.paused) { vMain.play().catch(() => {}); }
+  }
   // BG
   const bg = st.bg;
   const seq = bg && Number(bg.seq) || 0;

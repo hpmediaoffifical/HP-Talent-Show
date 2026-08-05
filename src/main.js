@@ -33,6 +33,10 @@ const CONFIG_DIR = app.isPackaged ? path.join(USER_DATA_DIR, 'config') : path.jo
 const SHIPPED_CONFIG_DIR = app.isPackaged
   ? path.join(process.resourcesPath, 'app.asar.unpacked', 'config')
   : path.join(ROOT, 'config');
+// Assets đóng gói kèm app (extraResources → resources/assets khi cài; ./assets khi chạy dev).
+const SHIPPED_ASSETS_DIR = app.isPackaged ? path.join(process.resourcesPath, 'assets') : path.join(ROOT, 'assets');
+// Âm thanh "trước khi phát hiệu ứng" mặc định đi kèm bản cài (mỗi máy tự có, không cần chọn file).
+const DEFAULT_PRE_EFFECT_SOUND = path.join(SHIPPED_ASSETS_DIR, 'sounds', 'ping-nhacho.mp3');
 const SETTINGS_PATH = path.join(CONFIG_DIR, 'settings.json');
 const CREATORS_PATH = path.join(CONFIG_DIR, 'creators.json');
 const GROUPS_PATH = path.join(CONFIG_DIR, 'groups.json');
@@ -147,6 +151,7 @@ const INTERACT_DEFAULT = {
 let interactConfig = { ...INTERACT_DEFAULT };
 let settings = loadSettings();
 const reviewWindows = new Map();
+let playlistWindow = null; // Cửa sổ DANH SÁCH PHÁT tách rời (chỉ xem), nhận dữ liệu realtime từ renderer chính.
 
 // =================================================================
 // JSON store helpers
@@ -210,9 +215,9 @@ function loadSettings() {
       outputDeviceId: 'default',
       waitingSound: '',
       waitingVolume: 100,
-      preEffectSound: '',
+      preEffectSound: DEFAULT_PRE_EFFECT_SOUND, // mặc định = âm "ping" đóng gói kèm app
       preEffectVolume: 100,
-      preEffectEnabled: false,
+      preEffectEnabled: true,
     },
     reviewWindows: {},
     // OBS WebSocket (obs-websocket v5) — chỉ dùng để RESET (refresh cache) các Browser Source
@@ -234,7 +239,21 @@ function loadSettings() {
   };
   const raw = loadJson(SETTINGS_PATH, null);
   if (!raw) { saveJson(SETTINGS_PATH, def); return def; }
-  return { ...def, ...raw };
+  return ensureDefaultSounds({ ...def, ...raw });
+}
+// Đảm bảo âm "trước hiệu ứng" mặc định (ping) luôn có trên mọi máy:
+//  - Chưa chọn gì → dùng ping đóng gói + bật sẵn.
+//  - Đang trỏ tới ping cũ nhưng file không còn (app di chuyển/cài lại) → trỏ lại ping hiện tại.
+function ensureDefaultSounds(s) {
+  try {
+    const a = s.audio = s.audio || {};
+    const cur = String(a.preEffectSound || '').replace(/^file:\/\/\//i, '');
+    if (!cur) { a.preEffectSound = DEFAULT_PRE_EFFECT_SOUND; if (a.preEffectEnabled == null) a.preEffectEnabled = true; }
+    else if (/ping-nhacho\.mp3$/i.test(cur) && !fs.existsSync(cur) && fs.existsSync(DEFAULT_PRE_EFFECT_SOUND)) {
+      a.preEffectSound = DEFAULT_PRE_EFFECT_SOUND;
+    }
+  } catch {}
+  return s;
 }
 
 function avatarCacheKey(value) {
@@ -632,6 +651,51 @@ function closeReviewWindow(type) {
   if (rw && !rw.isDestroyed()) rw.close();
   return { ok: true, open: false };
 }
+
+// ===== Cửa sổ DANH SÁCH PHÁT tách rời (chỉ xem) =====
+// Mở 1 cửa sổ độc lập hiển thị y hệt DANH SÁCH PHÁT (đang phát + hàng chờ). Dữ liệu do renderer
+// chính đẩy sang qua 'playlist:push' (main chuyển tiếp vào 'playlist:update'). Mở lần nữa = focus.
+function openPlaylistWindow() {
+  if (playlistWindow && !playlistWindow.isDestroyed()) { playlistWindow.show(); playlistWindow.focus(); requestPlaylistState(); return { ok: true, open: true }; }
+  const saved = isUsableWindowBounds(settings.playlistWindowBounds) ? settings.playlistWindowBounds : {};
+  playlistWindow = new BrowserWindow({
+    width: saved.width || 460,
+    height: saved.height || 640,
+    x: saved.x, y: saved.y,
+    minWidth: 300,
+    minHeight: 260,
+    resizable: true,
+    movable: true,
+    skipTaskbar: false,
+    title: 'DANH SÁCH PHÁT — HP GROUP LIVE',
+    backgroundColor: '#1a1330',
+    icon: APP_ICON || undefined,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  playlistWindow.removeMenu();
+  playlistWindow.loadFile(path.join(ROOT, 'renderer', 'playlist-window.html'));
+  let ptimer = null;
+  const saveBounds = () => {
+    if (!playlistWindow || playlistWindow.isDestroyed()) return;
+    settings.playlistWindowBounds = playlistWindow.getBounds();
+    saveSettings();
+  };
+  const schedule = () => { clearTimeout(ptimer); ptimer = setTimeout(saveBounds, 300); };
+  playlistWindow.on('move', schedule);
+  playlistWindow.on('resize', schedule);
+  playlistWindow.on('close', saveBounds);
+  playlistWindow.on('closed', () => { playlistWindow = null; });
+  // Nạp xong → xin renderer chính đẩy trạng thái hiện tại sang ngay.
+  playlistWindow.webContents.on('did-finish-load', () => requestPlaylistState());
+  return { ok: true, open: true };
+}
+// Nhờ renderer chính gửi lại trạng thái DANH SÁCH PHÁT hiện tại (để cửa sổ mới có nội dung ngay).
+function requestPlaylistState() { try { if (win && !win.isDestroyed()) win.webContents.send('playlist:requestState'); } catch {} }
 
 function setReviewAlwaysOnTop(type, value) {
   const rw = reviewWindows.get(type);
@@ -3801,7 +3865,7 @@ class DanceVideoEngine {
     this.config = { overlays: DANCE_OVERLAYS_DEFAULT.map(o => ({ ...o })), maxClipSec: 90 };
     this._bgSeq = {};
     this.state = {};
-    for (const ch of DANCE_CHANNELS) { this._bgSeq[ch] = 0; this.state[ch] = { main: null, bg: { seq: 0, clips: [] }, speed: 1 }; }
+    for (const ch of DANCE_CHANNELS) { this._bgSeq[ch] = 0; this.state[ch] = { main: null, bg: { seq: 0, clips: [] }, speed: 1, paused: false }; }
   }
   // Nhân tốc độ TẠM THỜI cho MỌI kênh (lớp main + nền) — dùng cho "Tốc độ theo quà". factor 0.25..3.
   setSpeedAll(factor) {
@@ -3840,6 +3904,7 @@ class DanceVideoEngine {
     if (!cmd.src || !cmd.playId) return;
     const p = this._place(cmd);
     this.state[ch].main = { playId: String(cmd.playId), src: String(cmd.src), ...p };
+    this.state[ch].paused = false; // clip mới luôn phát bình thường
     this._emit(ch);
   }
   // Overlay báo clip main phát xong/lỗi → xoá main (khớp playId) để heartbeat không phát lại.
@@ -3848,7 +3913,9 @@ class DanceVideoEngine {
     if (this.state[ch].main && String(this.state[ch].main.playId) === String(playId)) { this.state[ch].main = null; this._emit(ch); return true; }
     return false;
   }
-  stopMain(ch) { ch = this._ch(ch); if (this.state[ch].main) { this.state[ch].main = null; this._emit(ch); } }
+  stopMain(ch) { ch = this._ch(ch); if (this.state[ch].main) { this.state[ch].main = null; this.state[ch].paused = false; this._emit(ch); } }
+  // ⏸ Tạm dừng / tiếp tục lớp MAIN của 1 kênh (overlay tự pause/play <video>). Chỉ đổi khi khác trạng thái.
+  setPaused(ch, on) { ch = this._ch(ch); const v = !!on; if (this.state[ch].paused !== v) { this.state[ch].paused = v; this._emit(ch); } }
   // Lớp NỀN của 1 kênh: danh sách clip phát tuần tự, đè lên trên. seq tăng = lượt nền mới.
   playBackground(ch, cmd) {
     ch = this._ch(ch); cmd = cmd || {};
@@ -3860,8 +3927,8 @@ class DanceVideoEngine {
     this._emit(ch);
   }
   stopBackground(ch) { ch = this._ch(ch); this.state[ch].bg = { seq: 0, clips: [] }; this._emit(ch); }
-  stopAll() { for (const ch of DANCE_CHANNELS) { this.state[ch] = { main: null, bg: { seq: 0, clips: [] }, speed: this.state[ch].speed || 1 }; } this.emitAll(); }
-  getStateForOverlay(ch) { ch = this._ch(ch); return { channel: ch, main: this.state[ch].main, bg: this.state[ch].bg, speed: this.state[ch].speed || 1, serverNow: Date.now() }; }
+  stopAll() { for (const ch of DANCE_CHANNELS) { this.state[ch] = { main: null, bg: { seq: 0, clips: [] }, speed: this.state[ch].speed || 1, paused: false }; } this.emitAll(); }
+  getStateForOverlay(ch) { ch = this._ch(ch); return { channel: ch, main: this.state[ch].main, bg: this.state[ch].bg, speed: this.state[ch].speed || 1, paused: !!this.state[ch].paused, serverNow: Date.now() }; }
   _emit(ch) { try { this.onState(this._ch(ch), this.getStateForOverlay(ch)); } catch {} }
   emitAll() { for (const ch of DANCE_CHANNELS) this._emit(ch); }
 }
@@ -4942,7 +5009,16 @@ function registerIpc() {
   ipcMain.handle('ranking:applyScore', (_e, { creatorId, points, label } = {}) => {
     const pts = Number(points) || 0;
     if (!creatorId || !pts) return { ok: false, reason: 'invalid' };
-    return applyDeltaBatchToCreators([{ creatorId, delta: pts }], { label: label || '🎯 Tính điểm', source: 'score' });
+    const res = applyDeltaBatchToCreators([{ creatorId, delta: pts }], { label: label || '🎯 Tính điểm', source: 'score' });
+    // CHỐNG CỘNG ĐÔI ("nhân 2 điểm"): trong phiên 🎯 Tính điểm có VOTE, BXH ĐÃ tự cộng LIVE từng món quà
+    // vào rankingEngine.scores[creatorId] (thanh leo realtime). Điểm chính thức (st.score) vừa được cộng
+    // vào contestPoints ở trên → phải DỌN điểm LIVE của Creator này về 0, nếu không overlay hiển thị
+    // contestPoints + điểm live ≈ GẤP ĐÔI (giống 🔒 Chốt vòng dọn scores sau khi gộp).
+    if (res.ok && rankingEngine && rankingEngine.scores && rankingEngine.scores[creatorId]) {
+      delete rankingEngine.scores[creatorId];
+      rankingEngine._emit();
+    }
+    return res;
   });
   // 🥚 Đập Trứng / 🎵 NHẠC DANCE: map mỗi ô quà → Creator có defaultGiftId trùng, cộng điểm (kim cương) ô đó.
   ipcMain.handle('ranking:applySticker', () => {
@@ -5080,6 +5156,7 @@ function registerIpc() {
   ipcMain.handle('dancevideo:play', (_e, cmd) => { danceVideoEngine.playMain(cmd?.channel, cmd); return { clients: overlayServer?.danceVideoClientCount(cmd?.channel) || 0 }; });
   ipcMain.handle('dancevideo:stopMain', (_e, ch) => { danceVideoEngine.stopMain(ch); return true; });
   ipcMain.handle('dancevideo:setSpeed', (_e, cmd) => { danceVideoEngine.setSpeedAll(Number(cmd && cmd.factor) || 1); return true; });
+  ipcMain.handle('dancevideo:setPaused', (_e, cmd) => { danceVideoEngine.setPaused(cmd && cmd.channel, !!(cmd && cmd.paused)); return true; });
   ipcMain.handle('dancevideo:playBackground', (_e, cmd) => { danceVideoEngine.playBackground(cmd?.channel, cmd); return true; });
   ipcMain.handle('dancevideo:stopBackground', (_e, ch) => { danceVideoEngine.stopBackground(ch); return true; });
   ipcMain.handle('dancevideo:stopAll', () => { danceVideoEngine.stopAll(); return true; });
@@ -5087,6 +5164,12 @@ function registerIpc() {
 
   // Overlay Review windows
   ipcMain.handle('review:open', (_e, type) => openReviewWindow(type));
+  // Cửa sổ DANH SÁCH PHÁT tách rời (chỉ xem).
+  ipcMain.handle('playlist:open', () => openPlaylistWindow());
+  ipcMain.handle('playlist:isOpen', () => !!(playlistWindow && !playlistWindow.isDestroyed()));
+  ipcMain.on('playlist:push', (_e, data) => {
+    if (playlistWindow && !playlistWindow.isDestroyed()) { try { playlistWindow.webContents.send('playlist:update', data); } catch {} }
+  });
   ipcMain.handle('review:close', (_e, type) => closeReviewWindow(type));
   ipcMain.handle('review:alwaysOnTop', (_e, { type, value }) => setReviewAlwaysOnTop(type, value));
   ipcMain.handle('review:clickThrough', (_e, { type, value }) => setReviewClickThrough(type, value));
@@ -5238,7 +5321,8 @@ function registerIpc() {
     const r = await dialog.showMessageBox(win, {
       type: opts.type || 'warning',
       buttons: ['Có', 'Không'],
-      defaultId: 1,
+      // defaultYes: Enter tự chọn "Có" (dùng cho thao tác lặp lại nhiều như xóa quà); mặc định Enter = "Không" cho an toàn.
+      defaultId: opts.defaultYes ? 0 : 1,
       cancelId: 1,
       noLink: true,
       title: opts.title || 'Xác nhận',

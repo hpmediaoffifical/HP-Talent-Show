@@ -2475,12 +2475,22 @@ button.tiny { padding:4px 7px; font-size:12px; }
 
 /* Hàng đợi hiệu ứng */
 .ml-queue-card { margin-top:14px; }
-.mlq-head { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:10px; }
+/* Hàng điều khiển DANH SÁCH PHÁT: TẤT CẢ trên 1 hàng ngang, nút icon lớn để bấm nhanh. */
+.mlq-head { display:flex; flex-wrap:nowrap; align-items:center; gap:7px; margin-bottom:10px; overflow-x:auto; }
 .mlq-head h3 { margin:0; font-size:14px; color:var(--tt-ink); white-space:nowrap; }
-.mlq-count { flex:0 0 auto; }
-.mlq-spacer { flex:1; }
-.mlq-limit, .mlq-clearn { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--tt-ink-2); white-space:nowrap; }
-.mlq-limit input, .mlq-clearn input { width:52px; padding:4px 6px; border-radius:7px; border:1px solid var(--tt-border); background:var(--tt-bg); color:var(--tt-ink); font-weight:600; }
+.mlq-count { flex:0 0 auto; white-space:nowrap; }
+.mlq-spacer { flex:1; min-width:4px; }
+.mlq-limit, .mlq-clearn { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--tt-ink-2); white-space:nowrap; flex:0 0 auto; }
+.mlq-limit input, .mlq-clearn input { width:46px; padding:4px 6px; border-radius:7px; border:1px solid var(--tt-border); background:var(--tt-bg); color:var(--tt-ink); font-weight:600; }
+/* "Xóa" sát vào ô số: input bo trái, nút bo phải, dính liền thành 1 cụm. */
+.mlq-clearn input { border-top-right-radius:0; border-bottom-right-radius:0; }
+.mlq-clearn #mlqClearN { margin-left:-1px; border-top-left-radius:0; border-bottom-left-radius:0; padding:6px 10px; }
+/* Nút ICON LỚN (Tạm dừng/Bỏ qua/Tách cửa sổ/Xúc xắc). */
+.mlq-iconbtn { flex:0 0 auto; width:40px; height:36px; padding:0; display:grid; place-items:center; font-size:19px; line-height:1; background:var(--tt-bg-2); border:1px solid var(--tt-border); border-radius:10px; cursor:pointer; transition:border-color .12s, background .12s, transform .08s; }
+.mlq-iconbtn:hover { border-color:var(--tt-pink); background:var(--tt-bg); }
+.mlq-iconbtn:active { transform:scale(.92); }
+.mlq-iconbtn:disabled { opacity:.4; cursor:default; }
+.mlq-iconbtn.is-paused { border-color:var(--tt-pink); background:rgba(254,44,85,.12); color:var(--tt-pink); }
 /* ==== Thanh icon quà đang chờ (rail): icon + số đếm, bấm để đẩy lên đầu phát ngay ==== */
 .mlq-rail-wrap { position:relative; margin-bottom:9px; }
 .mlq-rail { display:flex; flex-wrap:wrap; align-items:center; gap:calc(9px * var(--rail-icon-scale, 1)); padding-right:38px; min-height:calc(52px * var(--rail-icon-scale, 1)); }
@@ -2491,11 +2501,23 @@ button.tiny { padding:4px 7px; font-size:12px; }
 .mlq-rail-gift img { width:calc(36px * var(--rail-icon-scale, 1)); height:calc(36px * var(--rail-icon-scale, 1)); object-fit:contain; }
 .mlq-rail-gift small { position:absolute; right:calc(-3px * var(--rail-count-scale, 1)); bottom:calc(-4px * var(--rail-count-scale, 1)); background:linear-gradient(135deg, var(--tt-pink), #ff7a45); color:#fff; border-radius:999px; padding:calc(1px * var(--rail-count-scale, 1)) calc(6px * var(--rail-count-scale, 1)); font-size:calc(11px * var(--rail-count-scale, 1)); line-height:1.1; font-weight:800; }
 .mlq-rail-wrap.no-rail-count-bg .mlq-rail-gift small { background:transparent; padding:0; color:var(--tt-pink); text-shadow:0 1px 2px #fff, 0 0 5px rgba(0,0,0,.35); }
-.mlq-rail-gear { position:absolute; top:0; right:0; width:32px; padding:0; }
-.mlq-rail-settings { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:6px; padding:8px 11px; background:var(--tt-bg-2); border:1px solid var(--tt-border); border-radius:10px; }
-.mlq-rail-settings label { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--tt-ink-2); }
-.mlq-rail-settings input[type=range] { width:96px; }
-.mlq-current { margin-bottom:8px; }
+/* Nút ⚙ mở panel kích thước icon/số: cần vùng bấm rõ (không dính chồng với các icon quà cuộn tràn). */
+.mlq-rail-gear { position:absolute; top:0; right:0; z-index:3; width:34px; height:34px; padding:0; display:grid; place-items:center; line-height:1; font-size:16px; background:var(--tt-bg-2); border:1px solid var(--tt-border); border-radius:9px; cursor:pointer; }
+.mlq-rail-gear:hover { border-color:var(--tt-pink); background:var(--tt-bg); }
+/* Popup nhỏ gọn treo dưới nút ⚙ (không còn dải full-width): 3 điều khiển xếp dọc, thanh kéo ngắn. */
+.mlq-rail-settings { position:absolute; z-index:4; top:38px; right:0; display:flex; flex-direction:column; align-items:stretch; gap:7px; padding:9px 11px; width:max-content; background:var(--tt-bg-2); border:1px solid var(--tt-border); border-radius:10px; box-shadow:0 8px 22px rgba(0,0,0,.16); }
+.mlq-rail-settings label { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--tt-ink-2); white-space:nowrap; }
+.mlq-rail-settings input[type=range] { width:104px; margin-left:auto; }
+.mlq-rail-settings .mlq-rail-switch { gap:6px; }
+/* QUAN TRỌNG: display:flex ở trên đè thuộc tính [hidden] (cùng specificity) → panel không bao giờ ẩn.
+   Rule này specificity cao hơn để [hidden] thật sự ẩn (đóng được popup bằng ⚙/✕/click ngoài/Esc). */
+.mlq-rail-settings[hidden] { display:none; }
+.mlq-rail-settings { padding-top:24px; }
+.mlq-rail-settings-close { position:absolute; top:4px; right:5px; width:20px; height:20px; padding:0; display:grid; place-items:center; font-size:12px; line-height:1; color:var(--tt-ink-3); background:transparent; border:none; border-radius:6px; cursor:pointer; }
+.mlq-rail-settings-close:hover { background:var(--tt-bg); color:var(--tt-pink); }
+.mlq-current { margin-bottom:8px; position:relative; }
+.mlq-current.is-paused .mlq-item.live { opacity:.6; filter:saturate(.5); }
+.mlq-current.is-paused::after { content:"⏸ Đã tạm dừng"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.72); color:#fff; font-weight:800; font-size:13px; padding:5px 13px; border-radius:999px; pointer-events:none; letter-spacing:.3px; }
 .mlq-idle { padding:10px; text-align:center; color:var(--tt-ink-3); font-size:12.5px; background:var(--tt-bg-2); border-radius:9px; }
 /* Hàng chờ: mỗi quà = 1 HÀNG NGANG full-width, xếp chồng dọc (phát lần lượt từ trên xuống). */
 .mlq-list { display:flex; flex-direction:column; gap:5px; }

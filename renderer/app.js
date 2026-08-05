@@ -1188,7 +1188,10 @@ const MusicQueue = (() => {
   let audio = null, pre = null, current = null, playing = false, seq = 0;
   // Video (mp4/webm) phát trên overlay OBS, không dùng <audio> cục bộ. videoPlayId = lượt đang chờ overlay
   // báo phát xong (qua IPC dancevideo:ended); videoTimer = dự phòng nếu overlay rớt kết nối.
-  let videoPlayId = null, videoTimer = null, videoChannel = null;
+  let videoPlayId = null, videoTimer = null, videoChannel = null, videoTimerAt = 0, videoTimerMs = 0;
+  // ⏸ TẠM DỪNG mục ĐANG PHÁT (khác STOP ALL): giữ nguyên hàng chờ, chỉ ngưng clip hiện tại.
+  // pausedEls = các <audio> thực sự đang phát lúc bấm tạm dừng (để tiếp tục đúng cái đang chạy).
+  let paused = false, pausedEls = [];
   let speedFactor = 1; // "Tốc độ theo quà": hệ số nhân tạm thời cho AUDIO đang/ sẽ phát (video do overlay lo)
   let onChange = () => {};
   // GIỮ CHUỖI: mỗi giftId có "mốc hết máu" (ms). Tặng quà → làm đầy lại; cạn dần theo thời lượng.
@@ -1281,6 +1284,7 @@ const MusicQueue = (() => {
     else if (playing) trySteal(); // đang phát → kiểm tra cướp chuỗi
   }
   async function step() {
+    paused = false; pausedEls = []; // rời clip cũ → bỏ trạng thái ⏸ (clip mới luôn phát bình thường)
     stopPre(); // dừng âm thanh mở màn cũ (nếu đang phát)
     // Rời khỏi clip video đang phát → dừng luôn video trên overlay (không để nó phát tiếp khi bỏ qua/cướp).
     if (current) { signalStickerEnd(current.giftId); if (isVideoFile(current.audioPath)) cancelVideo(); current = null; }
@@ -1307,6 +1311,7 @@ const MusicQueue = (() => {
   function cancelVideo() {
     videoPlayId = null;
     if (videoTimer) { clearTimeout(videoTimer); videoTimer = null; }
+    videoTimerMs = 0; videoTimerAt = 0;
     try { window.api.dancevideo.stopMain(videoChannel); } catch {}
     videoChannel = null;
   }
@@ -1330,7 +1335,10 @@ const MusicQueue = (() => {
         if (videoTimer) clearTimeout(videoTimer);
         // Có overlay OBS: chờ overlay báo "phát xong" (timer chỉ là trần dự phòng).
         // Không có overlay: bỏ qua nhanh (~1.8s) để hàng đợi không kẹt cả phút.
-        videoTimer = setTimeout(() => onVideoEnded(pid), (r && r.clients > 0) ? maxClipMs() : 1800);
+        videoTimerMs = (r && r.clients > 0) ? maxClipMs() : 1800;
+        videoTimerAt = Date.now();
+        videoTimer = paused ? null : setTimeout(() => onVideoEnded(pid), videoTimerMs);
+        if (paused && videoChannel) { try { window.api.dancevideo.setPaused({ channel: videoChannel, paused: true }); } catch {} }
       })
       .catch(() => onVideoEnded(pid));
   }
@@ -1365,7 +1373,38 @@ const MusicQueue = (() => {
     p.onended = go; p.onerror = go;
     p.play().catch(go);
   }
-  function skipCurrent() { stopPre(); if (audio) audio.pause(); step(); }     // bỏ cái đang phát → sang cái kế
+  function skipCurrent() { clearPause(); stopPre(); if (audio) audio.pause(); step(); }     // bỏ cái đang phát → sang cái kế
+  // ⏸ TẠM DỪNG / TIẾP TỤC mục đang phát (audio local + video overlay). KHÔNG đụng hàng chờ.
+  function isPaused() { return paused; }
+  function clearPause() { // dọn cờ tạm dừng khi rời clip (skip/stopAll/step) — không giữ trạng thái ⏸ sang clip mới
+    paused = false; pausedEls = [];
+    if (videoChannel) { try { window.api.dancevideo.setPaused({ channel: videoChannel, paused: false }); } catch {} }
+  }
+  function setPaused(on) {
+    on = !!on;
+    if (on === paused) return;
+    if (on && !current) return; // không có gì đang phát → khỏi tạm dừng
+    paused = on;
+    if (paused) {
+      // Ngưng <audio> đang phát (nhạc mở màn hoặc clip chính) + ghi lại để tiếp tục đúng cái đó.
+      pausedEls = [];
+      for (const el of [pre, audio]) { if (el && !el.paused && !el.ended && el.src) { pausedEls.push(el); try { el.pause(); } catch {} } }
+      // Video: pause trên overlay + đóng băng timer dự phòng (trừ đi phần đã trôi).
+      if (current && isVideoFile(current.audioPath) && videoChannel) {
+        try { window.api.dancevideo.setPaused({ channel: videoChannel, paused: true }); } catch {}
+        if (videoTimer) { videoTimerMs = Math.max(0, videoTimerMs - (Date.now() - videoTimerAt)); clearTimeout(videoTimer); videoTimer = null; }
+      }
+    } else {
+      for (const el of pausedEls) { try { el.play().catch(() => {}); } catch {} }
+      pausedEls = [];
+      if (current && isVideoFile(current.audioPath) && videoChannel) {
+        try { window.api.dancevideo.setPaused({ channel: videoChannel, paused: false }); } catch {}
+        if (videoPlayId && !videoTimer) { videoTimerAt = Date.now(); const pid = videoPlayId; videoTimer = setTimeout(() => onVideoEnded(pid), Math.max(300, videoTimerMs)); }
+      }
+    }
+    notify();
+  }
+  function togglePause() { setPaused(!paused); }
   // 🎲 XÚC XẮC: xáo trộn NGẪU NHIÊN thứ tự hàng chờ (Fisher–Yates) để các quà giống nhau không
   // dồn 1 cụm — ví dụ 6 AMY liền nhau sẽ được trộn xen kẽ với CoCo/HARLEY/… Giữ nguyên cái đang phát.
   function shuffle() { for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; } notify(); }
@@ -1373,6 +1412,7 @@ const MusicQueue = (() => {
   // Ngưng hẳn: dừng clip đang phát + âm mở màn, xóa hàng chờ, thả duck nhạc nền.
   function stopAll() {
     q.length = 0;
+    clearPause();
     stopPre();
     if (audio) { try { audio.pause(); } catch {} }
     cancelVideo(); // dừng luôn clip video đang phát trên overlay
@@ -1396,12 +1436,12 @@ const MusicQueue = (() => {
     notify();
     if (!playing) step(); // rảnh → phát ngay; đang phát → chờ hết clip hiện tại
   }
-  function state() { return { current, waiting: q.slice(), total: q.length }; }
+  function state() { return { current, waiting: q.slice(), total: q.length, paused }; }
   // Nhạc đang phát CÓ muốn tắt nhạc nền không (để duckRefresh gộp với các kênh video).
   function wantsDuck() { return !!(current && effectiveDuck(current)); }
   function setOnChange(fn) { onChange = fn || (() => {}); }
   function notify() { try { onChange(state()); } catch {} }
-  return { enqueue, skipCurrent, shuffle, clearAll, stopAll, clearCount, removeUid, bumpGiftToTop, state, wantsDuck, setOnChange, pushStreak: pushStreakState, onVideoEnded, setSpeedFactor };
+  return { enqueue, skipCurrent, shuffle, clearAll, stopAll, clearCount, removeUid, bumpGiftToTop, state, wantsDuck, setOnChange, pushStreak: pushStreakState, onVideoEnded, setSpeedFactor, setPaused, togglePause, isPaused };
 })();
 
 // (Đã gộp video vào MusicQueue — không còn hàng đợi video riêng. Video & mp3 phát LẦN LƯỢT chung 1 danh sách.)
@@ -1839,7 +1879,7 @@ function wireMusicRows(scope) {
     row.querySelector('.ml-auto-input').addEventListener('change', (e) => { m.autoEnabled = e.target.checked; scheduleMusicSave(); renderMusicList(); });
     row.querySelector('.ml-del').addEventListener('click', async () => {
       const nameShown = m.name || m.giftName || ('ID ' + m.giftId);
-      const ok = await window.api.shell.confirm({ title: 'Xóa quà', message: `Xóa "${nameShown}" khỏi danh sách nhạc?`, detail: 'Hành động này không thể hoàn tác.' });
+      const ok = await window.api.shell.confirm({ title: 'Xóa quà', message: `Xóa "${nameShown}" khỏi danh sách nhạc?`, detail: 'Hành động này không thể hoàn tác.', defaultYes: true });
       if (!ok) return;
       musicItems.splice(i, 1); renderMusicList(); scheduleMusicSave();
     });
@@ -2106,6 +2146,35 @@ function mlqItemHtml(it, cls, pos) {
     ${cls === 'wait' ? '<button class="mlq-x" type="button" title="Xóa khỏi danh sách phát">✕</button>' : '<em class="mlq-live">Đang phát</em>'}
   </div>`;
 }
+// Gói 1 mục cho cửa sổ DANH SÁCH PHÁT tách rời (chỉ dữ liệu, không HTML — cửa sổ tự dựng).
+let playlistWindowOn = false;
+function playlistWindowItem(it) {
+  if (!it) return null;
+  return {
+    uid: it.uid || '',
+    label: it.name || it.giftName || ('ID ' + it.giftId),
+    icon: it.icon || '',
+    file: it.audioName || soundBaseName(it.audioPath),
+    isVid: isVideoFile(it.audioPath),
+    overlayName: isVideoFile(it.audioPath) ? danceOverlayName(it.overlay) : '',
+  };
+}
+// Đẩy trạng thái DANH SÁCH PHÁT sang cửa sổ tách rời (nếu đang mở) để hiển thị realtime.
+function broadcastPlaylistWindow(st) {
+  if (!playlistWindowOn) return;
+  st = st || MusicQueue.state();
+  const limit = clampInt(musicCfg.displayLimit, 50, 1, 500);
+  const waiting = st.waiting.slice(0, limit).map(playlistWindowItem);
+  try {
+    window.api.playlist.push({
+      current: st.current ? playlistWindowItem(st.current) : null,
+      waiting,
+      total: st.total,
+      extra: Math.max(0, st.total - waiting.length),
+      paused: !!st.paused,
+    });
+  } catch {}
+}
 // Tên overlay theo cấu hình (đổi tên được); fallback WEBM 1/2/3.
 function danceOverlayName(ch) {
   const o = ((danceVideoCfg && danceVideoCfg.overlays) || []).find(x => x && x.id === ch);
@@ -2165,6 +2234,15 @@ function renderMusicQueue(st) {
     btn.addEventListener('click', () => { MusicQueue.removeUid(btn.closest('.mlq-item').dataset.uid); });
   });
   const skip = $('#mlqSkip'); if (skip) skip.disabled = !st.current;
+  const pauseBtn = $('#mlqPause');
+  if (pauseBtn) {
+    pauseBtn.disabled = !st.current;
+    pauseBtn.textContent = st.paused ? '▶' : '⏸';
+    pauseBtn.title = st.paused ? 'Tiếp tục mục đang tạm dừng' : 'Tạm dừng mục đang phát (không xóa hàng chờ)';
+    pauseBtn.classList.toggle('is-paused', !!st.paused);
+  }
+  if (cur) cur.classList.toggle('is-paused', !!st.paused);
+  broadcastPlaylistWindow(st);
 }
 // ==== UI: Tốc độ theo quà ====
 function speedRules() { return (musicCfg.speedGifts = normalizeSpeedGifts(musicCfg.speedGifts)); }
@@ -2282,7 +2360,25 @@ function wireMusicListTab() {
     $('#mlqLimit').addEventListener('input', (e) => { musicCfg.displayLimit = clampInt(e.target.value, 50, 1, 500); scheduleMusicSave(); renderMusicQueue(); });
   }
   // Thanh rail: nút ⚙ mở/đóng panel + 3 điều khiển kích thước/nền số.
-  $('#mlqRailGear')?.addEventListener('click', () => { const p = $('#mlqRailSettings'); if (p) p.hidden = !p.hidden; });
+  // ⚙ Popup kích thước icon/số: mở/đóng bằng nút ⚙, nút ✕, bấm ra ngoài, hoặc phím Esc.
+  const railGear = $('#mlqRailGear'), railPanel = $('#mlqRailSettings');
+  if (railGear && railPanel) {
+    const closeRailSettings = () => {
+      if (railPanel.hidden) return;
+      railPanel.hidden = true;
+      document.removeEventListener('mousedown', onOutside, true);
+      document.removeEventListener('keydown', onEsc, true);
+    };
+    const onOutside = (e) => { if (!railPanel.contains(e.target) && e.target !== railGear && !railGear.contains(e.target)) closeRailSettings(); };
+    const onEsc = (e) => { if (e.key === 'Escape') closeRailSettings(); };
+    const openRailSettings = () => {
+      railPanel.hidden = false;
+      document.addEventListener('mousedown', onOutside, true);
+      document.addEventListener('keydown', onEsc, true);
+    };
+    railGear.addEventListener('click', () => { railPanel.hidden ? openRailSettings() : closeRailSettings(); });
+    $('#mlqRailSettingsClose')?.addEventListener('click', closeRailSettings);
+  }
   if ($('#mlqRailIcon')) {
     $('#mlqRailIcon').value = clampFloat(musicCfg.railIconScale, 1, 0.7, 1.8);
     $('#mlqRailIcon').addEventListener('input', (e) => { musicCfg.railIconScale = clampFloat(e.target.value, 1, 0.7, 1.8); applyMusicRailCfg(); scheduleMusicSave(); });
@@ -2300,6 +2396,15 @@ function wireMusicListTab() {
   $('#mlqClearAll')?.addEventListener('click', () => { MusicQueue.stopAll(); Backgrounds.stopAll(); toast('Đã ngưng & xóa toàn bộ danh sách phát', 'success'); });
   $('#mlqClearN')?.addEventListener('click', () => { const n = clampInt($('#mlqClearNum')?.value, 10, 1, 100000); MusicQueue.clearCount(n); toast(`Đã xóa ${n} quà đầu hàng chờ`, 'success'); });
   $('#mlqSkip')?.addEventListener('click', () => MusicQueue.skipCurrent());
+  $('#mlqPause')?.addEventListener('click', () => { MusicQueue.togglePause(); renderMusicQueue(); });
+  $('#mlqPopout')?.addEventListener('click', async () => {
+    await window.api.playlist.open();
+    playlistWindowOn = true;
+    broadcastPlaylistWindow();
+    toast('🖥 Đã tách DANH SÁCH PHÁT ra cửa sổ riêng', 'success');
+  });
+  // Cửa sổ tách rời vừa mở/nạp xong → đẩy trạng thái hiện tại sang ngay.
+  window.api.on('playlist:requestState', () => { playlistWindowOn = true; broadcastPlaylistWindow(); });
   $('#mlqShuffle')?.addEventListener('click', () => { MusicQueue.shuffle(); toast('🎲 Đã xáo trộn thứ tự hàng chờ', 'success'); });
   // Tốc độ theo quà
   $('#sgAdd')?.addEventListener('click', () => { speedRules().push(normalizeSpeedGift({})); scheduleMusicSave(); renderSpeedGifts(); });
@@ -9019,16 +9124,20 @@ function renderScoreBridge() {
   const lock = $('#rkLockVoteRunning');
   if (lock) lock.checked = scoreLinkVoteLock;
   applyVoteLockState();
-  renderScoreApply(c);
+  // Nút cộng tay dự phòng: nhận cả Creator đang tính điểm (khi chưa VOTE) để không kẹt điểm sau khi DỪNG tay.
+  renderScoreApply(c || creators.find(x => String(x.id) === String(latestScoreState?.creatorId || '')));
 }
 
 // TỰ ĐỘNG cộng điểm Tính điểm vào BXH khi lượt kết thúc (đã bật Liên kết). Idempotent theo lượt chạy.
 async function autoApplyScoreToRanking(st) {
-  const c = getVotedCreator();
+  // Ưu tiên Creator đang VOTE; nếu chưa VOTE (vd bắt đầu từ tab TÍNH ĐIỂM) → dùng Creator đang tính điểm.
+  // Nhờ vậy "hết giờ tự cộng" chạy dù bắt đầu từ đâu, KHÔNG phụ thuộc PK Nhóm hay trò chơi khác.
+  const c = getVotedCreator() || creators.find(x => String(x.id) === String(st?.creatorId || ''));
   const score = Math.max(0, Number(st?.score) || 0);
   const runKey = String(st?.runStartedAt || st?.resultAt || '');
-  if (!c || score <= 0) return;
   if (scoreApplyBatchId && scoreApplyRunKey === runKey) return; // đã cộng cho lượt này rồi
+  if (score <= 0) return; // không có điểm để cộng
+  if (!c) { toast('⚠ Chưa chọn Creator (VOTE hoặc ở tab Tính điểm) → không thể tự cộng điểm vào BXH', 'error'); return; }
   const res = await window.api.ranking.applyScore(c.id, score, `🎯 Tính điểm (${st.status === 'success' ? 'đạt' : 'chưa đạt'})`);
   if (res?.ok) {
     scoreApplyBatchId = res.batch.id;
