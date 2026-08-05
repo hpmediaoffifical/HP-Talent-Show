@@ -1830,8 +1830,15 @@ class PkDuoEngine {
     }
   }
   addPoints(side, points) {
-    if (side === 'A') this.state.scoreA += Number(points) || 0;
-    else if (side === 'B') this.state.scoreB += Number(points) || 0;
+    const pts = Number(points) || 0;
+    if (side === 'A') this.state.scoreA += pts;
+    else if (side === 'B') this.state.scoreB += pts;
+    // Liên kết BXH: điểm cộng/trừ TAY hoặc nút Test cũng chảy realtime vào THI ĐẤU NHÓM (giống quà thật
+    // ở routeGift). Nhờ vậy thanh PK Đôi và bảng xếp hạng LUÔN khớp, khỏi ghi chú tay rồi áp sau.
+    if (pts && this.config.linkRanking && this.onRankingPoints) {
+      const team = side === 'A' ? this.config.teamA : this.config.teamB;
+      if (team && team.creatorId) this.onRankingPoints(team.creatorId, pts, {});
+    }
     this._emit();
   }
   // Test quà: cộng/trừ cho phe A/B điểm của quà phe đó × số lượng (dùng nút thử trong app).
@@ -2168,8 +2175,14 @@ class KcDuoEngine {
     return names.find(n => n !== cur && !skip.has(n)) || '';
   }
   addPoints(side, points) {
-    if (side === 'A') this.state.scoreA += Number(points) || 0;
-    else if (side === 'B') this.state.scoreB += Number(points) || 0;
+    const pts = Number(points) || 0;
+    if (side === 'A') this.state.scoreA += pts;
+    else if (side === 'B') this.state.scoreB += pts;
+    // Liên kết BXH: dồn về 🎤 Người đang diễn (khớp routeGift) — test/cộng-tay cũng realtime vào THI ĐẤU NHÓM.
+    if (pts && this.config.linkRanking && this.onRankingPoints) {
+      const cid = this._performerCreatorId();
+      if (cid) this.onRankingPoints(cid, pts, {});
+    }
     this._emit();
   }
   testGift(side, qty = 1, sign = 1) {
@@ -2513,7 +2526,7 @@ class PkGroupEngine {
     this.config.participants = (this.config.participants || []).map(p => ({ ...p, streak: 0 }));
     this._emit();
   }
-  addPoints(id, points) {
+  addPoints(id, points, ev = {}) {
     if (!id) return;
     const beforeScores = { ...(this.state.scores || {}) };
     const beforeRank = this._rankIndex(id, beforeScores);
@@ -2531,6 +2544,15 @@ class PkGroupEngine {
       this.state.boostId = id;
       this.state.boostAt = Date.now();
       this.state.boostDir = passed && selfIndex >= 0 && passed.order < selfIndex ? 'left' : 'right';
+    }
+    // Liên kết BXH: MỌI đường cộng điểm (quà thật qua routeGift, nút Test, cộng tay) đều đi qua addPoints
+    // → 1 nguồn duy nhất đẩy realtime vào THI ĐẤU NHÓM cho Creator của participant (routeGift KHÔNG cộng lại
+    // để tránh đếm đôi). Nhờ vậy thanh PK Nhóm và bảng xếp hạng LUÔN khớp.
+    const pts = Number(points) || 0;
+    if (pts && this.config.linkRanking && this.onRankingPoints) {
+      const part = (this.config.participants || []).find(p => p.id === id);
+      const cid = (part && (part.creatorId || part.id)) || id;
+      if (cid) this.onRankingPoints(cid, pts, ev);
     }
     this._emit();
   }
@@ -2611,12 +2633,10 @@ class PkGroupEngine {
       }
     }
     if (!target) return;
-    this.addPoints(target.id, pts);
+    // addPoints tự đẩy realtime vào THI ĐẤU NHÓM (Liên kết BXH) — 1 nguồn duy nhất, khỏi cộng lại ở đây.
+    // Truyền ev thật để giữ dedup token + icon/tên quà hiện trên hàng Creator ở BXH.
+    this.addPoints(target.id, pts, ev);
     this._addGifter(target.id, ev, pts);
-    // Liên kết BXH: cộng realtime cho Creator của participant này (nếu có).
-    if (this.config.linkRanking && this.onRankingPoints && (target.creatorId || target.id)) {
-      this.onRankingPoints(target.creatorId || target.id, pts, ev);
-    }
   }
   _finalizeRound() {
     if (this.state.resultHandled) return;
