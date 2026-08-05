@@ -7522,9 +7522,9 @@ async function loadKcConfig() {
   $('#kcFlipMode').value = kcCfg.flipMarginMode;
   $('#kcTimerPos').value = kcCfg.timerPos;
   $('#kcAname').value = kcCfg.teamA?.name || 'KEEP/GIỮ';
-  $('#kcAcolor').value = normalizeHexColor(kcCfg.teamA?.color, '#e60045');
+  $('#kcAcolor').value = normalizeHexColor(kcCfg.teamA?.color, '#FE2C55');
   $('#kcBname').value = kcCfg.teamB?.name || 'CHANGE/ĐỔI';
-  $('#kcBcolor').value = normalizeHexColor(kcCfg.teamB?.color, '#00afdb');
+  $('#kcBcolor').value = normalizeHexColor(kcCfg.teamB?.color, '#00D5FF');
   const d = kcCfg.durationSec || 90;
   $('#kcDurH').value = Math.floor(d / 3600);
   $('#kcDurM').value = Math.floor((d % 3600) / 60);
@@ -7842,13 +7842,13 @@ function renderKcPreview(st) {
         <span>🔁 Vòng: <b>${formatNumber(st.totalRounds || 0)}</b></span>
       </div>
       <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; font-size:13px; opacity:.92">
-        <b style="color:${escapeAttr(a.color || '#22c55e')}">${escapeHtml(a.name || 'GIỮ')}</b>
+        <b style="color:${escapeAttr(a.color || '#FE2C55')}">${escapeHtml(a.name || 'GIỮ')}</b>
         <span style="text-align:center">${escapeHtml(statusText)}</span>
-        <b style="text-align:right; color:${escapeAttr(b.color || '#ef4444')}">${escapeHtml(b.name || 'ĐỔI')}</b>
+        <b style="text-align:right; color:${escapeAttr(b.color || '#00D5FF')}">${escapeHtml(b.name || 'ĐỔI')}</b>
       </div>
       <div style="display:flex; align-items:center; gap:8px">
         <strong style="font-size:24px; min-width:70px; text-align:center; line-height:1">${formatNumber(st.scoreA || 0)}</strong>
-        <div style="flex:1; height:18px; border-radius:10px; background:linear-gradient(90deg, ${escapeAttr(a.color || '#22c55e')} 0 ${50 + push}%, ${escapeAttr(b.color || '#ef4444')} ${50 + push}% 100%); transition:all .3s"></div>
+        <div style="flex:1; height:18px; border-radius:10px; background:linear-gradient(90deg, ${escapeAttr(a.color || '#FE2C55')} 0 ${50 + push}%, ${escapeAttr(b.color || '#00D5FF')} ${50 + push}% 100%); transition:all .3s"></div>
         <strong style="font-size:24px; min-width:70px; text-align:center; line-height:1">${formatNumber(st.scoreB || 0)}</strong>
       </div>
     </div>`;
@@ -7967,7 +7967,8 @@ function wireKcDuoTab() {
   ['kcContent', 'kcPerformer', 'kcNextName', 'kcDefend', 'kcRounds', 'kcFlipMargin', 'kcFlipMode', 'kcTimerPos', 'kcAname', 'kcBname', 'kcAcolor', 'kcBcolor', 'kcDurH', 'kcDurM', 'kcDurS', 'kcPrep', 'kcDelay', 'kcPointsBy', 'kcTextSize', 'kcGiftSize', 'kcGiftDisplayMode', 'kcSkin'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
-    el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', scheduleKcAutoSave);
+    // Ô màu nghe 'input' (cập nhật REALTIME khi kéo bảng màu), chỉ SELECT dùng 'change'.
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', scheduleKcAutoSave);
   });
   wireSkinHint('kcSkin', 'kcSkinHint');
 

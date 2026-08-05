@@ -408,7 +408,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; background:transparent; }
 
 .ranking-main { min-width:0; overflow:hidden; padding-right:2px; }
-.ranking-name { min-width:0; max-width:12.5ch; color:#f8fafc; font-size:12.5px; font-weight:400; line-height:1; overflow:hidden; white-space:nowrap; }
+.ranking-name { min-width:0; max-width:12.5ch; color:#f8fafc; font-size:12.5px; font-weight:700; line-height:1; overflow:hidden; white-space:nowrap; }
 .ranking-name span { display:block; width:max-content; }
 .ranking-name.long span { animation:rankingNameMarquee 6s linear infinite; }
 .ranking-name.long b { padding-left:22px; font:inherit; }

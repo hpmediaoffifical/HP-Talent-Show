@@ -1,7 +1,7 @@
 {
   "teamA": {
     "name": "KEEP/GIỮ",
-    "color": "#e60045",
+    "color": "#fe2c55",
     "gifts": [
       {
         "giftName": "Rose",
@@ -10,10 +10,10 @@
         "diamond": 1
       }
     ],
-    "creatorId": "c_mrtg3hpifvot2",
-    "creatorName": "Mila",
-    "groupId": "g_mrtfzmllcbctz",
-    "groupName": "HP•BLACKSWAN 🦢",
+    "creatorId": "c_mrtg6equcq0ak",
+    "creatorName": "jennnn",
+    "groupId": "g_mrtfzw3uo757s",
+    "groupName": "HP•SYNORA",
     "nameOverride": true,
     "giftOverride": true,
     "fixedGifts": [],
@@ -28,7 +28,7 @@
   },
   "teamB": {
     "name": "CHANGE/ĐỔI",
-    "color": "#10caf9",
+    "color": "#00d5ff",
     "gifts": [
       {
         "giftName": "TikTok",
@@ -37,10 +37,10 @@
         "diamond": 1
       }
     ],
-    "creatorId": "c_mrtg3m6gzufnt",
-    "creatorName": "Hihi",
-    "groupId": "g_mrtfzmllcbctz",
-    "groupName": "HP•BLACKSWAN 🦢",
+    "creatorId": "c_mrtg6ixt162hs",
+    "creatorName": "Fengg",
+    "groupId": "g_mrtfzw3uo757s",
+    "groupName": "HP•SYNORA",
     "nameOverride": true,
     "giftOverride": true,
     "fixedGifts": [],
@@ -64,11 +64,11 @@
     "Zyzy"
   ],
   "rotationSkip": [],
-  "defendStreak": 0,
-  "totalRounds": 0,
+  "defendStreak": 8,
+  "totalRounds": 8,
   "flipMargin": 0,
   "flipMarginMode": "point",
-  "durationSec": 10,
+  "durationSec": 30,
   "prepSec": 0,
   "delaySec": 7,
   "joinMode": true,
@@ -89,5 +89,5 @@
   "changeSound": "",
   "drawSound": "",
   "giftDisplayMode": "scroll",
-  "skin": "auto"
+  "skin": "noel"
 }

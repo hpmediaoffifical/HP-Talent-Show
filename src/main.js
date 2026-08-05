@@ -1847,8 +1847,8 @@ class KcDuoEngine {
     this.getCreators = typeof getCreators === 'function' ? getCreators : () => [];
     this.config = {
       // Mặc định GIỮ = HOA HỒNG (Rose TikTok, id 5655); ĐỔI để trống cho MC chọn quà khác (2 phe không trùng).
-      teamA: { name: 'KEEP/GIỮ', color: '#e60045', gifts: [{ giftName: 'Rose', giftId: '5655', icon: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp', diamond: 1 }] }, // Keep
-      teamB: { name: 'CHANGE/ĐỔI', color: '#00afdb', gifts: [] }, // Change
+      teamA: { name: 'KEEP/GIỮ', color: '#FE2C55', gifts: [{ giftName: 'Rose', giftId: '5655', icon: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp', diamond: 1 }] }, // Keep — đỏ hồng TikTok
+      teamB: { name: 'CHANGE/ĐỔI', color: '#00D5FF', gifts: [] }, // Change — xanh dương TikTok (0,213,255)
       performerName: '', // người đang diễn (ghế nóng) — hiện trên thanh máu
       nextName: '',      // người kế tiếp — nhập trước; khi ĐỔI thắng thì lên ghế
       rotationOrder: [], // thứ tự lượt diễn (mảng tên) — MC xếp theo vị trí thật; điều khiển gợi ý người kế tiếp

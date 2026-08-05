@@ -22,11 +22,12 @@ let lastScoreA = 0, lastScoreB = 0, hasPrevScore = false;
 //   --kc-surge   : 0..1 cường độ "va chạm" ở ranh giới (phân rã nhanh)
 //   --kc-wave    : 0..1 tiến trình sóng xung kích lan ra; --kc-wave-op độ mờ; --kc-surge-dir hướng
 //   --kc-pop-a/b : 0..1 số điểm bên vừa cộng nảy lên
-const PUSH_MS = 520, SURGE_TAU = 230, WAVE_MS = 560, POP_MS = 430;
+const PUSH_MS = 520, SURGE_TAU = 230, WAVE_MS = 560, POP_MS = 430, KICK_TAU = 130;
 const easeOutBack = t => { const c = 1.5; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
 let widthCur = 50, widthFrom = 50, widthTarget = 50, widthT0 = 0, widthActive = false;
 let surgeT0 = 0, surgeActive = false, waveT0 = 0, waveActive = false;
 let popAT0 = 0, popAActive = false, popBT0 = 0, popBActive = false;
+let kickT0 = 0, kickActive = false;
 let fxRaf = 0;
 function applyWidth(v) { root.style.setProperty('--kc-a-width', v.toFixed(3) + '%'); }
 function ensureRaf() { if (!fxRaf) fxRaf = requestAnimationFrame(tick); }
@@ -51,6 +52,12 @@ function tick(now) {
   }
   if (popAActive) { const p = (now - popAT0) / POP_MS; if (p >= 1) { popAActive = false; root.style.setProperty('--kc-pop-a', '0'); } else { root.style.setProperty('--kc-pop-a', Math.sin(Math.PI * p).toFixed(3)); alive = true; } }
   if (popBActive) { const p = (now - popBT0) / POP_MS; if (p >= 1) { popBActive = false; root.style.setProperty('--kc-pop-b', '0'); } else { root.style.setProperty('--kc-pop-b', Math.sin(Math.PI * p).toFixed(3)); alive = true; } }
+  // Cú "thump" đập vào thanh máu (phân rã nhanh) → cả bar nảy nhẹ khi có bên ghi điểm.
+  if (kickActive) {
+    const v = Math.exp(-(now - kickT0) / KICK_TAU);
+    if (v < 0.02) { kickActive = false; root.style.setProperty('--kc-kick', '0'); }
+    else { root.style.setProperty('--kc-kick', v.toFixed(3)); alive = true; }
+  }
   fxRaf = alive ? requestAnimationFrame(tick) : 0;
 }
 function pushWidth(target, snap) {
@@ -70,12 +77,13 @@ function triggerGain(side, colHex) {
   if (colHex) { root.style.setProperty('--kc-surge-col', colHex); root.style.setProperty('--kc-surge-rgb', hexToRgb(colHex, '255,255,255')); }
   surgeT0 = now; surgeActive = true;
   waveT0 = now; waveActive = true;
+  kickT0 = now; kickActive = true;
   if (side === 'A') { popAT0 = now; popAActive = true; } else { popBT0 = now; popBActive = true; }
   ensureRaf();
 }
 function resetFx() {
-  surgeActive = waveActive = popAActive = popBActive = false;
-  ['--kc-surge', '--kc-wave', '--kc-wave-op', '--kc-pop-a', '--kc-pop-b', '--kc-move'].forEach(k => root.style.setProperty(k, '0'));
+  surgeActive = waveActive = popAActive = popBActive = kickActive = false;
+  ['--kc-surge', '--kc-wave', '--kc-wave-op', '--kc-pop-a', '--kc-pop-b', '--kc-move', '--kc-kick'].forEach(k => root.style.setProperty(k, '0'));
 }
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -111,8 +119,8 @@ function playSound(url) {
 
 function render(state = {}) {
   if (window.OverlaySkin) OverlaySkin.applySkin(state.skin);
-  const a = state.teamA || { name: 'KEEP/GIỮ', color: '#e60045', gifts: [] };
-  const b = state.teamB || { name: 'CHANGE/ĐỔI', color: '#00afdb', gifts: [] };
+  const a = state.teamA || { name: 'KEEP/GIỮ', color: '#FE2C55', gifts: [] };
+  const b = state.teamB || { name: 'CHANGE/ĐỔI', color: '#00D5FF', gifts: [] };
   const sec = Math.ceil((state.remainingMs || 0) / 1000);
   const status = state.status || 'idle';
   const runKey = String(state.startedAt || 'idle');
@@ -136,10 +144,9 @@ function render(state = {}) {
   const showResult = status === 'finished';
   let winner = state.winnerSide === 'A' || state.winnerSide === 'B' ? state.winnerSide : '';
   if (showResult && !winner) winner = (Number(state.scoreB || 0) - Number(state.scoreA || 0)) > 0 ? 'B' : 'A';
-  const aWin = showResult && winner === 'A';
-  const bWin = showResult && winner === 'B';
-  const resultA = showResult ? `<strong class="kc-result a ${aWin ? 'win' : 'lose'}">${aWin ? 'WIN' : 'LOSE'}</strong>` : '';
-  const resultB = showResult ? `<strong class="kc-result b ${bWin ? 'win' : 'lose'}">${bWin ? 'WIN' : 'LOSE'}</strong>` : '';
+  // Không hiển thị badge WIN/LOSE nữa (chỉ giữ winnerSide cho âm thanh kết quả).
+  const resultA = '';
+  const resultB = '';
 
   const neutral = Number(state.scoreA || 0) === Number(state.scoreB || 0);
   const aLead = Number(state.scoreA || 0) > Number(state.scoreB || 0);
@@ -176,21 +183,25 @@ function render(state = {}) {
   const overlayScale = Math.max(.8, Math.min(3, useScale / 100));
 
   const giftDelay = -((Date.now() % 9000) / 1000).toFixed(3);
+  // Vệt sáng ƯU THẾ lặp 3.6s (khớp @keyframes kcBeamRun): delay ÂM neo theo đồng hồ tường
+  // → sau mỗi lần render dựng lại innerHTML, animation vẫn tiếp tục đúng pha (không giật/nhảy).
+  const beamDelay = -((Date.now() % 3600) / 1000).toFixed(3);
   const content = String(state.content || '').trim();
 
   const boardStyle = `
-    --kc-a:${esc(a.color || '#e60045')};
-    --kc-a-rgb:${hexToRgb(a.color || '#e60045', '230,0,69')};
-    --kc-b:${esc(b.color || '#00afdb')};
-    --kc-b-rgb:${hexToRgb(b.color || '#00afdb', '0,175,219')};
+    --kc-a:${esc(a.color || '#FE2C55')};
+    --kc-a-rgb:${hexToRgb(a.color || '#FE2C55', '254,44,85')};
+    --kc-b:${esc(b.color || '#00D5FF')};
+    --kc-b-rgb:${hexToRgb(b.color || '#00D5FF', '0,213,255')};
     --kc-gift:${Math.max(28, Math.min(90, parseInt(state.giftSize, 10) || 46))}px;
     --kc-text:${Math.max(14, Math.min(42, parseInt(state.textSize, 10) || 21))}px;
     --kc-scale:${overlayScale};
-    --kc-gift-delay:${giftDelay}s`;
+    --kc-gift-delay:${giftDelay}s;
+    --kc-beam-delay:${beamDelay}s`;
   const boardClass = `kc-board status-${esc(status)} ${barClass} tpos-${timerPos}${urgent ? ' urgent' : ''}${tick10 ? ' tick10' : ''}${finalCount ? ' final-count' : ''}`;
 
   const roundChip = `<span class="kc-chip kc-round" title="Số vòng đã chạy">Vòng:<b>${rounds}</b></span>`;
-  const defendChip = defend > 0 ? `<span class="kc-chip kc-defend" title="Số vòng người đang diễn giữ được ghế">MVP:<b>${defend}</b></span>` : '';
+  const defendChip = defend > 0 ? `<span class="kc-chip kc-defend" title="Số vòng người đang diễn giữ được ghế">CHUỖI:<b>${defend}</b></span>` : '';
   const timerHtml = `<div class="kc-timer status-${esc(status)}">${showClock ? '<i class="kc-clock" aria-hidden="true"></i>' : ''}<b>${esc(statusText)}</b></div>`;
   // Tiêu đề: KHÔNG nhập nội dung → tự ẩn (không chiếm chỗ). Có nhập → hiện, căn giữa trên cùng.
   const titleHtml = content ? `<div class="kc-head"><span class="kc-title">${esc(content)}</span></div>` : '';
@@ -213,7 +224,9 @@ function render(state = {}) {
       <span class="kc-gift left">${giftLane(a.gifts, giftMode)}</span>
       <div class="kc-bar">
         <span class="kc-fill" aria-hidden="true"></span>
+        <span class="kc-beam" aria-hidden="true"><span class="kc-beam-band"></span></span>
         <span class="kc-wave" aria-hidden="true"></span>
+        <span class="kc-streak" aria-hidden="true"></span>
         ${holdMark}
         <span class="kc-seam" aria-hidden="true"></span>
         <span class="kc-flare" aria-hidden="true"></span>
@@ -236,7 +249,7 @@ function render(state = {}) {
     if (dA > 0 && dB > 0) gainSide = dA >= dB ? 'A' : 'B';
     else if (dA > 0) gainSide = 'A';
     else if (dB > 0) gainSide = 'B';
-    if (gainSide) triggerGain(gainSide, gainSide === 'A' ? (a.color || '#e60045') : (b.color || '#00afdb'));
+    if (gainSide) triggerGain(gainSide, gainSide === 'A' ? (a.color || '#FE2C55') : (b.color || '#00D5FF'));
   }
   lastScoreA = sA; lastScoreB = sB; hasPrevScore = true;
 

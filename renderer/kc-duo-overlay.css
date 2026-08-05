@@ -22,16 +22,25 @@ body { display:flex; justify-content:center; align-items:center; }
 .kc-team-label { display:flex; align-items:center; min-width:0; gap:8px; }
 .kc-team-label.a { justify-content:flex-start; }
 .kc-team-label.b { justify-content:flex-end; }
-.kc-name { display:inline-flex; align-items:center; width:fit-content; max-width:100%; min-width:0; padding:.14em .46em; border:1px solid rgba(255,255,255,.58); border-radius:.32em; background:rgba(5,8,20,.22); font-size:var(--kc-text, 21px); font-weight:950; letter-spacing:.01em; white-space:nowrap; overflow:hidden;
-  text-shadow:0 2px 8px rgba(0,0,0,.95), 0 0 14px currentColor; flex:0 1 auto; }
-.kc-name.a { color:var(--kc-a, #22c55e); justify-self:start; }
-.kc-name.b { color:var(--kc-b, #ef4444); justify-self:end; text-align:right; }
+/* Badge tên đội: KHÔNG viền trắng — nền gradient theo màu phe + quầng sáng cùng màu → nổi bật trên nền tối. */
+/* Padding lệch dọc (.063em) bù metric font: thân chữ HOA nằm giữa TUYỆT ĐỐI (line box vốn chừa chỗ descender rỗng). */
+.kc-name { display:inline-flex; align-items:center; width:fit-content; max-width:100%; min-width:0; padding:calc(.16em - .063em) .64em calc(.16em + .063em); border-radius:.5em; font-size:calc(var(--kc-text, 21px) * .76); font-weight:900; letter-spacing:.045em; white-space:nowrap; overflow:hidden; flex:0 1 auto;
+  color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.6); }
+.kc-name.a { justify-self:start;
+  background:linear-gradient(180deg, rgba(var(--kc-a-rgb, 254,44,85),.96), rgba(var(--kc-a-rgb, 254,44,85),.6));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4), inset 0 -1px 3px rgba(0,0,0,.28), 0 3px 12px rgba(var(--kc-a-rgb, 254,44,85),.55); }
+.kc-name.b { justify-self:end; text-align:right;
+  background:linear-gradient(180deg, rgba(var(--kc-b-rgb, 0,213,255),.96), rgba(var(--kc-b-rgb, 0,213,255),.6));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4), inset 0 -1px 3px rgba(0,0,0,.28), 0 3px 12px rgba(var(--kc-b-rgb, 0,213,255),.55); }
 
 /* Đồng hồ / trạng thái — KHÔNG nền, chỉ chữ (đếm lùi, BẮT ĐẦU, TÍNH ĐIỂM, KẾT THÚC). */
 .kc-timer { display:inline-flex; align-items:center; justify-content:center; gap:8px; color:#fff;
   font-size:calc(var(--kc-text, 21px) * 1.2); font-weight:950; line-height:1; white-space:nowrap;
   text-shadow:0 2px 7px rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.9); }
 .kc-timer b { font:inherit; color:inherit; }
+/* Trạng thái CHỮ (SẴN SÀNG · TÍNH ĐIỂM · KẾT THÚC) nhỏ & thanh hơn số đếm lùi. */
+.kc-timer.status-idle, .kc-timer.status-finished, .kc-timer.status-grace {
+  font-size:calc(var(--kc-text, 21px) * .78); font-weight:900; letter-spacing:.06em; }
 .tpos-left .kc-timer { justify-self:start; margin-left:8%; }
 .tpos-right .kc-timer { justify-self:end; margin-right:8%; }
 .tpos-center .kc-timer { justify-self:center; }
@@ -52,36 +61,67 @@ body { display:flex; justify-content:center; align-items:center; }
 .kc-gift-track { display:inline-flex; width:max-content; animation:kcGiftScroll 9s linear infinite; animation-delay:var(--kc-gift-delay,0s); }
 .kc-gift-seq { display:inline-flex; }
 
-.kc-bar { position:relative; flex:1 1 auto; height:32px; border-radius:14px; overflow:hidden; box-shadow:inset 0 0 0 2px rgba(255,255,255,.16), inset 0 3px 8px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.35); }
-.kc-fill { position:absolute; inset:0; background:linear-gradient(90deg, var(--kc-a, #22c55e) 0 var(--kc-a-width, 50%), var(--kc-b, #ef4444) var(--kc-a-width, 50%) 100%); }
+/* Cả bar nảy "thump" khi có bên ghi điểm (--kc-kick phân rã) — kéo giãn nhẹ theo trục dọc + phồng ngang tí. */
+.kc-bar { position:relative; flex:1 1 auto; height:32px; border-radius:14px; overflow:hidden; box-shadow:inset 0 0 0 2px rgba(255,255,255,.16), inset 0 3px 8px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.35);
+  transform:scaleX(calc(1 + var(--kc-kick, 0) * .018)) scaleY(calc(1 + var(--kc-kick, 0) * .11)); transform-origin:center; }
+.kc-fill { position:absolute; inset:0; background:linear-gradient(90deg, var(--kc-a, #FE2C55) 0 var(--kc-a-width, 50%), var(--kc-b, #00D5FF) var(--kc-a-width, 50%) 100%); }
 .kc-fill::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0) 46%, rgba(0,0,0,.18)); }
+
+/* ===== Vệt sáng ƯU THẾ (dominance beam): chạy LIÊN TỤC từ bên đang THẮNG sang bên thua rồi tự lặp.
+   Cơ chế: 1 dải sáng con (.kc-beam-band) trượt ngang hết bar (@keyframes) → LỚP MẶT NẠ (mask) hình bao
+   cường độ đè lên: nửa bên THẮNG alpha cao (sáng mạnh), nửa bên THUA alpha thấp (nhẹ lại). Ranh giới bao
+   bám đúng vạch chia --kc-a-width nên tự dời theo máu. Hướng chạy đảo theo lead-a/lead-b. OBS-safe (mask+transform). */
+.kc-board.lead-a { --kc-env-l:1; --kc-env-r:.24; }   /* A (trái) thắng → sáng mạnh nửa trái, nhẹ nửa phải */
+.kc-board.lead-b { --kc-env-l:.24; --kc-env-r:1; }   /* B (phải) thắng → ngược lại */
+/* Hình bao cường độ: đổ dốc MỀM qua vạch chia (ramp rộng ±15%) → sáng-mờ chuyển mượt, không gãy bậc. */
+.kc-beam { position:absolute; inset:0; z-index:2; pointer-events:none; overflow:hidden; opacity:0;
+  -webkit-mask:linear-gradient(90deg, rgba(0,0,0,var(--kc-env-l, .4)) 0, rgba(0,0,0,var(--kc-env-l, .4)) calc(var(--kc-a-width, 50%) - 15%), rgba(0,0,0,var(--kc-env-r, .4)) calc(var(--kc-a-width, 50%) + 15%), rgba(0,0,0,var(--kc-env-r, .4)) 100%);
+          mask:linear-gradient(90deg, rgba(0,0,0,var(--kc-env-l, .4)) 0, rgba(0,0,0,var(--kc-env-l, .4)) calc(var(--kc-a-width, 50%) - 15%), rgba(0,0,0,var(--kc-env-r, .4)) calc(var(--kc-a-width, 50%) + 15%), rgba(0,0,0,var(--kc-env-r, .4)) 100%);
+  transition:opacity .5s ease; }
+.lead-a .kc-beam, .lead-b .kc-beam { opacity:1; }    /* chỉ chạy khi có bên dẫn (hoà → mờ đi) */
+/* Dải sáng: lõi sáng nhẹ (feather 2 bên) + quầng glow tản → cảm giác kính/ánh sáng, không phải thanh trắng cứng. */
+.kc-beam-band { position:absolute; top:1px; bottom:1px; left:0; width:34%; border-radius:50%;
+  background:
+    radial-gradient(58% 135% at 50% 50%, rgba(255,255,255,.16), rgba(255,255,255,0) 72%),
+    linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.34) 38%, rgba(255,255,255,.6) 50%, rgba(255,255,255,.34) 62%, rgba(255,255,255,0));
+  animation:kcBeamRun 3.6s linear infinite; animation-delay:var(--kc-beam-delay, 0s); }
+.lead-b .kc-beam-band { animation-direction:reverse; }  /* B thắng → chạy phải→trái */
 
 /* ===== FX đẩy máu qua lại (điều khiển 100% bằng biến CSS trên root → sống sót rebuild, OBS-safe) ===== */
 /* Sóng xung kích: quầng sáng lan ra phía đội vừa ghi điểm rồi tan. */
 .kc-wave { position:absolute; top:50%; left:var(--kc-a-width, 50%); width:64px; height:150%; z-index:2; pointer-events:none; border-radius:50%;
-  transform:translate(calc(-50% + var(--kc-surge-dir, 1) * var(--kc-wave, 0) * 78px), -50%) scale(calc(.55 + var(--kc-wave, 0) * 1.5));
-  opacity:calc(var(--kc-wave-op, 0) * .85);
-  background:radial-gradient(closest-side, rgba(255,255,255,.9), rgba(var(--kc-surge-rgb, 255,255,255),.45) 44%, rgba(var(--kc-surge-rgb, 255,255,255),0) 74%); }
+  transform:translate(calc(-50% + var(--kc-surge-dir, 1) * var(--kc-wave, 0) * 94px), -50%) scale(calc(.55 + var(--kc-wave, 0) * 1.8));
+  opacity:calc(var(--kc-wave-op, 0) * .9);
+  background:radial-gradient(closest-side, rgba(255,255,255,.95), rgba(var(--kc-surge-rgb, 255,255,255),.5) 44%, rgba(var(--kc-surge-rgb, 255,255,255),0) 74%); }
+/* Vệt tốc độ: 3 lằn sáng bắn từ ranh giới về phía đội vừa đẩy máu → cảm giác "tống lực". */
+.kc-streak { position:absolute; top:3px; bottom:3px; left:var(--kc-a-width, 50%); width:78px; z-index:3; pointer-events:none; border-radius:6px;
+  transform:translate(calc(-50% + var(--kc-surge-dir, 1) * var(--kc-wave, 0) * 90px), 0) scaleX(calc(.5 + var(--kc-wave, 0) * .95));
+  opacity:calc(var(--kc-wave-op, 0) * .72);
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,0) 0 7px, rgba(255,255,255,.9) 7px 9px);
+  -webkit-mask:linear-gradient(90deg, transparent, #000 35% 65%, transparent);
+          mask:linear-gradient(90deg, transparent, #000 35% 65%, transparent); }
 /* Vạch chia: phát sáng mạnh hơn khi máu đang di chuyển (--kc-move). */
 .kc-seam { position:absolute; top:0; bottom:0; left:var(--kc-a-width, 50%); width:4px; transform:translateX(-50%); background:rgba(255,255,255,.95);
   box-shadow:0 0 calc(9px + var(--kc-move, 0) * 15px) rgba(255,255,255, calc(.85 + var(--kc-move, 0) * .15)); }
 /* Flare va chạm: cột sáng bùng lên tại ranh giới đúng lúc có bên ghi điểm (--kc-surge). */
 .kc-flare { position:absolute; top:0; bottom:0; left:var(--kc-a-width, 50%); z-index:5; pointer-events:none; border-radius:8px;
-  width:calc(4px + var(--kc-surge, 0) * 22px); transform:translateX(-50%); opacity:calc(var(--kc-surge, 0) * .95);
-  background:linear-gradient(90deg, rgba(var(--kc-surge-rgb, 255,255,255),0), rgba(255,255,255,.98) 45% 55%, rgba(var(--kc-surge-rgb, 255,255,255),0));
-  box-shadow:0 0 calc(6px + var(--kc-surge, 0) * 30px) rgba(var(--kc-surge-rgb, 255,255,255), calc(var(--kc-surge, 0) * .9)); }
+  width:calc(4px + var(--kc-surge, 0) * 28px); transform:translateX(-50%) scaleY(calc(1 + var(--kc-surge, 0) * .18)); opacity:calc(var(--kc-surge, 0) * .98);
+  background:linear-gradient(90deg, rgba(var(--kc-surge-rgb, 255,255,255),0), rgba(255,255,255,1) 45% 55%, rgba(var(--kc-surge-rgb, 255,255,255),0));
+  box-shadow:0 0 calc(6px + var(--kc-surge, 0) * 40px) rgba(var(--kc-surge-rgb, 255,255,255), calc(var(--kc-surge, 0) * .95)); }
 /* Mốc "lật kèo" (lợi thế người đương nhiệm) */
 .kc-hold { position:absolute; top:0; bottom:0; width:0; z-index:3; border-left:2px dashed rgba(255,255,255,.85); }
 .kc-hold i { position:absolute; top:-2px; left:50%; transform:translate(-50%,-100%); font-size:13px; font-style:normal; }
-.kc-score { position:absolute; top:50%; transform:translateY(-50%); z-index:4; font-size:clamp(16px, calc(var(--kc-text, 21px) * 1.12), 24px); font-weight:950; line-height:1; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.95); }
-.kc-score.a { left:12px; transform:translateY(-50%) scale(calc(1 + var(--kc-pop-a, 0) * .3)); transform-origin:left center; }
-.kc-score.b { right:12px; transform:translateY(-50%) scale(calc(1 + var(--kc-pop-b, 0) * .3)); transform-origin:right center; }
+/* --kc-score-nudge: nhích chữ số LÊN .052em (baseline chữ số nằm thấp trong em-box → mặc định bị lệch xuống).
+   Trị số đo bằng probe baseline thật (inline-block đáy chạm baseline) tối ưu cho scale 200 → ink căn giữa trên/dưới thanh máu. */
+.kc-score { position:absolute; top:50%; --kc-score-nudge:-.052em; transform:translateY(calc(-50% + var(--kc-score-nudge))); z-index:4; font-size:clamp(16px, calc(var(--kc-text, 21px) * 1.12), 24px); font-weight:950; line-height:1; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.95); }
+.kc-score.a { left:12px; transform:translateY(calc(-50% + var(--kc-score-nudge))) scale(calc(1 + var(--kc-pop-a, 0) * .3)); transform-origin:left center; }
+.kc-score.b { right:12px; transform:translateY(calc(-50% + var(--kc-score-nudge))) scale(calc(1 + var(--kc-pop-b, 0) * .3)); transform-origin:right center; }
 /* Kết quả đứng cạnh đúng tên phe, không nằm trên phần màu biến động của thanh điểm. */
 .kc-result { display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; min-height:1.7em; padding:0 .48em;
   border:1px solid currentColor; border-radius:.32em; font-size:calc(var(--kc-text, 21px) * .72); font-weight:950; letter-spacing:.08em; line-height:1; white-space:nowrap;
   color:var(--kc-result-color); text-shadow:0 2px 6px rgba(0,0,0,.95), 0 0 5px rgba(0,0,0,.9); animation:kcResIn .3s ease; }
-.kc-result.a { --kc-result-color:var(--kc-a, #22c55e); --kc-result-rgb:var(--kc-a-rgb, 34,197,94); }
-.kc-result.b { --kc-result-color:var(--kc-b, #ef4444); --kc-result-rgb:var(--kc-b-rgb, 239,68,68); }
+.kc-result.a { --kc-result-color:var(--kc-a, #FE2C55); --kc-result-rgb:var(--kc-a-rgb, 254,44,85); }
+.kc-result.b { --kc-result-color:var(--kc-b, #00D5FF); --kc-result-rgb:var(--kc-b-rgb, 0,213,255); }
 .kc-result.win { color:#fff; background:var(--kc-result-color); border-color:rgba(255,255,255,.7); box-shadow:0 0 10px rgba(var(--kc-result-rgb),.72); }
 .kc-result.lose { background:rgba(var(--kc-result-rgb),.14); border-color:rgba(var(--kc-result-rgb),.78); opacity:.72; }
 
@@ -95,12 +135,19 @@ body { display:flex; justify-content:center; align-items:center; }
 .kc-seat-mic { font-size:calc(var(--kc-text, 21px) * .9); }
 .kc-seat-name { font-size:calc(var(--kc-text, 21px) * .96); font-weight:950; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .kc-seat-next { font-size:calc(var(--kc-text, 21px) * .72); font-weight:800; color:rgba(255,255,255,.82); white-space:nowrap; }
-.kc-seat-next b { color:var(--kc-b, #ef4444); }
+.kc-seat-next b { color:var(--kc-b, #00D5FF); }
 
 @keyframes kcPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.06); } }
 @keyframes kcShake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-3px); } 75% { transform:translateX(3px); } }
 @keyframes kcResIn { from { opacity:0; } to { opacity:1; } }
 @keyframes kcGiftScroll { from { transform:translateX(0); } to { transform:translateX(-33.333%); } }
+/* Dải sáng lướt hết ngang bar rồi NGHỈ nhẹ ngoài mép trước khi lặp → nhịp thở sang, không quét dồn dập.
+   294% ≈ (100/34) để left edge đi từ -34% (ngoài trái) tới 100% (ngoài phải). Quét 0→72%, nghỉ 72→100%. */
+@keyframes kcBeamRun {
+  0%   { transform:translateX(-100%); }
+  72%  { transform:translateX(294%); }
+  100% { transform:translateX(294%); }
+}
 
 /* Review (app preview) */
 body.overlay-review { background:var(--review-bg, transparent); }
