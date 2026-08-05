@@ -410,8 +410,11 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-main { min-width:0; overflow:hidden; padding-right:2px; }
 .ranking-name { min-width:0; max-width:12.5ch; color:#f8fafc; font-size:12.5px; font-weight:700; line-height:1; overflow:hidden; white-space:nowrap; }
 .ranking-name span { display:block; width:max-content; }
-.ranking-name.long span { animation:rankingNameMarquee 6s linear infinite; }
-.ranking-name.long b { padding-left:22px; font:inherit; }
+/* Chữ chạy khi tên > 8 ký tự: span chứa 2 đoạn <i> giống hệt (mỗi đoạn kèm khoảng đệm phải) → dịch -50% đúng
+   1 đoạn → lặp vô hạn liền mạch. Duration 7s KHỚP NAME_MARQUEE_DUR_MS (JS đồng bộ pha, khỏi giật). OBS-safe:
+   chỉ transform (không filter/color-mix). */
+.ranking-name.long span { animation:rankingNameMarquee 7s linear infinite; will-change:transform; }
+.ranking-name.long i { font-style:normal; padding-right:26px; }
 .ranking-points { color:#fff; font-size:12px; font-weight:600; line-height:1; margin-top:2px; letter-spacing:.01em; }
 .ranking-points.hidden-score { color:rgba(255,255,255,.6); font-size:15px; font-weight:950; letter-spacing:2px; line-height:1; }
 .ranking-group { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:7.5px; color:rgba(255,255,255,.62); margin-top:1px; text-transform:uppercase; letter-spacing:.02em; }
