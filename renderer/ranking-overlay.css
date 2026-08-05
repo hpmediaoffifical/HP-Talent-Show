@@ -408,8 +408,9 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; background:transparent; }
 
 .ranking-main { min-width:0; overflow:hidden; padding-right:2px; }
-/* Khung tên hẹp (8ch) cho bảng ÔM SÁT nội dung; tên rộng hơn khung này TRÀN → chạy chữ (marquee overflow-based). */
-.ranking-name { min-width:0; max-width:8ch; color:#f8fafc; font-size:12.5px; font-weight:700; line-height:1; overflow:hidden; white-space:nowrap; }
+/* Khung tên = ngưỡng ký tự (--rk-name-ch, user chỉnh) → tên tới ngưỡng vừa khít, dài hơn thì .long chạy chữ.
+   +0.5ch chừa hở nhẹ để tên ĐÚNG ngưỡng không bị cắt sát mép. */
+.ranking-name { min-width:0; max-width:calc((var(--rk-name-ch, 8) + 0.5) * 1ch); color:#f8fafc; font-size:12.5px; font-weight:700; line-height:1; overflow:hidden; white-space:nowrap; }
 .ranking-name span { display:block; width:max-content; }
 /* Chữ chạy khi tên > 8 ký tự: span chứa 2 đoạn <i> giống hệt (mỗi đoạn kèm khoảng đệm phải) → dịch -50% đúng
    1 đoạn → lặp vô hạn liền mạch. Duration 7s KHỚP NAME_MARQUEE_DUR_MS (JS đồng bộ pha, khỏi giật). OBS-safe:

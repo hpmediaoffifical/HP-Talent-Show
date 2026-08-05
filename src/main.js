@@ -3262,6 +3262,8 @@ class RankingEngine {
       rankTo: 0,
       pointsBy: 'diamond',
       nameMode: 'two-line', // 'two-line' | 'marquee'
+      nameMaxChars: 7, // Chạy chữ khi tên DÀI HƠN số ký tự này (đếm code-point: emoji/dấu cách = 1). User chỉnh.
+      // Mặc định 7: tên ~8 ký tự có kèm icon (vd "NPC•YAN🔥") tự cuộn ngay; tên ngắn (≤7) đứng yên.
       streakColor: '#67e8f9',
       overlayTitleColor: '#ffffff',
       overlayBgColor: '#2a2d37',
@@ -3460,6 +3462,7 @@ class RankingEngine {
       rankTo: this.config.rankTo,
       pointsBy: this.config.pointsBy,
       nameMode: this.config.nameMode,
+      nameMaxChars: Math.max(3, Math.min(40, Number(this.config.nameMaxChars) || 8)),
       streakColor: this.config.streakColor,
       overlayTitleColor: this.config.overlayTitleColor,
       overlayBgColor: this.config.overlayBgColor,

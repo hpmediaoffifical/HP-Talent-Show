@@ -8750,6 +8750,7 @@ async function loadRankingConfig() {
   $('#rkRankFrom').value = st.rankFrom ?? 1;
   $('#rkRankTo').value = st.rankTo ?? 0;
   $('#rkNameMode').value = st.nameMode || 'two-line';
+  $('#rkNameMaxChars').value = st.nameMaxChars || 8;
   $('#rkPointsBy').value = st.pointsBy || 'diamond';
   $('#rkStreak').value = st.streakColor || '#67e8f9';
   $('#rkTitleColor').value = st.overlayTitleColor || '#ffffff';
@@ -8865,6 +8866,7 @@ function wireRankingTab() {
     rankFrom: Number($('#rkRankFrom').value) || 1,
     rankTo: Number($('#rkRankTo').value) || 0,
     nameMode: $('#rkNameMode').value,
+    nameMaxChars: Math.max(3, Math.min(40, parseInt($('#rkNameMaxChars').value, 10) || 8)),
     pointsBy: $('#rkPointsBy').value || 'diamond', // đã bỏ option "Số lượng quà"; config cũ 'count' → select rỗng → fallback Coin
     streakColor: $('#rkStreak').value,
     overlayTitleColor: $('#rkTitleColor').value,
@@ -8903,7 +8905,7 @@ function wireRankingTab() {
       await window.api.ranking.setConfig(collectRkCfg());
     }, 180);
   };
-  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkPointsBy','rkStreak','rkTitleColor','rkBg','rkBoardColor','rkBgOpacity','rkBoardOpacity','rkActiveBg','rkActiveBgOpacity','rkActiveFx','rkActiveSync','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowGroupName','rkShowTopColors','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale','rkSkin'].forEach(id => {
+  ['rkTitle','rkMode','rkMaxRows','rkRankFrom','rkRankTo','rkNameMode','rkNameMaxChars','rkPointsBy','rkStreak','rkTitleColor','rkBg','rkBoardColor','rkBgOpacity','rkBoardOpacity','rkActiveBg','rkActiveBgOpacity','rkActiveFx','rkActiveSync','rkShowRank','rkShowAvatar','rkShowGift','rkShowRound','rkShowGroupName','rkShowTopColors','rkShowActive','rkHideAllScores','rkGridRows','rkGridCols','rkGridFlow','rkAvatarScale','rkGiftScale','rkSkin'].forEach(id => {
     const el = $('#' + id);
     el.addEventListener('input', updateRkRealtime);
     el.addEventListener('change', updateRkRealtime);
