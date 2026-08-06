@@ -3343,11 +3343,14 @@ class RankingEngine {
   // voteStarted=false: đã VOTE nhưng CHƯA có hiệu lệnh BẮT ĐẦU (Tính điểm chạy / trận Liên kết chạy)
   //   → VOTE chỉ ĐÁNH DẤU hàng, TUYỆT ĐỐI không cộng điểm từ quà. Tránh vừa bấm VOTE là có người
   //   tặng quà tự lên điểm trong khi chưa phát lệnh bắt đầu.
-  routeGift(ev, suppressAuto = false, voteStarted = true) {
+  routeGift(ev, suppressAuto = false, voteStarted = true, matchRunning = false) {
     const creators = this.getCreators();
     const voted = this.config.mode === 'creator' ? creators.find(c => !!c.voteActive) : null;
     // Có Creator đang VOTE nhưng chưa có hiệu lệnh bắt đầu → không nhận điểm (chỉ giữ highlight qua voteActive).
     if (voted && !voteStarted) return;
+    // CHỐNG CỘNG ĐÔI (Giữ/Đổi · PK Đôi · PK Nhóm): trận đang chạy TỰ đẩy điểm vào BXH qua addLivePoints →
+    // BXH TUYỆT ĐỐI không tự cộng quà nữa, KỂ CẢ cho hàng đang VOTE. Nếu không, 1 quà bị tính 2 lần (×2).
+    if (matchRunning) return;
     if (suppressAuto && !voted) return;
     // Tắt ô "Quà" = ngưng TỰ cộng điểm theo quà mặc định. Vẫn cho VOTE (chấm thủ công) hoạt động,
     // vì khi có Creator đang VOTE mọi điểm được điều khiển có chủ đích, không phải auto theo quà.
@@ -4167,11 +4170,18 @@ function applyRankingLinksToEngines() {
 // Có nguồn Liên kết nào đang "sống" không → BXH ngưng tự cộng quà mặc định (tránh cộng trùng).
 // PK Đôi/Nhóm chỉ tính khi trận đang chạy; Đập Trứng/Dance tính bất cứ khi nào bật (bảng luôn nhận quà).
 function anyLinkedGiftSourceActive() {
+  return !!(anyLinkedMatchRunning() || getRankingLinks().sticker);
+}
+// Trò chơi "TRẬN" (Giữ/Đổi · PK Đôi · PK Nhóm) ĐÃ LIÊN KẾT + đang chạy → trò chơi TỰ định tuyến điểm
+// vào BXH qua addLivePoints (1 lần/quà, có token chống trùng). Khác sticker (thụ động, luôn bật): khi có
+// TRẬN đang chạy thì BXH KHÔNG được tự cộng quà — KỂ CẢ cho hàng đang VOTE — nếu không điểm sẽ bị CỘNG ĐÔI
+// (lỗi "Giữ/Đổi tự nhân 2 điểm" khi còn 1 Creator kẹt cờ voteActive).
+function anyLinkedMatchRunning() {
   const l = getRankingLinks();
-  const pkDuoRun = l.pkduo && ['prestart', 'running', 'grace'].includes(pkDuoEngine?.state?.status);
-  const pkGroupRun = l.pkgroup && ['prestart', 'running', 'grace'].includes(pkGroupEngine?.state?.status);
-  const kcDuoRun = l.kcduo && ['prestart', 'running', 'grace'].includes(kcDuoEngine?.state?.status);
-  return !!(pkDuoRun || pkGroupRun || kcDuoRun || l.sticker);
+  const live = s => ['prestart', 'running', 'grace'].includes(s);
+  return !!((l.pkduo && live(pkDuoEngine?.state?.status)) ||
+            (l.pkgroup && live(pkGroupEngine?.state?.status)) ||
+            (l.kcduo && live(kcDuoEngine?.state?.status)));
 }
 // Đã có "hiệu lệnh BẮT ĐẦU" cho VOTE ở THI ĐẤU NHÓM chưa? = phiên 🎯 Tính điểm đang chạy
 // (đã bấm BẮT ĐẦU) HOẶC có trận Liên kết (PK Đôi/Nhóm) đang chạy. Chưa bắt đầu → VOTE không nhận điểm.
@@ -4451,7 +4461,7 @@ function bootstrapTikTok() {
     pkDuoEngine?.routeGift(d);
     pkGroupEngine?.routeGift(d);
     // Khi có trò chơi đang Liên kết → BXH ngưng tự cộng quà mặc định (điểm đến từ trò chơi).
-    rankingEngine?.routeGift(d, anyLinkedGiftSourceActive(), rankVoteStarted());
+    rankingEngine?.routeGift(d, anyLinkedGiftSourceActive(), rankVoteStarted(), anyLinkedMatchRunning());
     stickerEngine?.routeGift(d);
     missionTrioEngine?.routeGift(d);
   });
