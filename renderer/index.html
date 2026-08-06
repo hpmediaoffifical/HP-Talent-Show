@@ -238,7 +238,7 @@
         <button class="nav-btn" data-tab="pkduo" title="PK ĐÔI"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/></svg></span><span class="nav-txt">PK ĐÔI</span></button>
         <button class="nav-btn" data-tab="kcduo" title="GIỮ / ĐỔI"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span class="nav-txt">GIỮ / ĐỔI</span></button>
         <button class="nav-btn" data-tab="pkgroup" title="PK NHÓM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5a2.121 2.121 0 0 1 3 3L9 16l-4 1 1-4Z"/><path d="M8.5 8.5a2.121 2.121 0 0 0-3 3L15 21l4-1-1-4Z"/></svg></span><span class="nav-txt">PK NHÓM</span></button>
-        <button class="nav-btn" data-tab="ranking" title="THI ĐẤU NHÓM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span><span class="nav-txt">THI ĐẤU NHÓM</span></button>
+        <button class="nav-btn nav-feature" data-tab="ranking" title="TALENT SHOW"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span><span class="nav-txt">TALENT SHOW</span></button>
         <button class="nav-btn" data-tab="musiclist" title="NHẠC DANCE"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span><span class="nav-txt">NHẠC DANCE</span></button>
         <button class="nav-btn" data-tab="stickerdance" title="ĐẬP TRỨNG"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c6.23-.05 7.87-5.57 7.5-10-.36-4.34-3.95-9.96-7.5-10-3.55.04-7.14 5.66-7.5 10-.37 4.43 1.27 9.95 7.5 10z"/></svg></span><span class="nav-txt">ĐẬP TRỨNG</span></button>
         <div class="nav-group" id="navNhiemVu">
@@ -427,7 +427,11 @@
       <section class="panel" data-panel="pkduo">
         <div class="panel-head">
           <h1>⚔️ PK Đôi</h1>
-          <label class="menu-link-toggle" title="Khi bật: mỗi quà vào phe (có gắn Creator) tự cộng realtime vào 🏆 THI ĐẤU NHÓM"><input id="pkLinkRanking" type="checkbox" /> 🔗 Liên kết 🏆 THI ĐẤU NHÓM</label>
+          <div class="panel-head-right">
+            <button class="rk-settings-icon" type="button" data-modal-open="pkSettingsModal" title="Cài đặt ⚔️ PK Đôi (Esc để đóng)" aria-label="Cài đặt PK Đôi">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="card pkduo-cfg">
@@ -524,7 +528,16 @@
             </div>
           </div>
 
-          <details class="cfg-adv">
+          <!-- ⚙️ Popup Cài đặt ⚔️ PK Đôi — CHỈ bọc config nâng cao (thiết lập trận hiển thị ngoài) -->
+          <div id="pkSettingsModal" class="gp-overlay sc-flatcfg">
+            <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="pkSettingsTitle">
+              <header class="gp-head">
+                <h3 id="pkSettingsTitle">⚙️ Cài đặt · ⚔️ PK Đôi</h3>
+                <button class="gp-close-btn" type="button" data-modal-close aria-label="Đóng" title="Đóng (Esc)">✕</button>
+              </header>
+              <div class="rk-settings-body">
+
+          <details class="cfg-adv" open>
             <summary>
               <span class="cfg-adv__ico">⚙️</span>
               <span>Giao diện &amp; thời gian</span>
@@ -608,7 +621,7 @@
             </div>
           </details>
 
-          <details class="cfg-adv">
+          <details class="cfg-adv" open>
             <summary>
               <span class="cfg-adv__ico">⚔️</span>
               <span>Overlay FX toàn màn hình</span>
@@ -654,6 +667,11 @@
             </div>
           </details>
 
+              </div>
+            </div>
+          </div>
+          <!-- /Popup Cài đặt · ⚔️ PK Đôi -->
+
           <input id="pkSndStart" type="hidden" /><input id="pkSndWarn" type="hidden" /><input id="pkSndAwin" type="hidden" /><input id="pkSndBwin" type="hidden" /><input id="pkSndDraw" type="hidden" />
 
         </div>
@@ -662,7 +680,11 @@
       <section class="panel" data-panel="kcduo">
         <div class="panel-head">
           <h1>🔁 Giữ / Đổi</h1>
-          <label class="menu-link-toggle" title="Khi bật: mọi quà (GIỮ lẫn ĐỔI) tự cộng realtime cho 🎤 Người đang diễn vào 🏆 THI ĐẤU NHÓM. Chưa chọn người đang diễn thì không cộng."><input id="kcLinkRanking" type="checkbox" /> 🔗 Liên kết 🏆 THI ĐẤU NHÓM</label>
+          <div class="panel-head-right">
+            <button class="rk-settings-icon" type="button" data-modal-open="kcSettingsModal" title="Cài đặt 🔁 Giữ/Đổi (Esc để đóng)" aria-label="Cài đặt Giữ/Đổi">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="card pkduo-cfg">
@@ -758,7 +780,29 @@
             </div>
           </div>
 
-          <details class="cfg-adv">
+          <details class="cfg-adv" open>
+            <summary>
+              <span class="cfg-adv__ico">🔀</span>
+              <span>Thứ tự lượt diễn</span>
+              <span class="cfg-adv__hint">xếp theo vị trí thật (hàng ngang / vòng tròn)</span>
+              <span class="cfg-adv__chev">▾</span>
+            </summary>
+            <div class="cfg-adv__body">
+              <div class="cfg-adv__note full">Dùng ↑ / ↓ để xếp thành viên theo đúng vị trí đứng. Ô <b>Người kế tiếp</b> và gợi ý xoay vòng tự động (khi ĐỔI thắng) sẽ chạy đúng thứ tự này, tự vòng lại đầu khi hết. Bỏ tích ô ☑️ nếu thành viên <b>OFFLINE / không tham gia</b> — họ sẽ bị bỏ qua khi xoay vòng.</div>
+              <div id="kcOrderList" class="kc-order-list"></div>
+            </div>
+          </details>
+
+          <!-- ⚙️ Popup Cài đặt 🔁 Giữ/Đổi — CHỈ bọc config nâng cao (thiết lập ván hiển thị ngoài) -->
+          <div id="kcSettingsModal" class="gp-overlay sc-flatcfg">
+            <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="kcSettingsTitle">
+              <header class="gp-head">
+                <h3 id="kcSettingsTitle">⚙️ Cài đặt · 🔁 Giữ / Đổi</h3>
+                <button class="gp-close-btn" type="button" data-modal-close aria-label="Đóng" title="Đóng (Esc)">✕</button>
+              </header>
+              <div class="rk-settings-body">
+
+          <details class="cfg-adv" open>
             <summary>
               <span class="cfg-adv__ico">⚖️</span>
               <span>Luật lật kèo &amp; đồng hồ</span>
@@ -786,20 +830,7 @@
             </div>
           </details>
 
-          <details class="cfg-adv">
-            <summary>
-              <span class="cfg-adv__ico">🔀</span>
-              <span>Thứ tự lượt diễn</span>
-              <span class="cfg-adv__hint">xếp theo vị trí thật (hàng ngang / vòng tròn)</span>
-              <span class="cfg-adv__chev">▾</span>
-            </summary>
-            <div class="cfg-adv__body">
-              <div class="cfg-adv__note full">Dùng ↑ / ↓ để xếp thành viên theo đúng vị trí đứng. Ô <b>Người kế tiếp</b> và gợi ý xoay vòng tự động (khi ĐỔI thắng) sẽ chạy đúng thứ tự này, tự vòng lại đầu khi hết. Bỏ tích ô ☑️ nếu thành viên <b>OFFLINE / không tham gia</b> — họ sẽ bị bỏ qua khi xoay vòng.</div>
-              <div id="kcOrderList" class="kc-order-list"></div>
-            </div>
-          </details>
-
-          <details class="cfg-adv">
+          <details class="cfg-adv" open>
             <summary>
               <span class="cfg-adv__ico">⚙️</span>
               <span>Giao diện &amp; thời gian</span>
@@ -842,13 +873,22 @@
               </div>
             </div>
           </details>
+
+              </div>
+            </div>
+          </div>
+          <!-- /Popup Cài đặt · 🔁 Giữ/Đổi -->
         </div>
       </section>
 
       <section class="panel" data-panel="pkgroup">
         <div class="panel-head">
           <h1>🧩 PK Nhóm</h1>
-          <label class="menu-link-toggle" title="Khi bật: mỗi quà vào Creator tự cộng realtime vào 🏆 THI ĐẤU NHÓM"><input id="pkgLinkRanking" type="checkbox" /> 🔗 Liên kết 🏆 THI ĐẤU NHÓM</label>
+          <div class="panel-head-right">
+            <button class="rk-settings-icon" type="button" data-modal-open="pkgSettingsModal" title="Cài đặt 🧩 PK Nhóm (Esc để đóng)" aria-label="Cài đặt PK Nhóm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="card pkgroup-cfg">
@@ -935,7 +975,16 @@
             <div class="pkg-member-list" id="pkgMembers"></div>
           </section>
 
-          <details class="cfg-adv">
+          <!-- ⚙️ Popup Cài đặt 🧩 PK Nhóm — CHỈ bọc config nâng cao (thiết lập + thành viên hiển thị ngoài) -->
+          <div id="pkgSettingsModal" class="gp-overlay sc-flatcfg">
+            <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="pkgSettingsTitle">
+              <header class="gp-head">
+                <h3 id="pkgSettingsTitle">⚙️ Cài đặt · 🧩 PK Nhóm</h3>
+                <button class="gp-close-btn" type="button" data-modal-close aria-label="Đóng" title="Đóng (Esc)">✕</button>
+              </header>
+              <div class="rk-settings-body">
+
+          <details class="cfg-adv" open>
             <summary>
               <span class="cfg-adv__ico">⚙️</span>
               <span>Giao diện &amp; thời gian</span>
@@ -989,7 +1038,7 @@
             </div>
           </details>
 
-          <details class="cfg-adv">
+          <details class="cfg-adv" open>
             <summary>
               <span class="cfg-adv__ico">📝</span>
               <span>Ghi chú chạy overlay</span>
@@ -1014,48 +1063,66 @@
             </div>
           </details>
 
+              </div>
+            </div>
+          </div>
+          <!-- /Popup Cài đặt · 🧩 PK Nhóm -->
+
         </div>
       </section>
 
       <section class="panel" data-panel="ranking">
-        <h1>🏆 THI ĐẤU NHÓM</h1>
+        <div class="rk-panel-head">
+          <h1>🏆 TALENT SHOW</h1>
+          <button id="rkOpenSettings" class="rk-settings-icon" type="button" title="Cài đặt hiển thị & OBS (Esc để đóng)" aria-label="Cài đặt hiển thị & OBS">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+        </div>
 
         <div class="card ranking-config-card">
-          <div class="rk-config-layout">
-            <div class="rk-config-col">
-              <details class="cfg-adv rk-setup-collapse" open>
-                <summary>
-                  <span class="cfg-adv__ico">🏆</span>
-                  <span>Thiết lập thi đấu nhóm</span>
-                  <span class="cfg-adv__hint">chỉnh một lần</span>
-                  <span class="cfg-adv__chev">▾</span>
-                </summary>
-                <div class="cfg-adv__body">
-                  <div class="rk-fields two">
-                    <label>Tiêu đề <input id="rkTitle" value="TOP IDOL" maxlength="30" /></label>
-                    <label>Chế độ
-                      <select id="rkMode">
-                        <option value="creator">Theo Creator</option>
-                        <option value="group">Theo Nhóm</option>
-                      </select>
-                    </label>
-                    <label>Hiển thị tên
-                      <select id="rkNameMode">
-                        <option value="two-line">Two-line (xuống dòng)</option>
-                        <option value="marquee">Marquee (chạy chữ)</option>
-                      </select>
-                    </label>
-                    <label title="Tên DÀI HƠN số ký tự này sẽ tự chạy chữ (cuộn). Đếm cả dấu cách, icon 🔥, ký tự đặc biệt • đều = 1.">Chạy chữ khi tên quá (ký tự)
-                      <input type="number" id="rkNameMaxChars" min="3" max="40" step="1" value="6" />
-                    </label>
-                    <label>Tính điểm theo
-                      <select id="rkPointsBy">
-                        <option value="diamond">🪙 Coin</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div class="rk-grid-inline">
-                    <b>Grid OBS</b>
+          <!-- Cơ bản: luôn hiện -->
+          <div class="rk-fields two rk-basic-row">
+            <label>Tiêu đề <input id="rkTitle" value="TOP IDOL" maxlength="30" /></label>
+            <label>Chế độ
+              <select id="rkMode">
+                <option value="creator">Theo Creator</option>
+                <option value="group">Theo Nhóm</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- Popup Cài đặt TALENT SHOW (mở bằng nút ⚙️ góc phải tiêu đề) -->
+          <div id="rkSettingsModal" class="gp-overlay">
+            <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="rkSettingsTitle">
+              <header class="gp-head">
+                <h3 id="rkSettingsTitle">⚙️ Cài đặt hiển thị &amp; OBS</h3>
+                <button id="rkSettingsClose" class="gp-close-btn" type="button" aria-label="Đóng" title="Đóng (Esc)">✕</button>
+              </header>
+              <div class="rk-settings-body">
+                <div class="rk-config-layout">
+                <div class="rk-config-col">
+                  <fieldset class="rk-config-section">
+                    <legend>Tên hiển thị</legend>
+                    <div class="rk-fields two">
+                      <label>Kiểu tên
+                        <select id="rkNameMode">
+                          <option value="two-line">Two-line (xuống dòng)</option>
+                          <option value="marquee">Marquee (chạy chữ)</option>
+                        </select>
+                      </label>
+                      <label title="Tên DÀI HƠN số ký tự này sẽ tự chạy chữ (cuộn). Đếm cả dấu cách, icon 🔥, ký tự đặc biệt • đều = 1.">Chạy chữ khi tên quá (ký tự)
+                        <input type="number" id="rkNameMaxChars" min="3" max="40" step="1" value="6" />
+                      </label>
+                      <label>Tính điểm theo
+                        <select id="rkPointsBy">
+                          <option value="diamond">🪙 Coin</option>
+                        </select>
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset class="rk-config-section">
+                    <legend>Grid OBS (ngang)</legend>
                     <div class="rk-fields compact-three">
                       <label>Cột <input id="rkGridCols" type="number" min="1" max="10" value="3" /></label>
                       <label>Hàng <input id="rkGridRows" type="number" min="1" max="20" value="3" /></label>
@@ -1066,9 +1133,7 @@
                         </select>
                       </label>
                     </div>
-                  </div>
-                </div>
-              </details>
+                  </fieldset>
 
               <div class="rk-toggle-box">
                 <span class="rk-toggle-box__title">Hiển thị OBS · bấm nhanh</span>
@@ -1099,13 +1164,8 @@
                 <p class="rk-section-hint">Ví dụ TOP 10: Từ 1, Đến 10, Tối đa 0 hoặc 10.</p>
               </fieldset>
 
-              <details class="cfg-adv rk-obs-cfg" open>
-                <summary>
-                  <span class="cfg-adv__ico">⚙️</span>
-                  <span>Giao diện OBS</span>
-                  <span class="cfg-adv__hint">chỉnh một lần</span>
-                  <span class="cfg-adv__chev">▾</span>
-                </summary>
+              <fieldset class="rk-config-section rk-obs-cfg">
+                <legend>Giao diện OBS</legend>
                 <div class="cfg-adv__body">
                   <div class="rk-fields rk-obs-colors">
                     <label class="rk-color-cell">Tiêu đề <input id="rkTitleColor" type="color" value="#ffffff" /></label>
@@ -1180,7 +1240,7 @@
                     </label>
                   </div>
                 </div>
-              </details>
+              </fieldset>
 
               <div class="rk-copy-actions">
                 <button id="rkCopyUrl" class="ghost" type="button">📋 THI ĐẤU DỌC</button>
@@ -1189,9 +1249,12 @@
             </div>
 
           </div>
+              </div>
+            </div>
+          </div>
           <div class="form-actions">
             <button id="rkSaveCfg" class="primary" type="button">CẬP NHẬT</button>
-            <button id="rkStartRound" class="ghost" type="button" title="Tăng round + reset điểm">🔄 NEW ROUND</button>
+            <button id="rkStartRound" class="ghost" type="button" title="Chỉ tăng ROUND (+1) · GIỮ nguyên điểm. Muốn xoá điểm về 0 dùng ↺ RESET ĐIỂM">🔄 NEW ROUND</button>
             <button id="rkResetRound" class="ghost" type="button" title="Đưa round toàn bộ Creator về 0">RESET ROUND</button>
             <button id="rkCommitRound" class="ghost" type="button" title="Gộp điểm live của vòng vào điểm chính thức rồi dọn về 0 (chống hiển thị trùng)">🔒 CHỐT VÒNG</button>
             <button id="rkReset" class="warn" type="button">↺ RESET ĐIỂM</button>
@@ -1212,7 +1275,7 @@
             <div class="rk-score-apply" id="rkScoreApply"></div>
           </div>
           <div class="rk-links-panel">
-            <span class="rk-links-title">🔗 Liên kết trò chơi → tự cộng điểm realtime:</span>
+            <span class="rk-links-title">🔗 LIÊN KẾT GAME PLAY</span>
             <label title="PK Đôi: mỗi quà vào phe (có gắn Creator) tự cộng cho Creator"><input id="rkLinkPkduo" type="checkbox" /> ⚔️ PK Đôi</label>
             <label title="Giữ/Đổi: mỗi quà vào phe (có gắn Creator) tự cộng cho Creator"><input id="rkLinkKcduo" type="checkbox" /> 🔁 Giữ/Đổi</label>
             <label title="PK Nhóm: mỗi quà vào Creator tự cộng cho Creator"><input id="rkLinkPkgroup" type="checkbox" /> 🧩 PK Nhóm</label>
@@ -1228,7 +1291,11 @@
       <section class="panel" data-panel="score">
         <div class="panel-head">
           <h1>🎯 Tính điểm</h1>
-          <label class="menu-link-toggle" title="Khi bật: chọn VOTE ở THI ĐẤU NHÓM điều khiển đúng Creator; kết thúc lượt tự cộng điểm vào bảng"><input id="scLinkTop" type="checkbox" /> 🔗 Liên kết 🏆 THI ĐẤU NHÓM</label>
+          <div class="panel-head-right">
+            <button class="rk-settings-icon" type="button" data-modal-open="scSettingsModal" title="Cài đặt 🎯 Tính điểm (Esc để đóng)" aria-label="Cài đặt Tính điểm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="card">
@@ -1236,37 +1303,57 @@
           <div class="score-command-panel">
             <div class="sc-preview" id="scPreview"></div>
           </div>
-          <!-- Hàng điều khiển NGANG gọn — cuộn theo trang như PK Đôi -->
-          <div class="score-command-actions score-actions-row">
-            <label class="score-command-creator">CREATOR
-              <select id="scCreatorSelect">
-                <option value="">— Chọn —</option>
-              </select>
-              <input id="scCreatorName" type="hidden" />
-              <input id="scCreatorAvatar" type="hidden" />
-            </label>
-            <label class="score-command-layout" title="ĐƯỜNG ĐUA: thanh ngang cho vùng rộng · KÊU GỌI: gom thông tin thành một thẻ gọn ở góc màn hình · THỜI GIAN: thanh đếm lùi + đồng hồ xoay, cộng điểm tự do không cần mục tiêu.">🖼️
-              <select id="scLayout">
-                <option value="bar">ĐƯỜNG ĐUA</option>
-                <option value="card">KÊU GỌI</option>
-                <option value="timer">THỜI GIAN</option>
-              </select>
-            </label>
-            <button id="scStart" class="primary" type="button">▶ BẮT ĐẦU</button>
-            <button id="scReset" class="ghost" type="button">↺ Reset</button>
-            <button id="scSaveCfg" class="ghost" type="button">💾 LƯU</button>
-            <button id="scSnapshot" class="ghost" type="button" title="Chụp điểm hiện tại của idol đang chọn thành 1 lượt lịch sử">📸 Chụp</button>
-            <button id="scHistoryBtn" class="ghost" type="button" title="Xem/tải lịch sử điểm (CSV: Tên idol · TikTok ID · Điểm)">📊 Lịch sử</button>
-            <div class="sc-tools">
-              <button id="scToolsBtn" class="ghost sc-tools-btn" type="button" title="Công cụ: COPY OBS · TEST cộng/trừ điểm" aria-expanded="false">⚙️</button>
-              <div class="sc-tools-pop" id="scToolsPop" hidden>
-                <button id="scCopyUrl" class="ghost" type="button" title="Link 1 nguồn đổi kiểu theo dropdown (tương thích cũ)">📋 COPY OBS</button>
-                <div class="sc-copy-split">
-                  <button id="scCopyUrlBar" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu ĐƯỜNG ĐUA — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · ĐƯỜNG ĐUA</button>
-                  <button id="scCopyUrlCard" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu KÊU GỌI — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · KÊU GỌI</button>
-                  <button id="scCopyUrlTimer" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu THỜI GIAN — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · THỜI GIAN</button>
+          <!-- KHU 2 · ĐIỀU KHIỂN: 1 thanh, chia 3 nhóm theo luồng thao tác (Thiết lập → Mục tiêu → Chạy) -->
+          <div class="score-command-actions sc-toolbar">
+            <!-- ① THIẾT LẬP -->
+            <div class="sc-group sc-group-setup">
+              <span class="sc-group-label">① Thiết lập</span>
+              <label class="score-command-creator">CREATOR
+                <select id="scCreatorSelect">
+                  <option value="">— Chọn —</option>
+                </select>
+                <input id="scCreatorName" type="hidden" />
+                <input id="scCreatorAvatar" type="hidden" />
+              </label>
+              <label class="score-command-layout" title="ĐƯỜNG ĐUA: thanh ngang cho vùng rộng · KÊU GỌI: gom thông tin thành một thẻ gọn ở góc màn hình · THỜI GIAN: thanh đếm lùi + đồng hồ xoay, cộng điểm tự do không cần mục tiêu.">KIỂU
+                <select id="scLayout">
+                  <option value="bar">ĐƯỜNG ĐUA</option>
+                  <option value="card">KÊU GỌI</option>
+                  <option value="timer">THỜI GIAN</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="sc-group-divider" aria-hidden="true"></div>
+
+            <!-- ② MỤC TIÊU & THỜI GIAN -->
+            <div class="sc-group sc-group-goal">
+              <span class="sc-group-label">② Mục tiêu &amp; thời gian</span>
+              <label class="sc-quick-target" title="Để TRỐNG = KHÔNG MỤC TIÊU: chỉ cộng điểm bình thường, bỏ KPI, thanh luôn đầy. Có nhập >0 = chạy mục tiêu như cũ.">MỤC TIÊU
+                <input id="scTarget" type="text" inputmode="numeric" value="1.000" placeholder="Trống = không mục tiêu" />
+              </label>
+              <div class="time-zone sc-quick-time">
+                <div class="time-zone__head"><span class="tz-ico">⏱️</span>Thời gian</div>
+                <div class="time-zone__fields">
+                  <label class="time-seg"><input id="scDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
+                  <span class="time-seg__sep">:</span>
+                  <label class="time-seg"><input id="scDurM" type="number" min="0" max="59" value="3" /><span>phút</span></label>
+                  <span class="time-seg__sep">:</span>
+                  <label class="time-seg"><input id="scDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
                 </div>
-                <div class="score-command-test">
+              </div>
+            </div>
+
+            <div class="sc-group-divider" aria-hidden="true"></div>
+
+            <!-- ③ CHẠY — điểm nhấn đỏ duy nhất là ▶ BẮT ĐẦU; nút phụ hạ cấp xám -->
+            <div class="sc-group sc-group-run">
+              <span class="sc-group-label">③ Chạy</span>
+              <button id="scStart" class="primary sc-quick-start" type="button">▶ BẮT ĐẦU</button>
+              <div class="sc-run-secondary">
+                <button id="scReset" class="ghost" type="button">↺ Reset</button>
+                <button id="scSaveCfg" class="ghost" type="button">💾 Lưu</button>
+                <div class="score-command-test sc-test-compact">
                   <span>TEST</span>
                   <div class="score-test-row">
                     <input id="scTestPoints" type="number" min="1" max="999999" value="100" />
@@ -1277,6 +1364,29 @@
               </div>
             </div>
           </div>
+
+          <!-- ⚙️ Popup Cài đặt 🎯 Tính điểm (mở bằng nút ⚙️ ở tiêu đề) -->
+          <div id="scSettingsModal" class="gp-overlay">
+            <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="scSettingsTitle">
+              <header class="gp-head">
+                <h3 id="scSettingsTitle">⚙️ Cài đặt · 🎯 Tính điểm</h3>
+                <button class="gp-close-btn" type="button" data-modal-close aria-label="Đóng" title="Đóng (Esc)">✕</button>
+              </header>
+              <div class="rk-settings-body">
+
+          <fieldset class="score-config-card sc-obs-tools">
+            <legend>🔗 Link OBS &amp; Công cụ</legend>
+            <div class="sc-obs-links">
+              <button id="scCopyUrl" class="ghost" type="button" title="Link 1 nguồn đổi kiểu theo dropdown (tương thích cũ)">📋 COPY OBS</button>
+              <button id="scCopyUrlBar" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu ĐƯỜNG ĐUA — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · ĐƯỜNG ĐUA</button>
+              <button id="scCopyUrlCard" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu KÊU GỌI — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · KÊU GỌI</button>
+              <button id="scCopyUrlTimer" class="ghost" type="button" title="Nguồn OBS CỐ ĐỊNH kiểu THỜI GIAN — thêm 1 nguồn riêng, bật/tắt con mắt độc lập">📋 OBS · THỜI GIAN</button>
+            </div>
+            <div class="sc-obs-tools-row">
+              <button id="scSnapshot" class="ghost" type="button" title="Chụp điểm hiện tại của idol đang chọn thành 1 lượt lịch sử">📸 Chụp</button>
+              <button id="scHistoryBtn" class="ghost" type="button" title="Xem/tải lịch sử điểm (CSV: Tên idol · TikTok ID · Điểm)">📊 Lịch sử</button>
+            </div>
+          </fieldset>
 
           <div class="score-theme-chips" id="scThemeChips">
             <span class="stc-label">🎨 Preset nhanh</span>
@@ -1310,17 +1420,7 @@
             <fieldset class="score-config-card score-main-config">
               <legend>Thiết lập phiên</legend>
               <div class="form-grid compact sc-session-grid">
-                <label title="Để TRỐNG = KHÔNG MỤC TIÊU: chỉ cộng điểm bình thường, bỏ KPI, thanh luôn đầy. Có nhập >0 = chạy mục tiêu như cũ.">Mục tiêu điểm <input id="scTarget" type="text" inputmode="numeric" value="1.000" placeholder="Trống = không mục tiêu" /></label>
-                <div class="time-zone">
-                  <div class="time-zone__head"><span class="tz-ico">⏱️</span>Thời gian</div>
-                  <div class="time-zone__fields">
-                    <label class="time-seg"><input id="scDurH" type="number" min="0" max="24" value="0" /><span>giờ</span></label>
-                    <span class="time-seg__sep">:</span>
-                    <label class="time-seg"><input id="scDurM" type="number" min="0" max="59" value="3" /><span>phút</span></label>
-                    <span class="time-seg__sep">:</span>
-                    <label class="time-seg"><input id="scDurS" type="number" min="0" max="59" value="0" /><span>giây</span></label>
-                  </div>
-                </div>
+                <p class="rk-section-hint" style="grid-column:1/-1;margin:0 0 2px">🎯 Mục tiêu điểm &amp; ⏱️ Thời gian đã đưa ra ngoài (trên hàng lệnh) cho dễ chỉnh.</p>
                 <label>Chuẩn bị (giây) <input id="scPrep" type="number" min="0" max="120" value="3" /></label>
                 <label>Delay sau kết thúc (giây) <input id="scDelay" type="number" min="0" max="60" value="5" /></label>
                 <div class="sc-kpix2-row" title="Điểm vượt mục tiêu (KPI) được nhân hệ số. VD: KPI 5.000, tặng 10.000 → 5.000 + (5.000 ×2) = 15.000 điểm. Hiện thêm dòng tổng nhỏ dưới điểm.">
@@ -1495,15 +1595,32 @@
             <input id="scBigThreshold" type="hidden" value="500" />
             <select id="scPointsBy" hidden><option value="diamond">Coin</option><option value="count">Số lượng quà</option></select>
           </div>
+              </div>
+            </div>
+          </div>
+          <!-- /Popup Cài đặt · Tính điểm -->
 
-          <!-- CUỐI TRANG: danh sách quà/user (ít dùng) — đưa xuống dưới cho gọn phần chỉnh sửa -->
-          <div class="sc-review-lists" id="scReviewLists"></div>
+          <!-- KHU 3 · XEM LẠI: danh sách quà/user (ít dùng) — gập mặc định để không chiếm chỗ khi trống -->
+          <details class="sc-review-fold">
+            <summary class="sc-review-summary">
+              <span class="sc-review-summary-title">Quà vừa tính điểm · Tổng điểm theo user</span>
+              <span class="sc-review-summary-hint">mở khi cần</span>
+            </summary>
+            <div class="sc-review-lists" id="scReviewLists"></div>
+          </details>
 
         </div>
       </section>
 
       <section class="panel" data-panel="mtrio">
-        <h1>🎯 NHIỆM VỤ · BỘ BA</h1>
+        <div class="panel-head">
+          <h1>🎯 NHIỆM VỤ · BỘ BA</h1>
+          <div class="panel-head-right">
+            <button class="rk-settings-icon" type="button" data-modal-open="mtSettingsModal" title="Cài đặt 🎯 BỘ BA (Esc để đóng)" aria-label="Cài đặt Bộ Ba">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
+        </div>
         <div class="card mt-card">
           <p class="mt-desc">Ba KPI thời gian thực: <b>Người tặng</b> (người khác nhau đã tặng quà), <b>Số tim</b> (lượt táp tim tích luỹ), <b>Số điểm</b> (kim cương user tặng). Có <b>2 overlay tách rời</b> — <b>Dọc</b> và <b>Ngang</b> — lưu thông số riêng. Chọn <b>Bố cục</b> bên dưới để chỉnh/xem trước từng loại, rồi bấm <b>COPY Dọc</b>/<b>COPY Ngang</b>. Bấm <b>BẮT ĐẦU</b> để đếm từ 0.</p>
 
@@ -1527,6 +1644,15 @@
               <button class="ghost" type="button" data-bump="points">＋ Điểm</button>
             </div>
           </div>
+
+          <!-- ⚙️ Popup Cài đặt 🎯 BỘ BA — bọc TOÀN BỘ cấu hình KPI, giữ nguyên ID/DOM -->
+          <div id="mtSettingsModal" class="gp-overlay sc-flatcfg">
+            <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="mtSettingsTitle">
+              <header class="gp-head">
+                <h3 id="mtSettingsTitle">⚙️ Cài đặt · 🎯 NHIỆM VỤ · BỘ BA</h3>
+                <button class="gp-close-btn" type="button" data-modal-close aria-label="Đóng" title="Đóng (Esc)">✕</button>
+              </header>
+              <div class="rk-settings-body">
 
           <div class="mt-ops-grid">
             <fieldset class="score-config-card">
@@ -1575,6 +1701,11 @@
               </div>
             </details>
           </div>
+
+              </div>
+            </div>
+          </div>
+          <!-- /Popup Cài đặt · 🎯 BỘ BA -->
         </div>
       </section>
 
@@ -1687,7 +1818,14 @@
       </section>
 
       <section class="panel" data-panel="musiclist">
-        <h1>🎵 NHẠC DANCE</h1>
+        <div class="panel-head">
+          <h1>🎵 NHẠC DANCE</h1>
+          <div class="panel-head-right">
+            <button class="rk-settings-icon" type="button" data-modal-open="mlSettingsModal" title="Cài đặt 🎵 NHẠC DANCE (Esc để đóng)" aria-label="Cài đặt Nhạc Dance">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
+        </div>
         <div class="card ml-card">
           <div class="ml-toolbar">
             <button id="mlAddGift" class="primary" type="button">＋ Thêm quà</button>
@@ -1739,7 +1877,16 @@
           <div class="mlq-list" id="mlqList"></div>
         </div>
 
-        <details class="card settings-card audio-settings-card ml-device-card">
+        <!-- ⚙️ Popup Cài đặt 🎵 NHẠC DANCE — bọc phần Cài đặt thiết bị & nhạc nền, giữ nguyên ID/DOM -->
+        <div id="mlSettingsModal" class="gp-overlay">
+          <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="mlSettingsTitle">
+            <header class="gp-head">
+              <h3 id="mlSettingsTitle">⚙️ Cài đặt · 🎵 NHẠC DANCE</h3>
+              <button class="gp-close-btn" type="button" data-modal-close aria-label="Đóng" title="Đóng (Esc)">✕</button>
+            </header>
+            <div class="rk-settings-body">
+
+        <details class="card settings-card audio-settings-card ml-device-card" open>
           <summary><h3>⚙️ Thiết bị phát &amp; Nhạc nền (Cài đặt)</h3></summary>
           <div class="audio-device-layout">
             <label class="audio-device-row audio-device-output"><span>Thiết bị phát</span>
@@ -1787,12 +1934,21 @@
           </div>
           <div class="hint">Thiết bị phát phụ thuộc quyền trình duyệt/Electron; nếu danh sách trống, app sẽ dùng thiết bị mặc định.</div>
         </details>
+
+            </div>
+          </div>
+        </div>
+        <!-- /Popup Cài đặt · 🎵 NHẠC DANCE -->
       </section>
 
       <section class="panel" data-panel="stickerdance">
         <div class="panel-head">
           <h1>🥚 Đập Trứng</h1>
-          <label class="menu-link-toggle" title="Khi bật: mỗi quà vào ô (Creator có Quà mặc định trùng) tự cộng realtime vào 🏆 THI ĐẤU NHÓM"><input id="sdLinkRanking" type="checkbox" /> 🔗 Liên kết 🏆 THI ĐẤU NHÓM</label>
+          <div class="panel-head-right">
+            <button class="rk-settings-icon" type="button" data-modal-open="sdSettingsModal" title="Cài đặt 🥚 Đập Trứng (Esc để đóng)" aria-label="Cài đặt Đập Trứng">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
         </div>
         <div class="card sd-card">
           <div class="sd-actions">
@@ -1806,7 +1962,16 @@
             <button class="ghost danger" id="sdReset" type="button">↺ Reset số đếm</button>
           </div>
           <div class="sd-grid-editor" id="sdGrid"></div>
-          <details class="sd-cfg-collapse">
+          <!-- ⚙️ Popup Cài đặt 🥚 Đập Trứng — bọc TOÀN BỘ tùy chỉnh lưới/huy hiệu/FX, giữ nguyên ID/DOM -->
+          <div id="sdSettingsModal" class="gp-overlay">
+            <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="sdSettingsTitle">
+              <header class="gp-head">
+                <h3 id="sdSettingsTitle">⚙️ Cài đặt · 🥚 Đập Trứng</h3>
+                <button class="gp-close-btn" type="button" data-modal-close aria-label="Đóng" title="Đóng (Esc)">✕</button>
+              </header>
+              <div class="rk-settings-body">
+
+          <details class="sd-cfg-collapse" open>
             <summary class="sd-cfg-summary">
               <span class="sd-cfg-summary__ico">⚙️</span>
               <span class="sd-cfg-summary__txt">Tùy chỉnh lưới, huy hiệu &amp; hiệu ứng</span>
@@ -1933,6 +2098,11 @@
             </div>
           </div>
           </details>
+
+              </div>
+            </div>
+          </div>
+          <!-- /Popup Cài đặt · 🥚 Đập Trứng -->
         </div>
 
         <!-- ===== MENU QUÀ (thông tin quà) — overlay ĐỘC LẬP, chỉ hiển thị ICON | Nội dung ===== -->
@@ -2422,11 +2592,11 @@
         </div>
 
         <div class="card ovl-vismgr">
-          <label class="switch-row" title="Vào tab game nào thì tự hiện overlay game đó, ẩn các game khác">
+          <label class="switch-row" title="BẬT = hiện tất cả overlay; TẮT = ẩn tất cả overlay">
             <input id="ovlAutoScene" type="checkbox" /><span></span>
-            <b>Tự hiện / ẩn overlay theo menu</b>
+            <b>Hiện / Ẩn tất cả overlay</b>
           </label>
-          <p class="sub" style="margin:6px 0 10px">BẬT: mở tính năng nào → overlay của nó tự lên sóng, các tính năng khác tự tắt. Overlay <b>ghim 📌</b> luôn hiện dù chuyển đi đâu. Bạn vẫn bấm tay <b>Hiện/Ẩn</b> từng cái bên dưới, hoặc dùng nút nổi 🟢 ở thanh trên khi đang mở tính năng. Ẩn = overlay trong suốt trên OBS/TikTok (không tắt engine, không dừng nhạc/video).</p>
+          <p class="sub" style="margin:6px 0 10px"><b>BẬT</b>: tất cả overlay lên sóng cùng lúc (vẫn có thể bấm tay <b>Hiện/Ẩn</b> từng cái bên dưới hoặc nút nổi 🟢 ở thanh trên). <b>TẮT</b>: ẩn <b>TẤT CẢ</b> overlay — trong suốt trên OBS/TikTok, <b>không</b> tắt engine, <b>không</b> dừng nhạc/video.</p>
           <div class="ovl-vis-list" id="ovlVisList"></div>
         </div>
 

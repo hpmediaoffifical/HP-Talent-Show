@@ -169,19 +169,16 @@ async function ovSave(patch) {
   ovSyncUI();
   ovPushEffective(); // phát lại bản đồ HIỆU LỰC sau mỗi thay đổi
 }
-// Bản đồ HIỆU LỰC = những gì THỰC SỰ hiện trên OBS/TikTok. Tính từ: lựa chọn tay (mặc định HIỆN) +
-// cảnh đang mở + ghim. KHÔNG ghi ngược vào ovVis.vis ⇒ auto-ẩn theo menu không làm hỏng lựa chọn tay
-// (sửa lỗi: mở game khác rồi quay lại thì overlay tự hiện lại đúng, không bị "ẩn dính").
+// Bản đồ HIỆU LỰC = những gì THỰC SỰ hiện trên OBS/TikTok, theo mô hình CÔNG TẮC TỔNG:
+//  • BẬT  → mọi overlay HIỆN (vẫn tôn trọng lựa chọn tay Hiện/Ẩn từng cái; mặc định HIỆN). Không tự-ẩn theo menu.
+//  • TẮT  → ẨN TẤT CẢ overlay (trong suốt trên OBS/TikTok; KHÔNG tắt engine/không dừng nhạc/video).
+// KHÔNG ghi ngược vào ovVis.vis ⇒ lựa chọn tay được giữ nguyên khi bật lại (không bị "ẩn dính").
 function ovEffectiveVis() {
-  const auto = ovVis.autoScene !== false;
-  const scene = ovActiveScene; // '' ⇒ chưa mở game nào → chưa ẩn ai
+  const on = ovVis.autoScene !== false; // công tắc tổng
   const vis = {};
   for (const s of OV_SCENES) for (const it of s.items) {
     const k = it.key;
-    const manualOn = ovVis.vis[k] !== false;                 // lựa chọn tay (mặc định HIỆN)
-    if (!auto || !scene) { vis[k] = manualOn; continue; }     // tắt tự-theo-menu / chưa mở game: chỉ theo tay
-    const onAir = (s.scene === scene) || !!ovVis.pinned[k];   // cảnh đang mở hoặc đang ghim
-    vis[k] = onAir && manualOn;                               // cảnh khác: ẩn (nhưng KHÔNG lưu vào tay)
+    vis[k] = on ? (ovVis.vis[k] !== false) : false; // BẬT: theo tay (mặc định hiện). TẮT: ẩn hết.
   }
   return vis;
 }
@@ -213,8 +210,7 @@ function ovBuildVisList() {
   if (!box || box.dataset.built) return;
   box.innerHTML = OV_SCENES.map(s => {
     const multi = s.items.length > 1;
-    const btns = (k) => `<button class="ovl-vis-toggle" data-vis-toggle="${k}" type="button"></button>
-      <button class="ovl-vis-pin" data-vis-pin="${k}" type="button">📌 Ghim</button>`;
+    const btns = (k) => `<button class="ovl-vis-toggle" data-vis-toggle="${k}" type="button"></button>`;
     const head = `<div class="ovl-vis-head"><span class="ovl-vis-dot"></span><span class="ovl-vis-title">${s.label}</span>${
       multi ? `<span class="ovl-vis-count">${s.items.length} overlay</span>` : btns(s.items[0].key)}</div>`;
     const rows = multi ? `<div class="ovl-vis-items">${s.items.map(it => `
@@ -226,10 +222,6 @@ function ovBuildVisList() {
     const k = b.dataset.visToggle;
     ovSave({ vis: { [k]: ovVis.vis[k] === false } }); // đảo: đang ẩn(false) → hiện(true) và ngược lại
   }));
-  box.querySelectorAll('[data-vis-pin]').forEach(b => b.addEventListener('click', () => {
-    const k = b.dataset.visPin;
-    ovSave({ pinned: { [k]: !ovVis.pinned[k] } });
-  }));
 }
 // Đồng bộ mọi nút/checkbox theo trạng thái hiện tại.
 function ovSyncUI() {
@@ -239,11 +231,6 @@ function ovSyncUI() {
     const on = ovVis.vis[b.dataset.visToggle] !== false;
     b.classList.toggle('on', on);
     b.textContent = on ? '🟢 Hiện' : '⚪ Ẩn';
-  });
-  document.querySelectorAll('[data-vis-pin]').forEach(b => {
-    const pinned = !!ovVis.pinned[b.dataset.visPin];
-    b.classList.toggle('on', pinned);
-    b.title = pinned ? 'Đang ghim (luôn hiện) — bấm để bỏ ghim' : 'Ghim: luôn hiện, không bị tự ẩn khi chuyển menu';
   });
   ovUpdateTopToggle(ovCurrentTab());
 }
@@ -256,8 +243,8 @@ document.getElementById('ovQuickBtn')?.addEventListener('click', () => {
   const vis = {}; keys.forEach(k => vis[k] = !anyOn); // đang hiện → ẩn HẾT; đang ẩn → hiện HẾT
   ovSave({ vis });
 });
-// Công tắc tổng "Tự hiện/ẩn theo menu". BẬT → phát lại hiệu lực theo cảnh đang mở; TẮT → hiện hết theo tay.
-// (ovSave đã tự gọi ovPushEffective, dùng ovActiveScene hiện tại nên không cần áp cảnh thủ công.)
+// Công tắc tổng. BẬT → hiện hết (theo lựa chọn tay); TẮT → ẨN TẤT CẢ overlay (không tắt engine/nhạc/video).
+// (ovSave đã tự gọi ovPushEffective để phát lại bản đồ hiệu lực.)
 document.getElementById('ovlAutoScene')?.addEventListener('change', (e) => {
   ovSave({ autoScene: e.target.checked });
 });
@@ -8916,8 +8903,8 @@ function wireRankingTab() {
     toast('Đã cập nhật Thi đấu nhóm', 'success');
   });
   $('#rkStartRound').addEventListener('click', async () => {
-    // Chụp bảng của vòng ĐANG kết thúc trước khi NEW ROUND reset điểm về 0.
-    await recordRankingSnapshot(`Vòng (trước NEW ROUND)`);
+    // Chụp bảng làm mốc lịch sử cho vòng vừa qua (NEW ROUND GIỮ điểm, chỉ +1 ROUND — không reset).
+    await recordRankingSnapshot(`Mốc vòng (NEW ROUND)`);
     const round = await window.api.ranking.startRound();
     await refreshCreators();
     const st = await window.api.ranking.getState();
@@ -9307,6 +9294,10 @@ function wireHistoryModals() {
   });
   $('#rankHistClose')?.addEventListener('click', closeRankHist);
   $('#rankHistModal')?.addEventListener('click', (e) => { if (e.target === $('#rankHistModal')) closeRankHist(); });
+  // Popup Cài đặt TALENT SHOW (⚙️) — mở/đóng bằng nút, backdrop, Esc
+  $('#rkOpenSettings')?.addEventListener('click', () => $('#rkSettingsModal')?.classList.add('is-open'));
+  $('#rkSettingsClose')?.addEventListener('click', () => $('#rkSettingsModal')?.classList.remove('is-open'));
+  $('#rkSettingsModal')?.addEventListener('click', (e) => { if (e.target === $('#rkSettingsModal')) $('#rkSettingsModal').classList.remove('is-open'); });
   $('#rankHistHeSo')?.addEventListener('change', () => { rankHistHeSo = Number($('#rankHistHeSo').value) || 2; renderRankHist(); });
   $('#rankHistExport')?.addEventListener('click', async () => {
     const res = await window.api.rankingHistory.export(rankHistHeSo);
@@ -9322,6 +9313,23 @@ function wireHistoryModals() {
     if (e.key !== 'Escape') return;
     if ($('#scoreHistModal')?.classList.contains('is-open')) closeScoreHist();
     if ($('#rankHistModal')?.classList.contains('is-open')) closeRankHist();
+    if ($('#rkSettingsModal')?.classList.contains('is-open')) $('#rkSettingsModal').classList.remove('is-open');
+  });
+
+  // ===== Modal Cài đặt dùng chung cho các tab game =====
+  // Mở: bấm phần tử có [data-modal-open="id"]. Đóng: ✕/[data-modal-close], bấm nền, hoặc Esc.
+  // Nhờ vậy mỗi tab chỉ cần thêm nút ⚙️ + khối modal HTML, KHÔNG cần viết JS riêng.
+  document.addEventListener('click', (e) => {
+    const opener = e.target.closest?.('[data-modal-open]');
+    if (opener) { document.getElementById(opener.getAttribute('data-modal-open'))?.classList.add('is-open'); return; }
+    const closer = e.target.closest?.('[data-modal-close]');
+    if (closer) { closer.closest('.gp-overlay')?.classList.remove('is-open'); return; }
+    if (e.target.classList?.contains('gp-overlay')) e.target.classList.remove('is-open');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelectorAll('.gp-overlay.is-open');
+    if (open.length) open[open.length - 1].classList.remove('is-open');
   });
 }
 

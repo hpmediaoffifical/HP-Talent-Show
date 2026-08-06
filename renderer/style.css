@@ -108,6 +108,27 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 }
 .nav-btn.active:hover { background: linear-gradient(135deg, var(--tt-pink), #ff5072); color: #fff; }
 
+/* 🏆 TALENT SHOW — mục thi đấu nổi bật (tông vàng cúp, tạo cảm giác riêng biệt) */
+.nav-btn.nav-feature {
+  color: #a5781a;
+  font-weight: 800;
+  background: linear-gradient(135deg, rgba(255,201,58,.16), rgba(255,168,40,.07));
+  box-shadow: inset 0 0 0 1px rgba(255,190,64,.5);
+}
+.nav-btn.nav-feature .nav-ico { color: #e0a015; }
+.nav-btn.nav-feature:hover {
+  color: #7c5910;
+  background: linear-gradient(135deg, rgba(255,201,58,.28), rgba(255,168,40,.14));
+}
+/* Khi đang mở tab này: giữ bản sắc vàng cúp thay vì hồng chung */
+.nav-btn.nav-feature.active,
+.nav-btn.nav-feature.active:hover {
+  color: #3a2606;
+  background: linear-gradient(135deg, #f6b81f 0%, #ff9d2e 100%);
+  box-shadow: 0 2px 10px rgba(240,160,30,.45);
+}
+.nav-btn.nav-feature.active .nav-ico { color: #3a2606; }
+
 /* Phiên bản app — nằm trong tiêu đề, bấm để kiểm tra cập nhật */
 .brand-text { display:flex; flex-direction:column; align-items:flex-start; gap:1px; min-width:0; }
 .brand-ver { align-self:flex-start; margin-top:2px; padding:2px 8px; border:1px solid var(--tt-border); border-radius:999px; background:linear-gradient(180deg,#fff,#f6f7fb); color:var(--tt-ink-3); font-family:inherit; font-size:10.5px; font-weight:800; line-height:1; box-shadow:0 3px 9px rgba(22,24,35,.05); }
@@ -136,16 +157,17 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
   100% { box-shadow: 0 0 0 0 rgba(254,44,85,0); }
 }
 .conn-label, .conn-host { display: none; }
-.stats { display:flex; align-items:center; gap:9px; color:var(--tt-ink-2); }
-.stats span { position:relative; display:grid; grid-template-columns:auto auto; align-items:center; justify-content:center; gap:7px; min-width:64px; min-height:42px; padding:7px 12px; border:1px solid rgba(22,24,35,.08); border-radius:16px; background:linear-gradient(180deg,#fff,#f7f8fb); box-shadow:0 8px 22px rgba(22,24,35,.07), inset 0 1px 0 rgba(255,255,255,.9); font-size:16px; font-weight:900; }
-.stats span::before { content:''; position:absolute; inset:0; border-radius:inherit; background:linear-gradient(135deg, rgba(254,44,85,.08), rgba(37,244,238,.08)); opacity:.72; pointer-events:none; }
-.stats b { position:relative; z-index:1; color:var(--tt-ink); font-size:18px; line-height:1; letter-spacing:-.03em; }
+.stats { display:flex; align-items:center; gap:0; color:var(--tt-ink-2); padding:2px; border:1px solid rgba(22,24,35,.10); border-radius:999px; background:#fff; box-shadow:0 1px 4px rgba(22,24,35,.06); }
+.stats span { position:relative; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:28px; padding:0 13px; border:0; border-radius:0; background:transparent; box-shadow:none; font-size:13.5px; font-weight:800; }
+.stats span::before { content:''; position:absolute; left:0; top:6px; bottom:6px; width:1px; border-radius:0; background:rgba(22,24,35,.10); opacity:1; }
+.stats span:first-child::before { display:none; }
+.stats b { position:relative; z-index:1; color:var(--tt-ink); font-size:15px; line-height:1; letter-spacing:-.02em; }
 
 /* Nút nổi bật/tắt overlay của tính năng đang xem (thanh trên). */
 .ov-quick { margin-left:auto; }
-.ov-quick-btn { display:inline-flex; align-items:center; gap:6px; height:40px; padding:0 16px; border-radius:16px; border:1px solid rgba(22,24,35,.10); background:linear-gradient(180deg,#fff,#f4f5f8); color:var(--tt-ink-2); font-size:14px; font-weight:900; cursor:pointer; box-shadow:0 8px 22px rgba(22,24,35,.07); transition:.15s ease; white-space:nowrap; }
-.ov-quick-btn:hover { transform:translateY(-1px); }
-.ov-quick-btn.on { color:#0a7d3a; border-color:rgba(16,185,90,.35); background:linear-gradient(180deg,#eafff2,#d9fbe8); box-shadow:0 8px 22px rgba(16,185,90,.18); }
+.ov-quick-btn { display:inline-flex; align-items:center; gap:5px; height:30px; padding:0 12px; border-radius:999px; border:1px solid rgba(22,24,35,.10); background:#fff; color:var(--tt-ink-2); font-size:12.5px; font-weight:800; letter-spacing:.01em; cursor:pointer; box-shadow:0 1px 4px rgba(22,24,35,.06); transition:.15s ease; white-space:nowrap; }
+.ov-quick-btn:hover { transform:translateY(-1px); box-shadow:0 3px 10px rgba(22,24,35,.10); }
+.ov-quick-btn.on { color:#0a7d3a; border-color:rgba(16,185,90,.28); background:#f2fdf7; box-shadow:0 1px 4px rgba(16,185,90,.12); }
 
 /* Bảng điều khiển ẩn/hiện overlay (panel LINK OVERLAY). */
 /* Xếp kiểu "gạch xây" (masonry) bằng CSS columns: thẻ thấp tự dồn khít lên chỗ trống của thẻ cao,
@@ -792,6 +814,56 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .cfg-adv__chev { margin-left: auto; color: var(--tt-ink-3); font-size: 12px; transition: transform .18s; }
 .cfg-adv[open] > summary { border-bottom: 1px solid var(--tt-border); }
 .cfg-adv[open] > summary .cfg-adv__chev { transform: rotate(180deg); color: var(--tt-pink); }
+/* #4 — cfg-adv trong popup của 4 tab đã dời (đánh dấu .sc-flatcfg): hiện thẳng, bỏ khung thẻ + chevron, không gập.
+   KHÔNG dùng .rk-settings-body chung để tránh khoá các drawer của popup TALENT SHOW/khác. */
+.sc-flatcfg .cfg-adv { border:0; border-radius:0; background:transparent; box-shadow:none; overflow:visible; }
+.sc-flatcfg .cfg-adv + .cfg-adv { margin-top:2px; border-top:1px solid var(--tt-border); }
+.sc-flatcfg .cfg-adv > summary { pointer-events:none; cursor:default; padding:12px 0 8px; }
+.sc-flatcfg .cfg-adv > summary:hover { background:transparent; }
+.sc-flatcfg .cfg-adv[open] > summary { border-bottom:0; }
+.sc-flatcfg .cfg-adv__chev { display:none; }
+.sc-flatcfg .cfg-adv__body { padding:4px 0 12px; }
+
+/* ===== TALENT SHOW · nút ⚙️ góc phải tiêu đề (icon trần) + modal riêng ===== */
+.rk-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 4px; }
+.rk-panel-head h1 { margin: 0; }
+.rk-settings-icon {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 34px; height: 34px; padding: 0; margin: 0;
+  background: none; border: 0; border-radius: 9px;
+  color: var(--tt-ink-3); cursor: pointer;
+  transition: color .14s, background .14s, transform .2s;
+}
+.rk-settings-icon svg { width: 22px; height: 22px; display: block; }
+.rk-settings-icon:hover { color: var(--tt-pink); background: rgba(254,44,85,.08); transform: rotate(45deg); }
+
+.gp-modal.rk-settings-modal { width: min(900px, 95vw); height: auto; max-height: 90vh; }
+.rk-settings-body { flex: 1; min-height: 0; overflow: auto; padding: 14px; }
+
+/* 🎯 Tính điểm — hàng nhanh (Mục tiêu · Thời gian · TEST) đưa ra ngoài, trang trí gọn mắt */
+.sc-quick-row {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px;
+  margin: 10px 0 4px; padding: 12px 14px;
+  border: 1px solid var(--tt-border); border-radius: 14px;
+  background: linear-gradient(180deg, #fff, #fbf7fb);
+  box-shadow: 0 6px 18px rgba(22,24,35,.05);
+}
+.sc-quick-start { align-self: stretch; flex: 0 0 auto; min-width: 148px; padding: 0 24px; font-size: 15px; font-weight: 900; border-radius: 12px; }
+.sc-quick-target { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; min-width: 0; font-size: 12px; font-weight: 800; color: var(--tt-ink-2); }
+.sc-quick-target input { width: 150px; font-size: 15px; font-weight: 800; border-radius: 12px; }
+.sc-quick-time { flex: 0 0 auto; }
+/* TEST gọn trên hàng lệnh */
+.score-actions-row .sc-test-compact { flex: 0 0 auto; gap: 6px; padding: 5px 8px; margin-left: auto; }
+.sc-test-compact > span { font-size: 10.5px; }
+.sc-test-compact .score-test-row { grid-template-columns: 54px 30px 30px; gap: 5px; }
+.sc-test-compact .score-test-row input { padding: 6px 7px; font-size: 12.5px; }
+.sc-test-compact .score-test-row button { min-height: 30px; padding: 4px 6px; }
+/* Bo tròn đồng bộ cho mọi ô nhập trong thẻ quick-row */
+.sc-quick-row input { border-radius: 12px; }
+.sc-quick-row .time-seg input { border-radius: 9px; }
+/* Link OBS + Công cụ trong popup Cài đặt */
+.sc-obs-links, .sc-obs-tools-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.sc-obs-tools-row { margin-top: 8px; }
 .cfg-adv__body { padding: 14px; }
 .cfg-adv__body .form-grid { margin-bottom: 0; }
 .cfg-adv__body .form-grid + .form-grid { margin-top: 14px; }
@@ -860,6 +932,12 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .score-command-panel .sc-preview { margin-top:0; min-height:0; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-start; background:linear-gradient(135deg,#111827,#2d1630); color:#fff; border-color:rgba(255,255,255,.08); box-shadow:0 14px 34px rgba(17,24,39,.16); }
 .score-command-panel .sc-preview .sc-num { color:#fff; text-shadow:0 2px 16px rgba(254,44,85,.32); }
 .score-command-panel .sc-preview .sc-meta, .score-command-panel .sc-preview [style*="var(--tt-ink-3)"] { color:rgba(255,255,255,.68) !important; }
+/* #2 — thu gọn thanh xem-trước (chỉ trong app, KHÔNG đụng overlay OBS vì scoped .score-command-panel) */
+.score-command-panel .sc-preview { padding:10px 12px; }
+.score-command-panel .score-review-card { gap:7px; }
+.score-command-panel .score-review-progress { height:24px; }
+.score-command-panel .score-review-creator img, .score-command-panel .score-review-creator span { width:30px; height:30px; }
+.score-command-panel .score-review-topline { gap:6px; }
 /* Hàng điều khiển NGANG (Creator + nút + test thanh máu) — gọn 1 hàng, tự xuống dòng khi hẹp. */
 .score-command-actions { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; min-width:0; margin-bottom:6px; padding:9px; border:1px solid var(--tt-border); border-radius:14px; background:linear-gradient(180deg,#fff,#f8f9fc); }
 .score-command-actions button { min-height:34px; justify-content:center; font-weight:900; font-size:12.5px; }
@@ -887,6 +965,56 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .score-command-test { display:flex; align-items:center; gap:8px; padding:6px 9px; border:1px solid var(--tt-border); border-radius:12px; background:#fff; color:var(--tt-ink-2); font-size:11px; font-weight:950; letter-spacing:.04em; white-space:nowrap; }
 .score-command-test > span { flex:0 0 auto; }
 .score-command-test .score-test-row { flex:1 1 auto; min-width:0; }
+
+/* ===== KHU 2 · Thanh điều khiển Tính điểm: 1 thanh chia 3 nhóm theo luồng (nhịp 8px) =====
+   Gộp 2 hộp cũ (score-command-actions + sc-quick-row) thành 1 dải; phân cấp: BẮT ĐẦU đỏ duy nhất. */
+.score-command-actions.sc-toolbar { display:flex; flex-wrap:wrap; align-items:stretch; gap:0; padding:10px 8px; }
+.sc-toolbar .sc-group { display:flex; flex-direction:column; gap:8px; min-width:0; padding:2px 16px; }
+.sc-toolbar .sc-group-setup { flex:1 1 240px; }
+.sc-toolbar .sc-group-goal  { flex:1 1 240px; }
+.sc-toolbar .sc-group-run   { flex:1 1 230px; }
+.sc-toolbar .sc-group-label { font-size:10px; font-weight:900; letter-spacing:.05em; color:var(--tt-ink-3); text-transform:uppercase; }
+/* vạch dọc ngăn nhóm — mờ dần 2 đầu cho tinh tế */
+.sc-toolbar .sc-group-divider { flex:0 0 1px; width:1px; align-self:stretch; margin:6px 0; background:linear-gradient(180deg,transparent,var(--tt-border) 18%,var(--tt-border) 82%,transparent); }
+/* ① & ② control xếp dọc, phủ hết bề ngang nhóm cho thẳng hàng */
+.sc-toolbar .sc-group-setup > label,
+.sc-toolbar .sc-group-goal > label,
+.sc-toolbar .sc-group-goal > .time-zone { width:100%; margin:0; box-sizing:border-box; }
+.sc-toolbar .score-command-creator,
+.sc-toolbar .score-command-layout { flex:0 0 auto; }
+.sc-toolbar .sc-quick-target { display:flex; flex-direction:column; gap:6px; font-size:11px; font-weight:900; letter-spacing:.04em; color:var(--tt-ink-2); text-transform:uppercase; }
+.sc-toolbar .sc-quick-target input { width:100%; box-sizing:border-box; padding:9px 11px; border:1px solid var(--tt-border); border-radius:11px; background:#fff; color:var(--tt-ink); font-size:15px; font-weight:800; }
+.sc-toolbar .sc-quick-target input:focus { outline:none; border-color:var(--tt-pink); box-shadow:0 0 0 3px rgba(254,44,85,.12); }
+/* Pill thời gian: thu vừa khung nhóm ② — bỏ chữ "THỜI GIAN" (nhóm đã có nhãn), 3 ô dàn đều, không lòi */
+.sc-toolbar .sc-quick-time { width:100%; box-sizing:border-box; gap:6px; padding:5px 9px; justify-content:space-between; }
+.sc-toolbar .sc-quick-time .time-zone__head { display:none; }
+.sc-toolbar .sc-quick-time .time-zone__fields { flex:1 1 auto; justify-content:space-between; gap:4px; }
+.sc-toolbar .sc-quick-time .time-seg { padding:3px 7px; }
+.sc-toolbar .sc-quick-time .time-seg input { width:30px; font-size:16px !important; }
+/* ③ CHẠY — nút chính chiếm hết bề ngang, là điểm nhấn đỏ duy nhất */
+.sc-toolbar .sc-group-run .sc-quick-start { align-self:stretch; width:100%; min-width:0; min-height:42px; margin:0; padding:0 18px; font-size:15px; font-weight:900; }
+.sc-toolbar .sc-run-secondary { display:flex; flex-wrap:wrap; align-items:stretch; gap:6px; }
+.sc-toolbar .sc-run-secondary > button { flex:1 1 0; min-width:0; padding-left:8px; padding-right:8px; }
+/* TEST xuống trọn hàng dưới để +/- không tràn mép phải */
+.sc-toolbar .sc-run-secondary .sc-test-compact { flex:1 1 100%; min-width:0; margin:0; justify-content:space-between; }
+.sc-toolbar .sc-run-secondary .sc-test-compact .score-test-row { grid-template-columns:minmax(0,1fr) 34px 34px; }
+/* Hẹp: xếp nhóm chồng dọc, ẩn vạch dọc */
+@media (max-width: 760px) {
+  .sc-toolbar .sc-group { flex:1 1 100%; padding:2px 4px; }
+  .sc-toolbar .sc-group-divider { display:none; }
+}
+
+/* KHU 3 · XEM LẠI: ngăn gập gọn, chỉ mở khi cần */
+.sc-review-fold { margin-top:6px; }
+.sc-review-fold > summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding:11px 14px; border:1px solid var(--tt-border); border-radius:14px; background:linear-gradient(180deg,#fff,#fafbff); box-shadow:0 6px 18px rgba(22,24,35,.045); }
+.sc-review-fold > summary::-webkit-details-marker { display:none; }
+.sc-review-fold > summary::before { content:'▸'; color:var(--tt-ink-3); font-size:12px; transition:transform .15s; }
+.sc-review-fold[open] > summary::before { transform:rotate(90deg); }
+.sc-review-fold[open] > summary { border-bottom-left-radius:0; border-bottom-right-radius:0; margin-bottom:-1px; }
+.sc-review-summary-title { font-size:13px; font-weight:900; color:var(--tt-ink); }
+.sc-review-summary-hint { margin-left:auto; padding:3px 10px; border-radius:999px; background:var(--tt-bg-2); color:var(--tt-ink-3); font-size:11px; font-weight:800; }
+.sc-review-fold[open] .sc-review-lists { border-top-left-radius:0; border-top-right-radius:0; }
+
 /* Chip preset nhanh — đổi cả cụm màu 1 chạm, preview cập nhật realtime */
 .score-theme-chips { grid-column:1 / -1; display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 11px; border:1px solid var(--tt-border); border-radius:14px; background:linear-gradient(180deg,#fff,#f7f9fc); }
 .score-theme-chips .stc-label { font-size:11px; font-weight:950; letter-spacing:.04em; color:var(--tt-ink-2); text-transform:uppercase; white-space:nowrap; }
@@ -2065,6 +2193,7 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 /* Hàng tiêu đề panel: tên MENU + ô tích Liên kết THI ĐẤU NHÓM (đồng bộ mọi trò) */
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 4px; }
 .panel-head h1 { margin: 0; }
+.panel-head-right { display: flex; align-items: center; gap: 12px; }
 .menu-link-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #4338ca; padding: 5px 12px; border: 1px solid #c7d2fe; border-radius: 999px; background: #eef2ff; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s; }
 .menu-link-toggle:hover { background: #e0e7ff; border-color: #a5b4fc; }
 .menu-link-toggle input { accent-color: #6366f1; width: 15px; height: 15px; }
@@ -2171,9 +2300,9 @@ button, input, select { font-size:14.5px; }
 .topbar { padding:8px 14px; min-height:52px; }
 .top-live { gap:8px; }
 .topbar-ticker { flex-basis:420px; max-width:520px; margin:0 10px; }
-.stats { gap:6px; }
-.stats span { min-width:54px; min-height:34px; padding:5px 8px; border-radius:12px; font-size:14px; }
-.stats b { font-size:16px; }
+.stats { gap:0; }
+.stats span { min-width:0; min-height:26px; padding:0 10px; border-radius:0; font-size:12.5px; }
+.stats b { font-size:14px; }
 .top-connect-row { width:238px; height:34px; border-radius:10px; }
 .top-connect-row .prefix { padding:0 8px; font-size:12.5px; }
 .top-connect-row input { padding:6px 8px; font-size:14px; }

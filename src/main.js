@@ -3308,7 +3308,9 @@ class RankingEngine {
     if (s.activeId != null) this.activeId = s.activeId;
   }
   reset() { this.scores = {}; this.activeId = null; this._comboRepeats.clear(); this._emit(); }
-  startRound() { this.round++; this.scores = {}; this._comboRepeats.clear(); this._emit(); }
+  // NEW ROUND: chỉ +1 ROUND, GIỮ NGUYÊN điểm (tích luỹ qua các vòng). KHÔNG xoá _comboRepeats —
+  // vì điểm còn giữ, nếu xoá thì quà đang combo dở sẽ bị tính lại từ đầu → cộng đôi. Muốn về 0 thì dùng RESET ĐIỂM.
+  startRound() { this.round++; this._emit(); }
   setActive(id) { this.activeId = id; this._emit(); }
 
   // Cộng điểm LIVE cho 1 Creator từ nguồn bên ngoài (trò chơi đang Liên kết THI ĐẤU NHÓM).
@@ -4501,7 +4503,7 @@ function getOverlayVis() {
   const firstRun = !raw.pinned; // chưa từng lưu ⇒ dùng ghim mặc định
   for (const k of OVERLAY_SCENE_KEYS) {
     vis[k] = rawVis[k] !== false;                       // mặc định hiện
-    pinned[k] = firstRun ? (k === 'interact' || k === 'giftmenu') : !!rawPin[k];
+    pinned[k] = firstRun ? true : !!rawPin[k];          // mặc định: ghim TẤT CẢ
   }
   return { autoScene: raw.autoScene !== false, pinned, vis, visModel: 2 };
 }
@@ -4551,7 +4553,13 @@ async function bootstrapOverlay() {
   // chỉ TẮT (về 127.0.0.1) nếu người dùng đã chủ động tắt (lưu false). (Cần hosts "127.0.0.1 hpstudio.obs".)
   overlayServer.setLinkMode(settings.overlayTikTokLinks !== false);
   // Khôi phục trạng thái ẩn/hiện overlay đã lưu (đẩy sau khi server chạy — mẫu re-emit như config khác).
-  overlayServer.setVisibility(getOverlayVis().vis);
+  // Công tắc tổng TẮT → ẩn TẤT CẢ ngay từ đầu (khỏi loé overlay trước khi renderer nạp lại bản đồ hiệu lực).
+  {
+    const ov = getOverlayVis();
+    overlayServer.setVisibility(ov.autoScene === false
+      ? Object.fromEntries(OVERLAY_SCENE_KEYS.map(k => [k, false]))
+      : ov.vis);
+  }
   // Đang bật chế độ TikTok mà máy chưa có dòng hosts → tự cài (UAC 1 lần). Chạy nền, không chặn khởi động.
   if (overlayServer.isTikTokLinkMode() && !hostsSetup.hasOverlayHostEntry()) ensureOverlayHostsAndNotify(true);
   // Lưu sẵn avatar các creator/nhóm ra đĩa (không chặn khởi động).
