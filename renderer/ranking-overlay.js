@@ -83,7 +83,9 @@ function rowHtml(row, state, selFxOn) {
   const perf = hasPerf ? `<div class="ranking-perf" title="Số thứ tự thi đấu">#${Math.round(row.perfOrder)}</div>` : '';
   // Phe PK Đôi (trái A / phải B) → class tô marker + viền theo màu TikTok. PK Nhóm không có phe → rỗng.
   const teamCls = row.matchTeam === 'A' ? ' match-a' : (row.matchTeam === 'B' ? ' match-b' : '');
-  return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}${row.inMatch ? ' in-match' : ''}${teamCls}${hasPerf ? ' has-perf' : ''}" style="--row-group-color:${esc(groupColor)}">
+  // Màu THANH MÁU thật (matchColor) → biến --mc inline (đè màu hardcode phe), đồng bộ marker viền/hào quang/ĐẤU.
+  const mcVar = row.matchColor ? `;--mc:${esc(row.matchColor)}` : '';
+  return `<div class="ranking-row top-${row.rank <= 3 ? row.rank : 0} ${row.active ? 'active' : ''} ${loser ? 'loser' : ''}${row.inMatch ? ' in-match' : ''}${teamCls}${hasPerf ? ' has-perf' : ''}" style="--row-group-color:${esc(groupColor)}${mcVar}">
     ${perf}
     ${state.showRank === false ? '' : `<div class="ranking-rank">${rankEmoji}</div>`}
     ${state.showAvatar === false ? '' : `<div class="ranking-avatar">${selMark}${avatarHtml(row.avatar, row.initials, row.avatarVersion, row.avatarKey)}</div>`}

@@ -726,9 +726,11 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-row.in-match{ box-shadow:inset 0 0 0 1px rgba(255,255,255,.10), 0 0 0 1px var(--mc, var(--ranking-streak-color, #67e8f9)), 0 2px 8px rgba(0,0,0,.28); }
 /* PK Đôi — màu phe kiểu TikTok: phe A (trái) đỏ-hồng, phe B (phải) xanh. Một nguồn màu (--mc) dùng cho
    cả viền hàng lẫn marker; đặt SAU rule top-1 nên đè luôn màu vàng khi người dẫn đầu đang thi đấu. */
-.ranking-row.match-a{ --mc:#ff2e63; }
+.ranking-row.match-a{ --mc:#ff2e63; } /* fallback nếu thiếu matchColor */
 .ranking-row.match-b{ --mc:#22b0ff; }
-.ranking-row.match-a .ranking-select-mark, .ranking-row.match-b .ranking-select-mark{ --sc:var(--mc); }
+/* Marker (viền/hào quang/chữ ĐẤU) tô theo MÀU THANH MÁU thật (--mc set inline từ matchColor). Áp cho MỌI
+   hàng đang thi đấu → PK Nhóm (không có phe A/B) cũng đồng bộ màu; thiếu màu thì rơi về màu streak. */
+.ranking-row.in-match .ranking-select-mark{ --sc:var(--mc, var(--ranking-streak-color, #67e8f9)); }
 
 /* Arrow — tam giác + quầng sáng chỉ vào avatar từ trái, nảy + nhấp nháy */
 .ranking-select-mark .sm-arrow{ animation:rkSelArrow .72s ease-in-out var(--rk-sel-a,0s) infinite; }

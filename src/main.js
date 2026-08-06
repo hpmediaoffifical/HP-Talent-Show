@@ -936,8 +936,9 @@ function saveKcDuoConfig(cfg) { saveJson(KC_DUO_PATH, cfg); }
 const PKG_OLD_NOTES = [
   'Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy',
   'Tặng 01 quà để chọn Creator, sau đó lên gì cũng tính điểm. Tặng lần 2 hoặc quà Creator khác để hủy bỏ hoặc hết trận sẽ tự hủy',
+  'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng',
 ];
-const PKG_NEW_NOTE = 'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng';
+const PKG_NEW_NOTE = 'Chọn quà chỉ định, sau đó lên bao nhiêu cũng tính điểm hoặc vào hộp quà sau đó chọn Thành viên và tặng điểm. Tặng 1 điểm để kiểm tra tính năng';
 function loadPkGroupConfig() {
   const cfg = loadJson(PK_GROUP_PATH, null);
   if (cfg && typeof cfg.noteText === 'string' && PKG_OLD_NOTES.includes(cfg.noteText.trim())) cfg.noteText = PKG_NEW_NOTE;
@@ -1878,7 +1879,10 @@ class PkDuoEngine {
       const rc = ev.recipientCreatorId;
       side = rc ? (this.config.teamA?.creatorId === rc ? 'A' : (this.config.teamB?.creatorId === rc ? 'B' : null)) : null;
     }
-    if (!side) {
+    // Đã đọc được uid người nhận (recipientCreatorId) → tin theo uid: nếu không khớp phe nào của
+    // trận này (co-host ngoài trận) thì quà thuộc người đó, KHÔNG rơi vào Chọn Phe (tránh cộng nhầm
+    // + kẹt dính userTeams của người khác). Chỉ khi KHÔNG đọc được uid mới tính theo bảng quà/Chọn Phe.
+    if (!side && !(this.config.tiktokCombine && ev.recipientCreatorId)) {
       // Cố Định / Chọn Phe: khớp bảng quà như cũ.
       const inA = (this.config.teamA.gifts || []).some(g => giftMatches(g, ev));
       const inB = (this.config.teamB.gifts || []).some(g => giftMatches(g, ev));
@@ -2230,7 +2234,8 @@ class KcDuoEngine {
       const rc = ev.recipientCreatorId;
       side = rc ? (this.config.teamA?.creatorId === rc ? 'A' : (this.config.teamB?.creatorId === rc ? 'B' : null)) : null;
     }
-    if (!side) {
+    // Đã đọc được uid người nhận → tin theo uid (xem chú thích ở PK Đôi). Không đọc được → Chọn Phe.
+    if (!side && !(this.config.tiktokCombine && ev.recipientCreatorId)) {
       const inA = (this.config.teamA.gifts || []).some(g => giftMatches(g, ev));
       const inB = (this.config.teamB.gifts || []).some(g => giftMatches(g, ev));
       side = inA && !inB ? 'A' : (inB && !inA ? 'B' : null);
@@ -2313,25 +2318,27 @@ class PkGroupEngine {
       tiktokCombine: true, // 📡 Kết hợp TikTok: MẶC ĐỊNH BẬT — ưu tiên cộng theo NGƯỜI NHẬN thật (recipientCreatorId), không khớp thì rơi về chế độ nền (user bỏ tích thì nhớ)
       linkRanking: false, // ☑️ Liên kết với THI ĐẤU NHÓM: cộng realtime điểm participant cho Creator
       pointsBy: 'diamond',
-      noteEnabled: false,
-      noteText: 'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng',
-      noteBgColor: '#1f2430',
-      noteTextColor: '#ffffff',
-      noteSpeedSec: 16,
+      noteEnabled: true,
+      noteText: PKG_NEW_NOTE,
+      noteBgColor: '#000000',
+      noteTextColor: '#ffea00',
+      noteSpeedSec: 19,
       noteEffect: 'soft',
-      separatedGap: 180,
+      separatedGap: 170,
+      // Rời nhau: nền tên + phần máu (được tặng) ĐẬM không trong suốt, số điểm trắng, nền rỗng trong suốt. Mặc định BẬT.
+      sepSolidBg: true,
       autoTextContrast: false,
       durationSec: 90,
       prepSec: 3,
       delaySec: 5,
       textSize: 30,
-      nameSize: 100,
+      nameSize: 120,
       giftSize: 60,
       overlayScale: 100,
       showMvpTotals: false,
       // Đánh dấu "người vào trận" kiểu chọn nhân vật game — CHỈ hiện khi chọn subset (ít hơn full nhóm),
-      // đủ full thì tự ẩn. random | arrow | lock | spotlight | versus | off. Mặc định Ngẫu nhiên.
-      selectFx: 'random',
+      // đủ full thì tự ẩn. random | arrow | lock | spotlight | versus | off. Mặc định Hào quang + chữ ĐẤU.
+      selectFx: 'versus',
       // 🎨 Skin mùa lễ cho thanh máu — CHỈ trang trí (khung/hạt/màu), không đụng logic điểm/độ rộng.
       // auto = tự chọn theo ngày; none = mặc định; noel|halloween|newyear|tet|valentine|trungthu|birthday.
       skin: 'auto',
@@ -2424,6 +2431,7 @@ class PkGroupEngine {
       noteSpeedSec: this.config.noteSpeedSec,
       noteEffect: this.config.noteEffect,
       separatedGap: this.config.separatedGap,
+      sepSolidBg: !!this.config.sepSolidBg,
       autoTextContrast: this.config.autoTextContrast,
       durationSec: this.config.durationSec,
       prepSec: this.config.prepSec,
@@ -2627,7 +2635,9 @@ class PkGroupEngine {
       const rc = ev.recipientCreatorId;
       target = rc ? (participants.find(p => (p.creatorId || p.id) === rc) || null) : null;
     }
-    if (!target) {
+    // Đã đọc được uid người nhận → tin theo uid: không khớp participant nào của trận thì quà thuộc
+    // người đó, KHÔNG rơi vào Chọn Creator (tránh cộng nhầm + kẹt dính). Không đọc được uid → chế độ nền.
+    if (!target && !(this.config.tiktokCombine && ev.recipientCreatorId)) {
       target = participants.find(p => (p.gifts || []).some(g => giftMatches(g, ev))) || null;
       if (this.config.playMode === 'join') {
         const user = ev.uniqueId || ev.userId;
@@ -3400,6 +3410,7 @@ class RankingEngine {
           id: c.id,
           inMatch: !!(fighters && fighters.ids.has(String(c.id))),
           matchTeam: fighters ? (fighters.teamOf.get(String(c.id)) || '') : '', // 'A'/'B' (PK Đôi) → màu phe
+          matchColor: fighters ? (fighters.colorOf.get(String(c.id)) || '') : '', // màu thanh máu thật → marker đồng bộ
           name: c.nickname || c.tiktokId,
           avatar: c.avatar || '',
           avatarKey: c.avatarCacheKey || avatarCacheKey(c.avatar),
@@ -4201,13 +4212,16 @@ function activePkFighters() {
   // PK Đôi có 2 phe cố định: teamA (trái) / teamB (phải) → tô marker theo màu TikTok (A đỏ-hồng, B xanh).
   // PK Nhóm không có trái/phải → không gán phe (marker giữ màu mặc định).
   const teamOf = new Map();
+  // Màu THANH MÁU thật của từng đấu thủ (PK Đôi: teamA/B.color; PK Nhóm: participant.color) → marker
+  // "người vào trận" (viền/hào quang/chữ ĐẤU) tô ĐỒNG BỘ màu thanh máu, cho cả 2 layout (dính liền/rời xa).
+  const colorOf = new Map();
   let fx = '';
   if (l.pkduo && pkDuoEngine && live(pkDuoEngine.state.status)) {
     const f = pkDuoEngine._resolveSelectFx();
     if (f !== 'off') {
       const a = pkDuoEngine.config.teamA, b = pkDuoEngine.config.teamB;
-      if (a && a.creatorId) { ids.add(String(a.creatorId)); teamOf.set(String(a.creatorId), 'A'); }
-      if (b && b.creatorId) { ids.add(String(b.creatorId)); teamOf.set(String(b.creatorId), 'B'); }
+      if (a && a.creatorId) { ids.add(String(a.creatorId)); teamOf.set(String(a.creatorId), 'A'); if (a.color) colorOf.set(String(a.creatorId), a.color); }
+      if (b && b.creatorId) { ids.add(String(b.creatorId)); teamOf.set(String(b.creatorId), 'B'); if (b.color) colorOf.set(String(b.creatorId), b.color); }
       if (ids.size && !fx) fx = f;
     }
   }
@@ -4219,11 +4233,11 @@ function activePkFighters() {
     const subset = parts.length >= 2 && (!roster || parts.length < roster);
     const f = pkGroupEngine._resolveSelectFx();
     if (subset && f !== 'off') {
-      for (const p of parts) { const id = p.creatorId || p.id; if (id) ids.add(String(id)); }
+      for (const p of parts) { const id = p.creatorId || p.id; if (id) { ids.add(String(id)); if (p.color) colorOf.set(String(id), p.color); } }
       if (!fx) fx = f;
     }
   }
-  return ids.size ? { ids, teamOf, fx: fx || 'arrow' } : null;
+  return ids.size ? { ids, teamOf, colorOf, fx: fx || 'arrow' } : null;
 }
 
 function bootstrapEngines() {

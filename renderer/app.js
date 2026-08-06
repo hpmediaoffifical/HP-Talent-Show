@@ -6876,7 +6876,7 @@ function groupDefaultGift(groupId) {
 }
 
 // ===== PK Nhóm: chụp / nạp thông số theo nhóm =====
-const PKG_PROFILE_FIELDS = ['content', 'layoutMode', 'playMode', 'creatorLive', 'tiktokCombine', 'pointsBy', 'noteEnabled', 'noteText', 'noteBgColor', 'noteTextColor', 'noteSpeedSec', 'noteEffect', 'separatedGap', 'autoTextContrast', 'showMvpTotals', 'durationSec', 'prepSec', 'delaySec', 'textSize', 'nameSize', 'giftSize', 'overlayScale', 'smartColor', 'creatorColors', 'participants'];
+const PKG_PROFILE_FIELDS = ['content', 'layoutMode', 'playMode', 'creatorLive', 'tiktokCombine', 'pointsBy', 'noteEnabled', 'noteText', 'noteBgColor', 'noteTextColor', 'noteSpeedSec', 'noteEffect', 'separatedGap', 'sepSolidBg', 'autoTextContrast', 'showMvpTotals', 'durationSec', 'prepSec', 'delaySec', 'textSize', 'nameSize', 'giftSize', 'overlayScale', 'smartColor', 'creatorColors', 'participants'];
 
 // Chụp thông số PK Nhóm hiện tại thành object (KHÔNG đọc DOM — caller tự sync trước).
 function pkGroupProfileSnapshot() {
@@ -8097,6 +8097,8 @@ function wireKcDuoTab() {
 // ============================================================
 // Ghi chú riêng cho 🎮 Chế độ TikTok: tự bật + hiển thị khi chọn mode này (đồng bộ với default & migration ở main.js).
 const PKG_TIKTOK_NOTE = 'Chọn Creator tại hộp quà tặng trong App trước khi tặng quà để đảm bảo điểm hoạt động đúng tính năng';
+// Ghi chú tự điền khi chọn chế độ "Chọn phe" (playMode=join) ở PK Nhóm.
+const PKG_JOIN_NOTE = 'Chọn quà chỉ định, sau đó lên bao nhiêu cũng tính điểm hoặc vào hộp quà sau đó chọn Thành viên và tặng điểm. Tặng 1 điểm để kiểm tra tính năng';
 function syncPkGroupMvpTotalsFromState(st = {}) {
   if (!Array.isArray(st.participants)) return;
   const totals = new Map();
@@ -8222,6 +8224,7 @@ function applyPkGroupCfgToInputs() {
   if ($('#pkgSmartColor')) $('#pkgSmartColor').checked = pkGroupCfg.smartColor !== false;
   if ($('#ovlAutoTextContrast')) $('#ovlAutoTextContrast').checked = !!pkGroupCfg.autoTextContrast;
   if ($('#pkgShowMvpTotals')) $('#pkgShowMvpTotals').checked = !!pkGroupCfg.showMvpTotals;
+  if ($('#pkgSepSolidBg')) $('#pkgSepSolidBg').checked = !!pkGroupCfg.sepSolidBg;
   if ($('#pkgSelectFx')) $('#pkgSelectFx').value = pkGroupCfg.selectFx || 'random';
   if ($('#pkgSkin')) { $('#pkgSkin').value = pkGroupCfg.skin || 'auto'; updateSkinHint('pkgSkin', 'pkgSkinHint'); }
 }
@@ -8573,7 +8576,15 @@ function wirePkGroupTab() {
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers(); });
   });
   wireSkinHint('pkgSkin', 'pkgSkinHint');
+  // Chọn phe → tự bật ghi chú + điền câu hướng dẫn (quà chỉ định / chọn Thành viên ở hộp quà).
+  // Rời khỏi Chọn phe mà ghi chú vẫn đang là câu đó → trả field trống (khỏi kẹt câu cũ).
   $('#pkgPlayMode').addEventListener('change', () => {
+    if ($('#pkgPlayMode').value === 'join') {
+      $('#pkgNoteEnabled').checked = true;
+      $('#pkgNoteText').value = PKG_JOIN_NOTE;
+    } else if ($('#pkgNoteText').value.trim() === PKG_JOIN_NOTE) {
+      $('#pkgNoteText').value = '';
+    }
     syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers();
   });
   // 📡 Kết hợp TikTok: BẬT → tự bật ghi chú + điền câu hướng dẫn chọn Creator (riêng cho chế độ này)
@@ -8581,9 +8592,9 @@ function wirePkGroupTab() {
   $('#pkgTiktokCombine')?.addEventListener('change', () => {
     if ($('#pkgTiktokCombine').checked) {
       $('#pkgNoteEnabled').checked = true;
-      $('#pkgNoteText').value = PKG_TIKTOK_NOTE;
-      toast('📡 Kết hợp TikTok BẬT: quà tặng đúng Creator tự cộng — đã bật ghi chú "Chọn Creator tại hộp quà tặng…".', 'success');
-    } else if ($('#pkgNoteText').value.trim() === PKG_TIKTOK_NOTE) {
+      $('#pkgNoteText').value = PKG_JOIN_NOTE;
+      toast('📡 Kết hợp TikTok BẬT: quà tặng đúng Creator tự cộng — đã bật ghi chú hướng dẫn tặng quà.', 'success');
+    } else if ([PKG_JOIN_NOTE, PKG_TIKTOK_NOTE].includes($('#pkgNoteText').value.trim())) {
       $('#pkgNoteText').value = '';
     }
     syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers();
@@ -8595,6 +8606,10 @@ function wirePkGroupTab() {
   });
   $('#ovlAutoTextContrast')?.addEventListener('change', () => {
     pkGroupCfg.autoTextContrast = $('#ovlAutoTextContrast').checked;
+    schedulePkGroupAutoSave();
+  });
+  $('#pkgSepSolidBg')?.addEventListener('change', () => {
+    pkGroupCfg.sepSolidBg = $('#pkgSepSolidBg').checked;
     schedulePkGroupAutoSave();
   });
   $('#pkgShowMvpTotals')?.addEventListener('change', async () => {
@@ -8659,6 +8674,7 @@ function collectPkGroupCfg() {
     noteSpeedSec: Math.max(6, Number($('#pkgNoteSpeed').value) || 16),
     noteEffect: $('#pkgNoteEffect').value,
     separatedGap: Math.max(0, Math.min(800, Number($('#pkgSeparatedGap').value) || 0)),
+    sepSolidBg: !!$('#pkgSepSolidBg')?.checked,
     autoTextContrast: !!$('#ovlAutoTextContrast')?.checked,
     showMvpTotals: !!$('#pkgShowMvpTotals')?.checked,
     durationSec: Math.max(5, h * 3600 + m * 60 + s),

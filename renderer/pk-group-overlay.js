@@ -369,7 +369,7 @@ function render(state = {}) {
         const isLeader = p.id === leaderId;
         const tc = textColorFor(p.color);
         return `<div class="pkg-card${isLeader ? ' leader' : ''}" data-rank="${rankMap.get(p.id) || ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">
-          <div class="pkg-card-person${showMvpTotals ? ' has-mvp-total' : ''}">${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b>${totalMvpHtml(p)}</div>
+          <div class="pkg-card-person${showMvpTotals ? ' has-mvp-total' : ''}">${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<span class="pkg-name-chip"><b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b>${totalMvpHtml(p)}</span></div>
           <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i><span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}</div></div>
           <div class="pkg-card-gifts${tiktokMode ? ' tiktok' : ''}">${tiktokMode ? '' : (p.gifts || []).map(giftHtml).join('')}${donorsHtml(p.topDonors)}</div>
         </div>`;
@@ -394,7 +394,7 @@ function render(state = {}) {
   }
   applySkin(state);
   const board = root.querySelector('.pkg-board');
-  board.className = `pkg-board mode-${layout} status-${esc(status)}${urgent ? ' urgent' : ''}`;
+  board.className = `pkg-board mode-${layout} status-${esc(status)}${urgent ? ' urgent' : ''}${state.sepSolidBg ? ' sep-solid' : ''}`;
   // Baseline ×1.5: mức 100% trên giao diện = cỡ như 150% trước đây (avatar + tên to hơn mặc định).
   const nameScale = Math.max(.9, Math.min(3, ((parseInt(state.nameSize, 10) || 100) / 100) * 1.5));
   const nextBoardStyleKey = [state.textSize, state.giftSize, state.separatedGap, overlayScale, nameScale].join('|');

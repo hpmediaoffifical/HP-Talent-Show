@@ -140,6 +140,15 @@ body { display:flex; justify-content:center; align-items:center; }
 .pkg-card-bar { position:relative; height:calc(max(30px, var(--pkg-text,20px) * 1.35) * var(--pkg-scale,1)); overflow:visible; border-radius:999px; background:linear-gradient(180deg, rgba(12,15,22,.30), rgba(44,50,64,.18)); box-shadow:inset 0 0 0 2px rgba(15,18,26,.28), inset 0 2px 6px rgba(0,0,0,.22), inset 0 -1px 0 rgba(255,255,255,.05), 0 6px 16px rgba(0,0,0,.16); }
 /* Rời nhau: mọi thanh máu có viền trắng nhạt để tách rõ khỏi nền tối. */
 #pkGroupRoot .pkg-board.mode-separated .pkg-card-bar::before { content:''; position:absolute; inset:0; z-index:6; border-radius:inherit; pointer-events:none; box-shadow:inset 0 0 0 2px rgba(255,255,255,.72); }
+/* 🎨 Nền đậm (tùy chọn, chỉ Rời nhau): nền TÊN + phần MÁU (fill) tô ĐẶC (không trong suốt) + viền rõ + SỐ ĐIỂM
+   trắng. NỀN RỖNG (track) GIỮ NGUYÊN xám mờ trong suốt như base (chỉ phần máu được-tặng mới đặc). id-scope
+   nên đè được cả skin mùa lễ khi bật. */
+#pkGroupRoot .pkg-board.mode-separated.sep-solid .pkg-name-chip { background:linear-gradient(90deg, rgba(var(--cr, 254,44,85),1), rgba(var(--cr, 254,44,85),.95)); box-shadow:0 4px 12px rgba(0,0,0,.30), inset 0 0 0 1px rgba(255,255,255,.30); }
+#pkGroupRoot .pkg-board.mode-separated.sep-solid .pkg-card-bar::before { box-shadow:inset 0 0 0 2px rgba(255,255,255,.95); }
+/* Số điểm luôn TRẮNG (mặc định như khi tắt Nền đậm) — không theo --tc để khỏi bị chữ tối trên nền. */
+#pkGroupRoot .pkg-board.mode-separated.sep-solid .pkg-card-bar b { color:#fff; text-shadow:0 2px 5px rgba(0,0,0,.75); }
+/* Phần MÁU: bỏ đuôi trái trong suốt (.30) → tô đặc màu team đều; giữ lớp sheen trắng chạy phía trên. */
+#pkGroupRoot .pkg-board.mode-separated.sep-solid .pkg-card-bar > i { background:linear-gradient(90deg, rgba(255,255,255,0) 20%, rgba(255,255,255,.20) 46%, rgba(255,255,255,0) 70%), linear-gradient(90deg, rgba(var(--cr, 254,44,85),.94), var(--c)); }
 /* Fill "vệt sao băng": đuôi bên trái mờ trong suốt → đầu đang tiến bên phải đậm & sáng nhất */
 /* width kế thừa biến --cw-<id> nội suy bằng rAF trên root (bỏ transition:width vì i bị dựng lại mỗi render). */
 /* OBS-safe fill "vệt sao băng": đuôi trái mờ (rgba --cr thấp) → đầu phải đặc; lớp sáng trắng phủ
@@ -165,13 +174,14 @@ body { display:flex; justify-content:center; align-items:center; }
 /* Rời nhau (mode-separated): BỎ chip "Hạng 1" trên TOP 1 — chip absolute ở mép trái đè/che SỐ ĐIỂM khi số lớn
    (điểm căn giữa nở rộng chạm chip). Chỉ ảnh hưởng kiểu Rời nhau; kiểu Gộp (.pkg-segment) giữ nguyên. */
 .pkg-board.mode-separated .pkg-card-bar b .pkg-rank-tag { display:none; }
-.pkg-card-person { width:calc(148px * var(--pkg-scale,1)); max-width:calc(148px * var(--pkg-scale,1)); justify-self:start; display:flex; align-items:center; justify-content:flex-start; gap:calc(7px * var(--pkg-scale,1)); min-width:0; padding:calc(4px * var(--pkg-scale,1)) calc(11px * var(--pkg-scale,1)) calc(4px * var(--pkg-scale,1)) calc(4px * var(--pkg-scale,1)); border-radius:999px; background:linear-gradient(90deg, rgba(255,255,255,.16), rgba(255,255,255,.05) 36%, rgba(255,255,255,0) 100%), linear-gradient(90deg, rgba(var(--cr, 254,44,85),.96) 0%, rgba(var(--cr, 254,44,85),.82) 36%, rgba(var(--cr, 254,44,85),.30) 100%); color:#fff; box-shadow:0 4px 12px rgba(0,0,0,.14), inset 0 0 0 1px rgba(255,255,255,.1); }
-.pkg-card-person img { width:calc(40px * var(--pkg-scale,1)); height:calc(40px * var(--pkg-scale,1)); border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,.88); background:#fff; box-shadow:none; flex:0 0 auto; }
-.pkg-card-person b { min-width:0; max-width:calc(88px * var(--pkg-scale,1)); color:var(--tc, #fff); font-size:calc(var(--pkg-text,20px) * .78 * var(--pkg-scale,1)); line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:var(--tsh, 0 2px 5px rgba(0,0,0,.65)); }
-/* Tổng MVP nổi trên góc phải thẻ tên: không chiếm chỗ trong flex nên tên Creator không bị "...". */
-.pkg-card-person.has-mvp-total { width:min(100%, calc(210px * var(--pkg-scale,1))); max-width:100%; position:relative; overflow:visible; }
-.pkg-card-person.has-mvp-total b { max-width:none; flex:1 1 auto; }
-.pkg-card-person.has-mvp-total .pkg-mvp-total { position:absolute; z-index:5; right:calc(5px * var(--pkg-scale,1)); top:calc(-17px * var(--pkg-scale,1)); margin:0; }
+/* Thẻ tên RỜI NHAU: AVATAR (vòng tròn + viền màu team = nền dưới avatar) TO theo % qua --pkg-name-mul,
+   TÁCH khỏi CHIP TÊN. Chip tên nền ÔM SÁT chữ (theo Cỡ chữ Creator, KHÔNG phình theo avatar); badge Tổng
+   MVP nằm CẠNH chữ trong chip (không đè). --pkg-name-mul chuẩn hoá mốc 1.5 → nameSize=100 = mul 1 (như cũ). */
+.pkg-card-person { --pkg-name-mul:calc(var(--pkg-name-scale, 1.5) / 1.5); max-width:calc(250px * var(--pkg-scale,1)); justify-self:start; display:flex; align-items:center; justify-content:flex-start; gap:calc(6px * var(--pkg-scale,1)); min-width:0; padding:0; background:none; box-shadow:none; }
+.pkg-card-person img { width:calc(40px * var(--pkg-scale,1) * var(--pkg-name-mul, 1)); height:calc(40px * var(--pkg-scale,1) * var(--pkg-name-mul, 1)); border-radius:50%; object-fit:cover; border:calc(3px * var(--pkg-scale,1) * var(--pkg-name-mul, 1)) solid var(--c); background:#fff; box-shadow:0 0 0 calc(1.5px * var(--pkg-scale,1)) rgba(255,255,255,.9), 0 3px 8px rgba(0,0,0,.25); flex:0 0 auto; }
+.pkg-name-chip { display:inline-flex; align-items:center; gap:calc(6px * var(--pkg-scale,1)); min-width:0; max-width:calc(190px * var(--pkg-scale,1)); padding:calc(4px * var(--pkg-scale,1)) calc(11px * var(--pkg-scale,1)); border-radius:999px; background:linear-gradient(90deg, rgba(var(--cr, 254,44,85),.96), rgba(var(--cr, 254,44,85),.82)); box-shadow:0 4px 12px rgba(0,0,0,.14), inset 0 0 0 1px rgba(255,255,255,.1); }
+.pkg-name-chip b { min-width:0; max-width:calc(150px * var(--pkg-scale,1)); color:var(--tc, #fff); font-size:calc(var(--pkg-text,20px) * .78 * var(--pkg-scale,1)); line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:var(--tsh, 0 2px 5px rgba(0,0,0,.65)); }
+.pkg-name-chip .pkg-mvp-total { position:static; transform:none; margin:0; z-index:auto; flex:0 0 auto; }
 .pkg-card-gifts { min-height:calc(var(--pkg-gift,42px) * var(--pkg-scale,1)); display:flex; justify-content:center; align-items:center; gap:calc(5px * var(--pkg-scale,1)); }
 .pkg-boost { position:absolute; z-index:9; right:-24px; top:50%; width:62px; height:38px; transform:translateY(-50%); pointer-events:none; animation:pkgBoostPopRight 1.3s ease-out forwards; filter:drop-shadow(0 4px 8px rgba(0,0,0,.28)); }
 .pkg-segment .pkg-boost.dir-left { left:-24px; right:auto; animation-name:pkgBoostPopLeft; }
