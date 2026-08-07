@@ -1882,7 +1882,12 @@ class PkDuoEngine {
     // Đã đọc được uid người nhận (recipientCreatorId) → tin theo uid: nếu không khớp phe nào của
     // trận này (co-host ngoài trận) thì quà thuộc người đó, KHÔNG rơi vào Chọn Phe (tránh cộng nhầm
     // + kẹt dính userTeams của người khác). Chỉ khi KHÔNG đọc được uid mới tính theo bảng quà/Chọn Phe.
-    if (!side && !(this.config.tiktokCombine && ev.recipientCreatorId)) {
+    // CHỈ để recipient CHẶN bước khớp quà khi 2 phe THỰC SỰ gán creatorId (PK giữa 2 Creator). Ở chế độ
+    // Cố Định/Chọn Phe theo QUÀ (2 phe không gán creatorId), khái niệm "co-host ngoài trận" không tồn tại
+    // → phải LUÔN khớp theo bảng quà, nếu không quà COMBO trong LIVE nhóm (mang recipientCreatorId của
+    // người nhận, không khớp phe nào) sẽ bị rơi cả thanh máu lẫn BXH (giống lỗi Giữ/Đổi).
+    const pkHasTeamCreators = !!(this.config.teamA?.creatorId || this.config.teamB?.creatorId);
+    if (!side && !(this.config.tiktokCombine && ev.recipientCreatorId && pkHasTeamCreators)) {
       // Cố Định / Chọn Phe: khớp bảng quà như cũ.
       const inA = (this.config.teamA.gifts || []).some(g => giftMatches(g, ev));
       const inB = (this.config.teamB.gifts || []).some(g => giftMatches(g, ev));
@@ -2235,7 +2240,13 @@ class KcDuoEngine {
       side = rc ? (this.config.teamA?.creatorId === rc ? 'A' : (this.config.teamB?.creatorId === rc ? 'B' : null)) : null;
     }
     // Đã đọc được uid người nhận → tin theo uid (xem chú thích ở PK Đôi). Không đọc được → Chọn Phe.
-    if (!side && !(this.config.tiktokCombine && ev.recipientCreatorId)) {
+    // KHÁC PK Đôi/Nhóm: Giữ/Đổi định tuyến theo LOẠI QUÀ (GIỮ = quà phe A, ĐỔI = quà phe B), 2 phe
+    // thường KHÔNG gán creatorId. Nên chỉ cho recipient CHẶN bước khớp quà khi thực sự có gán creatorId
+    // cho phe (lúc đó routing theo người nhận mới có nghĩa). Không gán → LUÔN khớp theo bảng quà; nếu
+    // không, quà COMBO trong LIVE nhóm (mang toMemberId → recipientCreatorId của người diễn, không khớp
+    // phe nào) sẽ bị rơi cả thanh máu lẫn BXH — trong khi quà tap lẻ không mang recipient thì lại vào.
+    const kcHasTeamCreators = !!(this.config.teamA?.creatorId || this.config.teamB?.creatorId);
+    if (!side && !(this.config.tiktokCombine && ev.recipientCreatorId && kcHasTeamCreators)) {
       const inA = (this.config.teamA.gifts || []).some(g => giftMatches(g, ev));
       const inB = (this.config.teamB.gifts || []).some(g => giftMatches(g, ev));
       side = inA && !inB ? 'A' : (inB && !inA ? 'B' : null);
@@ -4095,6 +4106,20 @@ function createWindow() {
   });
   win.removeMenu();
   win.loadFile(path.join(ROOT, 'renderer', 'index.html'));
+  // FIX gõ liệu: mở app từ launcher/installer trên Windows hay bị "foreground-lock" — cửa sổ hiện lên
+  // NẰM TRÊN nhưng KHÔNG nhận bàn phím, phải ALT+Tab ra/vào mới gõ được ở các ô nhập. element.focus()
+  // trong renderer chỉ đặt con trỏ, không kéo được keyboard-focus cấp OS về webContents. Ép kích hoạt +
+  // focus webContents MỘT LẦN sau khi nạp xong để gõ được ngay từ lần mở đầu. (once → không giật focus
+  // mỗi lần reload; win32 mới cần steal để vượt foreground-lock.)
+  win.webContents.once('did-finish-load', () => {
+    try {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+      win.webContents.focus();
+      if (process.platform === 'win32') app.focus({ steal: true });
+    } catch {}
+  });
   if (compactMigration || !isUsableWindowBounds(settings.windowBounds)) {
     settings.compactUiVersion = COMPACT_UI_VERSION;
     settings.windowBounds = bounds;
