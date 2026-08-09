@@ -448,3 +448,145 @@ body[data-skin="newyear"]   { --osk-crown:'🎆'; }
 body[data-skin="valentine"] { --osk-crown:'💘'; }
 body[data-skin="trungthu"]  { --osk-crown:'🏮'; }
 body[data-skin="birthday"]  { --osk-crown:'🎂'; }
+
+/* ============================================================
+   🎨 BỐ CỤC DOUYIN (dy-layout) — thanh máu nổi kiểu Douyin.
+   Bật qua config barLayout='douyin'. KHÔNG hộp đen bao ngoài:
+   thanh máu độc lập trên cùng (điểm 2 đầu = pill, gạch trắng dày
+   ở ranh giới, "+N" xanh loé khi đẩy, số đếm lùi TO ở 10s cuối),
+   dưới là [chuỗi][thẻ Creator][đồng hồ][thẻ Creator][chuỗi].
+   Tái dùng --pk-a-width (nội suy rAF) cho ranh giới → trôi mượt.
+   OBS-safe: chỉ transform/opacity/box-shadow, avatar bo trực tiếp
+   trên <img>, KHÔNG overflow:hidden bo góc quanh ảnh.
+   ============================================================ */
+.pkduo-board.dy-layout { background:transparent; box-shadow:none; overflow:visible; border-radius:0; width:720px; padding:6px 8px 4px; }
+.pkduo-board.dy-layout::after { display:none; }  /* bỏ viền skin mùa lễ của bố cục HP */
+
+/* --- Thanh máu --- */
+.dy-bar { position:relative; height:38px; border-radius:999px; box-sizing:border-box;
+  background:linear-gradient(90deg,
+    var(--pk-a, #FE2C55) 0,
+    var(--pk-a, #FE2C55) calc(var(--pk-a-width, 50%) - 0.4%),
+    var(--pk-b, #25F4EE) calc(var(--pk-a-width, 50%) + 0.4%),
+    var(--pk-b, #25F4EE) 100%);
+  box-shadow:0 4px 14px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 4px rgba(0,0,0,.28); }
+.dy-bar.lead-a { box-shadow:0 4px 16px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.3), 0 0 20px rgba(var(--pk-a-rgb, 254,44,85),.5); }
+.dy-bar.lead-b { box-shadow:0 4px 16px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.3), 0 0 20px rgba(var(--pk-b-rgb, 37,244,238),.5); }
+/* Gạch trắng dày ở ranh giới — LIỀN MẠCH đúng chiều cao thanh (không lòi trên/dưới), dày. */
+.dy-seam { position:absolute; left:var(--pk-a-width, 50%); top:0; bottom:0; width:10px; transform:translateX(-50%); z-index:3;
+  background:#fff; border-radius:3px; pointer-events:none; }
+/* Điểm 2 đầu — chữ trắng đậm TRỰC TIẾP trên thanh (không nền xám), bóng đen để đọc rõ. */
+.dy-score { position:absolute; top:0; bottom:0; z-index:4; display:flex; align-items:center; justify-content:center; min-width:34px; padding:0 10px;
+  color:#fff; font-size:calc(var(--pk-text, 21px) * 1.05); font-weight:950; line-height:1;
+  text-shadow:0 2px 5px rgba(0,0,0,.6), 0 0 3px rgba(0,0,0,.45); }
+.dy-score.a { left:8px; }
+.dy-score.b { right:8px; }
+.pkduo-board.dy-layout.gain-a .dy-score.a { animation:pkDuoScorePop .5s ease-out; }
+.pkduo-board.dy-layout.gain-b .dy-score.b { animation:pkDuoScorePop .5s ease-out; }
+/* Đốm trắng "bong bóng" bay từ gạch trắng ra 2 bên (transform/opacity → OBS-safe, KHÔNG filter/will-change). */
+.dy-bubbles { position:absolute; left:var(--pk-a-width, 50%); top:50%; z-index:2; width:0; height:0; pointer-events:none; }
+.dy-bubble { position:absolute; left:0; top:0; width:var(--bs, 5px); height:var(--bs, 5px); border-radius:50%; background:rgba(255,255,255,.92);
+  opacity:0; transform:translate(-50%,-50%) scale(.3); animation:dyBubble 2.6s ease-out infinite; }
+@keyframes dyBubble {
+  0% { opacity:0; transform:translate(-50%,-50%) scale(.3); }
+  14% { opacity:.92; }
+  70% { opacity:.42; }
+  100% { opacity:0; transform:translate(calc(-50% + var(--bx, 0px)), calc(-50% + var(--by, 0px))) scale(1); }
+}
+/* "+N" xanh loé ngay tại ranh giới khi có người tặng. */
+.dy-push { position:absolute; left:var(--pk-a-width, 50%); top:-30px; z-index:6; transform:translateX(-50%);
+  font-size:calc(var(--pk-text, 21px) * 1.02); font-weight:950; color:#3bf06a; white-space:nowrap; pointer-events:none;
+  text-shadow:0 2px 6px rgba(0,0,0,.8), 0 0 10px rgba(59,240,106,.6); animation:pkDyPushFloat 1.1s ease-out; }
+
+/* --- Hàng dưới: chuỗi · thẻ Creator · đồng hồ · thẻ Creator · chuỗi --- */
+.dy-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr) auto; align-items:stretch; gap:9px; margin-top:14px; }
+.dy-streak { position:relative; z-index:3; flex:0 0 auto; width:54px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; line-height:1.02; color:#ffe08a; text-shadow:0 2px 5px rgba(0,0,0,.9); }
+/* Kéo khối chuỗi ăn vào thẻ để mũi tên mờ chạm mép cong mờ của thẻ (nối vào nhau). */
+.dy-streak.a { margin-right:-12px; }
+.dy-streak.b { margin-left:-12px; }
+.dy-streak .n { display:block; font-size:calc(var(--pk-text, 21px) * 1.18); font-weight:950; font-style:italic; }
+.dy-streak .lb { display:block; font-size:calc(var(--pk-text, 21px) * .56); font-weight:900; letter-spacing:.06em; }
+/* Nền 2 lớp mũi tên hướng về Creator (SVG). l1 trước = vàng hơi mờ; l2 sau = màu phe mờ nhiều, mũi bo cong. */
+.dy-streak-bg { position:absolute; top:0; left:-3px; width:108px; height:100%; z-index:-1; pointer-events:none; }
+.dy-streak.b .dy-streak-bg { left:auto; right:-3px; transform:scaleX(-1); }
+.dy-streak-bg svg { width:108px; height:100%; overflow:visible; display:block; }
+/* Lớp vàng: khối đặc bo góc (giữ stroke cùng màu = chỉ bo, không tạo viền). */
+/* Vàng: fill đặc, KHÔNG stroke (stroke bán trong suốt chồng fill sẽ tạo mép đậm nổi bật) → mép "thường" như lớp hồng. */
+.dy-streak .l1 { fill:rgba(242,176,66,.46); stroke:none; }
+/* Lớp hồng: KHÔNG stroke (hết viền), MỜ DẦN về phía mũi bằng mask nhưng vẫn rõ 1 chút ở đuôi (đặc gần khối vàng). */
+.dy-streak .l2 { stroke:none; -webkit-mask-image:linear-gradient(to right, #000 0%, #000 58%, rgba(0,0,0,.4) 100%);
+  mask-image:linear-gradient(to right, #000 0%, #000 58%, rgba(0,0,0,.4) 100%); }
+.dy-streak.a .l2 { fill:rgba(var(--pk-a-rgb, 254,44,85),.52); }
+.dy-streak.b .l2 { fill:rgba(var(--pk-b-rgb, 37,244,238),.52); }
+/* Thẻ Creator = nền màu MỜ ở mép ngoài → ĐẬM dần về phía avatar thành viên (avatar phía TRONG). */
+/* z-index:1 để nằm DƯỚI khối chuỗi (z:3) → mũi tên mờ của chuỗi phủ lên mép cong mờ của thẻ, cảm giác nối vào nhau.
+   Nội dung (tên+icon) DỒN về phía avatar (justify) → chừa mép ngoài trống cho mũi tên chuỗi ăn sâu vào. */
+.dy-card { position:relative; z-index:1; display:flex; align-items:center; gap:14px; min-width:0; padding:4px 12px; border-radius:999px;
+  box-shadow:0 3px 10px rgba(0,0,0,.24); }
+/* space-between: tên+icon ra MÉP NGOÀI, avatar ở TRONG. Padding ngoài lớn để chữ nằm sau mũi tên chuỗi (không đè). */
+.dy-card.a { justify-content:space-between; background:linear-gradient(90deg, rgba(var(--pk-a-rgb, 254,44,85),.04), rgba(var(--pk-a-rgb, 254,44,85),.6)); padding-left:50px; padding-right:8px; }
+.dy-card.b { justify-content:space-between; background:linear-gradient(90deg, rgba(var(--pk-b-rgb, 37,244,238),.6), rgba(var(--pk-b-rgb, 37,244,238),.04)); padding-right:50px; padding-left:8px; }
+.dy-card-text { flex:1 1 auto; min-width:0; }
+.dy-card.a .dy-card-text { text-align:left; }
+.dy-card.b .dy-card-text { text-align:right; }
+.dy-name { color:#fff; font-weight:950; font-size:calc(var(--pk-text, 21px) * .88); line-height:1.12; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  text-shadow:0 2px 6px rgba(0,0,0,.9); }
+/* CHỈ icon quà (bỏ tên) — nhiều icon xếp hàng, to hơn 1 chút; CẮT trong lane (không tràn ra video).
+   Vượt bề rộng lane (quá nền thẻ) → wireDyGiftMarquee thêm .is-scroll để tự cuộn vô hạn. */
+.dy-gift { display:flex; align-items:center; margin-top:3px; min-width:0; overflow:hidden; }
+.dy-card.a .dy-gift { justify-content:flex-start; }
+.dy-card.b .dy-gift { justify-content:flex-end; }
+/* Khi CUỘN: ép căn trái để dải nhân đôi lặp -50% liền mạch (căn phải sẽ để trống bên phải trước khi lặp → giật).
+   Đặc tả 4-class để thắng .dy-card.b .dy-gift{flex-end}. */
+.dy-gift.is-scroll { -webkit-mask-image:linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); mask-image:linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+.dy-card.a .dy-gift.is-scroll, .dy-card.b .dy-gift.is-scroll { justify-content:flex-start; }
+.dy-gift-seq { display:inline-flex; align-items:center; flex:0 0 auto; }
+.dy-gift.is-scroll .dy-gift-seq { animation:dyGiftMarquee var(--dy-gift-dur, 10s) linear infinite; animation-delay:var(--dy-gift-delay, 0s); will-change:transform; }
+/* Cỡ icon quà THEO cài đặt "Cỡ icon quà" (--pk-gift) → tính năng này áp dụng cho Douyin. */
+.dy-gift-emo { flex:0 0 auto; margin-right:8px; font-size:calc(var(--pk-gift, 46px) * .56); line-height:1; }
+.dy-gift img { width:calc(var(--pk-gift, 46px) * .62); height:calc(var(--pk-gift, 46px) * .62); object-fit:contain; flex:0 0 auto; margin-right:8px; filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+@keyframes dyGiftMarquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.dy-ava { width:54px; height:54px; flex:0 0 auto; border-radius:50%; object-fit:cover; border:2px solid #fff;
+  background:#fff url('/logo.png') center/78% no-repeat; box-shadow:0 3px 8px rgba(0,0,0,.5); }
+/* Đồng hồ giữa 2 thẻ — flex center để chữ vẫn giữa theo chiều dọc khi hàng stretch. */
+.dy-timer { display:flex; align-items:center; justify-content:center; text-align:center; color:#fff; font-weight:950; font-size:calc(var(--pk-text, 21px) * 1.12); white-space:nowrap; min-width:58px;
+  text-shadow:0 2px 6px rgba(0,0,0,.85); }
+.pkduo-board.dy-layout.status-prestart .dy-timer .big { display:inline-block; font-size:calc(var(--pk-text, 21px) * 1.7); color:#fff1a6;
+  animation:pkDuoStartPop .6s ease-in-out infinite; }
+/* 10s cuối: số TO tách biệt ngay vùng đồng hồ giữa, chớp đỏ↔trắng nảy nhẹ (giống Douyin). */
+.dy-timer .dy-final { display:inline-block; font-size:calc(var(--pk-text, 21px) * 2.15); font-weight:950; font-style:normal; line-height:1;
+  animation:pkDuoFinalPop .6s ease-in-out infinite; }
+.pkduo-board.dy-layout.status-grace .dy-timer { font-size:calc(var(--pk-text, 21px) * .8); letter-spacing:-.02em; }
+.pkduo-board.dy-layout.status-finished .dy-timer { color:#a7ffd1; text-shadow:0 2px 4px rgba(0,0,0,.5), 0 0 12px rgba(52,211,153,.45); }
+
+/* Kết quả WIN/LOSE đè thẻ — BỎ nền xám (thấy rõ mặt Creator); chữ có viền đen đậm để đọc rõ trên video.
+   Dời cụm chữ sang phía chữ (né avatar phía trong) để không che mặt Creator. */
+.dy-card .pkduo-result { z-index:9; font-size:calc(var(--pk-text, 21px) * 1.5); letter-spacing:.05em; border-radius:999px; }
+.dy-card .pkduo-result::before { display:none; }
+.dy-card.a .pkduo-result { left:6px; right:62px; }
+.dy-card.b .pkduo-result { left:62px; right:6px; }
+.dy-card .pkduo-result.lose { text-shadow:0 2px 4px rgba(0,0,0,.96), 0 0 8px rgba(0,0,0,.95), 0 1px 1px rgba(0,0,0,1); }
+/* WIN: BỎ gradient clip (trên OBS ra đen mờ) → màu XANH ĐẬM đặc, rõ như LOSE. */
+.dy-card .pkduo-result.win { background:none; color:#0a9c66; -webkit-text-fill-color:#0a9c66;
+  text-shadow:0 2px 4px rgba(0,0,0,.7), 0 0 4px rgba(0,0,0,.55), 0 1px 1px rgba(255,255,255,.4); }
+.dy-card .pkduo-result.win::after { display:none; }
+
+/* Hàng avatar TOP người tặng dưới thẻ (chỉ khi kết thúc) — canh theo đúng cột thẻ.
+   MVP (r1) đứng đầu DOM → row-reverse (A) / thường (B) đẩy về TRONG (gần Creator) + to hơn. */
+/* 2 cụm dồn về SÁT MÉP 2 bên (space-between); MVP ở mép TRONG mỗi cụm (gần Creator). */
+.dy-under { display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:0 2px; }
+.dy-gset { display:flex; align-items:center; gap:7px; }
+.dy-gset.a { flex-direction:row-reverse; }  /* 3·2·1 → MVP(1) ở phải cụm (trong) */
+.dy-gset.b { }                              /* 1·2·3 → MVP(1) ở trái cụm (trong) */
+.dy-gitem { position:relative; flex:0 0 auto; display:block; }
+/* 3 TOP vòng tròn BẰNG NHAU; MVP chỉ khác viền vàng, không khác cỡ. */
+.dy-gav { width:38px; height:38px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,.85);
+  background:#fff url('/logo.png') center/74% no-repeat; box-shadow:0 2px 6px rgba(0,0,0,.5); display:block; animation:pkDuoChampEnter .5s ease-out 1; }
+.dy-gitem.r1 .dy-gav { border-color:#ffd75a; box-shadow:0 2px 7px rgba(0,0,0,.55), 0 0 9px rgba(255,215,90,.5); }
+/* Số 1/2/3 TO hơn, lấn vào một phần avatar (góc dưới-phải), chỉ số + viền đen, không khung. */
+.dy-grank { position:absolute; right:2px; bottom:1px; font-style:normal; font-size:17px; font-weight:950; line-height:1; color:#fff;
+  text-shadow:0 1px 2px #000, 0 0 4px #000, 0 1px 1px #000; }
+.dy-gitem.r1 .dy-grank { color:#ffe08a; }
+
+@keyframes pkDyPushFloat { 0%{opacity:0;transform:translate(-50%,8px) scale(.82)} 22%{opacity:1;transform:translate(-50%,0) scale(1.06)} 60%{opacity:1;transform:translate(-50%,-4px) scale(1)} 100%{opacity:0;transform:translate(-50%,-16px) scale(1)} }

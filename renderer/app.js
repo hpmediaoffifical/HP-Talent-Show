@@ -5881,6 +5881,8 @@ function applyActiveGroupMode() {
   lwRefreshSpinners?.();
   // NHẠC DANCE: mỗi nhóm một danh sách quà riêng, tự thêm Creator của nhóm & loại nhóm khác.
   switchMusicGroup?.(activeGroupId);
+  // 🎨 PK Đôi: Kiểu giao diện (HP/Douyin) nhớ theo từng nhóm.
+  switchPkBarLayoutGroup?.(activeGroupId);
   // Ranking gom dữ liệu ở main process → đẩy bộ lọc xuống engine
   window.api.ranking?.setConfig({ activeGroupId }).catch(() => {});
 }
@@ -6990,6 +6992,7 @@ async function loadPkConfig() {
   if ($('#pkFxThreshold')) { $('#pkFxThreshold').value = pkCfg.fxThreshold ?? 8; $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`; }
   if ($('#pkChampsEnabled')) $('#pkChampsEnabled').value = String(pkCfg.championsEnabled !== false);
   if ($('#pkChampNames')) $('#pkChampNames').value = String(pkCfg.championNames === true);
+  if ($('#pkBarLayout')) $('#pkBarLayout').value = pkCfg.barLayout || 'hp';
   if ($('#pkArrowStyle')) $('#pkArrowStyle').value = pkCfg.arrowStyle || 'random';
   if ($('#pkSelectFx')) $('#pkSelectFx').value = pkCfg.selectFx || 'random';
   if ($('#pkSkin')) { $('#pkSkin').value = pkCfg.skin || 'auto'; updateSkinHint('pkSkin', 'pkSkinHint'); }
@@ -7240,6 +7243,23 @@ const _pkSaver = makeAutoSaver(() => {
 });
 function schedulePkAutoSave() { _pkSaver.schedule(); }
 
+// 🎨 Kiểu giao diện (barLayout) LƯU THEO NHÓM: mỗi nhóm nhớ layout riêng (groupProfiles[gid].pkBarLayout);
+// TALENT SHOW ('') dùng cấu hình chung pkCfg.barLayout. Gọi khi đổi nhóm (applyActiveGroupMode).
+function switchPkBarLayoutGroup(newId) {
+  newId = newId || '';
+  if (!pkCfg) return;
+  let layout = pkCfg.barLayout || 'hp';
+  if (newId) {
+    const prof = getGroupProfile(newId);
+    if (prof && typeof prof.pkBarLayout === 'string') layout = prof.pkBarLayout;
+  }
+  if ($('#pkBarLayout')) $('#pkBarLayout').value = layout;
+  if (pkCfg.barLayout !== layout) {
+    pkCfg.barLayout = layout;
+    window.api.pkduo?.setConfig({ barLayout: layout }).catch(() => {});
+  }
+}
+
 // 🎨 Nhãn skin auto: để "Tự động theo ngày" → hiện dịp đang áp hôm nay ("auto → 🎄 Noel" /
 // "auto → (không có dịp)"); chọn tay → tên dịp. Dùng chung cho PK Nhóm / PK Đôi / Thi đấu.
 function updateSkinHint(selectId, hintId) {
@@ -7352,6 +7372,7 @@ function wirePkDuoTab() {
     $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`;
     schedulePkAutoSave();
   });
+  // pkBarLayout KHÔNG nằm ở đây — nó do listener riêng phía dưới sở hữu (lưu theo nhóm + setConfig tức thì), tránh lưu đôi.
   ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkChampNames','pkArrowStyle','pkSelectFx','pkSkin','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
@@ -7373,6 +7394,16 @@ function wirePkDuoTab() {
       if (t) t.nameOverride = true;
     });
   }
+
+  // 🎨 Kiểu giao diện đổi → LƯU THEO NHÓM đang chọn (TALENT SHOW dùng cấu hình chung qua autosave).
+  // 🎨 Kiểu giao diện: 1 listener duy nhất sở hữu barLayout — đẩy engine + lưu cấu hình chung ngay (setConfig tự
+  // savePkDuoConfig), đồng thời ghi đè theo NHÓM đang chọn. TALENT SHOW ('') chỉ dùng cấu hình chung.
+  $('#pkBarLayout')?.addEventListener('change', () => {
+    const v = $('#pkBarLayout').value;
+    if (pkCfg) pkCfg.barLayout = v;
+    window.api.pkduo?.setConfig({ barLayout: v }).catch(() => {});
+    if (activeGroupId) saveGroupProfilePatch(activeGroupId, { pkBarLayout: v });
+  });
 
   // Cấu hình PK Đôi tự lưu real-time (schedulePkAutoSave). Ctrl+S để lưu thủ công tức thì.
   document.addEventListener('keydown', async (e) => {
@@ -7485,6 +7516,7 @@ function collectPkCfg() {
     arrowStyle: $('#pkArrowStyle') ? $('#pkArrowStyle').value : 'random',
     selectFx: $('#pkSelectFx') ? $('#pkSelectFx').value : 'random',
     skin: $('#pkSkin') ? $('#pkSkin').value : 'auto',
+    barLayout: $('#pkBarLayout') ? $('#pkBarLayout').value : 'hp',
   };
 }
 
@@ -7549,7 +7581,7 @@ function kcGetTeam(side) { return side === 'A' ? kcCfg.teamA : kcCfg.teamB; }
 function kcGiftModeKey() { return kcCfg?.joinMode ? 'joinGifts' : 'fixedGifts'; }
 function normalizeKcTeam(team, fallback) {
   const t = { ...fallback, ...(team || {}) };
-  t.name = fallback.name;
+  t.name = String(team?.name || '').trim() || fallback.name;
   t.nameOverride = true;
   t.fixedGifts = Array.isArray(t.fixedGifts) ? t.fixedGifts : (Array.isArray(t.gifts) ? t.gifts : []);
   t.joinGifts = Array.isArray(t.joinGifts) ? t.joinGifts : [];
@@ -7767,7 +7799,8 @@ function applyKcCreator(side, opts = {}) {
       renderKcGifts();
     }
   }
-  $(`#kc${side}name`).value = team.name || (side === 'A' ? 'GIỮ' : 'ĐỔI');
+  const nameEl = $(`#kc${side}name`);
+  if (nameEl && document.activeElement !== nameEl) nameEl.value = team.name || (side === 'A' ? 'KEEP/GIỮ' : 'CHANGE/ĐỔI');
 }
 // Mặc định gán NHÓM chỉ định + THÀNH VIÊN tính điểm cho cả 2 phe (giống PK Đôi), nhưng KHÔNG đổi
 // tên phe (giữ nhãn GIỮ/ĐỔI trên overlay) và KHÔNG đụng quà tính điểm. Giữ thành viên đã chọn nếu
@@ -7860,9 +7893,11 @@ function scheduleKcAutoSave() { _kcSaver.schedule(); }
 
 function collectKcCfg() {
   saveKcActiveGifts();
-  kcCfg.teamA.name = 'KEEP/GIỮ';
+  const aName = $('#kcAname').value.trim() || 'KEEP/GIỮ';
+  const bName = $('#kcBname').value.trim() || 'CHANGE/ĐỔI';
+  kcCfg.teamA.name = aName;
   kcCfg.teamA.nameOverride = true;
-  kcCfg.teamB.name = 'CHANGE/ĐỔI';
+  kcCfg.teamB.name = bName;
   kcCfg.teamB.nameOverride = true;
   applyKcCreator('A');
   applyKcCreator('B');
@@ -7872,8 +7907,8 @@ function collectKcCfg() {
   const s = Number($('#kcDurS').value) || 0;
   const durationSec = Math.max(5, h * 3600 + m * 60 + s);
   return {
-    teamA: { ...kcCfg.teamA, name: 'KEEP/GIỮ', nameOverride: true, color: $('#kcAcolor').value, gifts: kcCfg.teamA.gifts || [] },
-    teamB: { ...kcCfg.teamB, name: 'CHANGE/ĐỔI', nameOverride: true, color: $('#kcBcolor').value, gifts: kcCfg.teamB.gifts || [] },
+    teamA: { ...kcCfg.teamA, name: aName, nameOverride: true, color: $('#kcAcolor').value, gifts: kcCfg.teamA.gifts || [] },
+    teamB: { ...kcCfg.teamB, name: bName, nameOverride: true, color: $('#kcBcolor').value, gifts: kcCfg.teamB.gifts || [] },
     performerName: $('#kcPerformer').value.trim(),
     nextName: $('#kcNextName').value.trim(),
     rotationOrder: Array.isArray(kcCfg.rotationOrder) ? kcCfg.rotationOrder : [],
@@ -8007,7 +8042,8 @@ function wireKcDuoTab() {
     });
     $(`#kc${side}name`).addEventListener('input', () => {
       const t = kcGetTeam(side);
-      if (t) t.nameOverride = true;
+      if (t) { t.name = $(`#kc${side}name`).value; t.nameOverride = true; }
+      scheduleKcAutoSave();
     });
   }
 

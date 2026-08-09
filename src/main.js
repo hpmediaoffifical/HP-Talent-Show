@@ -1691,6 +1691,8 @@ class PkDuoEngine {
       // PK Đôi luôn có đúng 2 phe → luôn đánh dấu cả 2 (overlay tự ẩn khi status idle/finished).
       selectFx: this._resolveSelectFx(),
       skin: this.config.skin || 'auto',
+      // Kiểu giao diện overlay: 'hp' (mặc định, thanh trong hộp) | 'douyin' (thanh máu nổi kiểu Douyin).
+      barLayout: this.config.barLayout || 'hp',
     };
   }
   // Skin mũi tên hiển thị: 'random' → chốt 1 skin động cho mỗi vòng (start() gọi lại để đổi vòng sau).
@@ -2028,8 +2030,8 @@ class KcDuoEngine {
   }
   setConfig(patch) {
     this.config = { ...this.config, ...patch };
-    this.config.teamA = { ...(this.config.teamA || {}), name: 'KEEP/GIỮ', nameOverride: true };
-    this.config.teamB = { ...(this.config.teamB || {}), name: 'CHANGE/ĐỔI', nameOverride: true };
+    this.config.teamA = { ...(this.config.teamA || {}), name: String(this.config.teamA?.name || '').trim() || 'KEEP/GIỮ', nameOverride: true };
+    this.config.teamB = { ...(this.config.teamB || {}), name: String(this.config.teamB?.name || '').trim() || 'CHANGE/ĐỔI', nameOverride: true };
     migrateTiktokMode(this.config);
     this._emit();
   }

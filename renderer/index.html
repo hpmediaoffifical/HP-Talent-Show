@@ -575,6 +575,12 @@
                     <option value="true">Bật</option>
                   </select>
                 </label>
+                <label>🎨 Kiểu giao diện
+                  <select id="pkBarLayout">
+                    <option value="hp">HP (thanh trong hộp)</option>
+                    <option value="douyin">Douyin (thanh máu nổi)</option>
+                  </select>
+                </label>
                 <label>🎯 Kiểu mũi tên PK
                   <span style="display:flex; gap:6px; align-items:center;">
                     <select id="pkArrowStyle" style="flex:1; min-width:0;">
@@ -750,7 +756,7 @@
                   <div class="pk-team-config-head"><b>🟢 GIỮ</b><span>Phe giữ người đang diễn</span></div>
                   <label>Nhóm <select id="kcAgroup"><option value="">— Chọn nhóm —</option></select></label>
                   <label>Thành viên tính điểm <select id="kcAcreator"><option value="">— Chọn thành viên —</option></select></label>
-                  <label>Tên hiển thị <input id="kcAname" maxlength="20" readonly title="Luôn dùng tên mặc định KEEP/GIỮ" /></label>
+                  <label>Tên hiển thị <input id="kcAname" maxlength="20" title="Tên phe GIỮ hiển thị trên overlay — gõ tự do (để trống = KEEP/GIỮ)" /></label>
                   <label>Màu phe <input id="kcAcolor" type="color" value="#FE2C55" /></label>
                 </div>
                 <div class="pk-team" data-team="A">
@@ -766,7 +772,7 @@
                   <div class="pk-team-config-head"><b>🔴 ĐỔI</b><span>Phe đổi sang người mới</span></div>
                   <label>Nhóm <select id="kcBgroup"><option value="">— Chọn nhóm —</option></select></label>
                   <label>Thành viên tính điểm <select id="kcBcreator"><option value="">— Chọn thành viên —</option></select></label>
-                  <label>Tên hiển thị <input id="kcBname" maxlength="20" readonly title="Luôn dùng tên mặc định CHANGE/ĐỔI" /></label>
+                  <label>Tên hiển thị <input id="kcBname" maxlength="20" title="Tên phe ĐỔI hiển thị trên overlay — gõ tự do (để trống = CHANGE/ĐỔI)" /></label>
                   <label>Màu phe <input id="kcBcolor" type="color" value="#00D5FF" /></label>
                 </div>
                 <div class="pk-team" data-team="B">

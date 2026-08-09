@@ -75,6 +75,8 @@ function pushMom(target, snap) {
 }
 // Combo: số lần một bên ghi điểm liên tiếp trong cửa sổ ~4.5s.
 let comboSide = '', comboCount = 0, comboAt = 0;
+// Layout Douyin — "+N" loé tại ranh giới: nhớ lần đẩy gần nhất để giữ hiện ~1.1s qua vài nhịp SSE.
+let dyPushAmt = 0, dyPushSide = '', dyPushAt = 0;
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('vi-VN'); }
@@ -154,6 +156,24 @@ function playSound(soundUrl) {
   audio.play().catch(() => {});
 }
 
+// Bố cục Douyin: icon quà VƯỢT bề rộng lane (quá nền thẻ) thì tự cuộn (marquee) — chỉ khi chế độ Cuộn ('scroll').
+// Nhân đôi seq để translateX(-50%) liền mạch; đồng bộ pha theo đồng hồ chung → không giật khi render dựng lại DOM.
+function wireDyGiftMarquee(scrollMode) {
+  if (!scrollMode) return;
+  root.querySelectorAll('.dy-gift').forEach(lane => {
+    const seq = lane.querySelector('.dy-gift-seq');
+    if (!seq) return;
+    const oneW = seq.scrollWidth;
+    if (oneW > lane.clientWidth + 2) {
+      lane.classList.add('is-scroll');
+      seq.innerHTML += seq.innerHTML;                 // 2 bản → -50% liền mạch
+      const dur = Math.max(6, oneW / 46);             // ~46px/giây
+      lane.style.setProperty('--dy-gift-dur', dur.toFixed(2) + 's');
+      lane.style.setProperty('--dy-gift-delay', (-((Date.now() / 1000) % dur)).toFixed(3) + 's');
+    }
+  });
+}
+
 function render(state = {}) {
   // 🎨 Skin mùa lễ (dùng chung) — trang trí ở <body>, độc lập với việc dựng lại root mỗi render.
   if (window.OverlaySkin) OverlaySkin.applySkin(state.skin);
@@ -169,6 +189,7 @@ function render(state = {}) {
     playedResult = false;
     hasPrevScore = false;
     momA = momB = momClock = 0; comboSide = ''; comboCount = 0; comboAt = 0; pushMom(0, true);
+    dyPushAmt = 0; dyPushSide = ''; dyPushAt = 0;
   }
   // Phát hiện bên vừa tăng điểm → tạo surge một nhịp + số nảy lên
   const sA = Number(state.scoreA || 0), sB = Number(state.scoreB || 0);
@@ -321,7 +342,81 @@ function render(state = {}) {
     --pk-champ-delay:${champDelay}s`;
   const boardClass = `pkduo-board status-${esc(status)} gift-${giftMode}${singleGiftMode ? ' gift-single' : ''}${urgent ? ' urgent' : ''}${tick10 ? ' tick10' : ''}${finalCount ? ' final-count' : ''} ${barClass}${gainClass ? ' ' + gainClass : ''}${hasChamps ? ' has-champs' : ''}`;
 
-  if (singleGiftMode) {
+  if (state.barLayout === 'douyin') {
+    // ===== BỐ CỤC DOUYIN =====
+    // Thanh máu nổi (không hộp): điểm 2 đầu là pill, gạch trắng dày = ranh giới; "+N" xanh loé khi đẩy,
+    // số đếm lùi TO độc lập ở ranh giới trong 10s cuối. Dưới thanh: [chuỗi][thẻ Creator][đồng hồ][thẻ Creator][chuỗi].
+    // Thẻ = tên + icon+tên quà của phe + avatar Creator (phía trong). Kết thúc: WIN/LOSE + hàng avatar TOP người tặng.
+    // Cập nhật "+N": ghi lại lần đẩy để giữ hiện qua vài nhịp (render ~250ms/lần) → chữ không chớp tắt tức thì.
+    if (dA > 0 || dB > 0) { dyPushAmt = Math.max(dA, dB); dyPushSide = dA >= dB ? 'a' : 'b'; dyPushAt = nowMs; }
+    const showPush = dyPushAmt > 0 && (nowMs - dyPushAt) < 1100;
+    const dyUrgent = status === 'running' && sec <= 10 && sec > 0;
+    // 10s cuối (giống Douyin): CHỈ số, nằm ngay vùng đồng hồ giữa nhưng tách biệt + to hơn (không đặt ở ranh giới).
+    const dyTimer =
+      status === 'prestart' ? `<b class="big">${sec}</b>` :
+      status === 'running' ? (dyUrgent ? `<b class="dy-final">${sec}</b>` : mmss(sec)) :
+      status === 'finished' ? 'KẾT THÚC' :
+      status === 'grace' ? 'TÍNH ĐIỂM' : '';
+    // CHỈ icon quà (bỏ tên) → hiện được NHIỀU icon của phe; rỗng nếu không có quà.
+    const dyGiftTag = (gifts) => {
+      const list = (Array.isArray(gifts) ? gifts : (gifts ? [gifts] : [])).filter(Boolean);
+      if (!list.length) return '';
+      const icons = list.map(g => g.icon ? `<img src="${esc(g.icon)}" title="${esc(g.giftName || g.name || '')}" />` : '<span class="dy-gift-emo">🎁</span>').join('');
+      return `<span class="dy-gift"><span class="dy-gift-seq">${icons}</span></span>`;
+    };
+    // TOP người tặng: MVP (rank 1) DOM đầu → CSS đẩy về phía TRONG (gần Creator) + to hơn; số 1/2/3 tối giản.
+    const dyGifterSet = (list) => (Array.isArray(list) ? list : []).slice(0, 3).map((g, i) => `<span class="dy-gitem r${i + 1}"><img class="dy-gav" src="${esc(mediaUrl(g.avatar))}" onerror="avRetry(this)" /><i class="dy-grank">${i + 1}</i></span>`).join('');
+    // Nền CHUỖI 2 lớp hình mũi tên hướng về Creator: l2 (sau) màu phe, mờ nhiều, mũi bo cong nhẹ chĩa ra;
+    // l1 (trước) màu vàng hơi mờ ôm số. Side B lật ngang bằng CSS. Fill tô qua CSS (đọc --pk-*-rgb, OBS-safe).
+    // 2 lớp CÙNG hình (cạnh chéo cùng độ dốc run24/rise27 → song song, mũi tên giống nhau), chỉ KHÁC chiều dài:
+    // l2 (sau) dài tới x106, l1 (trước) ngắn tới x68 → phần hồng vươn khỏi khối vàng là mũi tên song song.
+    const DY_STREAK_BG = `<span class="dy-streak-bg" aria-hidden="true"><svg viewBox="0 0 108 58" preserveAspectRatio="none"><path class="l2" d="M2 2 L82 2 L106 29 L82 56 L2 56 Z"/><path class="l1" d="M2 2 L44 2 L68 29 L44 56 L2 56 Z"/></svg></span>`;
+    // CHỈ phe CÓ chuỗi mới hiện hình + thông tin chuỗi; phe không có (0) để ô trống giữ chỗ (không nhảy layout).
+    const dyStreak = (n, side) => `<div class="dy-streak ${side}">${n > 0 ? `${DY_STREAK_BG}<span class="n">${n}</span><span class="lb">CHUỖI</span>` : ''}</div>`;
+    const dyAva = (t) => `<img class="dy-ava" src="${esc(mediaUrl(t.creatorAvatar, t.creatorAvatarKey))}" onerror="avRetry(this)" />`;
+    // Đốm trắng "bong bóng" (phẳng, không 3D) bay từ gạch trắng ra 2 bên → cảm giác đẩy nhẹ.
+    // Tham số to/nhỏ/lệch cố định theo index (không random mỗi render kẻo giật); delay đồng bộ đồng hồ chung.
+    let dyBubblesHtml = '';
+    if (status === 'running' || status === 'prestart') {
+      const BN = 12, BDUR = 2600, SZ = [8, 13, 6, 11, 9, 15, 7, 12, 6, 13, 9, 11];
+      let bs = '';
+      for (let i = 0; i < BN; i++) {
+        const dir = i % 2 === 0 ? 1 : -1;
+        const dist = 40 + ((i * 13) % 48);
+        const vy = ((i * 29) % 32) - 16;
+        const delay = (-(((Date.now() + i * (BDUR / BN)) % BDUR) / 1000)).toFixed(3);
+        bs += `<i class="dy-bubble" style="--bs:${SZ[i]}px;--bx:${dir * dist}px;--by:${vy}px;animation-delay:${delay}s"></i>`;
+      }
+      dyBubblesHtml = `<span class="dy-bubbles" aria-hidden="true">${bs}</span>`;
+    }
+    root.innerHTML = `<div class="${boardClass} dy-layout" style="${boardStyle}">
+    <div class="dy-bar ${barClass}">
+      <strong class="dy-score a">${fmt(state.scoreA)}</strong>
+      <strong class="dy-score b">${fmt(state.scoreB)}</strong>
+      ${dyBubblesHtml}
+      <span class="dy-seam" aria-hidden="true"></span>
+      ${showPush ? `<span class="dy-push ${dyPushSide}">+${fmt(dyPushAmt)}</span>` : ''}
+      ${dyUrgent ? `<b class="dy-bigcount">${sec}</b>` : ''}
+    </div>
+    <div class="dy-row">
+      ${dyStreak(aStreak, 'a')}
+      <div class="dy-card a">
+        <div class="dy-card-text"><div class="dy-name">${esc(shortName(a.name || 'TEAM A'))}</div>${dyGiftTag(a.gifts)}</div>
+        ${dyAva(a)}
+        ${resultA}
+      </div>
+      <div class="dy-timer">${dyTimer}</div>
+      <div class="dy-card b">
+        ${dyAva(b)}
+        <div class="dy-card-text"><div class="dy-name">${esc(shortName(b.name || 'TEAM B'))}</div>${dyGiftTag(b.gifts)}</div>
+        ${resultB}
+      </div>
+      ${dyStreak(bStreak, 'b')}
+    </div>
+    ${showResult ? `<div class="dy-under" aria-label="TOP người tặng"><div class="dy-gset a">${dyGifterSet(topA)}</div><div class="dy-gset b">${dyGifterSet(topB)}</div></div>` : ''}
+  </div>`;
+    wireDyGiftMarquee(state.giftDisplayMode !== 'wrap');
+  } else if (singleGiftMode) {
     // ===== BỐ CỤC CHỌN PHE (1 quà) =====
     // Head: [Avatar+tên Creator A] · ‹ Vòng N ›/‹ Chuỗi đấu › · [tên+Avatar Creator B]
     // Action: [icon quà + avatar người tặng A] · [đếm lùi / KẾT THÚC] · [avatar người tặng B + icon quà]
