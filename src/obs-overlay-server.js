@@ -24,7 +24,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
-  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.png': 'image/png', '.apng': 'image/apng', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
 };
 
@@ -334,11 +334,12 @@ class ObsOverlayServer {
       return this._serveFile(path.join(this.root, staticMap[reqUrl.pathname]), res);
     }
 
-    // Khung vinh danh (MVP Honor): phục vụ PNG khung từ renderer/mvp-frames (không cần token,
-    // vì OBS Browser Source phải load được ảnh trước khi có state). Chỉ cho tên file .png an toàn.
+    // Khung vinh danh (MVP Honor): phục vụ ảnh khung N.png + nền tiêu đề động Na.apng từ
+    // renderer/mvp-frames (không cần token, vì OBS Browser Source phải load được ảnh trước khi
+    // có state). Chỉ cho tên file .png / .apng an toàn.
     if (req.method === 'GET' && reqUrl.pathname.startsWith('/mvp-frames/')) {
       const name = path.basename(reqUrl.pathname);
-      if (/^[\w.-]+\.png$/i.test(name)) {
+      if (/^[\w.-]+\.(png|apng)$/i.test(name)) {
         return this._serveFile(path.join(this.root, 'renderer', 'mvp-frames', name), res);
       }
       return this._reject(res, 404, 'not found');

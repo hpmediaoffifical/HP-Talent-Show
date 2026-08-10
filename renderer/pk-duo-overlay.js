@@ -244,8 +244,8 @@ function render(state = {}) {
   const barClass = neutral ? 'neutral' : (aLead ? 'lead-a' : 'lead-b');
 
   // ===== SKIN MŨI TÊN =====
-  // classic (đứng yên chỉ hướng) | core (lõi động lượng) | rope (dây kéo co) | cannon (pháo combo).
-  const arrowStyle = ['classic', 'core', 'rope', 'cannon'].includes(state.arrowStyle) ? state.arrowStyle : 'classic';
+  // classic (đứng yên chỉ hướng) | core (lõi động lượng) | cannon (pháo combo). Đã bỏ "rope" (kéo co).
+  const arrowStyle = ['classic', 'core', 'cannon'].includes(state.arrowStyle) ? state.arrowStyle : 'classic';
   pushMom(momSig, !hasPrevScore);
   const surgeSide = momSig >= 0 ? 'a' : 'b';           // bên đang lên tay → tô màu lõi/đuôi
   const surgeCol = surgeSide === 'a' ? (a.color || '#FE2C55') : (b.color || '#25F4EE');

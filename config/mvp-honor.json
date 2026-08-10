@@ -1,5 +1,873 @@
 {
-  "cards": [],
+  "cards": [
+    {
+      "id": "mh_y5s2luiuod",
+      "mode": "creator",
+      "creatorId": "c_mrtg28mrb1ni1",
+      "tiktokId": "",
+      "avatar": "",
+      "name": "Raiden",
+      "text": "TOP 1",
+      "frame": "mvp-frames/3.png",
+      "layout": "vertical",
+      "avatarSize": 140,
+      "frameScale": 172,
+      "color": "#ffffff",
+      "entryAnim": "popBounce",
+      "celebrate": false,
+      "showName": true,
+      "showText": false,
+      "show": true,
+      "overlay": {
+        "x": 120,
+        "y": 200,
+        "scale": 1,
+        "rot": 0
+      },
+      "bySkin": {
+        "mvp-frames/41.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 1,
+            "textY": 2,
+            "fontSize": 12,
+            "nameSize": 19
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 2,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/40.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 22,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/33.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/34.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/35.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 7,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 5,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/20.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 4,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 5,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/19.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 1,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/1.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/2.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/3.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/4.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 4,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 5,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/5.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/6.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/7.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/8.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 6,
+            "fontSize": 31,
+            "nameSize": 23
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 8,
+            "fontSize": 44,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/9.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 1,
+            "textY": 6,
+            "fontSize": 34,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/10.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 4,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/11.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 2,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/12.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/13.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 2,
+            "textY": 5,
+            "fontSize": 41,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/14.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 5,
+            "textY": 4,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/15.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": -5,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 3,
+            "textY": -5,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/16.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 3,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 5,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/17.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/18.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 4,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 5,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/21.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 4,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 9,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/22.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 2,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 7,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/23.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": -5,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/24.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 5,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/25.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": -6,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": -1,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/26.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/27.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/28.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": -1,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/29.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 4,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 5,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/30.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 3,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/31.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": -7,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": -7,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/32.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/36.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 5,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 6,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/37.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": -2,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 0,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/38.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 9,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 14,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        },
+        "mvp-frames/39.png": {
+          "vertical": {
+            "bannerScale": 77,
+            "bannerX": 0,
+            "bannerY": 0,
+            "textX": 0,
+            "textY": 0,
+            "fontSize": 31,
+            "nameSize": 21
+          },
+          "horizontal": {
+            "bannerScale": 159,
+            "bannerX": 8,
+            "bannerY": 0,
+            "textX": 7,
+            "textY": 1,
+            "fontSize": 42,
+            "nameSize": 42
+          }
+        }
+      }
+    }
+  ],
   "canvas": "1:1",
   "revealStagger": 0.6,
   "revealAutoHide": 5,

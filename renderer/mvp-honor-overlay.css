@@ -18,19 +18,10 @@
   transform-origin: top left;
   will-change: transform;
 }
+/* Avatar định hình khối thẻ; nền tiêu đề (.mvp-text) là lớp TUYỆT ĐỐI nằm SAU avatar. */
 .mvp-inner {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 14px;
-}
-.mvp-card.is-vertical .mvp-inner {
-  flex-direction: column;
-  gap: 8px;
-}
-.mvp-card.is-attached .mvp-inner {
-  flex-direction: column;
-  gap: 0;
+  position: relative;
+  display: inline-flex;
   isolation: isolate;
 }
 
@@ -40,6 +31,7 @@
   flex-shrink: 0;
   line-height: 0;
   display: block;
+  z-index: 2;                 /* avatar/khung đè lên nền tiêu đề */
 }
 .mvp-avwrap .mvp-av {
   position: absolute;
@@ -60,93 +52,45 @@
   pointer-events: none;
 }
 /* Tên hiển thị dưới avatar (nếu bật) */
-.mvp-avwrap .mvp-name {
-  position: absolute;
-  left: 50%;
-  bottom: -6px;
-  transform: translateX(-50%);
-  z-index: 3;
-  padding: .18em .7em;
-  border-radius: 999px;
-  /* Nền mờ bo tròn: bán trong suốt. KHÔNG backdrop-filter (OBS Browser Source nền trong suốt →
-     CEF tô backdrop thành ĐEN → chip tên bị hộp đen). Tăng nhẹ độ đục để chữ vẫn đọc rõ. */
-  background: rgba(18, 14, 26, .66);
-  border: 1px solid rgba(255, 255, 255, .18);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
-  color: #fff;
-  font: 800 22px/1.15 'Be Vietnam Pro', 'Segoe UI', sans-serif;
-  white-space: nowrap;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, .5);
-}
-
-/* Chữ vinh danh (ribbon) */
+/* ===== Nền tiêu đề (.mvp-text) — lớp SAU avatar, đặt tuyệt đối theo bố cục ===== */
 .mvp-text {
+  --mvp-bx: 0px; --mvp-by: 0px; --mvp-tuck: 0px; --mvp-banner-w: 320px; --mvp-tx: 0%; --mvp-ty: 0%;
+  z-index: 1;                 /* sau avatar (z-index 2) */
   font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
   font-weight: 900;
   line-height: 1.1;
   white-space: pre-line;
   text-align: center;
-  padding: 8px 18px;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, .6), 0 1px 0 rgba(255, 255, 255, .18);
+}
+/* NGANG: nền bên phải, tâm dọc trùng avatar; mép trái thọc vào giữa avatar theo --mvp-tuck. */
+.mvp-card.is-horizontal .mvp-text {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(calc(-1 * var(--mvp-tuck) + var(--mvp-bx)), calc(-50% + var(--mvp-by)));
+}
+/* DỌC: nền nằm dưới avatar, canh giữa ngang; thọc lên avatar theo --mvp-tuck. */
+.mvp-card.is-vertical .mvp-text {
+  position: absolute;
+  left: 50%; top: 100%;
+  transform: translate(calc(-50% + var(--mvp-bx)), calc(-1 * var(--mvp-tuck) + var(--mvp-by)));
+}
+/* Khi KHÔNG có ảnh Na.apng (skin ∅) → nền pill tối cho chữ dễ đọc, co theo nội dung. */
+.mvp-text:not(.has-plaque-img) {
+  width: max-content; max-width: 560px;
+  padding: 8px 20px;
   border-radius: 14px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
-}
-.mvp-text.style-neon {
-  box-shadow: none;
-  padding: 6px 14px;
+  background: rgba(18, 14, 26, .72);
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .3);
 }
 
-/* Khung viền nổi (plaque) — tấm biển vinh danh kiểu "KING OF TODAY":
-   rìa sáng ngoài + đường viền tối bao quanh (khung đôi) + khung khắc chìm bên trong + nền chuyển dọc bóng kim loại. */
-.mvp-text.style-plaque {
-  position: relative;
-  padding: 12px 26px;
-  border: 2px solid rgba(255, 255, 255, .62);
-  border-radius: 13px;
-  box-shadow:
-    0 0 0 2px rgba(0, 0, 0, .34),                 /* đường viền tối ngoài → khung đôi */
-    inset 0 2px 2px rgba(255, 255, 255, .42),      /* gờ sáng trên (bóng) */
-    inset 0 -5px 9px rgba(0, 0, 0, .40),           /* đổ tối dưới (chiều sâu) */
-    0 8px 18px rgba(0, 0, 0, .42);                 /* bóng đổ */
-}
-.mvp-text.style-plaque::before {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, .30);      /* khung khắc chìm bên trong */
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .28);
-  pointer-events: none;
-}
-
-/* Plaque neo vào đáy khung avatar để danh hiệu là một phần của huy hiệu, không phải nhãn rời. */
-.mvp-card.is-attached .mvp-avwrap { z-index: 2; }
-.mvp-card.is-attached .mvp-text {
-  position: relative;
-  z-index: 1;
-  margin-top: -14px;
-  padding-top: 22px;
-  min-width: 72%;
-}
-.mvp-card.is-attached .mvp-text::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  top: -22px;
-  left: 50%;
-  width: 24px;
-  height: 31px;
-  transform: translateX(-50%);
-  border-radius: 12px 12px 3px 3px;
-  background: var(--mvp-link-color, #8f8474);
-  box-shadow: 0 -2px 0 rgba(255,255,255,.35), 0 3px 5px rgba(0,0,0,.24);
-}
-
-/* ===== Plaque danh hiệu bằng ẢNH (Na.png) — đè lên nền, chữ nằm giữa ===== */
+/* ===== Nền tiêu đề bằng ẢNH (Na.apng) — ảnh phủ, chữ nằm giữa vùng an toàn ===== */
 .mvp-text-label { position: relative; z-index: 1; display: block; white-space: pre-line; }
+.mvp-text .mvp-line { display: block; line-height: 1.08; max-width: 100%; overflow-wrap: anywhere; }   /* tên + danh hiệu xếp chồng, không tràn nền */
 .mvp-plaque-img { display: none; }
 .mvp-text.has-plaque-img {
-  position: relative;
-  width: var(--mvp-plaque-w, 320px);
+  width: var(--mvp-banner-w, 320px);
   aspect-ratio: 720 / 260; /* JS ghi đè theo tỷ lệ thật của ảnh khi tải xong */
   padding: 0;
   background: transparent !important;
@@ -161,7 +105,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: fill; /* khung đã khớp tỷ lệ ảnh → không méo */
+  object-fit: contain; /* khung đã khớp tỷ lệ ảnh → không méo, giữ nguyên animation apng */
   z-index: 0;
   pointer-events: none;
 }
@@ -169,17 +113,14 @@
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 8% 13%; /* giữ chữ trong vùng an toàn giữa plaque */
+  padding: 6% 16%; /* giữ chữ trong vùng an toàn giữa nền */
   box-sizing: border-box;
-}
-/* Liền dưới avatar khi dùng ảnh: bỏ padding/tab CSS, tucking nhẹ vào đáy khung avatar */
-.mvp-card.is-attached .mvp-text.has-plaque-img {
-  margin-top: -4%;
-  padding-top: 0;
-  min-width: 0;
+  overflow: hidden;                                          /* chống chữ dài tràn khỏi tấm biển */
+  transform: translate(var(--mvp-tx, 0), var(--mvp-ty, 0)); /* căn chữ trong tấm biển */
 }
 
 /* ===== Animation xuất hiện (đặt trên .mvp-inner, không đụng vị trí thẻ) ===== */
@@ -239,6 +180,7 @@
 
 /* ===== Màn công bố: ẩn tạm + biến mất (auto-hide) ===== */
 .mvp-card.reveal-hidden { opacity: 0; pointer-events: none; }
+.mvp-card.reveal-hidden .mvp-plaque-img { display: none; }   /* dừng giải mã apng khi thẻ đang ẩn → nhẹ OBS (AUTO/Công bố) */
 .mvp-inner.exit-fade { animation: mvpExitFade .5s ease forwards; }
 .mvp-inner.exit-slideDown { animation: mvpExitDown .5s ease forwards; }
 .mvp-inner.exit-zoomOut { animation: mvpExitZoom .45s ease forwards; }

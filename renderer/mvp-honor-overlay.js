@@ -36,31 +36,18 @@
     if (/^https?:\/\/|^data:|^\//.test(s)) return s;
     return '/' + s.replace(/^\/+/, '');
   }
-  // Ảnh plaque danh hiệu đi cùng bộ với khung avatar: N.png → Na.png (chèn 'a' trước .png).
+  // Nền tiêu đề động đi cùng bộ với khung avatar: N.png → Na.apng (chèn 'a' trước, đổi sang .apng).
   function plaqueUrl(frame) {
     const s = String(frame || '');
     if (!s || !/\.png$/i.test(s)) return '';
-    return frameUrl(s.replace(/\.png$/i, 'a.png'));
+    return frameUrl(s.replace(/\.png$/i, 'a.apng'));
   }
+  const clampNum = (v, min, max, def) => { const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def; };
   function onAvErr(img) {
     const n = (img._err = (img._err || 0) + 1);
     if (n >= 3 || !/\/avatar\?/.test(img.src)) { img.onerror = null; img.src = '/logo.png'; return; }
     img.src = img.src + (img.src.includes('?') ? '&' : '?') + 'r=' + n; // thử lại: proxy tự fetch/cache
   }
-  function hexToRgba(hex, op) {
-    const h = String(hex || '#000000').replace('#', '');
-    const r = parseInt(h.slice(0, 2), 16) || 0, g = parseInt(h.slice(2, 4), 16) || 0, b = parseInt(h.slice(4, 6), 16) || 0;
-    return `rgba(${r},${g},${b},${Math.max(0, Math.min(100, Number(op) === 0 ? 0 : (Number(op) || 100))) / 100})`;
-  }
-
-  function textBackground(c) {
-    if (c.textStyle === 'gradient') return `linear-gradient(135deg, ${hexToRgba(c.bgColor, c.bgOpacity)}, ${hexToRgba(c.bgColor2, c.bgOpacity)})`;
-    // Plaque: chuyển màu DỌC (trên sáng → dưới tối) cho cảm giác kim loại nổi khối.
-    if (c.textStyle === 'plaque') return `linear-gradient(180deg, ${hexToRgba(c.bgColor, c.bgOpacity)}, ${hexToRgba(c.bgColor2, c.bgOpacity)})`;
-    if (c.textStyle === 'neon') return 'transparent';
-    return hexToRgba(c.bgColor, c.bgOpacity);
-  }
-
   function build(c) {
     const root = document.createElement('div');
     root.className = 'mvp-card';
@@ -74,11 +61,8 @@
     const frame = document.createElement('img');
     frame.className = 'mvp-frame';
     frame.alt = '';
-    const name = document.createElement('div');
-    name.className = 'mvp-name';
     avWrap.appendChild(avImg);
     avWrap.appendChild(frame);
-    avWrap.appendChild(name);
     const text = document.createElement('div');
     text.className = 'mvp-text';
     // Ảnh plaque (đè nền cho chữ) + nhãn chữ tách riêng để set textContent không xoá mất <img>.
@@ -102,13 +86,13 @@
     inner.appendChild(text);
     root.appendChild(inner);
     stage.appendChild(root);
-    const node = { root, inner, avImg, frame, text, textLabel, plaqueImg, name, avWrap, sig: '', avSrc: '', frameSrc: '', plaqueSrc: '' };
+    const node = { root, inner, avImg, frame, text, textLabel, plaqueImg, avWrap, sig: '', avSrc: '', frameSrc: '', plaqueSrc: '', contentSig: '' };
     nodes.set(c.id, node);
     return node;
   }
 
   function apply(node, c) {
-    const { root, inner, avImg, frame, text, textLabel, plaqueImg, name, avWrap } = node;
+    const { root, inner, avImg, frame, text, textLabel, plaqueImg, avWrap } = node;
     const avSize = c.avatarSize;
     const frameW = Math.round(avSize * (c.frameScale / 100));
     const hasFrame = !!c.frame;
@@ -117,8 +101,9 @@
     root.style.left = c.overlay.x + 'px';
     root.style.top = c.overlay.y + 'px';
     root.style.transform = `scale(${c.overlay.scale}) rotate(${c.overlay.rot}deg)`;
-    root.classList.toggle('is-vertical', c.layout === 'vertical');
-    root.classList.toggle('is-attached', c.layout === 'attached');
+    const isH = c.layout === 'horizontal';
+    root.classList.toggle('is-horizontal', isH);          // nền bên phải, thọc vào giữa avatar
+    root.classList.toggle('is-vertical', !isH);           // nền nằm dưới avatar (gộp cả 'attached' cũ)
 
     // Avatar (chỉ đổi src khi khác → tránh nháy)
     const avSrc = avatarUrl(c.avatar);
@@ -133,44 +118,42 @@
     if (frameSrc !== node.frameSrc) { node.frameSrc = frameSrc; if (frameSrc) frame.src = frameSrc; }
     frame.style.display = hasFrame ? 'block' : 'none';
 
-    // Tên dưới avatar
-    name.textContent = c.showName ? (c.name || '') : '';
-    name.style.display = c.showName && c.name ? 'block' : 'none';
-    name.style.fontSize = (c.nameSize || 40) + 'px';
-
-    // Chữ vinh danh (nhãn tách riêng để không xoá ảnh plaque). showText tắt = ẩn cả danh hiệu & nền.
-    const showText = c.showText !== false && !!c.text;
-    textLabel.textContent = showText ? c.text : '';
-    text.style.display = showText ? 'block' : 'none';
-    text.style.fontSize = c.fontSize + 'px';
+    // Nội dung TRÊN nền tiêu đề: tên Creator (dòng trên) + danh hiệu (dòng dưới) — cùng nằm trên nền.
+    const nameLine = c.showName && c.name ? String(c.name) : '';
+    const titleLine = c.showText !== false && c.text ? String(c.text) : '';
+    const hasContent = !!(nameLine || titleLine);
+    const contentSig = nameLine + '' + titleLine + '' + (c.nameSize || 40) + '' + c.fontSize;
+    if (node.contentSig !== contentSig) {
+      node.contentSig = contentSig;
+      textLabel.innerHTML = '';
+      if (nameLine) { const s = document.createElement('span'); s.className = 'mvp-line mvp-nm'; s.textContent = nameLine; s.style.fontSize = (c.nameSize || 40) + 'px'; textLabel.appendChild(s); }
+      if (titleLine) { const s = document.createElement('span'); s.className = 'mvp-line mvp-ti'; s.textContent = titleLine; s.style.fontSize = c.fontSize + 'px'; textLabel.appendChild(s); }
+    }
+    text.style.display = hasContent ? 'block' : 'none';
     text.style.color = c.color;
-    // Quản lý class bằng classList (giữ 'has-plaque-img' do ảnh gắn khi tải xong).
-    text.classList.remove('style-plaque', 'style-neon', 'style-solid', 'style-gradient');
-    text.classList.add('style-' + c.textStyle);
-    text.style.background = showText ? textBackground(c) : 'transparent';
-    text.style.setProperty('--mvp-link-color', c.bgColor);
-    text.style.setProperty('--mvp-plaque-w', frameW + 'px');
+    // Nền tiêu đề động: cỡ (% theo khung) + lệch nền X/Y (px) + lệch chữ trong nền (%). Thọc mặc định theo bố cục.
+    const bannerScale = clampNum(c.bannerScale, 40, 220, 100);
+    const bannerW = Math.round(frameW * bannerScale / 100);
+    const tuck = isH ? Math.round(avSize * 0.34) : Math.round(avSize * 0.12);
+    text.style.setProperty('--mvp-banner-w', bannerW + 'px');
+    text.style.setProperty('--mvp-tuck', tuck + 'px');
+    text.style.setProperty('--mvp-bx', Math.round(clampNum(c.bannerX, -600, 600, 0)) + 'px');
+    text.style.setProperty('--mvp-by', Math.round(clampNum(c.bannerY, -600, 600, 0)) + 'px');
+    text.style.setProperty('--mvp-tx', Math.round(clampNum(c.textX, -50, 50, 0)) + '%');
+    text.style.setProperty('--mvp-ty', Math.round(clampNum(c.textY, -50, 50, 0)) + '%');
 
-    // Ảnh plaque danh hiệu Na.png (chỉ khi kiểu "Khung viền nổi", có khung & có chữ, và bật dùng ảnh).
-    const usePlaque = c.textStyle === 'plaque' && c.usePlaqueImg !== false && hasFrame && showText;
+    // Nền tiêu đề bằng ẢNH (Na.apng): có khung + có nội dung là luôn dùng; lỗi/không có → chữ trên nền pill.
+    const usePlaque = hasFrame && hasContent;
     const plaqueSrc = usePlaque ? plaqueUrl(c.frame) : '';
     if (plaqueSrc !== node.plaqueSrc) {
       node.plaqueSrc = plaqueSrc;
       if (plaqueSrc) {
-        plaqueImg.src = plaqueSrc; // onload sẽ gắn has-plaque-img; onerror giữ plaque CSS
+        plaqueImg.src = plaqueSrc; // onload gắn has-plaque-img; onerror giữ nền pill
       } else {
         plaqueImg.removeAttribute('src');
         text.classList.remove('has-plaque-img');
         text.style.aspectRatio = '';
       }
-    }
-    if (c.textStyle === 'neon') {
-      text.style.textShadow = `0 0 6px ${c.bgColor}, 0 0 14px ${c.bgColor}, 0 0 26px ${c.bgColor2}`;
-      text.style.webkitTextStroke = '';
-    } else if (c.textStyle === 'plaque') {
-      text.style.textShadow = '0 2px 3px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.18)';
-    } else {
-      text.style.textShadow = '0 2px 4px rgba(0,0,0,.45)';
     }
 
     // Animation xuất hiện: chỉ chạy khi thẻ mới hoặc đổi kiểu anim (không lặp mỗi heartbeat)

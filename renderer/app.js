@@ -2962,8 +2962,8 @@ let mvpCfg = { cards: [] };
 let mvpSelId = '';
 const MVP_FRAME_COUNT = 41;
 const MVP_FRAMES = Array.from({ length: MVP_FRAME_COUNT }, (_, i) => `mvp-frames/${i + 1}.png`);
-// Ảnh plaque danh hiệu cùng bộ với khung avatar: N.png → Na.png.
-function mvpPlaqueSrc(frame) { const s = String(frame || ''); return /\.png$/i.test(s) ? s.replace(/\.png$/i, 'a.png') : ''; }
+// Nền tiêu đề động cùng bộ với khung avatar: N.png → Na.apng.
+function mvpPlaqueSrc(frame) { const s = String(frame || ''); return /\.png$/i.test(s) ? s.replace(/\.png$/i, 'a.apng') : ''; }
 const MVP_CANVAS_H = { '1:1': 1080, '3:4': 1440, '9:16': 1920 }; // rộng luôn 1080; chỉ đổi chiều cao
 
 async function loadMvpHonorConfig() {
@@ -2985,8 +2985,9 @@ function mvpNewCard() {
   const id = 'mh_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
   return {
     id, mode: 'creator', creatorId: '', tiktokId: '', avatar: '', name: '', text: 'TOP 1',
-    frame: MVP_FRAMES[0], usePlaqueImg: true, layout: 'attached', avatarSize: 150, frameScale: 150, nameSize: 40, fontSize: 40,
-    color: '#ffffff', textStyle: 'plaque', bgColor: '#8f8474', bgColor2: '#463f31', bgOpacity: 100,
+    frame: MVP_FRAMES[0], layout: 'vertical', avatarSize: 140, frameScale: 172,
+    bySkin: {},
+    color: '#ffffff',
     entryAnim: 'popBounce', celebrate: false, showName: false, showText: true, show: true, overlay: { x: 120, y: 200, scale: 1, rot: 0 },
   };
 }
@@ -3005,22 +3006,59 @@ function mvpResolveName(c) {
   if (c.mode === 'creator') { const cr = mvpCreatorOf(c); if (cr) return cr.nickname || cr.tiktokId || ''; }
   return '';
 }
-function mvpHexRgba(hex, op) {
-  const h = String(hex || '#000000').replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16) || 0, g = parseInt(h.slice(2, 4), 16) || 0, b = parseInt(h.slice(4, 6), 16) || 0;
-  return `rgba(${r},${g},${b},${Math.max(0, Math.min(100, Number(op) === 0 ? 0 : (Number(op) || 100))) / 100})`;
+// Chế độ Creator: tên hiển thị TỰ LẤY theo Creator đang chọn (trừ khi người dùng tự gõ đè = nameOverride).
+function mvpSyncCreatorName(c) {
+  if (c.mode !== 'creator' || c.nameOverride) return;
+  const cr = mvpCreatorOf(c);
+  c.name = cr ? (cr.nickname || cr.tiktokId || '') : '';
 }
-function mvpTextBg(c) {
-  if (c.textStyle === 'gradient') return `linear-gradient(135deg, ${mvpHexRgba(c.bgColor, c.bgOpacity)}, ${mvpHexRgba(c.bgColor2, c.bgOpacity)})`;
-  if (c.textStyle === 'plaque') return `linear-gradient(180deg, ${mvpHexRgba(c.bgColor, c.bgOpacity)}, ${mvpHexRgba(c.bgColor2, c.bgOpacity)})`;
-  if (c.textStyle === 'neon') return 'transparent';
-  return mvpHexRgba(c.bgColor, c.bgOpacity);
+// Bố cục & kích thước lưu ĐỘC LẬP theo (SKIN × NGANG/DỌC): c.bySkin[frame][vertical|horizontal].
+// Đổi skin → nhớ riêng chỉnh của skin đó (mỗi nền Na.apng hình dạng khác nhau). Mặc định chuẩn khác theo bố cục.
+const MVP_LAYOUT_KEYS = ['bannerScale', 'bannerX', 'bannerY', 'textX', 'textY', 'fontSize', 'nameSize'];
+const MVP_LAYOUT_PRESETS = {
+  vertical:   { bannerScale: 77,  bannerX: 0, bannerY: 0, textX: 0, textY: 0, fontSize: 31, nameSize: 21 },
+  horizontal: { bannerScale: 159, bannerX: 8, bannerY: 0, textX: 7, textY: 0, fontSize: 42, nameSize: 42 },
+};
+function mvpSkinNum(frame) { const m = String(frame || '').match(/(\d+)\.png/i); return m ? +m[1] : null; }
+// Mặc định: ưu tiên preset RIÊNG theo skin (mvp-skin-presets.js), không có thì lấy preset chung theo bố cục.
+function mvpLayoutDefaults(layout, frame) {
+  const lay = layout === 'horizontal' ? 'horizontal' : 'vertical';
+  const n = mvpSkinNum(frame);
+  const sp = n != null && window.MVP_SKIN_PRESETS && window.MVP_SKIN_PRESETS[n] && window.MVP_SKIN_PRESETS[n][lay];
+  return { ...(sp || MVP_LAYOUT_PRESETS[lay]) };
+}
+// Ô chỉnh của SKIN hiện tại + bố cục hiện tại (tự tạo/di trú khi thiếu).
+function mvpLC(c) {
+  if (!c.bySkin || typeof c.bySkin !== 'object') c.bySkin = {};
+  const skin = c.frame || '';
+  const lay = c.layout === 'horizontal' ? 'horizontal' : 'vertical';
+  // Di trú bản cũ (byLayout theo-thẻ) → gán cho SKIN hiện tại để giữ chỉnh cũ.
+  if (c.byLayout && typeof c.byLayout === 'object') {
+    if (!c.bySkin[skin]) c.bySkin[skin] = c.byLayout;
+    delete c.byLayout;
+  }
+  if (!c.bySkin[skin] || typeof c.bySkin[skin] !== 'object') c.bySkin[skin] = {};
+  const bucket = c.bySkin[skin];
+  let seededFromFlat = false;
+  ['vertical', 'horizontal'].forEach(k => {
+    if (bucket[k] && typeof bucket[k] === 'object') return;
+    const useFlat = (k === lay);                        // di trú field phẳng cũ (nếu còn) vào bố cục đang chọn
+    const base = mvpLayoutDefaults(k, skin);            // preset riêng theo skin nếu có
+    const o = {};
+    for (const f of MVP_LAYOUT_KEYS) o[f] = (useFlat && c[f] != null) ? c[f] : base[f];
+    bucket[k] = o;
+    if (useFlat) seededFromFlat = true;
+  });
+  if (seededFromFlat) { for (const f of MVP_LAYOUT_KEYS) delete c[f]; }
+  return bucket[lay];
 }
 
 // Dựng phần tử hình ảnh của thẻ (dùng trong khung xem trước). Cùng cấu trúc với overlay OBS.
 function mvpBuildVisual(c) {
+  const lc = mvpLC(c);
   const avSize = c.avatarSize, frameW = Math.round(avSize * (c.frameScale / 100)), hasFrame = !!c.frame;
-  const root = document.createElement('div'); root.className = 'mhv-card' + (c.layout === 'vertical' ? ' vertical' : c.layout === 'attached' ? ' attached' : '');
+  const isH = c.layout === 'horizontal';
+  const root = document.createElement('div'); root.className = 'mhv-card ' + (isH ? 'is-horizontal' : 'is-vertical');
   const inner = document.createElement('div'); inner.className = 'mhv-inner';
   const avwrap = document.createElement('div'); avwrap.className = 'mhv-avwrap';
   avwrap.style.width = (hasFrame ? frameW : avSize) + 'px';
@@ -3030,24 +3068,30 @@ function mvpBuildVisual(c) {
   av.onerror = () => { av.onerror = null; av.src = '../logo/hp-logo.png'; };
   avwrap.appendChild(av);
   if (hasFrame) { const fr = document.createElement('img'); fr.className = 'mhv-frame'; fr.src = c.frame; avwrap.appendChild(fr); }
-  if (c.showName && mvpResolveName(c)) { const nm = document.createElement('div'); nm.className = 'mhv-name'; nm.style.fontSize = (c.nameSize || 40) + 'px'; nm.textContent = mvpResolveName(c); avwrap.appendChild(nm); }
   inner.appendChild(avwrap);
-  if (c.text && c.showText !== false) {
-    const tx = document.createElement('div'); tx.className = 'mhv-text style-' + c.textStyle;
-    tx.style.fontSize = c.fontSize + 'px'; tx.style.color = c.color;
-    tx.style.background = mvpTextBg(c); tx.style.setProperty('--mvp-link-color', c.bgColor);
-    tx.style.setProperty('--mvp-plaque-w', frameW + 'px');
-    if (c.textStyle === 'neon') tx.style.textShadow = `0 0 6px ${c.bgColor}, 0 0 14px ${c.bgColor}, 0 0 26px ${c.bgColor2}`;
-    else if (c.textStyle === 'plaque') tx.style.textShadow = '0 2px 3px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.18)';
-    // Ảnh plaque Na.png (khớp khung) — tải xong thì đè ảnh, lỗi/không có thì giữ plaque CSS.
-    const psrc = (c.textStyle === 'plaque' && c.usePlaqueImg !== false && hasFrame) ? mvpPlaqueSrc(c.frame) : '';
+  // Tên Creator (dòng trên) + danh hiệu (dòng dưới) — cùng nằm TRÊN nền tiêu đề.
+  const nameLine = c.showName && mvpResolveName(c) ? mvpResolveName(c) : '';
+  const titleLine = c.showText !== false && c.text ? c.text : '';
+  if (nameLine || titleLine) {
+    const tx = document.createElement('div'); tx.className = 'mhv-text'; tx.style.color = c.color;
+    const bannerScale = clampInt(lc.bannerScale, 100, 40, 220);
+    tx.style.setProperty('--mvp-banner-w', Math.round(frameW * bannerScale / 100) + 'px');
+    tx.style.setProperty('--mvp-tuck', (isH ? Math.round(avSize * 0.34) : Math.round(avSize * 0.12)) + 'px');
+    tx.style.setProperty('--mvp-bx', clampInt(lc.bannerX, 0, -600, 600) + 'px');
+    tx.style.setProperty('--mvp-by', clampInt(lc.bannerY, 0, -600, 600) + 'px');
+    tx.style.setProperty('--mvp-tx', clampInt(lc.textX, 0, -50, 50) + '%');
+    tx.style.setProperty('--mvp-ty', clampInt(lc.textY, 0, -50, 50) + '%');
+    // Nền tiêu đề động Na.apng — có khung là luôn thử tải; lỗi/không có thì giữ nền pill.
+    const psrc = hasFrame ? mvpPlaqueSrc(c.frame) : '';
     if (psrc) {
       const pim = document.createElement('img'); pim.className = 'mhv-plaque-img'; pim.alt = '';
       pim.onload = () => { tx.classList.add('has-plaque-img'); if (pim.naturalWidth && pim.naturalHeight) tx.style.aspectRatio = pim.naturalWidth + ' / ' + pim.naturalHeight; };
       pim.onerror = () => { tx.classList.remove('has-plaque-img'); };
       pim.src = psrc; tx.appendChild(pim);
     }
-    const lbl = document.createElement('span'); lbl.className = 'mhv-text-label'; lbl.textContent = c.text;
+    const lbl = document.createElement('span'); lbl.className = 'mhv-text-label';
+    if (nameLine) { const s = document.createElement('span'); s.className = 'mvp-line mhv-nm'; s.textContent = nameLine; s.style.fontSize = (lc.nameSize || 40) + 'px'; lbl.appendChild(s); }
+    if (titleLine) { const s = document.createElement('span'); s.className = 'mvp-line mhv-ti'; s.textContent = titleLine; s.style.fontSize = (lc.fontSize || 40) + 'px'; lbl.appendChild(s); }
     tx.appendChild(lbl);
     inner.appendChild(tx);
   }
@@ -3111,7 +3155,7 @@ function mvpRenderCards() {
     item.className = 'mvp-card-item' + (c.id === mvpSelId ? ' active' : '') + (c.show === false ? ' off' : '');
     const av = mvpResolveAvatar(c) || '../logo/hp-logo.png';
     item.innerHTML =
-      `<div class="mci-thumb"><img src="${av}" onerror="this.onerror=null;this.src='../logo/hp-logo.png'"/>${c.frame ? `<img class="mci-frame" src="${c.frame}"/>` : ''}</div>`
+      `<div class="mci-thumb" title="Chuột phải để chọn bố cục Ngang/Dọc cho thẻ này"><img src="${av}" onerror="this.onerror=null;this.src='../logo/hp-logo.png'"/>${c.frame ? `<img class="mci-frame" src="${c.frame}"/>` : ''}</div>`
       + `<div class="mci-info"><div class="mci-title">${(mvpResolveName(c) || 'Thẻ ' + (i + 1))}</div>`
       + `<div class="mci-sub">${c.mode === 'user' ? '🎁 User' : '⭐ Creator'} · ${(c.text || '').split('\n')[0] || '—'}</div></div>`
       + `<div class="mci-actions">`
@@ -3122,6 +3166,7 @@ function mvpRenderCards() {
       if (e.target.closest('[data-mh-toggle]') || e.target.closest('[data-mh-del]')) return;
       mvpSelId = c.id; mvpRenderCards(); mvpApplyToInputs(); mvpRenderStage();
     });
+    item.addEventListener('contextmenu', (e) => { e.preventDefault(); mvpShowLayoutMenu(e.clientX, e.clientY, c.id); });
     box.appendChild(item);
   });
   box.querySelectorAll('[data-mh-toggle]').forEach(b => b.addEventListener('click', () => {
@@ -3134,6 +3179,34 @@ function mvpRenderCards() {
     mvpRenderCards(); mvpApplyToInputs(); mvpRenderStage(); mvpScheduleSave();
   }));
 }
+
+// Menu chuột-phải trên thẻ: chọn nhanh bố cục Ngang/Dọc cho RIÊNG thẻ đó.
+function mvpCloseLayoutMenu() { document.querySelector('.mvp-ctxmenu')?.remove(); }
+function mvpShowLayoutMenu(x, y, cardId) {
+  mvpCloseLayoutMenu();
+  const c = mvpCfg.cards.find(k => k.id === cardId); if (!c) return;
+  const isH = c.layout === 'horizontal';
+  const menu = document.createElement('div');
+  menu.className = 'mvp-ctxmenu';
+  menu.innerHTML =
+    `<div class="mvp-ctxmenu-h">Bố cục</div>`
+    + `<button data-lay="vertical" class="${!isH ? 'on' : ''}">↕ Dọc</button>`
+    + `<button data-lay="horizontal" class="${isH ? 'on' : ''}">↔ Ngang</button>`;
+  document.body.appendChild(menu);
+  const vw = window.innerWidth, vh = window.innerHeight, r = menu.getBoundingClientRect();
+  menu.style.left = Math.max(6, Math.min(x, vw - r.width - 6)) + 'px';
+  menu.style.top = Math.max(6, Math.min(y, vh - r.height - 6)) + 'px';
+  menu.querySelectorAll('[data-lay]').forEach(b => b.addEventListener('click', () => {
+    const lay = b.dataset.lay === 'horizontal' ? 'horizontal' : 'vertical';
+    mvpCloseLayoutMenu();
+    mvpSelId = cardId;
+    const cc = mvpSel(); if (cc) cc.layout = lay;
+    mvpRenderCards(); mvpApplyToInputs(); mvpRenderStage(); mvpScheduleSave();
+  }));
+}
+document.addEventListener('click', (e) => { if (!e.target.closest('.mvp-ctxmenu')) mvpCloseLayoutMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') mvpCloseLayoutMenu(); });
+window.addEventListener('blur', mvpCloseLayoutMenu);
 
 function mvpRefreshCreatorSelect() {
   const sel = $('#mhCreator'); if (!sel) return;
@@ -3160,16 +3233,29 @@ function mvpApplyToInputs() {
   if ($('#mhTiktokId')) $('#mhTiktokId').value = c.tiktokId || '';
   if ($('#mhFetchHint')) $('#mhFetchHint').textContent = 'Lấy 1 lần rồi tự lưu trong máy — không tải lại từ TikTok.';
   const set = (id, v) => { const el = $(id); if (el) el.value = v; };
+  if (c.mode === 'creator' && !c.nameOverride) mvpSyncCreatorName(c);   // tên hiển thị theo Creator đang chọn
+  if ($('#mhName')) $('#mhName').placeholder = c.mode === 'user' ? '@tên hoặc biệt danh' : 'Tự lấy theo Creator (có thể sửa)';
   set('#mhName', c.name || ''); if ($('#mhShowName')) $('#mhShowName').checked = !!c.showName;
   if ($('#mhShowText')) $('#mhShowText').checked = c.showText !== false;
-  set('#mhText', c.text || ''); set('#mhLayout', ['horizontal', 'vertical', 'attached'].includes(c.layout) ? c.layout : 'attached'); set('#mhAnim', c.entryAnim);
-  set('#mhAvatarSize', c.avatarSize); set('#mhFrameScale', c.frameScale); set('#mhNameSize', c.nameSize || 40); set('#mhFontSize', c.fontSize);
-  set('#mhTextStyle', c.textStyle); set('#mhColor', c.color); set('#mhBg', c.bgColor); set('#mhBg2', c.bgColor2);
-  set('#mhBgOpacity', c.bgOpacity); set('#mhX', c.overlay.x); set('#mhY', c.overlay.y);
+  set('#mhText', c.text || ''); set('#mhLayout', c.layout === 'horizontal' ? 'horizontal' : 'vertical'); set('#mhAnim', c.entryAnim);
+  const lc = mvpLC(c);   // bố cục đang chọn (NGANG/DỌC lưu độc lập)
+  set('#mhAvatarSize', c.avatarSize); set('#mhFrameScale', c.frameScale); set('#mhNameSize', lc.nameSize); set('#mhFontSize', lc.fontSize);
+  set('#mhBannerScale', lc.bannerScale); set('#mhBannerX', lc.bannerX); set('#mhBannerY', lc.bannerY);
+  set('#mhTextX', lc.textX); set('#mhTextY', lc.textY);
+  set('#mhColor', c.color); set('#mhX', c.overlay.x); set('#mhY', c.overlay.y);
   set('#mhScale', Math.round(c.overlay.scale * 100)); set('#mhRot', c.overlay.rot);
-  if ($('#mhUsePlaqueImg')) $('#mhUsePlaqueImg').checked = c.usePlaqueImg !== false;
   if ($('#mhCelebrate')) $('#mhCelebrate').checked = !!c.celebrate;
   mvpRenderSkins();
+  mvpRefreshSliderVals();
+  mvpUpdateTextDim();
+}
+
+// Mờ "Cỡ danh hiệu"/"Cỡ tên" khi phần chữ tương ứng đang tắt → hiểu ngay vì sao kéo không đổi.
+function mvpUpdateTextDim() {
+  const c = mvpSel(); if (!c) return;
+  const dim = (id, off) => { const el = document.getElementById(id); const lab = el && el.closest('label'); if (lab) lab.classList.toggle('mvp-lbl-off', !!off); };
+  dim('mhFontSize', c.showText === false);
+  dim('mhNameSize', !c.showName);
 }
 
 // Nạp các ô cấu hình "trình chiếu" (config-level, không theo thẻ) từ mvpCfg vào giao diện.
@@ -3198,13 +3284,12 @@ function mvpRenderSkins() {
     + `<img class="mvp-skin-frame" src="${f}" alt="" onerror="this.closest('.mvp-skin')?.classList.add('broken')"/>`
     + `</span>`
     + `<span class="mvp-skin-num">${num}</span>`
-    + `<span class="mvp-skin-badge" title="Có ảnh khung danh hiệu ${num}a.png">🎀</span>`
-    + `<img class="mvp-skin-probe" src="${mvpPlaqueSrc(f)}" alt="" onload="this.closest('.mvp-skin')?.classList.add('has-plaque');this.remove()" onerror="this.remove()"/>`
     + `</button>`).join('');
   box.innerHTML = noneTile + tiles || '<div class="mvp-hint">Không có khung khớp số.</div>';
   box.querySelectorAll('[data-mh-frame]').forEach(b => b.addEventListener('click', () => {
     const c2 = mvpSel(); if (!c2) return; c2.frame = b.dataset.mhFrame || '';
-    mvpRenderSkins(); mvpRenderStage(); mvpRenderCards(); mvpScheduleSave();
+    mvpApplyToInputs();   // nạp lại chỉnh riêng của SKIN vừa chọn vào các thanh
+    mvpRenderStage(); mvpRenderCards(); mvpScheduleSave();
   }));
 }
 
@@ -3315,13 +3400,59 @@ function mvpAutoEnforce() {
   stage.querySelectorAll('.mhv-pos').forEach(el => { el.classList.toggle('reveal-hidden', el.dataset.id !== mvpAuto.curId); });
 }
 
+// Hiện số trực tiếp cạnh các thanh trượt để canh chính xác (nhất là Xoay để về đúng 0°).
+const MVP_SLIDER_SUFFIX = { mhScale: '%', mhRot: '°', mhBannerScale: '%', mhBannerX: 'px', mhBannerY: 'px', mhTextX: '%', mhTextY: '%', mhAvatarSize: 'px', mhFrameScale: '%', mhNameSize: 'px', mhFontSize: 'px' };
+function mvpSetRv(el) { if (el && el._rv) el._rv.textContent = el.value + (MVP_SLIDER_SUFFIX[el.id] || ''); }
+function mvpRefreshSliderVals() { Object.keys(MVP_SLIDER_SUFFIX).forEach(id => mvpSetRv(document.getElementById(id))); }
+// Nút −/+ chỉnh TỪNG ĐƠN VỊ 1 (tinh chỉnh chính xác từng chỉ số) — bấm là chạy đúng listener lưu.
+function mvpStep(el, dir) {
+  const step = Number(el.step) || 1;
+  const min = el.min !== '' ? Number(el.min) : -Infinity;
+  const max = el.max !== '' ? Number(el.max) : Infinity;
+  let v = Math.round((Number(el.value) || 0) + dir * step);
+  v = Math.max(min, Math.min(max, v));
+  if (String(v) === el.value) return;
+  el.value = v;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+function mvpInitSliderVals() {
+  Object.keys(MVP_SLIDER_SUFFIX).forEach(id => {
+    const el = document.getElementById(id); if (!el || el._rv) return;
+    const mk = (txt, dir) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'mvp-step'; b.textContent = txt; b.tabIndex = -1; b.title = (dir < 0 ? 'Giảm' : 'Tăng') + ' 1 đơn vị'; b.addEventListener('click', () => mvpStep(el, dir)); return b; };
+    const b = document.createElement('b'); b.className = 'mvp-rv'; el._rv = b;
+    el.insertAdjacentElement('beforebegin', mk('−', -1));
+    el.insertAdjacentElement('afterend', b);
+    b.insertAdjacentElement('afterend', mk('+', +1));
+    el.addEventListener('input', () => mvpSetRv(el));
+    mvpSetRv(el);
+  });
+}
+
 function wireMvpHonorTab() {
+  mvpInitSliderVals();
   $('#mhAddCard')?.addEventListener('click', () => {
     const card = mvpNewCard();
     // gợi ý: nếu đang xem 1 nhóm & có Creator, gán luôn Creator đầu tiên
     const first = visibleCreators()[0]; if (first) card.creatorId = first.id;
     mvpCfg.cards.push(card); mvpSelId = card.id;
     mvpRenderCards(); mvpRefreshCreatorSelect(); mvpApplyToInputs(); mvpRenderStage(); mvpScheduleSave();
+  });
+  $('#mhDupCard')?.addEventListener('click', () => {
+    const c = mvpSel(); if (!c) { toast('Chưa có thẻ để nhân bản', 'error'); return; }
+    const copy = JSON.parse(JSON.stringify(c));
+    copy.id = 'mh_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
+    const idx = mvpCfg.cards.findIndex(x => x.id === c.id);
+    mvpCfg.cards.splice(idx < 0 ? mvpCfg.cards.length : idx + 1, 0, copy);
+    mvpSelId = copy.id;
+    mvpRenderCards(); mvpRefreshCreatorSelect(); mvpApplyToInputs(); mvpRenderStage(); mvpScheduleSave();
+    toast('Đã nhân bản thẻ', 'success');
+  });
+  $('#mhResetLayout')?.addEventListener('click', () => {
+    const c = mvpSel(); if (!c) return;
+    const lay = c.layout === 'horizontal' ? 'horizontal' : 'vertical';
+    mvpEditSel(cc => { Object.assign(mvpLC(cc), mvpLayoutDefaults(lay, cc.frame)); });   // reset đúng skin + bố cục đang chọn
+    mvpApplyToInputs();
+    toast('Đã đưa nền/chữ của skin & bố cục này về mặc định chuẩn', 'success');
   });
   $('#mhClear')?.addEventListener('click', async () => {
     if (!mvpCfg.cards.length) return;
@@ -3330,9 +3461,9 @@ function wireMvpHonorTab() {
     mvpCfg.cards = []; mvpSelId = ''; mvpRenderCards(); mvpApplyToInputs(); mvpRenderStage(); mvpScheduleSave();
   });
 
-  $('#mhModeCreator')?.addEventListener('change', () => mvpEditSel(c => { c.mode = 'creator'; mvpApplyToInputs(); }));
+  $('#mhModeCreator')?.addEventListener('change', () => mvpEditSel(c => { c.mode = 'creator'; c.nameOverride = false; mvpSyncCreatorName(c); mvpApplyToInputs(); }));
   $('#mhModeUser')?.addEventListener('change', () => mvpEditSel(c => { c.mode = 'user'; mvpApplyToInputs(); }));
-  $('#mhCreator')?.addEventListener('change', () => mvpEditSel(c => { c.creatorId = $('#mhCreator').value; }));
+  $('#mhCreator')?.addEventListener('change', () => mvpEditSel(c => { c.creatorId = $('#mhCreator').value; mvpSyncCreatorName(c); mvpApplyToInputs(); }));
   $('#mhUploadBtn')?.addEventListener('click', () => $('#mhUpload')?.click());
   $('#mhUpload')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -3366,24 +3497,25 @@ function wireMvpHonorTab() {
       toast('Lỗi khi lấy avatar', 'error');
     } finally { btn?.classList.remove('is-loading'); }
   });
-  $('#mhName')?.addEventListener('input', () => mvpEditSel(c => { c.name = $('#mhName').value; }));
-  $('#mhShowName')?.addEventListener('change', () => mvpEditSel(c => { c.showName = $('#mhShowName').checked; }));
-  $('#mhShowText')?.addEventListener('change', () => mvpEditSel(c => { c.showText = $('#mhShowText').checked; }));
+  $('#mhName')?.addEventListener('input', () => mvpEditSel(c => { c.name = $('#mhName').value; c.nameOverride = !!$('#mhName').value.trim(); }));
+  $('#mhShowName')?.addEventListener('change', () => { mvpEditSel(c => { c.showName = $('#mhShowName').checked; }); mvpUpdateTextDim(); });
+  $('#mhShowText')?.addEventListener('change', () => { mvpEditSel(c => { c.showText = $('#mhShowText').checked; }); mvpUpdateTextDim(); });
   $('#mhText')?.addEventListener('input', () => mvpEditSel(c => { c.text = $('#mhText').value; }));
-  $('#mhLayout')?.addEventListener('change', () => mvpEditSel(c => { c.layout = ['horizontal', 'vertical', 'attached'].includes($('#mhLayout').value) ? $('#mhLayout').value : 'attached'; }));
+  $('#mhLayout')?.addEventListener('change', () => { mvpEditSel(c => { c.layout = $('#mhLayout').value === 'horizontal' ? 'horizontal' : 'vertical'; }); mvpApplyToInputs(); });
   $('#mhAnim')?.addEventListener('change', () => mvpEditSel(c => { c.entryAnim = $('#mhAnim').value; }));
   $('#mhCelebrate')?.addEventListener('change', () => mvpEditSel(c => { c.celebrate = $('#mhCelebrate').checked; }));
   $('#mhAvatarSize')?.addEventListener('input', () => mvpEditSel(c => { c.avatarSize = clampInt($('#mhAvatarSize').value, 150, 60, 400); }));
   $('#mhFrameScale')?.addEventListener('input', () => mvpEditSel(c => { c.frameScale = clampInt($('#mhFrameScale').value, 150, 80, 300); }));
-  $('#mhNameSize')?.addEventListener('input', () => mvpEditSel(c => { c.nameSize = clampInt($('#mhNameSize').value, 40, 12, 120); }));
-  $('#mhFontSize')?.addEventListener('input', () => mvpEditSel(c => { c.fontSize = clampInt($('#mhFontSize').value, 40, 12, 140); }));
-  $('#mhUsePlaqueImg')?.addEventListener('change', () => mvpEditSel(c => { c.usePlaqueImg = $('#mhUsePlaqueImg').checked; }));
+  // Các thanh sau LƯU THEO BỐ CỤC đang chọn (NGANG/DỌC độc lập) → ghi vào mvpLC(c).
+  $('#mhBannerScale')?.addEventListener('input', () => mvpEditSel(c => { mvpLC(c).bannerScale = clampInt($('#mhBannerScale').value, 100, 40, 220); }));
+  $('#mhBannerX')?.addEventListener('input', () => mvpEditSel(c => { mvpLC(c).bannerX = clampInt($('#mhBannerX').value, 0, -600, 600); }));
+  $('#mhBannerY')?.addEventListener('input', () => mvpEditSel(c => { mvpLC(c).bannerY = clampInt($('#mhBannerY').value, 0, -600, 600); }));
+  $('#mhTextX')?.addEventListener('input', () => mvpEditSel(c => { mvpLC(c).textX = clampInt($('#mhTextX').value, 0, -50, 50); }));
+  $('#mhTextY')?.addEventListener('input', () => mvpEditSel(c => { mvpLC(c).textY = clampInt($('#mhTextY').value, 0, -50, 50); }));
+  $('#mhNameSize')?.addEventListener('input', () => mvpEditSel(c => { mvpLC(c).nameSize = clampInt($('#mhNameSize').value, 40, 12, 120); }));
+  $('#mhFontSize')?.addEventListener('input', () => mvpEditSel(c => { mvpLC(c).fontSize = clampInt($('#mhFontSize').value, 40, 12, 140); }));
   $('#mhSkinFilter')?.addEventListener('input', () => mvpRenderSkins());
-  $('#mhTextStyle')?.addEventListener('change', () => mvpEditSel(c => { c.textStyle = $('#mhTextStyle').value; }));
   $('#mhColor')?.addEventListener('input', () => mvpEditSel(c => { c.color = $('#mhColor').value; }));
-  $('#mhBg')?.addEventListener('input', () => mvpEditSel(c => { c.bgColor = $('#mhBg').value; }));
-  $('#mhBg2')?.addEventListener('input', () => mvpEditSel(c => { c.bgColor2 = $('#mhBg2').value; }));
-  $('#mhBgOpacity')?.addEventListener('input', () => mvpEditSel(c => { c.bgOpacity = clampInt($('#mhBgOpacity').value, 100, 0, 100); }));
   $('#mhX')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.x = Math.round(Number($('#mhX').value) || 0); }));
   $('#mhY')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.y = Math.round(Number($('#mhY').value) || 0); }));
   $('#mhScale')?.addEventListener('input', () => mvpEditSel(c => { c.overlay.scale = Math.max(0.2, Math.min(4, (Number($('#mhScale').value) || 100) / 100)); }));
@@ -3392,6 +3524,7 @@ function wireMvpHonorTab() {
     c.overlay.scale = 1; c.overlay.rot = 0;              // về thẳng hàng ngang/dọc (mặc định)
     if ($('#mhScale')) $('#mhScale').value = 100;
     if ($('#mhRot')) $('#mhRot').value = 0;
+    mvpRefreshSliderVals();
   }));
   $('#mhCopyUrl')?.addEventListener('click', async () => { const url = await window.api.mvphonor.getUrl(); await window.api.shell.copyText(url); toast('Đã copy link OBS Vinh danh', 'success'); });
 
@@ -7382,7 +7515,7 @@ function wirePkDuoTab() {
   // 🎲 Đổi skin mũi tên ngẫu nhiên NGAY (chọn 1 skin cụ thể khác skin đang chọn) → áp dụng realtime.
   $('#pkArrowRandom')?.addEventListener('click', () => {
     const sel = $('#pkArrowStyle'); if (!sel) return;
-    const pool = ['classic', 'core', 'rope', 'cannon'].filter(v => v !== sel.value);
+    const pool = ['classic', 'core', 'cannon'].filter(v => v !== sel.value);
     sel.value = pool[Math.floor(Math.random() * pool.length)];
     schedulePkAutoSave();
     toast('Mũi tên: ' + (sel.options[sel.selectedIndex]?.text || sel.value), 'success');

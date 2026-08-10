@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>HP GROUP LIVE</title>
   <link rel="icon" type="image/png" href="../logo/hp-logo.png" />
+  <!-- Font Be Vietnam Pro để khung xem trước Vinh danh KHỚP overlay OBS (WYSIWYG). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@700;800;900&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -586,7 +590,6 @@
                     <select id="pkArrowStyle" style="flex:1; min-width:0;">
                       <option value="classic">Cổ điển (chỉ hướng)</option>
                       <option value="core">Lõi động lượng</option>
-                      <option value="rope">Dây kéo co</option>
                       <option value="cannon">Pháo combo</option>
                       <option value="random">🎲 Ngẫu nhiên mỗi vòng</option>
                     </select>
@@ -2248,19 +2251,6 @@
               <button class="ghost" data-review-toggle="mvphonor" type="button">🖥 CỬA SỔ</button>
               <button class="ghost" data-review-top="mvphonor" type="button">📌 BỎ GHIM</button>
               <button class="ghost" data-review-click="mvphonor" type="button">🖱 Xuyên</button>
-              <details class="mvp-pop">
-                <summary class="mvp-pop-btn" title="Nền cửa sổ Review (màu &amp; độ trong suốt)">🎨 Nền</summary>
-                <div class="mvp-pop-body">
-                  <div class="mvp-pop-h">Nền cửa sổ Review</div>
-                  <label class="mvp-pop-row">Màu nền
-                    <input class="review-bg-picker" data-review-bg="mvphonor" type="color" title="Màu nền Review" value="#000000" />
-                  </label>
-                  <label class="mvp-pop-row">Độ đậm
-                    <input class="review-bg-alpha" data-review-alpha="mvphonor" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
-                  </label>
-                  <button class="ghost mvp-pop-clear" data-review-bg-clear="mvphonor" type="button">Nền trong suốt</button>
-                </div>
-              </details>
             </div>
             <span class="mvp-bar-sep"></span>
             <span class="mvp-bar-tag">Trình chiếu</span>
@@ -2288,10 +2278,11 @@
             <!-- CONSOLE: danh sách thẻ -->
             <div class="mvp-col mvp-console">
               <div class="mvp-col-h mvp-console-h">
-                <span>Bảng điều khiển</span>
+                <span class="mvp-console-title">Danh sách thẻ</span>
                 <span class="mvp-console-tools">
                   <button class="primary mvp-mini-btn" id="mhAddCard" type="button">＋ Thêm</button>
-                  <button class="ghost danger mvp-mini-btn" id="mhClear" type="button" title="Xoá hết thẻ">🗑</button>
+                  <button class="ghost mvp-mini-btn mvp-icon-btn" id="mhDupCard" type="button" title="Nhân bản thẻ đang chọn (giữ nguyên cấu hình)" aria-label="Nhân bản thẻ">⧉</button>
+                  <button class="ghost danger mvp-mini-btn mvp-icon-btn" id="mhClear" type="button" title="Xoá hết thẻ" aria-label="Xoá hết thẻ">🗑</button>
                 </span>
               </div>
               <div class="mvp-cards" id="mhCards"></div>
@@ -2331,7 +2322,6 @@
                     <input type="search" id="mhSkinFilter" class="mvp-skin-filter" placeholder="🔎 Lọc theo số… (vd 12)" />
                   </div>
                   <div class="mvp-skins" id="mhSkins"></div>
-                  <label class="mvp-switch" title="Nếu skin có file ảnh khung danh hiệu Na.png (vd 12a.png) thì dùng ảnh đó làm nền chữ; không có thì tự vẽ khung viền nổi bằng CSS."><input type="checkbox" id="mhUsePlaqueImg" checked /> 🎀 Dùng ảnh khung danh hiệu (Na.png) nếu có</label>
                 </div>
 
                 <div class="mvp-cfg-group">
@@ -2367,9 +2357,9 @@
                   <div class="mvp-field">
                     <div class="mvp-tgl-row">
                       <label class="mvp-tgl-name">Tên hiển thị</label>
-                      <label class="mvp-toggle" title="Bật/tắt hiển thị tên ngay dưới avatar">
+                      <label class="mvp-toggle" title="Bật/tắt hiển thị tên Creator NGAY TRÊN nền tiêu đề (cùng chỗ với danh hiệu)">
                         <input type="checkbox" id="mhShowName" /><span class="mvp-toggle-track"></span>
-                        <span class="mvp-toggle-lbl">Hiện dưới avatar</span>
+                        <span class="mvp-toggle-lbl">Hiện trên nền</span>
                       </label>
                     </div>
                     <input type="text" id="mhName" placeholder="@tên hoặc biệt danh" />
@@ -2384,52 +2374,67 @@
                   </div>
                 </div>
 
+                <!-- CHỈNH NHANH: chữ trên nền — riêng từng thẻ, tự lưu -->
                 <div class="mvp-cfg-group">
-                  <span class="mvp-cfg-h">Bố cục &amp; kích thước</span>
+                  <span class="mvp-cfg-h">✍️ Chữ trên nền tiêu đề
+                    <button class="rk-settings-icon mvp-cfg-gear" type="button" data-modal-open="mhSettingsModal" title="Bố cục &amp; kích thước chuẩn (avatar · khung · nền · anim) — Esc để đóng" aria-label="Cài đặt bố cục &amp; kích thước chuẩn">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </button>
+                  </span>
                   <div class="mvp-cfg-grid">
-                    <label>Bố cục
-                      <select id="mhLayout">
-                        <option value="attached">Liền dưới avatar</option>
-                        <option value="horizontal">Ngang</option>
-                        <option value="vertical">Dọc, tách rời</option>
-                      </select>
-                    </label>
-                    <label>Anim xuất hiện
-                      <select id="mhAnim">
-                        <option value="popBounce">Bật nảy</option>
-                        <option value="zoomFade">Phóng mờ</option>
-                        <option value="slideRight">Trượt ngang</option>
-                        <option value="slideUp">Trượt lên</option>
-                        <option value="flip">Lật thẻ</option>
-                        <option value="dropBounce">Rơi nảy</option>
-                        <option value="spotlight">Spotlight</option>
-                        <option value="zoomShake">Phóng rung</option>
-                        <option value="none">Không</option>
-                      </select>
-                    </label>
-                    <label>Cỡ avatar <input type="range" id="mhAvatarSize" min="60" max="400" value="150" /></label>
-                    <label>Cỡ khung <input type="range" id="mhFrameScale" min="80" max="300" value="150" /></label>
-                    <label>Cỡ tên <input type="range" id="mhNameSize" min="12" max="120" value="40" /></label>
-                    <label>Cỡ chữ danh hiệu <input type="range" id="mhFontSize" min="12" max="140" value="40" /></label>
+                    <label title="Đẩy chữ (tên/danh hiệu) sang trái/phải trong nền để căn giữa tấm biển">Lệch ngang <input type="range" id="mhTextX" min="-50" max="50" value="0" /></label>
+                    <label title="Đẩy chữ (tên/danh hiệu) lên/xuống trong nền để căn giữa tấm biển">Lệch dọc <input type="range" id="mhTextY" min="-50" max="50" value="0" /></label>
+                    <label title="Cỡ chữ DANH HIỆU (VD: TOP 1). Chỉ có tác dụng khi bật “Hiện danh hiệu & nền”.">Cỡ danh hiệu <input type="range" id="mhFontSize" min="12" max="140" value="31" /></label>
+                    <label title="Cỡ chữ TÊN Creator. Chỉ có tác dụng khi bật “Hiện trên nền”.">Cỡ tên <input type="range" id="mhNameSize" min="12" max="120" value="21" /></label>
                   </div>
-                  <label class="mvp-switch" title="Bắn pháo giấy quanh thẻ khi nó xuất hiện lúc Công bố — hợp cho quán quân / TOP 1."><input type="checkbox" id="mhCelebrate" /> 🎉 Pháo giấy khi công bố</label>
+                </div>
+
+                <!-- POPUP ⚙️: bố cục & kích thước CHUẨN (đặt 1 lần, ít đụng) -->
+                <div id="mhSettingsModal" class="gp-overlay">
+                  <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="mhSettingsTitle">
+                    <header class="gp-head">
+                      <h3 id="mhSettingsTitle">⚙️ Bố cục &amp; kích thước chuẩn</h3>
+                      <button class="gp-close-btn" type="button" data-modal-close aria-label="Đóng" title="Đóng (Esc)">✕</button>
+                    </header>
+                    <div class="rk-settings-body">
+                      <div class="mvp-cfg-grid">
+                        <label>Bố cục
+                          <select id="mhLayout">
+                            <option value="vertical">Dọc</option>
+                            <option value="horizontal">Ngang</option>
+                          </select>
+                        </label>
+                        <label>Anim xuất hiện
+                          <select id="mhAnim">
+                            <option value="popBounce">Bật nảy</option>
+                            <option value="zoomFade">Phóng mờ</option>
+                            <option value="slideRight">Trượt ngang</option>
+                            <option value="slideUp">Trượt lên</option>
+                            <option value="flip">Lật thẻ</option>
+                            <option value="dropBounce">Rơi nảy</option>
+                            <option value="spotlight">Spotlight</option>
+                            <option value="zoomShake">Phóng rung</option>
+                            <option value="none">Không</option>
+                          </select>
+                        </label>
+                        <label>Cỡ avatar <input type="range" id="mhAvatarSize" min="60" max="400" value="140" /></label>
+                        <label>Cỡ khung <input type="range" id="mhFrameScale" min="80" max="300" value="172" /></label>
+                        <label>Cỡ nền tiêu đề <input type="range" id="mhBannerScale" min="40" max="220" value="77" /></label>
+                        <label>Nền: lệch ngang <input type="range" id="mhBannerX" min="-600" max="600" value="0" /></label>
+                        <label>Nền: lệch dọc <input type="range" id="mhBannerY" min="-600" max="600" value="0" /></label>
+                      </div>
+                      <div class="mvp-inline-actions">
+                        <button class="ghost mvp-mini-btn" id="mhResetLayout" type="button" title="Đưa 7 thông số nền/chữ của SKIN &amp; bố cục ĐANG CHỌN về mặc định chuẩn">↩ Về chuẩn (skin này)</button>
+                      </div>
+                      <label class="mvp-switch" title="Bắn pháo giấy quanh thẻ khi nó xuất hiện lúc Công bố — hợp cho quán quân / TOP 1."><input type="checkbox" id="mhCelebrate" /> 🎉 Pháo giấy khi công bố</label>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="mvp-cfg-group">
-                  <span class="mvp-cfg-h">Màu chữ &amp; nền chữ</span>
+                  <span class="mvp-cfg-h">Màu chữ danh hiệu</span>
                   <div class="mvp-cfg-grid">
-                    <label>Kiểu chữ
-                      <select id="mhTextStyle">
-                        <option value="plaque">Khung viền nổi ✨</option>
-                        <option value="solid">Nền đặc</option>
-                        <option value="gradient">Nền chuyển màu</option>
-                        <option value="neon">Neon (không nền)</option>
-                      </select>
-                    </label>
                     <label>Màu chữ <input type="color" id="mhColor" value="#ffffff" /></label>
-                    <label>Màu nền 1 <input type="color" id="mhBg" value="#e84c88" /></label>
-                    <label>Màu nền 2 <input type="color" id="mhBg2" value="#7a3cff" /></label>
-                    <label>Độ mờ nền <input type="range" id="mhBgOpacity" min="0" max="100" value="100" /></label>
                   </div>
                 </div>
               </div>
@@ -2978,6 +2983,7 @@
 
   <script src="obs-reset.js"></script>
   <script src="overlay-skin.js"></script>
+  <script src="mvp-skin-presets.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -1602,19 +1602,21 @@ class PkDuoEngine {
       // banner PK Đôi cũ bỏ qua. fxMode: 'both'|'push'|'affliction'; fxStyle: 'auto'|'freeze'|'fire'|'water'|'dim'.
       // fxThreshold = % chênh điểm bắt đầu bật hiệu ứng; fxMaxGap = % chênh để hiệu ứng đạt tối đa.
       fxEnabled: true,
-      fxMode: 'both',
-      fxStyle: 'auto',
+      fxMode: 'affliction',
+      fxStyle: 'water',
       fxThreshold: 8,
       fxMaxGap: 30,
       fxIntensityCap: 100,
       championsEnabled: true, // Vinh danh TOP 3 người tặng quà trên overlay banner
       championNames: false, // Hiện tên người tặng TOP1 (MVP) dưới avatar
-      arrowStyle: 'random', // Skin mũi tên: classic | core | rope | cannon | random (random = tự đổi mỗi vòng). Mặc định Ngẫu nhiên.
+      arrowStyle: 'random', // Skin mũi tên: classic | core | cannon | random (random = tự đổi mỗi vòng, đã bỏ "kéo co"). Mặc định Ngẫu nhiên.
       // Đánh dấu "người vào trận" kiểu chọn nhân vật game (2 phe đối đầu → luôn đánh dấu cả 2).
       // random | arrow | lock | spotlight | versus | off. Mặc định Ngẫu nhiên.
       selectFx: 'random',
       // 🎨 Skin mùa lễ (chỉ trang trí, auto = theo ngày). Xử lý ở overlay-skin.js.
       skin: 'auto',
+      // Kiểu giao diện overlay: 'hp' (thanh trong hộp) | 'douyin' (thanh máu nổi). Mặc định Douyin.
+      barLayout: 'douyin',
     };
     this.state = {
       status: 'idle', // 'idle' | 'prestart' | 'running' | 'grace' | 'finished'
@@ -1697,9 +1699,9 @@ class PkDuoEngine {
   }
   // Skin mũi tên hiển thị: 'random' → chốt 1 skin động cho mỗi vòng (start() gọi lại để đổi vòng sau).
   _resolveArrowStyle() {
-    const pool = ['classic', 'core', 'rope', 'cannon'];
+    const pool = ['classic', 'core', 'cannon'];
     if (this.config.arrowStyle === 'random') {
-      const rnd = ['core', 'rope', 'cannon'];
+      const rnd = ['core', 'cannon'];
       if (!rnd.includes(this.state.arrowStyleActive)) this.state.arrowStyleActive = rnd[Math.floor(Math.random() * rnd.length)];
       return this.state.arrowStyleActive;
     }
@@ -1759,7 +1761,7 @@ class PkDuoEngine {
     this.state.startedAt = Date.now();
     this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
     // 'random' → đổi skin mũi tên ngẫu nhiên mỗi vòng (đỡ mất công chọn tay).
-    if (this.config.arrowStyle === 'random') { const rnd = ['core', 'rope', 'cannon']; this.state.arrowStyleActive = rnd[Math.floor(Math.random() * rnd.length)]; }
+    if (this.config.arrowStyle === 'random') { const rnd = ['core', 'cannon']; this.state.arrowStyleActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     if (this.config.selectFx === 'random') { const rnd = ['arrow', 'lock', 'spotlight', 'versus']; this.state.selectFxActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     this.state.historySaved = false;
     this._resetGifters();
@@ -3076,6 +3078,16 @@ class MvpHonorEngine {
       }
     }
     if (avatar && /^https?:\/\//i.test(avatar)) { try { this.primeAvatar(avatar); } catch {} }
+    // Bố cục & kích thước NGANG/DỌC lưu độc lập trong c.byLayout; fallback field phẳng cũ.
+    const lay = c.layout === 'horizontal' ? 'horizontal' : 'vertical';
+    const skin = c.frame || '';
+    const bs = (c.bySkin && typeof c.bySkin === 'object' && c.bySkin[skin]) || null;   // ô chỉnh theo SKIN
+    const bl = (bs && bs[lay]) ? bs[lay]
+      : ((c.byLayout && typeof c.byLayout === 'object' && c.byLayout[lay]) || {});      // fallback bản cũ
+    const lget = (k) => (bl[k] != null ? bl[k] : c[k]);
+    const pv = lay === 'horizontal'                         // mặc định chuẩn theo bố cục
+      ? { bannerScale: 159, bannerX: 8, bannerY: 0, textX: 7, textY: 0, fontSize: 42, nameSize: 42 }
+      : { bannerScale: 77, bannerX: 0, bannerY: 0, textX: 0, textY: 0, fontSize: 31, nameSize: 21 };
     return {
       id: c.id,
       mode,
@@ -3083,20 +3095,20 @@ class MvpHonorEngine {
       name,
       text: typeof c.text === 'string' ? c.text : '',
       frame: c.frame || '',
-      layout: ['horizontal', 'vertical', 'attached'].includes(c.layout) ? c.layout : 'attached',
-      avatarSize: _mvpClamp(c.avatarSize, 60, 400, 150),
-      frameScale: _mvpClamp(c.frameScale, 80, 300, 150),
-      nameSize: _mvpClamp(c.nameSize, 12, 120, 40),
-      fontSize: _mvpClamp(c.fontSize, 12, 140, 40),
+      layout: lay,   // 'attached' cũ = vertical
+      avatarSize: _mvpClamp(c.avatarSize, 60, 400, 140),
+      frameScale: _mvpClamp(c.frameScale, 80, 300, 172),
+      bannerScale: _mvpClamp(lget('bannerScale'), 40, 220, pv.bannerScale),   // cỡ nền tiêu đề (% theo khung)
+      bannerX: _mvpClamp(lget('bannerX'), -600, 600, pv.bannerX),             // lệch ngang nền (px)
+      bannerY: _mvpClamp(lget('bannerY'), -600, 600, pv.bannerY),             // lệch dọc nền (px)
+      textX: _mvpClamp(lget('textX'), -50, 50, pv.textX),                     // lệch chữ trong nền (% ngang)
+      textY: _mvpClamp(lget('textY'), -50, 50, pv.textY),                     // lệch chữ trong nền (% dọc)
+      nameSize: _mvpClamp(lget('nameSize'), 12, 120, pv.nameSize),
+      fontSize: _mvpClamp(lget('fontSize'), 12, 140, pv.fontSize),
       color: _mvpHex(c.color, '#ffffff'),
-      textStyle: ['solid', 'gradient', 'neon', 'plaque'].includes(c.textStyle) ? c.textStyle : 'solid',
-      bgColor: _mvpHex(c.bgColor, '#e84c88'),
-      bgColor2: _mvpHex(c.bgColor2, '#7a3cff'),
-      bgOpacity: _mvpClamp(c.bgOpacity, 0, 100, 100),
       entryAnim: ['none', 'popBounce', 'zoomFade', 'slideRight', 'slideUp', 'flip', 'dropBounce', 'spotlight', 'zoomShake'].includes(c.entryAnim) ? c.entryAnim : 'popBounce',
       showName: !!c.showName,
       showText: c.showText !== false,
-      usePlaqueImg: c.usePlaqueImg !== false,
       celebrate: !!c.celebrate,
       overlay: {
         x: _mvpNum(c.overlay?.x, 120),

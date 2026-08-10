@@ -1,91 +1,175 @@
 {
   "teamA": {
-    "name": "Elaina",
+    "name": "Raiden",
     "color": "#fe2c55",
     "gifts": [
       {
-        "giftName": "Go Popular",
-        "giftId": "13651",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp",
+        "giftName": "TikTok",
+        "giftId": "5269",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
         "diamond": 1
       }
     ],
-    "creatorAvatar": "../logo/hp-logo.png",
-    "creatorAvatarKey": "479cb38d9c52adc5ea870543cf1831131e1fc108",
+    "creatorAvatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=0b63f205&x-expires=1786467600&x-signature=NHGVmWtFSSET7iUcpK6DVRTuUHY%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2",
+    "creatorAvatarKey": "02f7efd6446e956dbb19af20e8a153f8e496e539",
     "fixedGifts": [
       {
         "giftName": "Blow a kiss",
         "giftId": "10716",
         "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/cdb55940740d5c83879b2934f9a7d08e.png~tplv-obj.webp",
         "diamond": 1
+      },
+      {
+        "giftName": "coldy",
+        "giftId": "58213",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/d25321ec8d38f41a39854878606751ac.png~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Community Gift",
+        "giftId": "18461",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/dfde5e8d8321ff1251023466f3fce61b.png~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Community Heart",
+        "giftId": "62816",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8d2a21bead102d4cc1ffade117c9dc46.png~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Club Cheers",
+        "giftId": "12355",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/6a934c90e5533a4145bed7eae66d71bd.png~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Football",
+        "giftId": "6093",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/c043cd9e418f13017793ddf6e0c6ee99~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Glow Stick",
+        "giftId": "6788",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/8e1a5d66370c5586545e358e37c10d25~tplv-obj.webp",
+        "diamond": 1
       }
     ],
     "joinGifts": [
       {
-        "giftName": "Go Popular",
-        "giftId": "13651",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp",
+        "giftName": "TikTok",
+        "giftId": "5269",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp",
         "diamond": 1
       }
     ],
     "groupId": "g_mrtg107e1aqmz",
     "groupName": "HP•VITAMIN B",
-    "creatorId": "",
-    "creatorName": "",
+    "creatorId": "c_mrtg28mrb1ni1",
+    "creatorName": "Raiden",
     "winStreak": 0,
     "nameOverride": false,
     "giftOverride": false
   },
   "teamB": {
-    "name": "Celine",
+    "name": "Xuhao",
     "color": "#25f4ee",
     "gifts": [
       {
-        "giftName": "Congratulations",
-        "giftId": "14543",
-        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8e73d843b23a9e68f8d3cf8c46fc0bee.png~tplv-obj.webp",
+        "giftName": "GG",
+        "giftId": "6064",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp",
         "diamond": 1
       }
     ],
-    "creatorAvatar": "../logo/hp-logo.png",
-    "creatorAvatarKey": "774223d32da9e265f81ed6371cd2b47d0b9f5a37",
+    "creatorAvatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=c3b91b19&x-expires=1786467600&x-signature=d8rJZ4ex9EMbCK64gkVZ7tzhIEI%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2",
+    "creatorAvatarKey": "ff87f0881d6221292bc4976550651de9fe8256d3",
     "fixedGifts": [
       {
         "giftName": "Cake Slice",
         "giftId": "6784",
         "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.webp",
         "diamond": 1
-      }
-    ],
-    "joinGifts": [
+      },
       {
         "giftName": "Congratulations",
         "giftId": "14543",
         "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8e73d843b23a9e68f8d3cf8c46fc0bee.png~tplv-obj.webp",
         "diamond": 1
+      },
+      {
+        "giftName": "GG",
+        "giftId": "6064",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Go Popular",
+        "giftId": "13651",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "A Shard of Hope",
+        "giftId": "59881",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/34207c50c472435d7d582ef5c1ca8ff2.png~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Birthday Cake",
+        "giftId": "9340",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3ac5ec732f6f4ba7b1492248bfea83d6~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Creeper",
+        "giftId": "54724",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/d686d45bd66e16b0aca8b0e5eb52a977.png~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Freestyle",
+        "giftId": "19441",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/1f5ca5cfb4b98c2761fb85987f47c641.png~tplv-obj.webp",
+        "diamond": 1
+      },
+      {
+        "giftName": "Good Job",
+        "giftId": "231955",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/047bfa2dcc6813c72fd2d8f649ee8ee2.png~tplv-obj.webp",
+        "diamond": 1
+      }
+    ],
+    "joinGifts": [
+      {
+        "giftName": "GG",
+        "giftId": "6064",
+        "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp",
+        "diamond": 1
       }
     ],
     "groupId": "g_mrtg107e1aqmz",
     "groupName": "HP•VITAMIN B",
-    "creatorId": "",
-    "creatorName": "",
-    "winStreak": 1,
+    "creatorId": "c_mrtg2crd6d27p",
+    "creatorName": "Xuhao",
+    "winStreak": 2,
     "nameOverride": false,
     "giftOverride": false
   },
-  "durationSec": 60,
+  "durationSec": 15,
   "prepSec": 1,
   "delaySec": 7,
   "joinMode": true,
   "creatorLive": false,
-  "tiktokCombine": false,
+  "tiktokCombine": true,
   "linkRanking": true,
   "pointsBy": "diamond",
   "content": "PK ĐÔI",
   "bgColor": "#000000",
-  "bgOpacity": 88,
+  "bgOpacity": 54,
   "giftSize": 46,
-  "textSize": 21,
+  "textSize": 22,
   "overlayScale": 200,
   "startSound": "",
   "warningSound": "",
@@ -94,8 +178,8 @@
   "drawSound": "",
   "giftDisplayMode": "scroll",
   "fxEnabled": true,
-  "fxMode": "both",
-  "fxStyle": "auto",
+  "fxMode": "affliction",
+  "fxStyle": "water",
   "fxThreshold": 8,
   "fxMaxGap": 30,
   "fxIntensityCap": 100,
@@ -103,5 +187,6 @@
   "championNames": false,
   "arrowStyle": "random",
   "selectFx": "random",
-  "skin": "auto"
+  "skin": "auto",
+  "barLayout": "douyin"
 }
