@@ -115,6 +115,7 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
   if (id === 'mvphonor') mvpRenderStage?.();
   if (id === 'luckywheel') { lwRefreshSpinners?.(); renderLwPreview?.(); }
   if (id === 'mtrio') mtOnShow?.();
+  if (id === 'taptim') lwallOnShow?.();
   if (id === 'cardflip') cfOnShow?.();
   if (id === 'groups') loadKcData?.(); // nạp KIM CƯƠNG TỔNG cho Hồ Sơ Nhóm
   // Ẩn/hiện overlay theo cảnh: mở tab có overlay → tự áp cảnh (nếu bật) + cập nhật nút nổi thanh trên.
@@ -129,7 +130,7 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
 const OV_SCENES = [
   { scene: 'pkduo',       label: '⚔️ PK Đôi',       color: '#ef4444', items: [{ key: 'pkduo', name: 'Thanh máu' }, { key: 'pkduofx', name: 'Hiệu ứng FX' }] },
   { scene: 'kcduo',       label: '🔁 Giữ / Đổi',    color: '#6366f1', items: [{ key: 'kcduo', name: 'Overlay' }] },
-  { scene: 'pkgroup',     label: '🧩 PK Nhóm',      color: '#22c55e', items: [{ key: 'pkgroup', name: 'Overlay' }] },
+  { scene: 'pkgroup',     label: '🧩 PK Nhóm',      color: '#22c55e', items: [{ key: 'pkgroup', name: 'Overlay' }, { key: 'pkgroupfx', name: 'Hiệu ứng FX' }] },
   { scene: 'ranking',     label: '🏆 Thi đấu nhóm', color: '#f59e0b', items: [{ key: 'ranking', name: 'Dọc' }, { key: 'rankinggrid', name: 'Ngang' }] },
   { scene: 'score',       label: '🎯 Tính điểm',    color: '#3b82f6', items: [{ key: 'score', name: 'Bảng' }, { key: 'scorebar', name: 'Đường đua' }, { key: 'scorecard', name: 'Kêu gọi' }, { key: 'scoretimer', name: 'Thời gian' }] },
   { scene: 'sticker',     label: '🥚 Đập trứng',    color: '#f97316', items: [{ key: 'sticker', name: 'Overlay' }] },
@@ -137,6 +138,7 @@ const OV_SCENES = [
   { scene: 'mvphonor',    label: '🏅 Vinh danh',    color: '#eab308', items: [{ key: 'mvphonor', name: 'Overlay' }] },
   { scene: 'luckywheel',  label: '🎡 Vòng quay',    color: '#ec4899', items: [{ key: 'luckywheel', name: 'Overlay' }] },
   { scene: 'missiontrio', label: '📋 Bộ ba',        color: '#14b8a6', items: [{ key: 'missiontrio', name: 'Overlay' }] },
+  { scene: 'likewall',    label: '❤️ Táp tim',      color: '#f43f5e', items: [{ key: 'likewall', name: 'Overlay' }] },
   { scene: 'cardflip',    label: '🃏 Thẻ bài',      color: '#8b5cf6', items: [{ key: 'cardflip', name: 'Bảng' }, { key: 'cardflipfx', name: 'Lật 3D' }] },
   { scene: 'dancevideo',  label: '🎵 Nhạc Dance',   color: '#0ea5e9', items: [{ key: 'dancevideo', name: 'WEBM 1' }, { key: 'dancevideo2', name: 'WEBM 2' }, { key: 'dancevideo3', name: 'WEBM 3' }] },
   { scene: 'interact',    label: '💬 Tương tác',    color: '#64748b', items: [{ key: 'interact', name: 'Overlay' }] },
@@ -144,7 +146,7 @@ const OV_SCENES = [
 const OV_SCENE_BY = Object.fromEntries(OV_SCENES.map(s => [s.scene, s]));
 const OV_KEYS_OF = (scene) => (OV_SCENE_BY[scene]?.items || []).map(i => i.key);
 // Tab (data-tab) → cảnh overlay tương ứng. Tab không có overlay (creators/groups/set-*) không đổi cảnh.
-const OV_TAB_TO_SCENE = { connect: 'interact', score: 'score', pkduo: 'pkduo', kcduo: 'kcduo', pkgroup: 'pkgroup', ranking: 'ranking', musiclist: 'dancevideo', stickerdance: 'sticker', mvphonor: 'mvphonor', luckywheel: 'luckywheel', mtrio: 'missiontrio', cardflip: 'cardflip' };
+const OV_TAB_TO_SCENE = { connect: 'interact', score: 'score', pkduo: 'pkduo', kcduo: 'kcduo', pkgroup: 'pkgroup', ranking: 'ranking', musiclist: 'dancevideo', stickerdance: 'sticker', mvphonor: 'mvphonor', luckywheel: 'luckywheel', mtrio: 'missiontrio', taptim: 'likewall', cardflip: 'cardflip' };
 const OV_SCENE_LABEL = Object.fromEntries(OV_SCENES.map(s => [s.scene, s.label]));
 let ovVis = { autoScene: true, pinned: {}, vis: {} };
 // Cảnh (scene) đang "trên sóng" theo menu — CHỈ đổi khi mở một tab có overlay. Tab không overlay
@@ -4591,10 +4593,236 @@ function wireMissionTrioTab() {
   });
 }
 
+// ===================== NHIỆM VỤ · TÁP TIM (bức tường thả tim) =====================
+const LWALL_DEF = {
+  title: 'BỨC TƯỜNG THẢ TIM', target: 5000, topN: 9,
+  barColor1: '#ff2e4d', barColor2: '#ff8a9a',
+  cardBgColor: '#3a3d46', cardBgOpacity: 0.70, cellBgColor: '#000000', cellBgOpacity: 0.50,
+  titleColor: '#ffffff', nameMaxChars: 6, showTicker: true, overlayScale: 200,
+  framesEnabled: true, frameScale: 172, frames: { 1: '2.png', 2: '7.png', 3: '12.png', 4: '19.png', 5: '29.png' },
+  popupEnabled: true, popupMs: 2600,
+  tiers: [{ at: 200, name: 'Tân binh' }, { at: 500, name: 'Đồng' }, { at: 1000, name: 'Bạc' }, { at: 2000, name: 'Vàng' }, { at: 5000, name: 'Bạch kim' }, { at: 10000, name: 'Kim cương' }],
+};
+let lwallCfg = null;
+let lwallState = { rows: [], total: 0, running: false };
+
+function lwallNormalize(c) {
+  c = c || {};
+  const numOr = (v, dv) => (Number.isFinite(+v) ? +v : dv);
+  let tiers = Array.isArray(c.tiers) && c.tiers.length
+    ? c.tiers.map(t => ({ at: Math.max(1, Math.round(numOr(t.at, 0))), name: String(t.name || '').slice(0, 24) })).filter(t => t.at > 0 && t.name).sort((a, b) => a.at - b.at)
+    : LWALL_DEF.tiers.map(t => ({ ...t }));
+  if (!tiers.length) tiers = LWALL_DEF.tiers.map(t => ({ ...t }));
+  const framesIn = (c.frames && typeof c.frames === 'object') ? c.frames : LWALL_DEF.frames;
+  const frames = {};
+  for (const k of ['1', '2', '3', '4', '5']) {
+    const v = String(framesIn[k] || '').trim();
+    if (/^[\w.-]+\.(png|apng)$/i.test(v)) frames[k] = v;
+    else if (LWALL_DEF.frames[k]) frames[k] = LWALL_DEF.frames[k];
+  }
+  return {
+    title: c.title != null ? String(c.title).slice(0, 60) : LWALL_DEF.title,
+    target: Math.max(1, Math.round(numOr(c.target, LWALL_DEF.target))),
+    topN: Math.max(1, Math.min(12, Math.round(numOr(c.topN, LWALL_DEF.topN)))),
+    barColor1: c.barColor1 || LWALL_DEF.barColor1,
+    barColor2: c.barColor2 || LWALL_DEF.barColor2,
+    cardBgColor: c.cardBgColor || LWALL_DEF.cardBgColor,
+    cardBgOpacity: Math.max(0, Math.min(1, numOr(c.cardBgOpacity, LWALL_DEF.cardBgOpacity))),
+    cellBgColor: c.cellBgColor || LWALL_DEF.cellBgColor,
+    cellBgOpacity: Math.max(0, Math.min(1, numOr(c.cellBgOpacity, LWALL_DEF.cellBgOpacity))),
+    titleColor: c.titleColor || LWALL_DEF.titleColor,
+    nameMaxChars: Math.max(3, Math.min(40, Math.round(numOr(c.nameMaxChars, LWALL_DEF.nameMaxChars)))),
+    showTicker: c.showTicker != null ? !!c.showTicker : LWALL_DEF.showTicker,
+    overlayScale: Math.max(50, Math.min(300, Math.round(numOr(c.overlayScale, LWALL_DEF.overlayScale)))),
+    framesEnabled: c.framesEnabled != null ? !!c.framesEnabled : LWALL_DEF.framesEnabled,
+    frameScale: Math.max(120, Math.min(240, Math.round(numOr(c.frameScale, LWALL_DEF.frameScale)))),
+    frames,
+    popupEnabled: c.popupEnabled != null ? !!c.popupEnabled : LWALL_DEF.popupEnabled,
+    popupMs: Math.max(1200, Math.min(8000, Math.round(numOr(c.popupMs, LWALL_DEF.popupMs)))),
+    tiers,
+  };
+}
+function lwallFmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('vi-VN'); }
+function lwallParseInt(s) { return Math.max(0, parseInt(String(s).replace(/[^\d]/g, ''), 10) || 0); }
+
+async function loadLikeWallConfig() {
+  const st = await window.api.likewall.getState().catch(() => null);
+  lwallCfg = lwallNormalize(st || {});
+  if (st) lwallState = { rows: st.rows || [], total: st.total || 0, running: !!st.running };
+  lwallFillForm(); lwallRenderTiers(); lwallRenderPreview(); lwallUpdateRunUI();
+}
+function lwallPushLive() { if (lwallCfg) window.api.likewall.setConfig(lwallCfg).catch(() => {}); }
+const _lwallSaver = makeAutoSaver(() => lwallPushLive());
+function lwallScheduleSave() { _lwallSaver.schedule(lwallRenderPreview); }
+
+function lwallFillForm() {
+  if (!lwallCfg) return;
+  const set = (id, v) => { const el = $('#' + id); if (el) el.value = v; };
+  const setChk = (id, v) => { const el = $('#' + id); if (el) el.checked = !!v; };
+  set('lwallTitle', lwallCfg.title); set('lwallTarget', lwallFmt(lwallCfg.target)); set('lwallTopN', lwallCfg.topN);
+  set('lwallColor1', lwallCfg.barColor1); set('lwallColor2', lwallCfg.barColor2);
+  set('lwallCardBg', lwallCfg.cardBgColor); set('lwallCellBg', lwallCfg.cellBgColor); set('lwallTitleColor', lwallCfg.titleColor);
+  set('lwallNameChars', lwallCfg.nameMaxChars);
+  const cardOp = Math.round(lwallCfg.cardBgOpacity * 100), cellOp = Math.round(lwallCfg.cellBgOpacity * 100);
+  set('lwallCardOp', cardOp); if ($('#lwallCardOpVal')) $('#lwallCardOpVal').textContent = `${cardOp}%`;
+  set('lwallCellOp', cellOp); if ($('#lwallCellOpVal')) $('#lwallCellOpVal').textContent = `${cellOp}%`;
+  set('lwallScale', lwallCfg.overlayScale); if ($('#lwallScaleVal')) $('#lwallScaleVal').textContent = `${lwallCfg.overlayScale}%`;
+  setChk('lwallShowTicker', lwallCfg.showTicker); setChk('lwallPopup', lwallCfg.popupEnabled);
+  set('lwallPopupMs', lwallCfg.popupMs);
+  // Khung VIP TOP 1-5
+  setChk('lwallFramesEnabled', lwallCfg.framesEnabled);
+  set('lwallFrameScale', lwallCfg.frameScale); if ($('#lwallFrameScaleVal')) $('#lwallFrameScaleVal').textContent = `${lwallCfg.frameScale}%`;
+  for (const r of ['1', '2', '3', '4', '5']) set('lwallFrame' + r, String(lwallCfg.frames[r] || '').replace(/\D/g, ''));
+}
+
+function lwallRenderTiers() {
+  const box = $('#lwallTierList');
+  if (!box || !lwallCfg) return;
+  box.innerHTML = lwallCfg.tiers.map((t, i) => `<div class="lwall-tier-row" data-i="${i}">
+    <input class="lwall-tier-at" type="text" inputmode="numeric" value="${lwallFmt(t.at)}" title="Mốc tim tích luỹ" />
+    <input class="lwall-tier-name" type="text" value="${escapeHtml(t.name || '')}" placeholder="Tên danh hiệu" />
+    <button type="button" class="ghost tiny lwall-tier-del" title="Xoá mốc">✕</button>
+  </div>`).join('') || '<p class="mt-hint">Chưa có mốc nào.</p>';
+}
+
+function lwallRenderPreview() {
+  const box = $('#lwallPreview');
+  if (!box || !lwallCfg) return;
+  const grad = `linear-gradient(90deg, ${lwallCfg.barColor2} 30%, ${lwallCfg.barColor1} 100%)`;
+  const rows = (lwallState.rows || []).slice(0, lwallCfg.topN);
+  const target = Math.max(1, lwallCfg.target);
+  const totalPct = Math.max(0, Math.min(100, (lwallState.total / target) * 100));
+  const list = rows.length
+    ? rows.map(r => {
+        const pct = Math.max(0, Math.min(100, Number(r.pct) || 0));
+        return `<div class="lwallp-row"><span class="lwallp-rank">${r.rank}</span><span class="lwallp-name">${escapeHtml(r.name || 'Người xem')}</span>
+        <span class="lwallp-bar"><i style="width:${pct}%;background:${grad}"></i></span><b>${lwallFmt(r.count)}</b></div>`;
+      }).join('')
+    : '<p class="muted" style="margin:6px 0">Chưa có ai táp tim (bấm ＋ Tim để xem thử).</p>';
+  box.innerHTML = `<div class="lwallp-total"><span>TỔNG</span><span class="lwallp-bar big"><i style="width:${totalPct}%;background:${grad}"></i></span><b>${lwallFmt(lwallState.total)}/${lwallFmt(target)}</b></div>${list}`;
+}
+
+function lwallUpdateRunUI() {
+  const el = $('#lwallRunState');
+  if (el) { el.textContent = lwallState.running ? '● Đang chạy' : '● Đang dừng'; el.classList.toggle('on', lwallState.running); }
+  const btn = $('#lwallStart');
+  if (btn) { btn.textContent = lwallState.running ? '▶ CHẠY LẠI' : '▶ BẮT ĐẦU'; btn.classList.toggle('lwall-running', lwallState.running); }
+}
+
+function lwallOnShow() { lwallRenderPreview(); }
+
+function wireLikeWallTab() {
+  const bind = (id, apply) => { const el = $('#' + id); if (el) el.addEventListener('input', () => { apply(el); lwallScheduleSave(); }); };
+  bind('lwallTitle', el => lwallCfg.title = el.value);
+  bind('lwallColor1', el => lwallCfg.barColor1 = el.value);
+  bind('lwallColor2', el => lwallCfg.barColor2 = el.value);
+  bind('lwallCardBg', el => lwallCfg.cardBgColor = el.value);
+  bind('lwallCellBg', el => lwallCfg.cellBgColor = el.value);
+  bind('lwallTitleColor', el => lwallCfg.titleColor = el.value);
+  bind('lwallShowTicker', el => lwallCfg.showTicker = el.checked);
+  bind('lwallPopup', el => lwallCfg.popupEnabled = el.checked);
+  bind('lwallTarget', el => lwallCfg.target = Math.max(1, lwallParseInt(el.value) || 1));
+  bind('lwallTopN', el => { let v = parseInt(el.value, 10); if (Number.isFinite(v)) lwallCfg.topN = Math.max(1, Math.min(12, v)); });
+  bind('lwallNameChars', el => { let v = parseInt(el.value, 10); if (Number.isFinite(v)) lwallCfg.nameMaxChars = Math.max(3, Math.min(40, v)); });
+  bind('lwallPopupMs', el => { let v = parseInt(el.value, 10); if (Number.isFinite(v)) lwallCfg.popupMs = Math.max(1200, Math.min(8000, v)); });
+  $('#lwallCardOp')?.addEventListener('input', () => { const p = Math.max(0, Math.min(100, parseInt($('#lwallCardOp').value, 10) || 62)); lwallCfg.cardBgOpacity = p / 100; if ($('#lwallCardOpVal')) $('#lwallCardOpVal').textContent = `${p}%`; lwallScheduleSave(); });
+  $('#lwallCellOp')?.addEventListener('input', () => { const p = Math.max(0, Math.min(100, parseInt($('#lwallCellOp').value, 10) || 30)); lwallCfg.cellBgOpacity = p / 100; if ($('#lwallCellOpVal')) $('#lwallCellOpVal').textContent = `${p}%`; lwallScheduleSave(); });
+  $('#lwallScale')?.addEventListener('input', () => { lwallCfg.overlayScale = parseInt($('#lwallScale').value, 10) || 100; if ($('#lwallScaleVal')) $('#lwallScaleVal').textContent = `${lwallCfg.overlayScale}%`; lwallScheduleSave(); });
+  // Khung VIP TOP 1-5
+  $('#lwallFramesEnabled')?.addEventListener('change', () => { lwallCfg.framesEnabled = $('#lwallFramesEnabled').checked; lwallScheduleSave(); });
+  $('#lwallFrameScale')?.addEventListener('input', () => { lwallCfg.frameScale = Math.max(120, Math.min(240, parseInt($('#lwallFrameScale').value, 10) || 172)); if ($('#lwallFrameScaleVal')) $('#lwallFrameScaleVal').textContent = `${lwallCfg.frameScale}%`; lwallScheduleSave(); });
+  for (const r of ['1', '2', '3', '4', '5']) {
+    $('#lwallFrame' + r)?.addEventListener('input', () => {
+      const n = parseInt($('#lwallFrame' + r).value, 10);
+      if (Number.isFinite(n) && n > 0) lwallCfg.frames[r] = n + '.png'; else delete lwallCfg.frames[r];
+      lwallScheduleSave();
+    });
+  }
+  // Định dạng lại số khi rời ô Target
+  $('#lwallTarget')?.addEventListener('change', () => { if ($('#lwallTarget')) $('#lwallTarget').value = lwallFmt(lwallCfg.target); });
+
+  // Mốc danh hiệu
+  $('#lwallTierList')?.addEventListener('input', (e) => {
+    const row = e.target.closest('.lwall-tier-row'); if (!row) return;
+    const t = lwallCfg.tiers[+row.dataset.i]; if (!t) return;
+    if (e.target.classList.contains('lwall-tier-at')) t.at = Math.max(1, lwallParseInt(e.target.value) || 1);
+    else if (e.target.classList.contains('lwall-tier-name')) t.name = e.target.value.slice(0, 24);
+    lwallScheduleSave();
+  });
+  $('#lwallTierList')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.lwall-tier-del'); if (!btn) return;
+    const row = e.target.closest('.lwall-tier-row'); if (!row) return;
+    lwallCfg.tiers.splice(+row.dataset.i, 1);
+    if (!lwallCfg.tiers.length) lwallCfg.tiers = LWALL_DEF.tiers.map(t => ({ ...t }));
+    lwallRenderTiers(); lwallScheduleSave();
+  });
+  $('#lwallTierAdd')?.addEventListener('click', () => {
+    const last = lwallCfg.tiers[lwallCfg.tiers.length - 1];
+    lwallCfg.tiers.push({ at: last ? last.at * 2 : 200, name: 'Danh hiệu' });
+    lwallRenderTiers(); lwallScheduleSave();
+  });
+  $('#lwallTierList')?.addEventListener('change', (e) => {
+    if (e.target.classList.contains('lwall-tier-at')) { const row = e.target.closest('.lwall-tier-row'); const t = row && lwallCfg.tiers[+row.dataset.i]; if (t) { lwallCfg.tiers.sort((a, b) => a.at - b.at); lwallRenderTiers(); } }
+  });
+
+  $('#lwallStart')?.addEventListener('click', async () => {
+    if (!requireLive('BẮT ĐẦU NHIỆM VỤ · TÁP TIM')) return;
+    await window.api.likewall.start();
+    lwallState = { rows: [], total: 0, running: true };
+    lwallRenderPreview(); lwallUpdateRunUI();
+    toast('NHIỆM VỤ · TÁP TIM: bắt đầu đếm từ 0', 'success');
+  });
+  $('#lwallReset')?.addEventListener('click', async () => {
+    await window.api.likewall.reset();
+    lwallState = { rows: [], total: 0, running: false };
+    lwallRenderPreview(); lwallUpdateRunUI();
+    toast('Đã reset NHIỆM VỤ · TÁP TIM', '');
+  });
+  $('#lwallCopy')?.addEventListener('click', async () => {
+    const url = await window.api.likewall.getUrl();
+    await window.api.shell.copyText(url);
+    toast('Đã copy link OBS · TÁP TIM', 'success');
+  });
+  $$('[data-lwall-bump]').forEach(btn => btn.addEventListener('click', async () => {
+    const amt = Math.max(1, parseInt($('#lwallTestAmt')?.value, 10) || 1);
+    await window.api.likewall.bump(amt);
+  }));
+
+  window.api.on('likewall:state', (st) => {
+    if (!st) return;
+    lwallState = { rows: st.rows || [], total: st.total || 0, running: !!st.running };
+    lwallRenderPreview(); lwallUpdateRunUI();
+  });
+}
+
 // ===================== THẺ BÀI (táp tim để lật thẻ) =====================
 let cfCfg = null;
 let cfHearts = 0;
 let cfRunning = false;
+let cfStyles = ['gold', 'pink']; // bộ thẻ quét được trong card-assets/ (nạp lúc mở app)
+
+// Nhãn hiển thị cho bộ thẻ: bộ mặc định có tên tiếng Việt, bộ mới lấy tên thư mục "đẹp hoá".
+const CF_STYLE_LABELS = { gold: 'Vàng', pink: 'Hồng' };
+function cfStyleLabel(slug) {
+  return CF_STYLE_LABELS[slug] || String(slug).replace(/[-_]+/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+}
+// Đổ danh sách bộ thẻ (thư mục có back.png+front.png) vào dropdown #cfStyle. Giữ lựa chọn hiện tại
+// nếu bộ đó vẫn còn; nếu bộ đã lưu không còn trong danh sách vẫn thêm để không mất cấu hình cũ.
+function cfPopulateStyleSelect() {
+  const sel = $('#cfStyle'); if (!sel) return;
+  const cur = (cfCfg && cfCfg.cardStyle) || 'gold';
+  const list = cfStyles.slice();
+  if (cur && !list.includes(cur)) list.push(cur);
+  sel.innerHTML = list.map(s => `<option value="${s}">${escapeHtml(cfStyleLabel(s))}</option>`).join('');
+  sel.value = cur;
+}
+async function cfRefreshStyles() {
+  try {
+    const list = await window.api.cardflip.listStyles();
+    if (Array.isArray(list) && list.length) cfStyles = list.filter(s => /^[\w-]{1,40}$/.test(s));
+  } catch {}
+  cfPopulateStyleSelect();
+}
 
 function cfDefaultCfg() {
   return {
@@ -4624,7 +4852,7 @@ function cfNormalize(c) {
   return {
     title: c.title != null ? String(c.title) : d.title,
     heartTarget: Number.isFinite(+c.heartTarget) ? +c.heartTarget : d.heartTarget,
-    cardStyle: c.cardStyle === 'pink' ? 'pink' : 'gold',
+    cardStyle: /^[\w-]{1,40}$/.test(c.cardStyle) ? String(c.cardStyle) : d.cardStyle,
     cardSize: Number.isFinite(+c.cardSize) ? +c.cardSize : d.cardSize,
     fontSize: Number.isFinite(+c.fontSize) ? +c.fontSize : d.fontSize,
     cardTextSize: Number.isFinite(+c.cardTextSize) ? Math.max(8, Math.min(90, +c.cardTextSize)) : d.cardTextSize,
@@ -4652,6 +4880,7 @@ async function loadCardFlipConfig() {
   cfCfg = cfNormalize(st || {});
   if (cfCfg.cards.length === 0) cfCfg.cards = [cfNewCard('A'), cfNewCard('B'), cfNewCard('C')];
   if (st) { cfHearts = Number(st.hearts) || 0; cfRunning = !!st.running; }
+  await cfRefreshStyles(); // quét lại card-assets/ → có bộ thẻ mới là tự hiện trong dropdown
   cfFillForm(); cfRenderCardList(); cfRenderPreview(); cfUpdateRunUI();
 }
 function cfNewCard(text = '') { return { id: `c${Math.random().toString(36).slice(2, 8)}`, text: String(text), flipped: false, selected: false, flipAt: 0 }; }
@@ -4749,7 +4978,7 @@ function wireCardFlipTab() {
   $('#cfHearts')?.addEventListener('input', () => { cfHearts = cfParseInt($('#cfHearts').value); window.api.cardflip.setHearts(cfHearts); cfRenderPreview(); });
   $('#cfHearts')?.addEventListener('change', () => { $('#cfHearts').value = cfFmt(cfHearts); });
 
-  $('#cfStyle')?.addEventListener('change', () => { cfCfg.cardStyle = $('#cfStyle').value === 'pink' ? 'pink' : 'gold'; cfScheduleSave(); });
+  $('#cfStyle')?.addEventListener('change', () => { const v = $('#cfStyle').value; cfCfg.cardStyle = /^[\w-]{1,40}$/.test(v) ? v : 'gold'; cfScheduleSave(); });
   onColor('cfBgColor', 'bgColor'); onColor('cfTitleColor', 'titleColor'); onColor('cfBarColor', 'barColor');
   onColor('cfBarText', 'barTextColor'); onColor('cfRunningColor', 'runningColor'); onColor('cfDoneColor', 'doneColor');
   $('#cfBgAlpha')?.addEventListener('input', () => { const p = parseInt($('#cfBgAlpha').value, 10) || 0; cfCfg.bgAlpha = p / 100; if ($('#cfBgAlphaVal')) $('#cfBgAlphaVal').textContent = `${p}%`; cfScheduleSave(); });
@@ -4882,6 +5111,7 @@ async function init() {
   await loadLuckyWheelConfig();
   await loadGiftMenuConfig();
   await loadMissionTrioConfig();
+  await loadLikeWallConfig();
   await loadCardFlipConfig();
   setBootStatus('Đang chuẩn bị overlay OBS'); setBootProgress(88);
   await refreshOverlayUrls();
@@ -4907,6 +5137,7 @@ async function init() {
   wireLuckyWheelTab();
   wireGiftMenuTab();
   wireMissionTrioTab();
+  wireLikeWallTab();
   wireCardFlipTab();
   wireOverlaysTab();
   wireSettingsTab();
@@ -7081,6 +7312,8 @@ async function loadPkConfig() {
     startSound: st.startSound || '', warningSound: st.warningSound || '', teamASound: st.teamASound || '', teamBSound: st.teamBSound || '', drawSound: st.drawSound || '',
     // Cấu hình overlay FX — copy vào pkCfg để giữ (nhớ) lựa chọn đã lưu khi tải lại
     fxEnabled: st.fxEnabled !== false, fxMode: st.fxMode || 'both', fxStyle: st.fxStyle || 'auto', fxThreshold: st.fxThreshold ?? 8,
+    fxFullPoints: st.fxFullPoints ?? 100, fxTopSafe: st.fxTopSafe ?? 14,
+    fogHide: st.fogHide !== false, // 🌫️ Sương mù 10s cuối — mặc định BẬT
   };
   syncPkActiveGifts();
   renderPkCreatorSelects();
@@ -7123,8 +7356,11 @@ async function loadPkConfig() {
   if ($('#pkFxMode')) $('#pkFxMode').value = pkCfg.fxMode || 'both';
   if ($('#pkFxStyle')) $('#pkFxStyle').value = pkCfg.fxStyle || 'auto';
   if ($('#pkFxThreshold')) { $('#pkFxThreshold').value = pkCfg.fxThreshold ?? 8; $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`; }
+  if ($('#pkFxFullPoints')) { $('#pkFxFullPoints').value = pkCfg.fxFullPoints ?? 100; if ($('#pkFxFullPointsValue')) $('#pkFxFullPointsValue').textContent = `${$('#pkFxFullPoints').value} điểm`; }
+  if ($('#pkFxTopSafe')) { $('#pkFxTopSafe').value = pkCfg.fxTopSafe ?? 14; if ($('#pkFxTopSafeValue')) $('#pkFxTopSafeValue').textContent = `${$('#pkFxTopSafe').value}%`; }
   if ($('#pkChampsEnabled')) $('#pkChampsEnabled').value = String(pkCfg.championsEnabled !== false);
   if ($('#pkChampNames')) $('#pkChampNames').value = String(pkCfg.championNames === true);
+  if ($('#pkFogHide')) $('#pkFogHide').checked = pkCfg.fogHide !== false;
   if ($('#pkBarLayout')) $('#pkBarLayout').value = pkCfg.barLayout || 'hp';
   if ($('#pkArrowStyle')) $('#pkArrowStyle').value = pkCfg.arrowStyle || 'random';
   if ($('#pkSelectFx')) $('#pkSelectFx').value = pkCfg.selectFx || 'random';
@@ -7505,8 +7741,16 @@ function wirePkDuoTab() {
     $('#pkFxThresholdValue').textContent = `${$('#pkFxThreshold').value}%`;
     schedulePkAutoSave();
   });
+  $('#pkFxFullPoints')?.addEventListener('input', () => {
+    if ($('#pkFxFullPointsValue')) $('#pkFxFullPointsValue').textContent = `${$('#pkFxFullPoints').value} điểm`;
+    schedulePkAutoSave();
+  });
+  $('#pkFxTopSafe')?.addEventListener('input', () => {
+    if ($('#pkFxTopSafeValue')) $('#pkFxTopSafeValue').textContent = `${$('#pkFxTopSafe').value}%`;
+    schedulePkAutoSave();
+  });
   // pkBarLayout KHÔNG nằm ở đây — nó do listener riêng phía dưới sở hữu (lưu theo nhóm + setConfig tức thì), tránh lưu đôi.
-  ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkChampNames','pkArrowStyle','pkSelectFx','pkSkin','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
+  ['pkContent','pkAname','pkBname','pkAstreak','pkBstreak','pkAcolor','pkBcolor','pkDurH','pkDurM','pkDurS','pkPrep','pkDelay','pkPointsBy','pkBg','pkBgOpacity','pkTextSize','pkGiftSize','pkGiftDisplayMode','pkChampsEnabled','pkChampNames','pkFogHide','pkArrowStyle','pkSelectFx','pkSkin','pkFxEnabled','pkFxMode','pkFxStyle'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', schedulePkAutoSave);
@@ -7643,6 +7887,8 @@ function collectPkCfg() {
     fxMode: $('#pkFxMode') ? $('#pkFxMode').value : 'both',
     fxStyle: $('#pkFxStyle') ? $('#pkFxStyle').value : 'auto',
     fxThreshold: $('#pkFxThreshold') ? Math.max(0, Math.min(60, Number($('#pkFxThreshold').value) || 8)) : 8,
+    fxFullPoints: $('#pkFxFullPoints') ? Math.max(10, Math.min(100000, Number($('#pkFxFullPoints').value) || 100)) : (pkCfg.fxFullPoints ?? 100),
+    fxTopSafe: $('#pkFxTopSafe') ? Math.max(0, Math.min(40, Number($('#pkFxTopSafe').value))) : (pkCfg.fxTopSafe ?? 14),
     // Vinh danh TOP 3 người tặng quà (hiện trên overlay banner)
     championsEnabled: $('#pkChampsEnabled') ? $('#pkChampsEnabled').value === 'true' : true,
     championNames: $('#pkChampNames') ? $('#pkChampNames').value === 'true' : false,
@@ -7650,6 +7896,7 @@ function collectPkCfg() {
     selectFx: $('#pkSelectFx') ? $('#pkSelectFx').value : 'random',
     skin: $('#pkSkin') ? $('#pkSkin').value : 'auto',
     barLayout: $('#pkBarLayout') ? $('#pkBarLayout').value : 'hp',
+    fogHide: $('#pkFogHide') ? $('#pkFogHide').checked : true,
   };
 }
 
@@ -7758,6 +8005,7 @@ async function loadKcConfig() {
     content: st.content == null ? 'GIỮ / ĐỔI' : st.content, timerPos: ['left', 'right', 'center'].includes(st.timerPos) ? st.timerPos : 'center',
     giftSize: st.giftSize || 46, textSize: st.textSize || 21, overlayScale: st.overlayScale || 200,
     giftDisplayMode: st.giftDisplayMode || 'scroll', skin: st.skin || 'auto',
+    fogHide: st.fogHide !== false, // 🌫️ Sương mù 10s cuối — mặc định BẬT
     startSound: st.startSound || '', warningSound: st.warningSound || '', keepSound: st.keepSound || '', changeSound: st.changeSound || '', drawSound: st.drawSound || '',
   };
   // Mặc định quà tính điểm GIỮ = HOA HỒNG khi chưa cấu hình (không đụng ĐỔI để 2 phe không trùng quà).
@@ -7778,6 +8026,7 @@ async function loadKcConfig() {
   $('#kcFlipMargin').value = kcCfg.flipMargin;
   $('#kcFlipMode').value = kcCfg.flipMarginMode;
   $('#kcTimerPos').value = kcCfg.timerPos;
+  if ($('#kcFogHide')) $('#kcFogHide').checked = kcCfg.fogHide !== false;
   $('#kcAname').value = kcCfg.teamA?.name || 'KEEP/GIỮ';
   $('#kcAcolor').value = normalizeHexColor(kcCfg.teamA?.color, '#FE2C55');
   $('#kcBname').value = kcCfg.teamB?.name || 'CHANGE/ĐỔI';
@@ -8051,6 +8300,7 @@ function collectKcCfg() {
     flipMargin: Math.max(0, Number($('#kcFlipMargin').value) || 0),
     flipMarginMode: $('#kcFlipMode').value === 'point' ? 'point' : 'percent',
     timerPos: $('#kcTimerPos').value,
+    fogHide: $('#kcFogHide') ? $('#kcFogHide').checked : true,
     durationSec,
     prepSec: Number($('#kcPrep').value) || 0,
     delaySec: Number($('#kcDelay').value) || 0,
@@ -8225,7 +8475,7 @@ function wireKcDuoTab() {
     $('#kcOverlayScaleValue').textContent = `${$('#kcOverlayScale').value}%`;
     scheduleKcAutoSave();
   });
-  ['kcContent', 'kcPerformer', 'kcNextName', 'kcDefend', 'kcRounds', 'kcFlipMargin', 'kcFlipMode', 'kcTimerPos', 'kcAname', 'kcBname', 'kcAcolor', 'kcBcolor', 'kcDurH', 'kcDurM', 'kcDurS', 'kcPrep', 'kcDelay', 'kcPointsBy', 'kcTextSize', 'kcGiftSize', 'kcGiftDisplayMode', 'kcSkin'].forEach(id => {
+  ['kcContent', 'kcPerformer', 'kcNextName', 'kcDefend', 'kcRounds', 'kcFlipMargin', 'kcFlipMode', 'kcTimerPos', 'kcAname', 'kcBname', 'kcAcolor', 'kcBcolor', 'kcDurH', 'kcDurM', 'kcDurS', 'kcPrep', 'kcDelay', 'kcPointsBy', 'kcTextSize', 'kcGiftSize', 'kcGiftDisplayMode', 'kcFogHide', 'kcSkin'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     // Ô màu nghe 'input' (cập nhật REALTIME khi kéo bảng màu), chỉ SELECT dùng 'change'.
@@ -8336,9 +8586,10 @@ async function loadPkGroupConfig() {
     noteTextColor: st.noteTextColor || '#ffffff',
     noteSpeedSec: st.noteSpeedSec || 16,
     noteEffect: st.noteEffect || 'soft',
-    separatedGap: st.separatedGap ?? 180,
+    separatedGap: st.separatedGap ?? 330,
     autoTextContrast: !!st.autoTextContrast,
     showMvpTotals: !!st.showMvpTotals,
+    fogHide: st.fogHide !== false, // 🌫️ Sương mù 10s cuối — mặc định BẬT
     durationSec: st.durationSec || 90,
     prepSec: st.prepSec ?? 3,
     delaySec: st.delaySec ?? 5,
@@ -8347,6 +8598,10 @@ async function loadPkGroupConfig() {
     giftSize: st.giftSize || 60,
     overlayScale: st.overlayScale || 200,
     selectFx: st.selectFx || 'random',
+    // Overlay FX toàn màn hình — nạp lại lựa chọn đã lưu (giữ khi mở lại app)
+    fxEnabled: st.fxEnabled !== false, fxSeam: st.fxSeam !== false, fxStyle: st.fxStyle || 'auto',
+    fxLoserCount: Number(st.fxLoserCount) || 0, fxThreshold: st.fxThreshold ?? 8,
+    fxFullPoints: st.fxFullPoints ?? 100, fxTopSafe: st.fxTopSafe ?? 14,
     creatorColors: st.creatorColors || {},
     smartColor: st.smartColor !== false,
     participants: Array.isArray(st.participants) ? st.participants : [],
@@ -8377,7 +8632,7 @@ function applyPkGroupCfgToInputs() {
   $('#pkgNoteColor').value = pkGroupCfg.noteTextColor || '#ffffff';
   $('#pkgNoteSpeed').value = pkGroupCfg.noteSpeedSec || 16;
   $('#pkgNoteEffect').value = pkGroupCfg.noteEffect || 'soft';
-  $('#pkgSeparatedGap').value = pkGroupCfg.separatedGap ?? 180;
+  $('#pkgSeparatedGap').value = pkGroupCfg.separatedGap ?? 330;
   $('#pkgSeparatedGapValue').textContent = `${$('#pkgSeparatedGap').value}px`;
   const d = pkGroupCfg.durationSec || 300;
   $('#pkgDurH').value = Math.floor(d / 3600);
@@ -8393,9 +8648,17 @@ function applyPkGroupCfgToInputs() {
   if ($('#pkgSmartColor')) $('#pkgSmartColor').checked = pkGroupCfg.smartColor !== false;
   if ($('#ovlAutoTextContrast')) $('#ovlAutoTextContrast').checked = !!pkGroupCfg.autoTextContrast;
   if ($('#pkgShowMvpTotals')) $('#pkgShowMvpTotals').checked = !!pkGroupCfg.showMvpTotals;
+  if ($('#pkgFogHide')) $('#pkgFogHide').checked = !!pkGroupCfg.fogHide;
   if ($('#pkgSepSolidBg')) $('#pkgSepSolidBg').checked = !!pkGroupCfg.sepSolidBg;
   if ($('#pkgSelectFx')) $('#pkgSelectFx').value = pkGroupCfg.selectFx || 'random';
   if ($('#pkgSkin')) { $('#pkgSkin').value = pkGroupCfg.skin || 'auto'; updateSkinHint('pkgSkin', 'pkgSkinHint'); }
+  if ($('#pkgFxEnabled')) $('#pkgFxEnabled').value = String(pkGroupCfg.fxEnabled !== false);
+  if ($('#pkgFxSeam')) $('#pkgFxSeam').value = String(pkGroupCfg.fxSeam !== false);
+  if ($('#pkgFxStyle')) $('#pkgFxStyle').value = pkGroupCfg.fxStyle || 'auto';
+  if ($('#pkgFxLoserCount')) $('#pkgFxLoserCount').value = String(pkGroupCfg.fxLoserCount ?? 0);
+  if ($('#pkgFxThreshold')) { $('#pkgFxThreshold').value = pkGroupCfg.fxThreshold ?? 8; if ($('#pkgFxThresholdValue')) $('#pkgFxThresholdValue').textContent = `${$('#pkgFxThreshold').value}%`; }
+  if ($('#pkgFxFullPoints')) { $('#pkgFxFullPoints').value = pkGroupCfg.fxFullPoints ?? 100; if ($('#pkgFxFullPointsValue')) $('#pkgFxFullPointsValue').textContent = `${$('#pkgFxFullPoints').value} điểm`; }
+  if ($('#pkgFxTopSafe')) { $('#pkgFxTopSafe').value = pkGroupCfg.fxTopSafe ?? 14; if ($('#pkgFxTopSafeValue')) $('#pkgFxTopSafeValue').textContent = `${$('#pkgFxTopSafe').value}%`; }
 }
 
 function renderPkGroupGroupSelect() {
@@ -8740,9 +9003,23 @@ function wirePkGroupTab() {
       try { await window.api.pkgroup.setConfig(collectPkGroupCfg()); } catch {}
     }
   });
-  ['pkgContent','pkgLayoutMode','pkgPointsBy','pkgNoteEnabled','pkgNoteText','pkgNoteBg','pkgNoteColor','pkgNoteSpeed','pkgNoteEffect','pkgDurH','pkgDurM','pkgDurS','pkgPrep','pkgDelay','pkgTextSize','pkgNameSize','pkgGiftSize','pkgSelectFx','pkgSkin'].forEach(id => {
+  ['pkgContent','pkgLayoutMode','pkgPointsBy','pkgNoteEnabled','pkgNoteText','pkgNoteBg','pkgNoteColor','pkgNoteSpeed','pkgNoteEffect','pkgDurH','pkgDurM','pkgDurS','pkgPrep','pkgDelay','pkgTextSize','pkgNameSize','pkgGiftSize','pkgFogHide','pkgSelectFx','pkgSkin','pkgFxEnabled','pkgFxSeam','pkgFxStyle','pkgFxLoserCount'].forEach(id => {
     const el = $('#' + id);
+    if (!el) return;
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', () => { syncPkGroupMembersFromDom(); schedulePkGroupAutoSave(); renderPkGroupMembers(); });
+  });
+  // Ngưỡng bật FX: cập nhật nhãn % + lưu (range → 'input').
+  $('#pkgFxThreshold')?.addEventListener('input', () => {
+    if ($('#pkgFxThresholdValue')) $('#pkgFxThresholdValue').textContent = `${$('#pkgFxThreshold').value}%`;
+    syncPkGroupMembersFromDom(); schedulePkGroupAutoSave();
+  });
+  $('#pkgFxFullPoints')?.addEventListener('input', () => {
+    if ($('#pkgFxFullPointsValue')) $('#pkgFxFullPointsValue').textContent = `${$('#pkgFxFullPoints').value} điểm`;
+    syncPkGroupMembersFromDom(); schedulePkGroupAutoSave();
+  });
+  $('#pkgFxTopSafe')?.addEventListener('input', () => {
+    if ($('#pkgFxTopSafeValue')) $('#pkgFxTopSafeValue').textContent = `${$('#pkgFxTopSafe').value}%`;
+    syncPkGroupMembersFromDom(); schedulePkGroupAutoSave();
   });
   wireSkinHint('pkgSkin', 'pkgSkinHint');
   // Chọn phe → tự bật ghi chú + điền câu hướng dẫn (quà chỉ định / chọn Thành viên ở hộp quà).
@@ -8846,6 +9123,7 @@ function collectPkGroupCfg() {
     sepSolidBg: !!$('#pkgSepSolidBg')?.checked,
     autoTextContrast: !!$('#ovlAutoTextContrast')?.checked,
     showMvpTotals: !!$('#pkgShowMvpTotals')?.checked,
+    fogHide: !!$('#pkgFogHide')?.checked,
     durationSec: Math.max(5, h * 3600 + m * 60 + s),
     prepSec: Number($('#pkgPrep').value) || 0,
     delaySec: Number($('#pkgDelay').value) || 0,
@@ -8855,6 +9133,13 @@ function collectPkGroupCfg() {
     overlayScale: Math.max(80, Math.min(300, Number($('#pkgOverlayScale').value) || 200)),
     selectFx: $('#pkgSelectFx')?.value || 'random',
     skin: $('#pkgSkin')?.value || 'auto',
+    fxEnabled: $('#pkgFxEnabled') ? $('#pkgFxEnabled').value === 'true' : (pkGroupCfg.fxEnabled !== false),
+    fxSeam: $('#pkgFxSeam') ? $('#pkgFxSeam').value === 'true' : (pkGroupCfg.fxSeam !== false),
+    fxStyle: $('#pkgFxStyle')?.value || pkGroupCfg.fxStyle || 'auto',
+    fxLoserCount: $('#pkgFxLoserCount') ? Math.max(0, Number($('#pkgFxLoserCount').value) || 0) : (pkGroupCfg.fxLoserCount ?? 0),
+    fxThreshold: $('#pkgFxThreshold') ? Math.max(0, Math.min(60, Number($('#pkgFxThreshold').value))) : (pkGroupCfg.fxThreshold ?? 8),
+    fxFullPoints: $('#pkgFxFullPoints') ? Math.max(10, Math.min(100000, Number($('#pkgFxFullPoints').value) || 100)) : (pkGroupCfg.fxFullPoints ?? 100),
+    fxTopSafe: $('#pkgFxTopSafe') ? Math.max(0, Math.min(40, Number($('#pkgFxTopSafe').value))) : (pkGroupCfg.fxTopSafe ?? 14),
     creatorColors: pkGroupCfg.creatorColors || {},
   };
   // Đồng bộ NGƯỢC toàn bộ giá trị vừa đọc từ DOM vào pkGroupCfg. Quan trọng: hồ sơ nhóm
@@ -9814,6 +10099,7 @@ async function loadScoreConfig() {
   $('#scHideAvatar').checked = !!st.hideAvatar;
   $('#scHideCreator').checked = !!st.hideCreator;
   if ($('#scColorByProgress')) $('#scColorByProgress').checked = !!st.colorByProgress;
+  if ($('#scFogHide')) $('#scFogHide').checked = !!st.fogHide;
   if ($('#scKpiX2')) $('#scKpiX2').value = st.kpiX2 ? 'true' : 'false';
   $('#scShowGiftUser').checked = false;
   $('#scShowTopUsers').checked = false;
@@ -9899,6 +10185,7 @@ function collectScoreCfg() {
     hideAvatar: $('#scHideAvatar').checked,
     hideCreator: $('#scHideCreator').checked,
     colorByProgress: $('#scColorByProgress')?.checked || false,
+    fogHide: $('#scFogHide')?.checked || false,
     kpiX2: $('#scKpiX2')?.value === 'true',
     kpiMult: [2, 3, 5].includes(Number($('#scKpiMult')?.value)) ? Number($('#scKpiMult').value) : 2,
     showRemaining: $('#scShowRemaining')?.checked || false,
@@ -10072,7 +10359,7 @@ function wireScoreTab() {
   $('#scBorderOpacity')?.addEventListener('input', () => { $('#scBorderOpacityValue').textContent = `${$('#scBorderOpacity').value}%`; scheduleScoreAutoSave(); });
   $('#scBorderWidth')?.addEventListener('input', () => { $('#scBorderWidthValue').textContent = `${$('#scBorderWidth').value}px`; scheduleScoreAutoSave(); });
   $('#scCardBgOpacity')?.addEventListener('input', () => { $('#scCardBgOpacityValue').textContent = `${$('#scCardBgOpacity').value}%`; scheduleScoreAutoSave(); });
-  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scLayout','scContent','scHideAvatar','scHideCreator','scColorByProgress','scKpiX2','scKpiMult','scShowRemaining','scFxGlowBorder','scFxGlass','scFxSparkle','scFxSpotlight','scFxAvatarAura','scFxScoreBounce','scFxFloatPoints','scFxCardBreathe','scFxLiquid','scRunnerForcePink','scRunnerDust','scTimerTop5','scTimerTail','scTimerFinalTick','scBorderColor','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor','scSkin'].forEach(id => {
+  ['scPrep','scDelay','scTheme','scSize','scBarStyle','scLayout','scContent','scHideAvatar','scHideCreator','scColorByProgress','scFogHide','scKpiX2','scKpiMult','scShowRemaining','scFxGlowBorder','scFxGlass','scFxSparkle','scFxSpotlight','scFxAvatarAura','scFxScoreBounce','scFxFloatPoints','scFxCardBreathe','scFxLiquid','scRunnerForcePink','scRunnerDust','scTimerTop5','scTimerTail','scTimerFinalTick','scBorderColor','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor','scSkin'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
     el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color' ? 'change' : 'input', scheduleScoreAutoSave);
@@ -10432,12 +10719,12 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, pkfx, kc, pkg, rk, rkGrid, sc, sticker, lw, mvp, mtrio, card, cardFx, interact, giftMenu, dance1, dance2, dance3, scBar, scCard, scTimer] = await Promise.all([
-    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.kcduo.getUrl(), window.api.pkgroup.getUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(), window.api.interact.getUrl(),
+  const [pk, pkfx, kc, pkg, pkgFx, rk, rkGrid, sc, sticker, lw, mvp, mtrio, taptim, card, cardFx, interact, giftMenu, dance1, dance2, dance3, scBar, scCard, scTimer] = await Promise.all([
+    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.kcduo.getUrl(), window.api.pkgroup.getUrl(), window.api.pkgroup.getFxUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.likewall.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(), window.api.interact.getUrl(),
     window.api.giftmenu.getUrl(), window.api.dancevideo.getUrl('webm1'), window.api.dancevideo.getUrl('webm2'), window.api.dancevideo.getUrl('webm3'),
     window.api.score.getBarUrl(), window.api.score.getCardUrl(), window.api.score.getTimerUrl(),
   ]);
-  const urls = { urlPk: pk, urlPkFx: pkfx, urlKc: kc, urlPkg: pkg, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlCard: card, urlCardFx: cardFx, urlInteract: interact, urlGiftMenu: giftMenu, urlDance1: dance1, urlDance2: dance2, urlDance3: dance3, urlScBar: scBar, urlScCard: scCard, urlScTimer: scTimer };
+  const urls = { urlPk: pk, urlPkFx: pkfx, urlKc: kc, urlPkg: pkg, urlPkgFx: pkgFx, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlTaptim: taptim, urlCard: card, urlCardFx: cardFx, urlInteract: interact, urlGiftMenu: giftMenu, urlDance1: dance1, urlDance2: dance2, urlDance3: dance3, urlScBar: scBar, urlScCard: scCard, urlScTimer: scTimer };
   $$('[data-copy]').forEach(button => { button.dataset.url = urls[button.dataset.copy]; });
   await refreshReviewButtons();
 }

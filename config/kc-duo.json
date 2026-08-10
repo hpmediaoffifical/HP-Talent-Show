@@ -54,7 +54,7 @@
     ]
   },
   "performerName": "",
-  "nextName": "",
+  "nextName": "Raiden",
   "rotationOrder": [
     "Pooh",
     "Rinnie",
@@ -64,11 +64,11 @@
     "Zyzy"
   ],
   "rotationSkip": [],
-  "defendStreak": 8,
-  "totalRounds": 8,
+  "defendStreak": 1,
+  "totalRounds": 12,
   "flipMargin": 0,
   "flipMarginMode": "point",
-  "durationSec": 30,
+  "durationSec": 15,
   "prepSec": 0,
   "delaySec": 7,
   "joinMode": true,
@@ -89,5 +89,6 @@
   "changeSound": "",
   "drawSound": "",
   "giftDisplayMode": "scroll",
-  "skin": "noel"
+  "skin": "noel",
+  "fogHide": true
 }

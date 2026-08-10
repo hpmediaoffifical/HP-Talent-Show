@@ -127,7 +127,7 @@ function spawnBurst() {
 
 // ===================== DỰNG CẢNH =====================
 function buildScene(cards, target, st) {
-  const cs = st.cardStyle === 'pink' ? 'pink' : 'gold';
+  const cs = /^[\w-]{1,40}$/.test(st.cardStyle) ? st.cardStyle : 'gold';
   cur.accent = st.titleColor || '#ffd94a';
   root.style.setProperty('--cfx-style-back', `url("/card-assets/${cs}/back.png")`);
   root.style.setProperty('--cfx-style-front', `url("/card-assets/${cs}/front.png")`);

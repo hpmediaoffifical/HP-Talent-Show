@@ -442,3 +442,10 @@ body { display:flex; justify-content:center; align-items:center; }
 .fx-firework:nth-child(3) { left:70%; top:34%; animation-duration:2.4s; animation-delay:1.6s; }
 .fx-firework:nth-child(4) { left:30%; top:54%; animation-duration:2.4s; animation-delay:2.4s; }
 .fx-firework:nth-child(5) { left:82%; top:48%; animation-duration:2.4s; animation-delay:3.2s; }
+
+/* 🌫️ SƯƠNG MÙ 10 GIÂY CUỐI — sương phủ thanh máu (bố cục Gộp: 1 màn phủ cả thanh → ẩn ranh giới; Rời: mỗi
+   thẻ 1 màn → ẩn độ dài). Ẩn số điểm, chip "Hạng 1" và vương miện (ở hàng tên) để không lộ ai dẫn.
+   Đồng hồ đếm lùi ở tiêu đề vẫn hiện. */
+.pkg-board.fog-on .pkg-num,
+.pkg-board.fog-on .pkg-rank-tag,
+.pkg-board.fog-on .pkg-crown { opacity: 0 !important; }

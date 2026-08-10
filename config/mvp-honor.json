@@ -8,7 +8,7 @@
       "avatar": "",
       "name": "Raiden",
       "text": "TOP 1",
-      "frame": "mvp-frames/3.png",
+      "frame": "mvp-frames/4.png",
       "layout": "vertical",
       "avatarSize": 140,
       "frameScale": 172,
@@ -21,7 +21,7 @@
       "overlay": {
         "x": 120,
         "y": 200,
-        "scale": 1,
+        "scale": 2.41,
         "rot": 0
       },
       "bySkin": {

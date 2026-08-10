@@ -68,7 +68,7 @@
     "groupName": "HP•VITAMIN B",
     "creatorId": "c_mrtg28mrb1ni1",
     "creatorName": "Raiden",
-    "winStreak": 0,
+    "winStreak": 1,
     "nameOverride": false,
     "giftOverride": false
   },
@@ -153,7 +153,7 @@
     "groupName": "HP•VITAMIN B",
     "creatorId": "c_mrtg2crd6d27p",
     "creatorName": "Xuhao",
-    "winStreak": 2,
+    "winStreak": 0,
     "nameOverride": false,
     "giftOverride": false
   },
@@ -183,10 +183,13 @@
   "fxThreshold": 8,
   "fxMaxGap": 30,
   "fxIntensityCap": 100,
+  "fxFullPoints": 100,
+  "fxTopSafe": 14,
   "championsEnabled": true,
   "championNames": false,
   "arrowStyle": "random",
   "selectFx": "random",
   "skin": "auto",
-  "barLayout": "douyin"
+  "barLayout": "douyin",
+  "fogHide": true
 }

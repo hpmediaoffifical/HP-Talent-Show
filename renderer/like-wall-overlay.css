@@ -1,0 +1,186 @@
+/* NHIỆM VỤ · TÁP TIM — bức tường thả tim (点赞墙). zoom (không transform:scale) → nét trên OBS. */
+html, body { margin:0; width:100%; height:100%; background:transparent; overflow:hidden; font-family:'Inter','Segoe UI', Arial, sans-serif; }
+body { display:flex; align-items:flex-start; justify-content:center; min-height:100vh; padding:20px; box-sizing:border-box; }
+
+.lw-stage { zoom:var(--lw-scale,1); position:relative; display:inline-block; }
+
+/* Nền xám bao ngoài, bo tròn */
+.lw-card {
+  --lw-fill: linear-gradient(90deg, rgba(255,138,154,.28) 0%, #ff8a9a 62%, #ff2e4d 100%);
+  --lw-card-bg: rgba(58,61,70,.62);
+  --lw-cell-bg: rgba(0,0,0,.30);
+  --lw-title-color:#fff;
+  --lw-av-base:58px;   /* đường kính avatar trong khung VIP */
+  --lw-fs:1.72;        /* bề rộng khung = avatar × --lw-fs */
+  position:relative; box-sizing:border-box;
+  width:474px; padding:16px 16px 9px; border-radius:26px;
+  background:var(--lw-card-bg);
+  box-shadow:0 12px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12);
+  color:#fff;
+}
+
+/* Tiêu đề: dải xám bo tròn, chừa lề đều 2 bên, chạy chữ khi dài */
+.lw-title {
+  position:relative; max-width:90%; margin:2px auto 14px; padding:7px 22px;
+  border-radius:999px; background:rgba(0,0,0,.28);
+  font-size:23px; font-weight:900; letter-spacing:.02em; color:var(--lw-title-color);
+  text-align:center; white-space:nowrap; overflow:hidden; text-shadow:0 2px 5px rgba(0,0,0,.6);
+}
+.lw-title span { display:inline-block; }
+.lw-title.long { text-align:left; }
+.lw-title.long span { display:inline-flex; white-space:nowrap; animation:lwMarquee 7s linear infinite; }
+.lw-title.long i { font-style:normal; padding-right:2.6em; }
+
+/* Lưới 3 cột — minmax(0,1fr) để track CO ĐƯỢC (không thì tên dài nowrap đẩy lưới rộng quá, tràn card) */
+.lw-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 10px; }
+
+/* Mỗi ô = 1 người, nền đậm hơn */
+.lw-cell {
+  position:relative; box-sizing:border-box; min-width:0;
+  display:flex; flex-direction:column; align-items:center;
+  padding:16px 8px 10px; border-radius:16px; background:var(--lw-cell-bg);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+}
+.lw-cell.lw-podium { padding-top:22px; }
+/* Ô CHỜ (chưa ai táp): vẫn NỔI RÕ để dễ nhận biết bố cục — chỉ nhạt nhẹ, không mờ tịt */
+.lw-cell.lw-empty { opacity:.92; }
+
+.lw-avatar-wrap { position:relative; display:flex; align-items:center; justify-content:center; }
+
+/* Khung VIP TOP 1-5 (mvp-frames): wrap rộng = avatar-base × --lw-fs; khung đè z-trên, avatar tròn căn giữa z-dưới */
+.lw-cell.lw-framed { padding-top:12px; }
+.lw-avatar-wrap.has-frame { display:block; line-height:0; width:calc(var(--lw-av-base,58px) * var(--lw-fs,1.72)); }
+.lw-avatar-wrap.has-frame .lw-frame { position:relative; display:block; width:100%; height:auto; z-index:3; pointer-events:none; }
+.lw-avatar-wrap.has-frame .lw-avatar {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:var(--lw-av-base,58px); height:var(--lw-av-base,58px); z-index:1; box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+.lw-avatar {
+  width:58px; height:58px; border-radius:50%; overflow:hidden;
+  background:#fff; box-shadow:0 3px 8px rgba(0,0,0,.4);
+}
+.lw-podium .lw-avatar { width:66px; height:66px; }
+.lw-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; }
+/* Placeholder avatar (ô chờ): sáng rõ + viền trong + trái tim mờ → nhận biết ngay là chỗ chờ người táp */
+.lw-avatar-ph { position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:100%; background:radial-gradient(circle at 50% 34%, #aeb7c6, #626b7b); box-shadow:inset 0 0 0 2px rgba(255,255,255,.28); }
+.lw-avatar-ph::after { content:'♡'; color:rgba(255,255,255,.72); font-size:26px; line-height:1; }
+
+/* TOP 1/2/3: vương miện + số hạng */
+.lw-crown { position:absolute; top:-20px; left:50%; transform:translateX(-50%); width:30px; height:25px; filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)); z-index:3; }
+.lw-crown-body { fill:var(--crown-c,#ffd24a); stroke:rgba(0,0,0,.25); stroke-width:.6; }
+.lw-crown-gem { fill:#fff8; }
+.lw-rank-no {
+  position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+  min-width:16px; height:16px; padding:0 4px; border-radius:999px; z-index:4;
+  background:var(--crown-c,#ffd24a); color:#3a2600; font-size:11px; font-weight:900; line-height:16px; text-align:center;
+  box-shadow:0 1px 3px rgba(0,0,0,.5);
+}
+.lw-r1 { --crown-c:#ffd24a; }         /* vàng  */
+.lw-r2 { --crown-c:#cdd6e4; }         /* bạc   */
+.lw-r3 { --crown-c:#e8975a; }         /* đồng  */
+.lw-r1 .lw-avatar { box-shadow:0 0 0 3px #ffd24a, 0 4px 12px rgba(255,180,0,.55); }
+.lw-r2 .lw-avatar { box-shadow:0 0 0 3px #cdd6e4, 0 4px 10px rgba(0,0,0,.45); }
+.lw-r3 .lw-avatar { box-shadow:0 0 0 3px #e8975a, 0 4px 10px rgba(0,0,0,.45); }
+
+/* Hạng 4-5: vòng nổi bật quanh avatar */
+.lw-r4 .lw-avatar, .lw-r5 .lw-avatar { box-shadow:0 0 0 2.5px #ffb15a, 0 3px 9px rgba(0,0,0,.4); }
+.lw-ring-badge { position:absolute; inset:-3px; border-radius:50%; border:2px dashed rgba(255,196,120,.7); pointer-events:none; }
+
+/* Hạng 6: chỉ 1 dấu đỏ trên đầu */
+.lw-red-dot { position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:12px; height:12px; border-radius:50%; background:#ff3b4e; box-shadow:0 0 8px rgba(255,59,78,.8), 0 1px 2px rgba(0,0,0,.5); z-index:3; }
+
+/* Tên: dải xám, chạy chữ khi dài */
+.lw-name {
+  position:relative; min-width:0; max-width:100%; margin:9px 0 8px; padding:2px 8px; border-radius:8px;
+  background:rgba(0,0,0,.32); font-size:14px; font-weight:800; line-height:1.3;
+  white-space:nowrap; overflow:hidden; text-shadow:0 1px 3px rgba(0,0,0,.8);
+}
+.lw-name span { display:inline-block; }
+.lw-name.long span { display:inline-flex; white-space:nowrap; animation:lwMarquee 7s linear infinite; }
+.lw-name.long i { font-style:normal; padding-right:2.4em; }
+.lw-name-empty { opacity:.85; color:#e8ecf3; font-weight:700; }
+
+/* Thanh máu mỗi ô — khối 3D, đổ bóng, vệt xéo trắng, số căn giữa */
+.lw-bar {
+  position:relative; width:100%; height:22px; border-radius:999px;
+  background:rgba(0,0,0,.42); border:1px solid rgba(255,255,255,.18);
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.55), 0 2px 3px rgba(0,0,0,.35);
+  overflow:hidden;
+}
+.lw-fill {
+  position:absolute; inset:0 auto 0 0; width:0; border-radius:999px;
+  background:var(--lw-fill); overflow:hidden;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.4), inset 0 -4px 7px rgba(0,0,0,.32);
+  transition:width .35s ease-out;
+}
+/* Vệt xéo trắng tĩnh (không animate → OBS không giật) */
+.lw-stripes { position:absolute; inset:0; background:repeating-linear-gradient(115deg, rgba(255,255,255,.24) 0 5px, rgba(255,255,255,0) 5px 13px); pointer-events:none; }
+.lw-bar-val {
+  position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:900; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 2px rgba(0,0,0,.7);
+}
+
+/* Thanh máu TỔNG — TÁCH hẳn xuống dưới 9 ô (đường kẻ), TO + rộng gần SÁT MÉP nền, bo cạnh tròn NHẸ */
+.lw-total { margin:16px -7px 0; padding-top:14px; border-top:1px solid rgba(255,255,255,.13); }
+.lw-total-bar {
+  position:relative; width:100%; height:50px; border-radius:15px;
+  background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.18);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.62), 0 3px 7px rgba(0,0,0,.44);
+  overflow:hidden;
+}
+.lw-total-fill {
+  position:absolute; inset:0 auto 0 0; width:0; border-radius:12px 6px 6px 12px;
+  background:var(--lw-fill); overflow:hidden;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.42), inset 0 -6px 9px rgba(0,0,0,.32);
+  transition:width .35s ease-out;
+}
+.lw-total-val {
+  position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; gap:2px;
+  font-size:24px; font-weight:950; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.7);
+}
+.lw-total-val span { font-size:19px; }
+.lw-total-val span { font-weight:800; opacity:.82; }
+
+/* Ticker — người vừa táp + combo (vinh danh người đang táp) */
+.lw-ticker { display:flex; align-items:center; gap:8px; margin:9px -7px 0; padding:6px 12px; border-radius:999px; background:rgba(0,0,0,.28); }
+.lw-ticker-av { width:26px; height:26px; border-radius:50%; overflow:hidden; background:#fff; flex:0 0 auto; box-shadow:0 1px 3px rgba(0,0,0,.5); }
+.lw-ticker-av img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; }
+.lw-ticker-name { flex:1 1 auto; min-width:0; font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 2px rgba(0,0,0,.7); }
+.lw-ticker-combo { flex:0 0 auto; display:flex; align-items:center; gap:3px; padding:2px 10px; border-radius:999px; background:linear-gradient(180deg,#ff5b74,#ff2e4d); box-shadow:0 2px 5px rgba(255,46,77,.5); }
+.lw-ticker-combo b { font-size:15px; font-weight:950; color:#fff; }
+.lw-thumb { width:16px; height:16px; fill:#fff; }
+.lw-ticker-combo .lw-thumb { filter:drop-shadow(0 1px 1px rgba(0,0,0,.3)); }
+
+/* ==== Popup DANH HIỆU (点赞萌新) ==== */
+.lw-toast-layer { position:absolute; left:0; right:0; top:82px; display:flex; justify-content:center; pointer-events:none; z-index:20; }
+.lw-toast {
+  display:flex; align-items:center; gap:12px; box-sizing:border-box;
+  min-width:300px; max-width:440px; padding:12px 18px 12px 12px; border-radius:16px;
+  background:linear-gradient(180deg, rgba(38,30,10,.96), rgba(24,18,6,.96));
+  border:2px solid transparent;
+  background-clip:padding-box;
+  box-shadow:0 0 0 2px #d9a441, 0 14px 34px rgba(0,0,0,.55), 0 0 26px rgba(255,196,80,.35);
+  opacity:0; transform:translateY(-16px) scale(.9);
+  transition:opacity .32s ease, transform .32s cubic-bezier(.2,1.4,.5,1);
+}
+.lw-toast.show { opacity:1; transform:translateY(0) scale(1); }
+.lw-toast.hide { opacity:0; transform:translateY(-10px) scale(.94); }
+/* Huy hiệu vàng + nút LIVE (thumb) */
+.lw-toast-emblem {
+  flex:0 0 auto; width:62px; height:62px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 50% 35%, #ffe9a8, #f2b23a 60%, #b9791f);
+  box-shadow:0 0 0 3px rgba(255,225,150,.55), 0 4px 12px rgba(0,0,0,.5);
+}
+.lw-toast-emblem .lw-thumb { width:30px; height:30px; fill:#7a4a12; filter:drop-shadow(0 1px 0 rgba(255,255,255,.5)); }
+.lw-toast-body { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.lw-toast-badge { display:flex; align-items:center; gap:10px; padding:3px 12px; border-radius:8px; background:rgba(0,0,0,.4); box-shadow:inset 0 0 0 1px rgba(217,164,65,.5); }
+.lw-toast-title { font-size:17px; font-weight:950; color:#ff5666; text-shadow:0 1px 2px rgba(0,0,0,.6); letter-spacing:.02em; }
+.lw-toast-x { margin-left:auto; font-size:16px; font-weight:950; color:#ff5666; }
+.lw-toast-user { display:flex; align-items:center; gap:8px; }
+.lw-toast-av { width:24px; height:24px; border-radius:50%; overflow:hidden; background:#fff; flex:0 0 auto; }
+.lw-toast-av img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; }
+.lw-toast-nick { font-size:15px; font-weight:800; color:#ffd98a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lw-toast-desc { font-size:15px; font-weight:900; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.6); }
+
+@keyframes lwMarquee { from { transform:translateX(0); } to { transform:translateX(-50%); } }

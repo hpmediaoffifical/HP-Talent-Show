@@ -1573,6 +1573,11 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 /* Chế độ chơi / Tính điểm theo gọn ngay trên hàng nút: caption + select nằm ngang */
 .pk-action-row .pk-row-field { display:flex; align-items:center; gap:6px; margin:0; font-size:12px; font-weight:800; color:#4b5563; white-space:nowrap; }
 .pk-action-row .pk-row-field select { min-height:38px; max-width:172px; border:1px solid rgba(0,0,0,.14); border-radius:12px; background:#fff; padding:6px 10px; }
+/* 🌫️ Công tắc Sương mù 10s cuối — đưa RA NGOÀI thanh lệnh cho dễ nhận biết, viền khói nhạt cho nổi. */
+.fog-toggle { display:inline-flex; align-items:center; gap:6px; margin:0; padding:5px 10px; font-size:12px; font-weight:800; white-space:nowrap;
+  color:#475569; border:1px solid rgba(100,116,139,.35); border-radius:12px; background:linear-gradient(180deg,#f6f8fb,#e8edf3); box-shadow:inset 0 1px 0 rgba(255,255,255,.6); }
+.fog-toggle select { min-height:32px; border:1px solid rgba(0,0,0,.14); border-radius:10px; background:#fff; padding:4px 8px; font-weight:800; }
+.fog-toggle input[type="checkbox"] { width:16px; height:16px; accent-color:#64748b; }
 /* Đẩy tổng số trận (phần tử cuối) về sát mép phải */
 .pk-action-row .pk-total-matches { margin-left:auto; }
 /* Popup "Nhanh": gom Test +100 & link OBS sau 1 icon gọn (dùng <details> — không cần lib) */
@@ -3321,6 +3326,34 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
   50% { text-shadow: 0 0 15px rgba(255,155,208,.95), 0 2px 4px rgba(0,0,0,.75); }
 }
 @media (max-width: 760px) { .mt-kpi-head, .mt-kpi-row { grid-template-columns: 40px 1fr 96px 68px; } .mt-test { margin-left: 0; } }
+
+/* ===================== NHIỆM VỤ · TÁP TIM (config panel) ===================== */
+/* Preview nằm trong thanh lệnh nền TỐI → chữ dùng màu SÁNG cho tương phản, đọc rõ. */
+.lwall-preview { display: flex; flex-direction: column; gap: 6px; width: 100%; color: #eef2fb; }
+.lwallp-total { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,.14); font-weight: 800; }
+.lwallp-total > span:first-child { font-size: 11px; letter-spacing: .04em; color: rgba(255,255,255,.62); width: 42px; }
+.lwallp-row { display: flex; align-items: center; gap: 9px; font-size: 13px; padding: 1px 0; }
+.lwallp-rank { flex: 0 0 auto; width: 21px; height: 21px; border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+.lwallp-row:nth-child(2) .lwallp-rank { background: linear-gradient(180deg,#ffd85c,#f0b23a); color: #4a2f00; }
+.lwallp-row:nth-child(3) .lwallp-rank { background: linear-gradient(180deg,#e4ebf5,#b9c4d6); color: #2a3346; }
+.lwallp-row:nth-child(4) .lwallp-rank { background: linear-gradient(180deg,#f0a765,#d07a3a); color: #3a2200; }
+.lwallp-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: #f1f5fb; }
+.lwallp-bar { flex: 0 0 96px; height: 9px; border-radius: 999px; background: rgba(255,255,255,.14); overflow: hidden; }
+.lwallp-bar.big { flex-basis: 150px; height: 11px; }
+.lwallp-bar i { display: block; height: 100%; border-radius: 999px; }
+.lwallp-row b, .lwallp-total b { flex: 0 0 auto; font-size: 12px; font-weight: 900; color: #fff; min-width: 42px; text-align: right; }
+.chk-inline { display: flex; align-items: center; gap: 8px; flex-direction: row !important; font-weight: 700; }
+.chk-inline input { width: auto; }
+.lwall-tier-head { display: grid; grid-template-columns: 120px 1fr 34px; gap: 8px; margin-top: 8px; font-size: 11px; font-weight: 800; color: var(--tt-ink-3); }
+.lwall-tier-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 8px; }
+.lwall-tier-row { display: grid; grid-template-columns: 120px 1fr 34px; gap: 8px; align-items: center; }
+.lwall-tier-row input { padding: 7px 9px; border: 1px solid var(--tt-border); border-radius: var(--r-sm); font-size: 13px; }
+.lwall-tier-del { padding: 6px 8px; }
+/* Nút trạng thái khác màu cho dễ nhận biết: BẮT ĐẦU = xanh lá (bắt đầu mới), CHẠY LẠI = cam (đang chạy) */
+#lwallStart { background: linear-gradient(180deg, #22c55e, #16a34a); border-color: #15803d; color: #fff; }
+#lwallStart:hover { background: linear-gradient(180deg, #26d365, #17a950); }
+#lwallStart.lwall-running { background: linear-gradient(180deg, #fb923c, #f97316); border-color: #ea580c; color: #fff; }
+#lwallStart.lwall-running:hover { background: linear-gradient(180deg, #fca04d, #fb8324); }
 
 /* ===================== THẺ BÀI (config panel — nền sáng) ===================== */
 .cf-panel-card { display: flex; flex-direction: column; gap: 14px; }

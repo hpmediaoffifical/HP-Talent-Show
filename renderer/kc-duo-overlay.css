@@ -149,5 +149,10 @@ body { display:flex; justify-content:center; align-items:center; }
   100% { transform:translateX(294%); }
 }
 
+/* 🌫️ SƯƠNG MÙ 10 GIÂY CUỐI — sương phủ thanh máu, ẩn số + mốc lật ghế bên dưới để giấu ai đang giữ ghế.
+   Đồng hồ đếm lùi ở topline (ngoài thanh) vẫn hiện. */
+.kc-board.fog-on .kc-bar .kc-score,
+.kc-board.fog-on .kc-bar .kc-hold { opacity: 0 !important; }
+
 /* Review (app preview) */
 body.overlay-review { background:var(--review-bg, transparent); }

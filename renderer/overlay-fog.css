@@ -1,0 +1,106 @@
+/* overlay-fog.css — SƯƠNG MÙ / KHÓI 3D che thanh máu + số điểm ở 10 GIÂY CUỐI (dùng chung 4 overlay).
+   .fog-veil phủ KÍN lớp bọc thanh máu (parent position:relative — các thanh đều relative). BO CẠNH theo
+   thanh (border-radius:inherit) + tự bo tối thiểu 12px cho hộp vuông. Nền khói XÁM có chiều sâu + khối
+   sáng/tối trôi đan nhau = cuộn 3D. OBS-safe: rgba + transform, không blur xuyên lớp / color-mix / filter. */
+.fog-veil {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 45;
+  border-radius: inherit;
+  isolation: isolate;
+}
+
+/* Nền khói: xám khói CÓ KHỐI (sáng ở lõi trên, tối dần ra rìa + đáy) — KHÔNG phẳng trắng. Đủ đặc (~0.9)
+   để che ranh giới/số bên dưới. Là "sương dày" làm phông cho các khối sáng/tối cuộn bên trên. */
+.fog-veil .fog-base {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(130% 165% at 50% 30%, rgba(246, 249, 252, 0.94) 0%, rgba(200, 207, 221, 0.92) 42%, rgba(120, 128, 147, 0.9) 100%),
+    linear-gradient(180deg, rgba(232, 236, 243, 0.28) 0%, rgba(64, 70, 84, 0.42) 100%);
+}
+
+/* Khối khói tròn mềm (mép tan dần). light = trắng bồng (bắt sáng), dark = than xám (bóng → chiều sâu 3D).
+   translate ngang + nhấp nhô + phình/xẹp = cuộn khối. Neo pha theo đồng hồ chung qua --fd1/2/3. */
+.fog-veil .fog-puff {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  border-radius: 50%;
+  will-change: transform;
+  animation: fogRoll var(--fp-dur, 14s) linear infinite;
+  animation-delay: var(--fp-delay, 0s);
+}
+.fog-veil .fog-puff.light {
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.96) 0%, rgba(248, 251, 254, 0.5) 44%, rgba(248, 251, 254, 0) 72%);
+}
+.fog-veil .fog-puff.dark {
+  background: radial-gradient(closest-side, rgba(26, 30, 41, 0.6) 0%, rgba(40, 46, 60, 0.3) 46%, rgba(40, 46, 60, 0) 74%);
+}
+/* Vệt khói mảnh trôi nhanh (tendril) — dải sáng ngang tan 2 đầu. */
+.fog-veil .fog-streak {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  border-radius: 50%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.62) 50%, rgba(255, 255, 255, 0) 100%);
+  will-change: transform;
+  animation: fogRoll var(--fp-dur, 9s) linear infinite;
+  animation-delay: var(--fp-delay, 0s);
+}
+/* Quầng tối rìa → khối tròn trịa, có chiều sâu (như khói cuộn trong lòng ống). */
+.fog-veil .fog-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 150% at 50% 45%, rgba(0, 0, 0, 0) 42%, rgba(18, 22, 30, 0.34) 100%);
+}
+/* Chú thích chìm "SƯƠNG MÙ": nét THANH, mờ, GIÃN ký tự rộng như watermark → nói người xem biết đang giấu
+   điểm có chủ đích. Ở TRÊN khói (z cao) nhưng DƯỚI đồng hồ đếm lùi (đồng hồ nằm ngoài thanh). text-indent
+   bù khoảng trắng letter-spacing ở cuối để chữ căn giữa. */
+.fog-veil .fog-label {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 300;
+  font-size: 13px;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(52, 60, 76, 0.6);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+/* Trôi ngang qua thanh + nhấp nhô nhẹ + phình/xẹp (scale) = cuộn 3D. % theo cỡ chính khối. */
+@keyframes fogRoll {
+  0%   { transform: translate(-90%, -54%) scale(0.88); }
+  50%  { transform: translate(60%, -46%) scale(1.16); }
+  100% { transform: translate(220%, -54%) scale(0.88); }
+}
+/* Khối TỐI trôi NGƯỢC chiều (phải→trái) → 2 dòng khói cắt nhau, cuộn động hơn (reverse vẫn đồng bộ đồng hồ). */
+.fog-veil .fog-puff.dark { animation-direction: reverse; }
+
+/* --- Khối vừa (tầng 1, 14s) --- */
+.fog-veil .fog-puff.l0 { top: 42%; width: 56%; height: 240%; --fp-dur: 14s; --fp-delay: calc(var(--fd1) - 0s);   opacity: 0.95; }
+.fog-veil .fog-puff.l1 { top: 64%; width: 44%; height: 220%; --fp-dur: 14s; --fp-delay: calc(var(--fd1) - 4.6s); opacity: 0.85; }
+.fog-veil .fog-puff.l2 { top: 34%; width: 48%; height: 210%; --fp-dur: 14s; --fp-delay: calc(var(--fd1) - 9.3s); opacity: 0.9; }
+/* --- Mây lớn chậm (tầng 2, 22s) → phông cuộn lững lờ phía sau --- */
+.fog-veil .fog-puff.l3 { top: 50%; width: 78%; height: 300%; --fp-dur: 22s; --fp-delay: calc(var(--fd2) - 0s);    opacity: 0.7; }
+.fog-veil .fog-puff.l4 { top: 58%; width: 68%; height: 270%; --fp-dur: 22s; --fp-delay: calc(var(--fd2) - 11s);   opacity: 0.62; }
+.fog-veil .fog-puff.l5 { top: 38%; width: 60%; height: 250%; --fp-dur: 22s; --fp-delay: calc(var(--fd2) - 16.4s); opacity: 0.66; }
+/* --- Khối TỐI (bóng) đan xen, ngược chiều --- */
+.fog-veil .fog-puff.d0 { top: 56%; width: 50%; height: 230%; --fp-dur: 14s; --fp-delay: calc(var(--fd1) - 2.4s);  opacity: 0.9; }
+.fog-veil .fog-puff.d1 { top: 40%; width: 42%; height: 200%; --fp-dur: 14s; --fp-delay: calc(var(--fd1) - 7s);    opacity: 0.85; }
+.fog-veil .fog-puff.d2 { top: 62%; width: 46%; height: 210%; --fp-dur: 14s; --fp-delay: calc(var(--fd1) - 11.6s); opacity: 0.8; }
+.fog-veil .fog-puff.d3 { top: 46%; width: 66%; height: 260%; --fp-dur: 22s; --fp-delay: calc(var(--fd2) - 6s);    opacity: 0.55; }
+.fog-veil .fog-puff.d4 { top: 66%; width: 58%; height: 240%; --fp-dur: 22s; --fp-delay: calc(var(--fd2) - 18s);   opacity: 0.5; }
+/* --- Vệt mảnh nhanh (tầng 3, 9s) --- */
+.fog-veil .fog-streak.s0 { top: 40%; width: 72%; height: 40%;  --fp-dur: 9s; --fp-delay: calc(var(--fd3) - 0s);   opacity: 0.7; }
+.fog-veil .fog-streak.s1 { top: 60%; width: 64%; height: 34%;  --fp-dur: 9s; --fp-delay: calc(var(--fd3) - 3.6s); opacity: 0.6; }
+.fog-veil .fog-streak.s2 { top: 50%; width: 80%; height: 30%;  --fp-dur: 9s; --fp-delay: calc(var(--fd3) - 6.4s); opacity: 0.55; }

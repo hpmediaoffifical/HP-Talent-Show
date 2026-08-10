@@ -13,10 +13,10 @@
   "noteTextColor": "#ffea00",
   "noteSpeedSec": 19,
   "noteEffect": "soft",
-  "separatedGap": 170,
+  "separatedGap": 330,
   "sepSolidBg": true,
   "autoTextContrast": true,
-  "durationSec": 125,
+  "durationSec": 15,
   "prepSec": 3,
   "delaySec": 5,
   "textSize": 30,
@@ -24,8 +24,18 @@
   "giftSize": 60,
   "overlayScale": 200,
   "showMvpTotals": true,
-  "selectFx": "versus",
+  "selectFx": "arrow",
   "skin": "auto",
+  "fxEnabled": true,
+  "fxStyle": "water",
+  "fxThreshold": 8,
+  "fxMaxGap": 30,
+  "fxIntensityCap": 100,
+  "fxFullPoints": 100,
+  "fxTopSafe": 14,
+  "fxSeam": false,
+  "fxLoserCount": 0,
+  "fogHide": true,
   "participants": [
     {
       "id": "c_mrtg28mrb1ni1",
@@ -63,7 +73,7 @@
           "diamond": 1
         }
       ],
-      "streak": 0,
+      "streak": 2,
       "nameOverride": false,
       "score": 0
     },

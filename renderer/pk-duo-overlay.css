@@ -590,3 +590,16 @@ body[data-skin="birthday"]  { --osk-crown:'🎂'; }
 .dy-gitem.r1 .dy-grank { color:#ffe08a; }
 
 @keyframes pkDyPushFloat { 0%{opacity:0;transform:translate(-50%,8px) scale(.82)} 22%{opacity:1;transform:translate(-50%,0) scale(1.06)} 60%{opacity:1;transform:translate(-50%,-4px) scale(1)} 100%{opacity:0;transform:translate(-50%,-16px) scale(1)} }
+
+/* 🌫️ SƯƠNG MÙ 10 GIÂY CUỐI — sương phủ thanh máu, ẩn số/nhãn/mũi tên bên dưới để không lộ ai dẫn.
+   Đồng hồ đếm lùi nằm NGOÀI thanh (head HP / hàng dy-timer) nên vẫn hiện. Số đếm lùi TO trên thanh douyin
+   (.dy-bigcount) được nâng lên TRÊN sương → đếm lùi xuyên qua màn sương cho kịch tính. */
+.pkduo-board.fog-on .pkduo-bar .score-a,
+.pkduo-board.fog-on .pkduo-bar .score-b,
+.pkduo-board.fog-on .pkduo-bar .pkduo-team-label,
+.pkduo-board.fog-on .pkduo-bar > em,
+.pkduo-board.fog-on .dy-bar .dy-score,
+.pkduo-board.fog-on .dy-bar .dy-seam,
+.pkduo-board.fog-on .dy-bar .dy-push,
+.pkduo-board.fog-on .dy-bar .dy-bubbles { opacity: 0 !important; }
+.pkduo-board.fog-on .dy-bar .dy-bigcount { z-index: 50; }

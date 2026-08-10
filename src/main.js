@@ -129,6 +129,7 @@ let stickerEngine = null;
 let mvpHonorEngine = null;
 let luckyWheelEngine = null;
 let missionTrioEngine = null;
+let likeWallEngine = null;
 let cardFlipEngine = null;
 let danceVideoEngine = null;
 // Menu Quà (thông tin quà) — chỉ hiển thị, không có engine/game state: config CHÍNH là state overlay.
@@ -198,6 +199,7 @@ function collectLiveRuntime() {
   try { if (pkDuoEngine) out.pkduo = pkDuoEngine.snapshotRuntime(); } catch {}
   try { if (kcDuoEngine) out.kcduo = kcDuoEngine.snapshotRuntime(); } catch {}
   try { if (pkGroupEngine) out.pkgroup = pkGroupEngine.snapshotRuntime(); } catch {}
+  try { if (likeWallEngine) out.likewall = likeWallEngine.snapshotRuntime(); } catch {}
   return out;
 }
 function saveLiveRuntimeNow() {
@@ -240,6 +242,7 @@ function loadSettings() {
     // Tự nhận diện Creator NHẬN quà trong LIVE nhóm (theo toUserId) → tự cộng điểm, khỏi chọn phe.
     autoRecognizeRecipient: true,
     missionTrio: null,
+    likeWall: null,
     cardFlip: null,
     audio: {
       gameSoundEnabled: true,
@@ -554,6 +557,7 @@ const REVIEW_META = {
   kcduo: { title: 'Review Giữ/Đổi', getUrl: () => overlayServer?.getKcDuoUrl(), width: 900, height: 320 },
   pkduofx: { title: 'Review PK Đôi FX', getUrl: () => overlayServer?.getPkDuoFxUrl(), width: 338, height: 600 },
   pkgroup: { title: 'Review PK Nhóm', getUrl: () => overlayServer?.getPkGroupUrl(), width: 1280, height: 420 },
+  pkgroupfx: { title: 'Review PK Nhóm FX', getUrl: () => overlayServer?.getPkGroupFxUrl(), width: 1280, height: 420 },
   score: { title: 'Review Tính điểm', getUrl: () => overlayServer?.getScoreUrl(), width: 900, height: 300 },
   scorebar: { title: 'Review Tính điểm · ĐƯỜNG ĐUA', getUrl: () => overlayServer?.getScoreBarUrl(), width: 900, height: 300 },
   scorecard: { title: 'Review Tính điểm · KÊU GỌI', getUrl: () => overlayServer?.getScoreCardUrl(), width: 520, height: 360 },
@@ -565,6 +569,7 @@ const REVIEW_META = {
   luckywheel: { title: 'Review Vòng Quay', getUrl: () => overlayServer?.getLuckyWheelUrl(), width: 760, height: 760 },
   giftmenu: { title: 'Review Menu Quà', getUrl: () => overlayServer?.getGiftMenuUrl(), width: 520, height: 760 },
   missiontrio: { title: 'Review NHIỆM VỤ · BỘ BA', getUrl: () => overlayServer?.getMissionTrioUrl(), width: 720, height: 320 },
+  likewall: { title: 'Review NHIỆM VỤ · TÁP TIM', getUrl: () => overlayServer?.getLikeWallUrl(), width: 540, height: 900 },
   cardflip: { title: 'Review THẺ BÀI', getUrl: () => overlayServer?.getCardFlipUrl(), width: 1040, height: 320 },
   cardflipfx: { title: 'Review THẺ BÀI · Lật 3D', getUrl: () => overlayServer?.getCardFlipFxUrl(), width: 720, height: 405 },
   dancevideo: { title: 'Review NHẠC DANCE · WEBM 1', getUrl: () => overlayServer?.getDanceVideoUrl('webm1'), width: 540, height: 960 },
@@ -1605,8 +1610,10 @@ class PkDuoEngine {
       fxMode: 'affliction',
       fxStyle: 'water',
       fxThreshold: 8,
-      fxMaxGap: 30,
+      fxMaxGap: 30,        // (cũ, % — không còn dùng cho độ ngập; giữ để tương thích cấu hình cũ)
       fxIntensityCap: 100,
+      fxFullPoints: 100,   // ⛴️ ĐIỂM TRẦN: chênh điểm TUYỆT ĐỐI ≥ ngần này → ngập FULL; dưới thì dâng dần từ đáy
+      fxTopSafe: 14,       // % chừa MÉP TRÊN (TikTok che điểm) để luôn thấy đợt sóng mặt nước lên xuống
       championsEnabled: true, // Vinh danh TOP 3 người tặng quà trên overlay banner
       championNames: false, // Hiện tên người tặng TOP1 (MVP) dưới avatar
       arrowStyle: 'random', // Skin mũi tên: classic | core | cannon | random (random = tự đổi mỗi vòng, đã bỏ "kéo co"). Mặc định Ngẫu nhiên.
@@ -1617,6 +1624,8 @@ class PkDuoEngine {
       skin: 'auto',
       // Kiểu giao diện overlay: 'hp' (thanh trong hộp) | 'douyin' (thanh máu nổi). Mặc định Douyin.
       barLayout: 'douyin',
+      // 🌫️ Sương mù che thanh máu + số điểm ở 10 GIÂY CUỐI (tạo kịch tính, lộ kết quả khi hết giờ). Mặc định BẬT.
+      fogHide: true,
     };
     this.state = {
       status: 'idle', // 'idle' | 'prestart' | 'running' | 'grace' | 'finished'
@@ -1684,6 +1693,8 @@ class PkDuoEngine {
       fxThreshold: this.config.fxThreshold,
       fxMaxGap: this.config.fxMaxGap,
       fxIntensityCap: this.config.fxIntensityCap,
+      fxFullPoints: this.config.fxFullPoints,
+      fxTopSafe: this.config.fxTopSafe,
       // TOP 3 người tặng quà mỗi bên (vinh danh) — sort giảm dần theo điểm đóng góp.
       // Có thể Bật/tắt qua config.championsEnabled (mặc định bật).
       topA: this.config.championsEnabled !== false ? this._topGifters('A') : [],
@@ -1695,6 +1706,8 @@ class PkDuoEngine {
       skin: this.config.skin || 'auto',
       // Kiểu giao diện overlay: 'hp' (mặc định, thanh trong hộp) | 'douyin' (thanh máu nổi kiểu Douyin).
       barLayout: this.config.barLayout || 'hp',
+      // 🌫️ Sương mù 10s cuối (overlay tự bật khi status running & còn ≤10s).
+      fogHide: !!this.config.fogHide,
     };
   }
   // Skin mũi tên hiển thị: 'random' → chốt 1 skin động cho mỗi vòng (start() gọi lại để đổi vòng sau).
@@ -2013,6 +2026,8 @@ class KcDuoEngine {
       drawSound: '',
       giftDisplayMode: 'scroll',
       skin: 'auto',
+      // 🌫️ Sương mù che thanh máu + số điểm ở 10 GIÂY CUỐI (kịch tính, lộ kết quả khi hết giờ). Mặc định BẬT.
+      fogHide: true,
     };
     this.state = {
       status: 'idle', // 'idle' | 'prestart' | 'running' | 'grace' | 'finished'
@@ -2090,6 +2105,8 @@ class KcDuoEngine {
       flipMarginMode: this.config.flipMarginMode || 'percent',
       winnerSide: this.state.winnerSide || '',
       skin: this.config.skin || 'auto',
+      // 🌫️ Sương mù 10s cuối (overlay tự bật khi status running & còn ≤10s).
+      fogHide: !!this.config.fogHide,
     };
   }
   _pushPercent() {
@@ -2357,6 +2374,23 @@ class PkGroupEngine {
       // 🎨 Skin mùa lễ cho thanh máu — CHỈ trang trí (khung/hạt/màu), không đụng logic điểm/độ rộng.
       // auto = tự chọn theo ngày; none = mặc định; noel|halloween|newyear|tet|valentine|trungthu|birthday.
       skin: 'auto',
+      // ⚔️ Overlay FX toàn màn hình PK Nhóm (nguồn OBS riêng) — CHỈ áp dụng kiểu "Rời nhau theo TOP 1".
+      // Vẽ N-1 gạch ranh giới (đen + màu theo fx) ở khe giữa các Thành viên + phủ hiệu ứng băng/lửa…
+      // lên người KÉM TOP 1 (đậm dần theo khoảng cách điểm). Dùng CHUNG stream /pk-group-events; các
+      // field này chỉ overlay FX đọc (banner PK Nhóm bỏ qua). fxStyle: 'auto'|freeze|fire|water|dim|electric|poison|shadow|shatter.
+      fxEnabled: true,
+      fxStyle: 'auto',
+      fxThreshold: 8,
+      fxMaxGap: 30,        // (cũ, % — không còn dùng cho độ ngập; giữ để tương thích cấu hình cũ)
+      fxIntensityCap: 100,
+      fxFullPoints: 100,   // ⛴️ ĐIỂM TRẦN: kém TOP 1 TUYỆT ĐỐI ≥ ngần này → ngập FULL; dưới thì dâng dần từ đáy
+      fxTopSafe: 14,       // % chừa MÉP TRÊN (TikTok che điểm) để luôn thấy đợt sóng mặt nước lên xuống
+      fxSeam: true,
+      // Số người BỊ hiệu ứng bên thua (bottom-K theo điểm). 0 = TẤT CẢ trừ TOP 1; K = chỉ K người điểm
+      // thấp nhất. Overlay tự kẹp về [1, N-1] (5 người → tối đa 4, tối thiểu 1).
+      fxLoserCount: 0,
+      // 🌫️ Sương mù che thanh máu + số điểm ở 10 GIÂY CUỐI (kịch tính, lộ kết quả khi hết giờ). Mặc định BẬT.
+      fogHide: true,
       participants: [],
     };
     this.state = {
@@ -2457,6 +2491,19 @@ class PkGroupEngine {
       overlayScale: this.config.overlayScale,
       showMvpTotals: !!this.config.showMvpTotals,
       skin: this.config.skin || 'auto',
+      // ⚔️ Cấu hình overlay FX toàn màn hình (chỉ overlay FX đọc). roundNo cho fxStyle='auto' đổi theo vòng.
+      roundNo: this.state.roundNo,
+      fxEnabled: this.config.fxEnabled !== false,
+      fxStyle: this.config.fxStyle || 'auto',
+      fxThreshold: this.config.fxThreshold,
+      fxMaxGap: this.config.fxMaxGap,
+      fxIntensityCap: this.config.fxIntensityCap,
+      fxFullPoints: this.config.fxFullPoints,
+      fxTopSafe: this.config.fxTopSafe,
+      fxSeam: this.config.fxSeam !== false,
+      fxLoserCount: Number(this.config.fxLoserCount) || 0,
+      // 🌫️ Sương mù 10s cuối (overlay tự bật khi status running & còn ≤10s).
+      fogHide: !!this.config.fogHide,
     };
   }
   // Kiểu FX đánh dấu người vào trận: 'random' → chốt 1 kiểu cho mỗi vòng; 'off' → tắt hẳn.
@@ -3610,6 +3657,9 @@ class ScoreEngine {
       avatarThreshold: 1000,     // quà ≥ ngưỡng này → hiện avatar người tặng trong huy hiệu
       runnerDust: true,          // bụi trắng "chờ tăng tốc" (tắt cho nhẹ OBS máy yếu)
       dashSound: '',             // tiếng "vút" khi quà lớn bứt tốc (tùy chọn)
+      // 🌫️ Sương mù che thanh máu + số điểm ở 10 GIÂY CUỐI (kịch tính, lộ kết quả khi hết giờ). Mặc định BẬT.
+      // (Kiểu THỜI GIAN chỉ che SỐ ĐIỂM, giữ nguyên thanh đồng hồ.) Truyền tới overlay qua ...this.config.
+      fogHide: true,
     };
     this.state = {
       score: 0,
@@ -3886,6 +3936,179 @@ class MissionTrioEngine {
   _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
 }
 
+// ----------------- NHIỆM VỤ · TÁP TIM (Bức tường thả tim — 点赞墙 Douyin) -----------------
+// BXH người XEM táp tim nhiều nhất trong phiên LIVE, cộng dồn theo TỪNG người (userId/uniqueId).
+//  • Tường topN ô (mặc định 9): mỗi ô = avatar + tên (chạy chữ) + thanh máu (người top = 100%).
+//  • Thanh máu TỔNG dưới cùng = tổng tim cả phòng / mục tiêu (KPI).
+//  • Ticker: người VỪA táp + số combo lượt (likeCount của lượt đó) — vinh danh người đang táp.
+//  • Popup DANH HIỆU: khi tim TÍCH LUỸ của 1 người vượt MỐC (200/500/1000…) → toast 2-3s (点赞萌新).
+// Nguồn dữ liệu = sự kiện `like` của tiktok-live-connector (likeCount mỗi lượt, gộp ≤~15). BẮT ĐẦU
+// mở đếm + reset về 0; Reset về 0 + dừng. Trạng thái ghi live-runtime.json để không mất khi văng.
+const LIKE_WALL_TIERS = [
+  { at: 200, name: 'Tân binh' },
+  { at: 500, name: 'Đồng' },
+  { at: 1000, name: 'Bạc' },
+  { at: 2000, name: 'Vàng' },
+  { at: 5000, name: 'Bạch kim' },
+  { at: 10000, name: 'Kim cương' },
+];
+class LikeWallEngine {
+  constructor({ onState }) {
+    this.onState = onState;
+    this.config = {
+      title: 'BỨC TƯỜNG THẢ TIM',
+      target: 5000,               // mục tiêu tổng tim (thanh máu dưới cùng)
+      topN: 9,                    // số ô hiển thị
+      barColor1: '#ff2e4d',       // màu đậm (mép thanh máu đang tiến)
+      barColor2: '#ff8a9a',       // màu nhạt (đầu thanh)
+      cardBgColor: '#3a3d46', cardBgOpacity: 0.70,   // nền xám bao ngoài
+      cellBgColor: '#000000', cellBgOpacity: 0.50,   // nền đậm mỗi ô
+      titleColor: '#ffffff',
+      nameMaxChars: 6,            // tên dài hơn ngưỡng ký tự → chạy chữ
+      showTicker: true,
+      overlayScale: 200,
+      // Khung avatar VIP cho TOP 1-5 (bộ khung VINH DANH renderer/mvp-frames, phục vụ qua /mvp-frames/).
+      framesEnabled: true,
+      frameScale: 172,            // bề rộng khung = avatar × %/100 (đúng tỉ lệ khung MVP Honor)
+      frames: { 1: '2.png', 2: '7.png', 3: '12.png', 4: '19.png', 5: '29.png' },
+      popupEnabled: true,         // bật popup danh hiệu
+      popupMs: 2600,              // thời gian hiện popup (ms)
+      tiers: LIKE_WALL_TIERS.map(t => ({ ...t })),
+    };
+    // users: Map(uid -> { uid, nickname, avatar, avatarKey, count, tier }) — tier = mốc danh hiệu cao nhất đã đạt.
+    this.state = { running: false, users: new Map(), total: 0, lastTapper: null, toast: null, toastSeq: 0 };
+  }
+  setConfig(patch) {
+    patch = patch || {};
+    const c = this.config;
+    let tiers = c.tiers;
+    if (Array.isArray(patch.tiers)) {
+      tiers = patch.tiers
+        .map(t => ({ at: Math.max(1, Math.round(Number(t.at) || 0)), name: String(t.name || '').slice(0, 24) }))
+        .filter(t => t.at > 0 && t.name)
+        .sort((a, b) => a.at - b.at);
+      if (!tiers.length) tiers = c.tiers;
+    }
+    const numOr = (v, dv) => (Number.isFinite(+v) ? +v : dv);
+    // Khung TOP 1-5: chỉ nhận tên file .png/.apng an toàn; thiếu rank nào thì giữ khung cũ.
+    let frames = { ...c.frames };
+    if (patch.frames && typeof patch.frames === 'object') {
+      for (const k of ['1', '2', '3', '4', '5']) {
+        if (!(k in patch.frames)) continue;
+        const v = String(patch.frames[k] || '').trim();
+        if (/^[\w.-]+\.(png|apng)$/i.test(v)) frames[k] = v; else delete frames[k];
+      }
+    }
+    this.config = {
+      title: patch.title != null ? String(patch.title).slice(0, 60) : c.title,
+      target: Math.max(1, Math.round(numOr(patch.target, c.target))),
+      topN: Math.max(1, Math.min(12, Math.round(numOr(patch.topN, c.topN)))),
+      barColor1: patch.barColor1 || c.barColor1,
+      barColor2: patch.barColor2 || c.barColor2,
+      cardBgColor: patch.cardBgColor || c.cardBgColor,
+      cardBgOpacity: Math.max(0, Math.min(1, numOr(patch.cardBgOpacity, c.cardBgOpacity))),
+      cellBgColor: patch.cellBgColor || c.cellBgColor,
+      cellBgOpacity: Math.max(0, Math.min(1, numOr(patch.cellBgOpacity, c.cellBgOpacity))),
+      titleColor: patch.titleColor || c.titleColor,
+      nameMaxChars: Math.max(3, Math.min(40, Math.round(numOr(patch.nameMaxChars, c.nameMaxChars)))),
+      showTicker: patch.showTicker != null ? !!patch.showTicker : c.showTicker,
+      overlayScale: Math.max(50, Math.min(300, Math.round(numOr(patch.overlayScale, c.overlayScale)))),
+      framesEnabled: patch.framesEnabled != null ? !!patch.framesEnabled : c.framesEnabled,
+      frameScale: Math.max(120, Math.min(240, Math.round(numOr(patch.frameScale, c.frameScale)))),
+      frames,
+      popupEnabled: patch.popupEnabled != null ? !!patch.popupEnabled : c.popupEnabled,
+      popupMs: Math.max(1200, Math.min(8000, Math.round(numOr(patch.popupMs, c.popupMs)))),
+      tiers,
+    };
+    this._emit();
+  }
+  start() { this.state = { running: true, users: new Map(), total: 0, lastTapper: null, toast: null, toastSeq: 0 }; this._emit(); }
+  reset() { this.state = { running: false, users: new Map(), total: 0, lastTapper: null, toast: null, toastSeq: 0 }; this._emit(); }
+  stop() { this.state.running = false; this._emit(); }
+  // Cộng tim cho 1 người (dùng chung cho like thật + test). fromLive=true mới cập nhật ticker "đang táp".
+  _add(uid, nickname, avatar, inc, fromLive) {
+    uid = String(uid || '');
+    if (!uid) return;
+    let u = this.state.users.get(uid);
+    if (!u) { u = { uid, nickname: '', avatar: '', avatarKey: '', count: 0, tier: -1 }; this.state.users.set(uid, u); }
+    if (nickname) u.nickname = String(nickname);
+    if (avatar) u.avatar = String(avatar);
+    u.count += inc;
+    this.state.total += inc;
+    if (fromLive) this.state.lastTapper = { nickname: u.nickname || 'Người xem', avatar: u.avatar, avatarKey: u.avatarKey || '', combo: inc };
+    // Mốc danh hiệu: tìm cấp CAO NHẤT vừa vượt (luôn cập nhật tier để không bùng loạt khi bật lại popup).
+    const tiers = this.config.tiers || [];
+    let idx = -1;
+    for (let i = 0; i < tiers.length; i++) if (u.count >= tiers[i].at) idx = i;
+    if (idx > u.tier) {
+      u.tier = idx;
+      if (this.config.popupEnabled) {
+        const t = tiers[idx];
+        this.state.toast = { name: t.name, tierNo: idx + 1, at: t.at, nickname: u.nickname || 'Người xem', avatar: u.avatar, avatarKey: u.avatarKey || '', count: u.count, seq: ++this.state.toastSeq };
+      }
+    }
+    this._emit();
+  }
+  routeLike(ev) {
+    if (!this.state.running || !ev) return;
+    const inc = Math.max(1, Number(ev.likeCount) || 1);
+    this._add(ev.uniqueId || ev.userId, ev.nickname, ev.avatar, inc, true);
+  }
+  // TEST thủ công: đổ tim vào vài người xem GIẢ để canh giao diện (không cần LIVE).
+  bump(amount) {
+    const n = Math.max(1, Math.round(Number(amount) || 1));
+    const demo = ['雾隐灯', '如果取名有天赋', '黎黎', '壹零', '盐焗虾', '所有人父亲', 'Mèo Con', 'Bông Xù', 'zin zin'];
+    const i = Math.floor(Math.random() * demo.length);
+    this._add('demo-' + i, demo[i], '', n, true);
+  }
+  getStateForOverlay() {
+    const topN = Math.max(1, Math.min(12, this.config.topN || 9));
+    const arr = [...this.state.users.values()].filter(u => u.count > 0).sort((a, b) => b.count - a.count).slice(0, topN);
+    const topCount = arr.length ? arr[0].count : 0;
+    const rows = arr.map((u, i) => ({
+      rank: i + 1,
+      name: u.nickname || 'Người xem',
+      avatar: u.avatar || '',
+      avatarKey: u.avatarKey || '',
+      count: u.count,
+      pct: topCount ? Math.max(4, (u.count / topCount) * 100) : 0,
+    }));
+    return {
+      ...this.config,
+      running: this.state.running,
+      rows,
+      total: this.state.total,
+      ticker: (this.config.showTicker && this.state.lastTapper) ? this.state.lastTapper : null,
+      toast: this.state.toast,
+      toastSeq: this.state.toastSeq,
+    };
+  }
+  snapshotRuntime() {
+    return {
+      running: this.state.running,
+      total: this.state.total,
+      toastSeq: this.state.toastSeq,
+      users: [...this.state.users.values()].map(u => ({ uid: u.uid, nickname: u.nickname, avatar: u.avatar, avatarKey: u.avatarKey, count: u.count, tier: u.tier })),
+    };
+  }
+  restoreRuntime(s) {
+    if (!s || typeof s !== 'object') return;
+    const users = new Map();
+    if (Array.isArray(s.users)) for (const u of s.users) {
+      if (!u || !u.uid) continue;
+      users.set(String(u.uid), { uid: String(u.uid), nickname: u.nickname || '', avatar: u.avatar || '', avatarKey: u.avatarKey || '', count: Math.max(0, Number(u.count) || 0), tier: Number.isFinite(+u.tier) ? +u.tier : -1 });
+    }
+    this.state.users = users;
+    this.state.total = Math.max(0, Number(s.total) || 0);
+    this.state.toastSeq = Math.max(0, Number(s.toastSeq) || 0);
+    this.state.running = !!s.running;
+    this.state.lastTapper = null;
+    this.state.toast = null;
+    this._emit();
+  }
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
 // =================================================================
 // THẺ BÀI — MC táp tim (KPI) để lật thẻ. Overlay tương tác được:
 // bấm thẻ nào (OBS Interact / cửa sổ Review) là lật thẻ đó.
@@ -3919,6 +4142,31 @@ const CARD_FLIP_DEFAULT = {
   particles: true,          // pháo hoa/lấp lánh khi lộ thẻ
 };
 const CARD_FX_STYLES = ['ring', 'fan', 'stack', 'fly', 'wave', 'tunnel', 'helix', 'spiral'];
+// Tên thư mục bộ thẻ hợp lệ (chống path traversal) — dùng chung cho quét + kiểm tra + serve ảnh.
+const CARD_STYLE_SLUG = /^[\w-]{1,40}$/;
+// Quét renderer/card-assets tìm MỌI bộ thẻ (thư mục có đủ back.png + front.png). Gọi mỗi lần
+// mở app/list → có bộ mới là tự thấy, không cần sửa code. Bộ mặc định gold/pink lên đầu.
+function listCardStyles() {
+  try {
+    const dir = path.join(ROOT, 'renderer', 'card-assets');
+    const out = [];
+    for (const name of fs.readdirSync(dir)) {
+      if (!CARD_STYLE_SLUG.test(name)) continue;
+      try {
+        const sub = path.join(dir, name);
+        if (!fs.statSync(sub).isDirectory()) continue;
+        if (fs.existsSync(path.join(sub, 'back.png')) && fs.existsSync(path.join(sub, 'front.png'))) out.push(name);
+      } catch {}
+    }
+    const pri = ['gold', 'pink'];
+    out.sort((a, b) => {
+      const ia = pri.indexOf(a), ib = pri.indexOf(b);
+      if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      return a.localeCompare(b);
+    });
+    return out.length ? out : ['gold', 'pink'];
+  } catch { return ['gold', 'pink']; }
+}
 class CardFlipEngine {
   constructor({ onState }) {
     this.onState = onState;
@@ -3952,7 +4200,7 @@ class CardFlipEngine {
     this.config = {
       title: patch.title != null ? String(patch.title).slice(0, 80) : c.title,
       heartTarget: patch.heartTarget != null ? this._clampInt(patch.heartTarget, c.heartTarget, 0, 100000000) : c.heartTarget,
-      cardStyle: patch.cardStyle === 'pink' ? 'pink' : (patch.cardStyle === 'gold' ? 'gold' : c.cardStyle),
+      cardStyle: (patch.cardStyle != null && CARD_STYLE_SLUG.test(patch.cardStyle)) ? String(patch.cardStyle) : c.cardStyle,
       cardSize: patch.cardSize != null ? this._clampInt(patch.cardSize, c.cardSize, 60, 400) : c.cardSize,
       fontSize: patch.fontSize != null ? this._clampInt(patch.fontSize, c.fontSize, 8, 80) : c.fontSize,
       cardTextSize: patch.cardTextSize != null ? this._clampInt(patch.cardTextSize, c.cardTextSize, 8, 90) : c.cardTextSize,
@@ -4398,6 +4646,14 @@ function bootstrapEngines() {
     },
   });
   if (settings.missionTrio) missionTrioEngine.setConfig(settings.missionTrio);
+  likeWallEngine = new LikeWallEngine({
+    onState: (st) => {
+      overlayServer?.sendLikeWall(st);
+      throttledBroadcast('likewall:state', st);
+      scheduleLiveRuntimeSave(); // chống mất số tim tích luỹ khi văng
+    },
+  });
+  if (settings.likeWall) likeWallEngine.setConfig(settings.likeWall);
   cardFlipEngine = new CardFlipEngine({
     onState: (st) => {
       overlayServer?.sendCardFlip(st);
@@ -4430,6 +4686,7 @@ function bootstrapEngines() {
       try { pkDuoEngine.restoreRuntime(rt.pkduo, opt); } catch {}
       try { kcDuoEngine.restoreRuntime(rt.kcduo, opt); } catch {}
       try { pkGroupEngine.restoreRuntime(rt.pkgroup, opt); } catch {}
+      try { likeWallEngine.restoreRuntime(rt.likewall); } catch {}
     }
   } catch {}
 
@@ -4443,6 +4700,7 @@ function bootstrapEngines() {
   mvpHonorEngine._emit();
   luckyWheelEngine._emit();
   missionTrioEngine._emit();
+  likeWallEngine._emit();
   cardFlipEngine._emit();
   danceVideoEngine.emitAll();
   overlayServer?.sendGiftMenu(giftMenuConfig);
@@ -4527,7 +4785,7 @@ function bootstrapTikTok() {
   // dispatch ở renderer → làm nghẽn main-thread của renderer → gõ ID/đổi số/thời gian bị đơ,
   // "phải chờ 1 lúc mới nhập được rồi lại đơ". Vì vậy CHỈ route vào engine + cache avatar ở
   // main, KHÔNG gửi sang renderer nữa (overlay lấy dữ liệu qua SSE riêng, không ảnh hưởng).
-  ttClient.on('like', (d) => { _cacheAvatar(d); missionTrioEngine?.routeLike(d); cardFlipEngine?.routeLike(d); });
+  ttClient.on('like', (d) => { _cacheAvatar(d); missionTrioEngine?.routeLike(d); likeWallEngine?.routeLike(d); cardFlipEngine?.routeLike(d); });
   ttClient.on('member', (d) => { _cacheAvatar(d); });
   ttClient.on('follow', (d) => { _cacheAvatar(d); });
   ttClient.on('share', (d) => { _cacheAvatar(d); });
@@ -4538,9 +4796,9 @@ function bootstrapTikTok() {
 // Nhóm có nhiều overlay: PK Đôi (pkduo + pkduofx), Thi đấu (ranking dọc + rankinggrid ngang),
 // Tính điểm (score/scorebar/scorecard/scoretimer), Thẻ bài (cardflip + cardflipfx), Nhạc Dance (3 kênh).
 const OVERLAY_SCENE_KEYS = [
-  'pkduo', 'pkduofx', 'kcduo', 'pkgroup', 'ranking', 'rankinggrid',
+  'pkduo', 'pkduofx', 'kcduo', 'pkgroup', 'pkgroupfx', 'ranking', 'rankinggrid',
   'score', 'scorebar', 'scorecard', 'scoretimer', 'sticker', 'giftmenu',
-  'mvphonor', 'luckywheel', 'missiontrio', 'cardflip', 'cardflipfx',
+  'mvphonor', 'luckywheel', 'missiontrio', 'likewall', 'cardflip', 'cardflipfx',
   'dancevideo', 'dancevideo2', 'dancevideo3', 'interact',
 ];
 // Đọc cấu hình ẩn/hiện overlay (chuẩn hoá + mặc định): hiện hết, tự-theo-menu BẬT, ghim sẵn TƯƠNG TÁC + Menu Quà.
@@ -4953,6 +5211,7 @@ function registerIpc() {
     return result;
   });
   ipcMain.handle('pkgroup:getUrl', () => overlayServer.getPkGroupUrl());
+  ipcMain.handle('pkgroup:getFxUrl', () => overlayServer.getPkGroupFxUrl());
 
   // DANH SÁCH NHẠC (quà → clip audio). Audio phát ở renderer; main chỉ lưu cấu hình.
   ipcMain.handle('musiclist:getState', () => loadMusicList() || { items: [], duckWaiting: true, bgEnabled: false });
@@ -5216,7 +5475,13 @@ function registerIpc() {
   // ===== Liên kết điểm mini-game → THI ĐẤU NHÓM (contestPoints), idempotent + hoàn tác =====
   // 🎯 Tính điểm: cộng số điểm đạt được vào 1 Creator (thường là Creator đang VOTE).
   ipcMain.handle('ranking:applyScore', (_e, { creatorId, points, label } = {}) => {
-    const pts = Number(points) || 0;
+    // Thanh LIVE trên BXH đang hiển thị = rankingEngine.scores[creatorId].points (bucket live cộng dồn
+    // TOÀN phiên LIVE). Bucket này có thể LỚN hơn st.score (bộ đếm ScoreEngine reset về 0 lúc bấm bắt đầu →
+    // chỉ đếm quà TRONG phiên Tính điểm) vì còn ôm điểm LIVE chưa Chốt vòng có TỪ TRƯỚC phiên. Bên dưới ta
+    // XÓA cả bucket live để tránh cộng đôi → nếu chỉ cộng st.score thì phần điểm live trước phiên sẽ BỐC HƠI
+    // (bug: BXH tụt điểm khi hết giờ). Vì vậy gộp ĐÚNG bằng bucket live khi có; st.score chỉ dùng cho nhãn.
+    const live = Number(rankingEngine?.scores?.[creatorId]?.points) || 0;
+    const pts = live > 0 ? live : (Number(points) || 0);
     if (!creatorId || !pts) return { ok: false, reason: 'invalid' };
     const res = applyDeltaBatchToCreators([{ creatorId, delta: pts }], { label: label || '🎯 Tính điểm', source: 'score' });
     // CHỐNG CỘNG ĐÔI ("nhân 2 điểm"): trong phiên 🎯 Tính điểm có VOTE, BXH ĐÃ tự cộng LIVE từng món quà
@@ -5343,6 +5608,13 @@ function registerIpc() {
   ipcMain.handle('missiontrio:reset', () => { missionTrioEngine.reset(); return true; });
   ipcMain.handle('missiontrio:bump', (_e, { kind, amount } = {}) => { missionTrioEngine.bump(kind, amount); return true; });
   ipcMain.handle('missiontrio:getUrl', (_e, mode) => overlayServer.getMissionTrioUrl(mode));
+  ipcMain.handle('likewall:getState', () => likeWallEngine.getStateForOverlay());
+  ipcMain.handle('likewall:setConfig', (_e, cfg) => { likeWallEngine.setConfig(cfg); settings.likeWall = likeWallEngine.config; saveSettings(); return likeWallEngine.config; });
+  ipcMain.handle('likewall:start', () => { likeWallEngine.start(); return true; });
+  ipcMain.handle('likewall:stop', () => { likeWallEngine.stop(); return true; });
+  ipcMain.handle('likewall:reset', () => { likeWallEngine.reset(); return true; });
+  ipcMain.handle('likewall:bump', (_e, { amount } = {}) => { likeWallEngine.bump(amount); return true; });
+  ipcMain.handle('likewall:getUrl', () => overlayServer.getLikeWallUrl());
 
   // ===== THẺ BÀI =====
   ipcMain.handle('cardflip:getState', () => cardFlipEngine.getStateForOverlay());
@@ -5353,6 +5625,7 @@ function registerIpc() {
   ipcMain.handle('cardflip:setHearts', (_e, n) => { cardFlipEngine.setHearts(n); return true; });
   ipcMain.handle('cardflip:flip', (_e, { id, value } = {}) => { cardFlipEngine.flipCard(id, value); settings.cardFlip = cardFlipEngine.config; saveSettings(); return true; });
   ipcMain.handle('cardflip:select', (_e, { id, value } = {}) => { cardFlipEngine.selectCard(id, value); settings.cardFlip = cardFlipEngine.config; saveSettings(); return true; });
+  ipcMain.handle('cardflip:listStyles', () => listCardStyles());
   ipcMain.handle('cardflip:getUrl', () => overlayServer.getCardFlipUrl());
   ipcMain.handle('cardflip:getFxUrl', () => overlayServer.getCardFlipFxUrl());
 

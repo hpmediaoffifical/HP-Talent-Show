@@ -323,6 +323,14 @@ function render(state = {}) {
   // Cỡ chữ tên (đồng bộ board style) để ĐO bề rộng tên → nền pill dài ĐÚNG theo tên (fit-content thông
   // minh): cột đủ rộng thì tên hiện đầy đủ và nền chỉ dài thêm, cột hẹp thì nền kẹp 100% cột + tên cắt gọn.
   const nameScaleM = Math.max(.9, Math.min(3, ((parseInt(state.nameSize, 10) || 100) / 100) * 1.5));
+  // 🌫️ Sương mù 10s cuối: che thanh máu + số điểm (đồng hồ ở tiêu đề vẫn hiện) → giấu ai đang dẫn tới giây
+  // chót. Bố cục GỘP: 1 veil phủ cả thanh (ẩn ranh giới các segment). Bố cục RỜI: mỗi thẻ 1 veil (ẩn độ dài
+  // thanh). class fog-on ẩn số/hạng/vương miện bên dưới.
+  const fog = !!state.fogHide && urgent;
+  // Chú thích "SƯƠNG MÙ" chỉ hiện MỘT lần: bố cục Gộp = trên thanh chung; Rời = chỉ thẻ ĐẦU (các thẻ sau
+  // dùng bản KHÔNG chữ để khỏi lặp rối).
+  const fogVeil = fog && window.OverlayFog ? OverlayFog.veilHtml({ label: 'SƯƠNG MÙ' }) : '';
+  const fogVeilPlain = fog && window.OverlayFog ? OverlayFog.veilHtml() : '';
   const mvpTotalText = (p) => fmt(p.mvpTotal);
   const mvpTotalBadgePx = (p) => showMvpTotals
     ? Math.max(pkgText * .92, textPx(mvpTotalText(p), pkgText * .58, 950) + pkgText * .28)
@@ -355,7 +363,7 @@ function render(state = {}) {
           const num = `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`;
           const crowned = isLeader && leaderChanged;
           return `<div class="pkg-segment${isLeader ? ' leader' : ''}${narrow ? ' narrow' : ''}${crowned ? ' crowned' : ''}${edge}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">${isLeader ? '<i class="pkg-flow" aria-hidden="true"></i>' : ''}<b><em>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i>${num}` : num}</em></b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${crowned ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${joinedDirOf(p)}" aria-hidden="true"><i></i></span>` : ''}</div>`;
-        }).join('')}</div>
+        }).join('')}${fogVeil}</div>
         <div class="pkg-joined-gifts">${participants.map(p => {
           const showDonors = widthOf(p) >= donorFitPct(p.topDonors);
           const giftsHtml = tiktokMode ? '' : (p.gifts || []).map(giftHtml).join('');
@@ -363,14 +371,14 @@ function render(state = {}) {
           return `<div class="${showDonors ? '' : 'donors-hidden'}${tiktokMode ? ' tiktok' : ''}" style="--c:${esc(p.color || '#FE2C55')}">${giftsHtml}${showDonors ? donorsHtml(p.topDonors) : ''}</div>`;
         }).join('')}</div>
       </div>`
-    : `<div class="pkg-separated-list">${participants.map(p => {
+    : `<div class="pkg-separated-list">${participants.map((p, idx) => {
         const score = Number(p.score) || 0;
         const width = widthOf(p);
         const isLeader = p.id === leaderId;
         const tc = textColorFor(p.color);
         return `<div class="pkg-card${isLeader ? ' leader' : ''}" data-rank="${rankMap.get(p.id) || ''}" style="--c:${esc(p.color || '#FE2C55')};--cr:${hexToRgb(p.color, '254,44,85')};--tc:${tc};--tsh:${textShadowFor(tc)}">
           <div class="pkg-card-person${showMvpTotals ? ' has-mvp-total' : ''}">${p.avatar ? avatarImg(p.avatar, p.avatarKey) : ''}<span class="pkg-name-chip"><b>${esc(shortName(p.name || p.tiktokId || 'Creator'))}</b>${totalMvpHtml(p)}</span></div>
-          <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i><span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}</div></div>
+          <div class="pkg-card-head"><div class="pkg-card-bar${isLeader ? ' leader' : ''}${isLeader && leaderChanged ? ' crowned' : ''}"><i style="width:var(${cardVar(p.id)}, ${width}%)"></i><b>${isLeader ? `<i class="pkg-rank-tag">Hạng 1</i><span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>` : `<span class="pkg-num" data-score-id="${esc(p.id)}">${fmt(score)}</span>`}</b>${gained.has(p.id) ? '<span class="pkg-surge" aria-hidden="true"></span><span class="pkg-shock" aria-hidden="true"></span>' : ''}${isLeader && leaderChanged ? '<span class="pkg-crown-burst" aria-hidden="true"></span>' : ''}${boostActive && state.boostId === p.id ? `<span class="pkg-boost dir-${boostDir}" style="--boost-left:${width}%" aria-hidden="true"><i></i></span>` : ''}${idx === 0 ? fogVeil : fogVeilPlain}</div></div>
           <div class="pkg-card-gifts${tiktokMode ? ' tiktok' : ''}">${tiktokMode ? '' : (p.gifts || []).map(giftHtml).join('')}${donorsHtml(p.topDonors)}</div>
         </div>`;
       }).join('')}</div>`;
@@ -394,7 +402,7 @@ function render(state = {}) {
   }
   applySkin(state);
   const board = root.querySelector('.pkg-board');
-  board.className = `pkg-board mode-${layout} status-${esc(status)}${urgent ? ' urgent' : ''}${state.sepSolidBg ? ' sep-solid' : ''}`;
+  board.className = `pkg-board mode-${layout} status-${esc(status)}${urgent ? ' urgent' : ''}${state.sepSolidBg ? ' sep-solid' : ''}${fog ? ' fog-on' : ''}`;
   // Baseline ×1.5: mức 100% trên giao diện = cỡ như 150% trước đây (avatar + tên to hơn mặc định).
   const nameScale = Math.max(.9, Math.min(3, ((parseInt(state.nameSize, 10) || 100) / 100) * 1.5));
   const nextBoardStyleKey = [state.textSize, state.giftSize, state.separatedGap, overlayScale, nameScale].join('|');

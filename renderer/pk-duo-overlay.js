@@ -242,6 +242,10 @@ function render(state = {}) {
   // Mũi tên ĐỨNG YÊN, chỉ về phía bên đang bị đẩy (bên thua): A dẫn → chỉ phải (về B); B dẫn → flip chỉ trái.
   const centerClass = neutral ? 'neutral' : (aLead ? '' : 'flip');
   const barClass = neutral ? 'neutral' : (aLead ? 'lead-a' : 'lead-b');
+  // 🌫️ Sương mù 10s cuối: che thanh máu + số điểm (đồng hồ đếm lùi ở head/hàng dưới vẫn hiện) → giấu ai
+  // đang dẫn tới tận giây chót, hết giờ mới lộ. Veil chèn trong thanh; class fog-on ẩn số/nhãn bên dưới.
+  const fog = !!state.fogHide && urgent;
+  const fogVeil = fog && window.OverlayFog ? OverlayFog.veilHtml({ label: 'SƯƠNG MÙ' }) : '';
 
   // ===== SKIN MŨI TÊN =====
   // classic (đứng yên chỉ hướng) | core (lõi động lượng) | cannon (pháo combo). Đã bỏ "rope" (kéo co).
@@ -324,6 +328,7 @@ function render(state = {}) {
       <em class="${emClass}" style="--pk-surge:${esc(surgeCol)};--pk-surge-rgb:${hexToRgb(surgeCol, '55,213,255')}">${emInner}${comboBadge}</em>
       <span class="pkduo-team-label b">HP MEDIA</span>
       <strong class="score-b">${fmt(state.scoreB)}</strong>
+      ${fogVeil}
     </div>`;
 
   const boardStyle = `
@@ -340,7 +345,7 @@ function render(state = {}) {
     --pk-gift-delay:${giftDelay}s;
     --pk-flow-delay:${flowDelay}s;
     --pk-champ-delay:${champDelay}s`;
-  const boardClass = `pkduo-board status-${esc(status)} gift-${giftMode}${singleGiftMode ? ' gift-single' : ''}${urgent ? ' urgent' : ''}${tick10 ? ' tick10' : ''}${finalCount ? ' final-count' : ''} ${barClass}${gainClass ? ' ' + gainClass : ''}${hasChamps ? ' has-champs' : ''}`;
+  const boardClass = `pkduo-board status-${esc(status)} gift-${giftMode}${singleGiftMode ? ' gift-single' : ''}${urgent ? ' urgent' : ''}${tick10 ? ' tick10' : ''}${finalCount ? ' final-count' : ''} ${barClass}${gainClass ? ' ' + gainClass : ''}${hasChamps ? ' has-champs' : ''}${fog ? ' fog-on' : ''}`;
 
   if (state.barLayout === 'douyin') {
     // ===== BỐ CỤC DOUYIN =====
@@ -397,6 +402,7 @@ function render(state = {}) {
       <span class="dy-seam" aria-hidden="true"></span>
       ${showPush ? `<span class="dy-push ${dyPushSide}">+${fmt(dyPushAmt)}</span>` : ''}
       ${dyUrgent ? `<b class="dy-bigcount">${sec}</b>` : ''}
+      ${fogVeil}
     </div>
     <div class="dy-row">
       ${dyStreak(aStreak, 'a')}

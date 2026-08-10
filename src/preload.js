@@ -90,6 +90,7 @@ const api = {
     testGift: (id, qty, sign) => ipcRenderer.invoke('pkgroup:testGift', { id, qty, sign }),
     setMvpTotal: (creatorId, groupId, total) => ipcRenderer.invoke('pkgroup:setMvpTotal', { creatorId, groupId, total }),
     getUrl: () => ipcRenderer.invoke('pkgroup:getUrl'),
+    getFxUrl: () => ipcRenderer.invoke('pkgroup:getFxUrl'),
   },
 
   // ===== DANH SÁCH NHẠC (quà → clip audio) =====
@@ -158,6 +159,17 @@ const api = {
     getUrl: (mode) => ipcRenderer.invoke('missiontrio:getUrl', mode),
   },
 
+  // ===== NHIỆM VỤ · TÁP TIM (bức tường thả tim) =====
+  likewall: {
+    getState: () => ipcRenderer.invoke('likewall:getState'),
+    setConfig: (cfg) => ipcRenderer.invoke('likewall:setConfig', cfg),
+    start: () => ipcRenderer.invoke('likewall:start'),
+    stop: () => ipcRenderer.invoke('likewall:stop'),
+    reset: () => ipcRenderer.invoke('likewall:reset'),
+    bump: (amount) => ipcRenderer.invoke('likewall:bump', { amount }),
+    getUrl: () => ipcRenderer.invoke('likewall:getUrl'),
+  },
+
   // ===== THẺ BÀI (táp tim để lật thẻ) =====
   cardflip: {
     getState: () => ipcRenderer.invoke('cardflip:getState'),
@@ -168,6 +180,7 @@ const api = {
     setHearts: (n) => ipcRenderer.invoke('cardflip:setHearts', n),
     flip: (id, value) => ipcRenderer.invoke('cardflip:flip', { id, value }),
     select: (id, value) => ipcRenderer.invoke('cardflip:select', { id, value }),
+    listStyles: () => ipcRenderer.invoke('cardflip:listStyles'),
     getUrl: () => ipcRenderer.invoke('cardflip:getUrl'),
     getFxUrl: () => ipcRenderer.invoke('cardflip:getFxUrl'),
   },
@@ -333,7 +346,7 @@ const api = {
     const allowed = new Set([
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
-      'pkduo:state', 'pkduo:config', 'kcduo:state', 'kcduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'cardflip:state', 'dancevideo:ended',
+      'pkduo:state', 'pkduo:config', 'kcduo:state', 'kcduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'likewall:state', 'cardflip:state', 'dancevideo:ended',
       'history:changed', 'scoreHistory:changed', 'rankingHistory:changed', 'ranking:links',
       'playlist:update', 'playlist:requestState',
       'tt:recipientLearned',

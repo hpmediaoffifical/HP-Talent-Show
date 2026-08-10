@@ -151,6 +151,10 @@ function render(state = {}) {
   const neutral = Number(state.scoreA || 0) === Number(state.scoreB || 0);
   const aLead = Number(state.scoreA || 0) > Number(state.scoreB || 0);
   const barClass = neutral ? 'neutral' : (aLead ? 'lead-a' : 'lead-b');
+  // 🌫️ Sương mù 10s cuối: che thanh máu + số điểm (đồng hồ đếm lùi ở topline vẫn hiện) → giấu ai đang giữ
+  // ghế tới giây chót. Veil chèn trong .kc-bar; class fog-on ẩn số bên dưới.
+  const fog = !!state.fogHide && urgent;
+  const fogVeil = fog && window.OverlayFog ? OverlayFog.veilHtml({ label: 'SƯƠNG MÙ' }) : '';
 
   // Ngưỡng "lật kèo": vạch mốc ĐỔI phải vượt qua (lợi thế người đương nhiệm). Tính theo điểm hiện tại.
   const flipMargin = Math.max(0, Number(state.flipMargin) || 0);
@@ -198,7 +202,7 @@ function render(state = {}) {
     --kc-scale:${overlayScale};
     --kc-gift-delay:${giftDelay}s;
     --kc-beam-delay:${beamDelay}s`;
-  const boardClass = `kc-board status-${esc(status)} ${barClass} tpos-${timerPos}${urgent ? ' urgent' : ''}${tick10 ? ' tick10' : ''}${finalCount ? ' final-count' : ''}`;
+  const boardClass = `kc-board status-${esc(status)} ${barClass} tpos-${timerPos}${urgent ? ' urgent' : ''}${tick10 ? ' tick10' : ''}${finalCount ? ' final-count' : ''}${fog ? ' fog-on' : ''}`;
 
   const roundChip = `<span class="kc-chip kc-round" title="Số vòng đã chạy">Vòng:<b>${rounds}</b></span>`;
   const defendChip = defend > 0 ? `<span class="kc-chip kc-defend" title="Số vòng người đang diễn giữ được ghế">CHUỖI:<b>${defend}</b></span>` : '';
@@ -232,6 +236,7 @@ function render(state = {}) {
         <span class="kc-flare" aria-hidden="true"></span>
         <strong class="kc-score a">${fmt(state.scoreA)}</strong>
         <strong class="kc-score b">${fmt(state.scoreB)}</strong>
+        ${fogVeil}
       </div>
       <span class="kc-gift right">${giftLane(b.gifts, giftMode)}</span>
     </div>

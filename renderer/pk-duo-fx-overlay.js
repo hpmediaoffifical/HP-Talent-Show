@@ -14,6 +14,11 @@ const root = document.getElementById('pkfxRoot');
 const audio = document.getElementById('pkfxSound');
 
 const FX_STYLES = ['freeze', 'fire', 'water', 'dim', 'electric', 'poison', 'shadow', 'shatter'];
+// Màu "mặt nước" (ngọn 3D) mỗi kiểu FX — sáng hơn thân để bắt sáng rõ.
+const FX_CREST = {
+  freeze: '200,235,255', fire: '255,168,66', water: '120,205,255', dim: '150,160,182',
+  electric: '150,215,255', poison: '150,255,150', shadow: '176,124,240', shatter: '255,150,138',
+};
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('vi-VN'); }
@@ -32,55 +37,65 @@ function particles(cls, count, mk) {
 // Nhiều lớp chiều sâu (back/front/parallax) → cảm giác 3D, sinh động.
 function halfHtml(side) {
   const freeze = `<span class="fx fx-freeze">
+      <i class="fx-cast"></i>
       <i class="ice-slab"></i>
       <i class="frost-sheet"></i>
       <i class="frost-edge top"></i><i class="frost-edge bottom"></i><i class="frost-edge in"></i><i class="frost-edge out"></i>
       <i class="ice-crack"></i><i class="ice-shine"></i>
-      ${particles('crystals', 8, (i) => `<i class="crystal" style="--x:${(i * 11 + 6) % 100}%;--y:${(i * 23 + 8) % 100}%;--s:${0.6 + (i % 4) * 0.4};--d:${(i % 5) * 0.6}s"></i>`)}
-      ${particles('snow', 16, (i) => `<i class="flake" style="--x:${(i * 6 + 3) % 100}%;--d:${(i % 7) * 0.8}s;--dur:${6 + (i % 5)}s;--s:${0.5 + (i % 3) * 0.5};--sway:${(i % 2 ? 1 : -1) * (10 + i % 12)}px"></i>`)}
+      ${particles('crystals', 11, (i) => `<i class="crystal" style="--x:${(i * 11 + 6) % 100}%;--y:${(i * 23 + 8) % 100}%;--s:${0.6 + (i % 4) * 0.4};--d:${(i % 5) * 0.6}s"></i>`)}
+      ${particles('snow', 24, (i) => `<i class="flake" style="--x:${(i * 6 + 3) % 100}%;--d:${(i % 7) * 0.8}s;--dur:${6 + (i % 5)}s;--s:${0.5 + (i % 3) * 0.5};--sway:${(i % 2 ? 1 : -1) * (10 + i % 12)}px"></i>`)}
     </span>`;
   const fire = `<span class="fx fx-fire">
+      <i class="fx-cast"></i>
       <i class="fire-glow"></i>
-      <span class="flames back">${particles('', 5, (i) => `<i class="flame" style="--x:${12 + i * 19}%;--d:${(i % 4) * 0.2}s;--h:${0.7 + (i % 3) * 0.2};--w:${1 + (i % 2) * 0.4}"></i>`)}</span>
-      <span class="flames front">${particles('', 7, (i) => `<i class="flame" style="--x:${8 + i * 13}%;--d:${(i % 5) * 0.15}s;--h:${0.85 + (i % 3) * 0.25};--w:${0.8 + (i % 2) * 0.3}"></i>`)}</span>
-      <span class="smoke">${particles('', 4, (i) => `<i class="puff" style="--x:${18 + i * 22}%;--d:${i * 0.9}s;--dur:${4 + i}s"></i>`)}</span>
-      ${particles('embers', 18, (i) => `<i class="ember" style="--x:${(i * 6 + 4) % 100}%;--d:${(i % 8) * 0.35}s;--dur:${2.2 + (i % 5) * 0.5}s;--s:${0.5 + (i % 4) * 0.4};--drift:${(i % 2 ? 1 : -1) * (20 + i % 30)}px"></i>`)}
+      <span class="flames back">${particles('', 6, (i) => `<i class="flame" style="--x:${10 + i * 16}%;--d:${(i % 4) * 0.2}s;--h:${0.75 + (i % 3) * 0.2};--w:${1 + (i % 2) * 0.4}"></i>`)}</span>
+      <span class="flames front">${particles('', 9, (i) => `<i class="flame" style="--x:${6 + i * 10.5}%;--d:${(i % 5) * 0.15}s;--h:${0.9 + (i % 3) * 0.25};--w:${0.8 + (i % 2) * 0.3}"></i>`)}</span>
+      <span class="smoke">${particles('', 5, (i) => `<i class="puff" style="--x:${14 + i * 18}%;--d:${i * 0.8}s;--dur:${4 + i}s"></i>`)}</span>
+      ${particles('embers', 28, (i) => `<i class="ember" style="--x:${(i * 6 + 4) % 100}%;--d:${(i % 8) * 0.35}s;--dur:${2.2 + (i % 5) * 0.5}s;--s:${0.5 + (i % 4) * 0.4};--drift:${(i % 2 ? 1 : -1) * (20 + i % 30)}px"></i>`)}
       <i class="heat"></i>
     </span>`;
   const water = `<span class="fx fx-water">
+      <i class="fx-cast"></i>
       <i class="water-body">
         <i class="caustics"></i><i class="wave wave2"></i><i class="wave wave1"></i>
       </i>
       <i class="water-glass"></i>
-      ${particles('bubbles', 14, (i) => `<i class="bubble" style="--x:${(i * 7 + 5) % 100}%;--d:${(i % 6) * 0.5}s;--dur:${3 + (i % 5) * 0.6}s;--s:${0.4 + (i % 4) * 0.5};--drift:${(i % 2 ? 1 : -1) * (14 + i % 16)}px"></i>`)}
+      ${particles('bubbles', 20, (i) => `<i class="bubble" style="--x:${(i * 7 + 5) % 100}%;--d:${(i % 6) * 0.5}s;--dur:${3 + (i % 5) * 0.6}s;--s:${0.4 + (i % 4) * 0.5};--drift:${(i % 2 ? 1 : -1) * (14 + i % 16)}px"></i>`)}
     </span>`;
   const dim = `<span class="fx fx-dim">
+      <i class="fx-cast"></i>
       <i class="dim-scrim"></i><i class="dim-blocks"></i><i class="dim-scan"></i><i class="dim-rgb"></i><i class="dim-vignette"></i>
     </span>`;
   const electric = `<span class="fx fx-electric">
+      <i class="fx-cast"></i>
       <i class="volt-flash"></i>
-      <span class="bolts">${particles('', 5, (i) => `<i class="bolt" style="--x:${12 + i * 18}%;--d:${(i % 5) * 0.5}s;--dur:${1.6 + (i % 3) * 0.5}s;--s:${0.8 + (i % 3) * 0.3}"></i>`)}</span>
-      ${particles('sparks', 16, (i) => `<i class="spark" style="--x:${(i * 7 + 5) % 100}%;--y:${(i * 17 + 10) % 100}%;--d:${(i % 8) * 0.25}s;--dur:${1.2 + (i % 4) * 0.4}s"></i>`)}
+      <span class="bolts">${particles('', 6, (i) => `<i class="bolt" style="--x:${10 + i * 15}%;--d:${(i % 5) * 0.5}s;--dur:${1.6 + (i % 3) * 0.5}s;--s:${0.8 + (i % 3) * 0.3}"></i>`)}</span>
+      ${particles('sparks', 24, (i) => `<i class="spark" style="--x:${(i * 7 + 5) % 100}%;--y:${(i * 17 + 10) % 100}%;--d:${(i % 8) * 0.25}s;--dur:${1.2 + (i % 4) * 0.4}s"></i>`)}
       <i class="volt-vignette"></i>
     </span>`;
   const poison = `<span class="fx fx-poison">
+      <i class="fx-cast"></i>
       <i class="tox-fog"></i>
-      ${particles('toxb', 14, (i) => `<i class="toxbubble" style="--x:${(i * 7 + 4) % 100}%;--d:${(i % 6) * 0.5}s;--dur:${3 + (i % 5) * 0.7}s;--s:${0.5 + (i % 4) * 0.5};--drift:${(i % 2 ? 1 : -1) * (16 + i % 20)}px"></i>`)}
+      ${particles('toxb', 20, (i) => `<i class="toxbubble" style="--x:${(i * 7 + 4) % 100}%;--d:${(i % 6) * 0.5}s;--dur:${3 + (i % 5) * 0.7}s;--s:${0.5 + (i % 4) * 0.5};--drift:${(i % 2 ? 1 : -1) * (16 + i % 20)}px"></i>`)}
       <i class="tox-vignette"></i>
     </span>`;
   const shadow = `<span class="fx fx-shadow">
+      <i class="fx-cast"></i>
       <i class="shadow-core"></i>
       <i class="tendril top"></i><i class="tendril bottom"></i><i class="tendril in"></i><i class="tendril out"></i>
-      ${particles('wisps', 10, (i) => `<i class="wisp" style="--x:${(i * 11 + 5) % 100}%;--y:${(i * 19 + 10) % 100}%;--d:${(i % 6) * 0.6}s;--dur:${4 + (i % 4)}s;--s:${0.6 + (i % 3) * 0.5}"></i>`)}
+      ${particles('wisps', 14, (i) => `<i class="wisp" style="--x:${(i * 11 + 5) % 100}%;--y:${(i * 19 + 10) % 100}%;--d:${(i % 6) * 0.6}s;--dur:${4 + (i % 4)}s;--s:${0.6 + (i % 3) * 0.5}"></i>`)}
       <i class="shadow-vignette"></i>
     </span>`;
   const shatter = `<span class="fx fx-shatter">
+      <i class="fx-cast"></i>
       <i class="crack-glass"></i>
       <i class="shatter-flash"></i>
-      ${particles('shards', 10, (i) => `<i class="shard" style="--x:${(i * 11 + 6) % 100}%;--y:${(i * 13 + 8) % 100}%;--r:${(i * 37) % 360}deg;--d:${(i % 6) * 0.2}s;--s:${0.6 + (i % 4) * 0.5}"></i>`)}
+      ${particles('shards', 16, (i) => `<i class="shard" style="--x:${(i * 11 + 6) % 100}%;--y:${(i * 13 + 8) % 100}%;--r:${(i * 37) % 360}deg;--d:${(i % 6) * 0.2}s;--s:${0.6 + (i % 4) * 0.5}"></i>`)}
     </span>`;
+  const crest = `<span class="fx-crest"><i class="crest-glow"></i><i class="crest-fill"></i><i class="crest-foam"></i><i class="crest-rim"></i><i class="crest-splash"></i></span>`;
   return `<div class="pkfx-half ${side}">
     ${freeze}${fire}${water}${dim}${electric}${poison}${shadow}${shatter}
+    ${crest}
     <span class="pkfx-badge"><b class="pkfx-result"></b></span>
   </div>`;
 }
@@ -125,6 +140,7 @@ fitStage();
 // ---- Sound (tái dùng field âm thanh của PK Đôi) ---------------------------
 let lastRunKey = '', lastStatus = '', lastLead = '';
 let playedStart = false, playedResult = false;
+let lastGainA = 0, lastGainB = 0; // theo dõi điểm để "nhá sóng" mỗi khi có quà (kể cả lúc delay/ngập kịch trần)
 function playSound(url) { if (!url) return; try { audio.src = url; audio.currentTime = 0; audio.play().catch(() => {}); } catch {} }
 
 function resolveStyle(state) {
@@ -145,28 +161,44 @@ function render(state = {}) {
   const aLead = sA > sB;
   const leadSide = neutral ? '' : (aLead ? 'A' : 'B');
 
-  const runKey = String(state.startedAt || 'idle');
-  if (runKey !== lastRunKey) { lastRunKey = runKey; playedStart = false; playedResult = false; }
+  // 🌫️ SƯƠNG MÙ 10s cuối: khi bật fogHide & đang chạy & còn ≤10s → GIẤU luôn FX (nước/hiệu ứng),
+  // vạch & điểm HUD để KHÔNG lộ ai đang thua (giống banner che thanh máu). Hết giờ (finished) mới lộ.
+  const secLeft = Math.max(0, Math.ceil((state.remainingMs || 0) / 1000));
+  const fog = state.fogHide !== false && status === 'running' && secLeft <= 10 && secLeft > 0;
 
-  // Vạch giữa: đẩy về phía bên thua theo push (đã clamp ±42 ở engine).
+  const runKey = String(state.startedAt || 'idle');
+  if (runKey !== lastRunKey) { lastRunKey = runKey; playedStart = false; playedResult = false; lastGainA = sA; lastGainB = sB; }
+  // Có quà mới (điểm tăng) trong lúc CÒN TÍNH (running không sương mù, hoặc delay 'grace') → nhá 1 đợt sóng.
+  const canSurge = (live && !fog);
+  const gained = canSurge && (sA > lastGainA || sB > lastGainB);
+  lastGainA = sA; lastGainB = sB;
+
+  // Vạch giữa: đẩy về phía bên thua theo push (đã clamp ±42 ở engine). Sương mù → về giữa (không lộ kèo).
   const fxMode = String(state.fxMode || 'both');
   const pushSeam = fxMode !== 'affliction';
   // Đẩy vạch vừa phải (hệ số .7) để bar không dán sát mép, vẫn gần ranh giới nửa thua.
-  const seam = pushSeam ? clamp(50 + Number(state.push || 0) * 0.7, 20, 80) : 50;
+  const seam = fog ? 50 : (pushSeam ? clamp(50 + Number(state.push || 0) * 0.7, 20, 80) : 50);
 
-  // Cường độ hiệu ứng theo % chênh điểm.
-  const gapPct = (sA + sB) > 0 ? Math.abs(sA - sB) / (sA + sB) * 100 : 0;
+  // ⛴️ ĐỘ NGẬP theo ĐIỂM TRẦN TUYỆT ĐỐI: chênh điểm ≥ fxFullPoints → ngập FULL; dưới thì dâng dần.
+  // Dùng chênh điểm THẬT (không phải %) để "cân đối" — bên kém đuổi kịp thì nước tự rút xuống mượt.
+  const gapPct = (sA + sB) > 0 ? Math.abs(sA - sB) / (sA + sB) * 100 : 0; // chỉ dùng cho NGƯỠNG bật (chống nhiễu khi sát nút)
+  const gapAbs = Math.abs(sA - sB);
   const thr = clamp(Number(state.fxThreshold ?? 8), 0, 95);
-  // maxGap thấp hơn → hiệu ứng đạt đậm nhanh hơn (không cần chênh quá lớn mới thấy rõ).
-  const maxGap = Math.max(thr + 1, Number(state.fxMaxGap ?? 30));
   const cap = clamp(Number(state.fxIntensityCap ?? 100), 0, 100) / 100;
+  const fullPts = Math.max(1, Number(state.fxFullPoints ?? 100)); // điểm trần
+  const topSafe = clamp(Number(state.fxTopSafe ?? 14), 0, 40) / 100; // chừa mép trên (TikTok che) → sóng luôn thấy
+  const fillMax = 1 - topSafe; // đỉnh ngập tối đa (đường sóng dừng dưới mép trên)
   const doAffliction = state.fxEnabled !== false && fxMode !== 'push';
-  let intensity = 0;
-  if (doAffliction && !neutral && (live || finished)) {
-    const t = clamp((gapPct - thr) / (maxGap - thr), 0, 1);
-    // Sàn 0.5: khi đã vượt ngưỡng, hiệu ứng luôn hiện rõ (tránh mờ nhạt gần như vô hình).
-    intensity = (0.5 + 0.5 * t) * cap;
-    if (finished) intensity = Math.max(intensity, 0.75 * cap); // chốt trận: bên thua "gục" rõ
+  let intensity = 0, fill = 0;
+  // Bật khi có chênh (không hoà) & qua ngưỡng % (lúc đang chạy) HOẶC đã kết thúc có kèo thắng.
+  // Sương mù 10s cuối → KHÔNG ngập (fog) để giấu kèo.
+  if (doAffliction && !neutral && !fog && (finished || (live && gapPct > thr))) {
+    const t = clamp(gapAbs / fullPts, 0, 1); // 0 (sát điểm) → 1 (≥ điểm trần = ngập FULL)
+    // Sàn 0.62: vùng đã ngập MÀU luôn ĐẬM, đọc rõ trên OBS (không mờ nhạt gần vô hình).
+    intensity = (0.62 + 0.38 * t) * cap;
+    // Ngập từ ĐÁY lên: thấp (18%) → dâng NHANH (sqrt) rồi mượt tới đỉnh fillMax → cảm giác nước dâng thật.
+    fill = 0.18 + (fillMax - 0.18) * Math.sqrt(t);
+    if (finished) { intensity = Math.max(intensity, 0.9 * cap); fill = Math.max(fill, fillMax); } // chốt trận: bên thua "gục" ngập kịch mép an toàn
   }
   const loserSide = neutral ? '' : (aLead ? 'B' : 'A');
   const style = resolveStyle(state);
@@ -180,6 +212,7 @@ function render(state = {}) {
   stg.setProperty('--pk-b', b.color || '#25F4EE');
   stg.setProperty('--pk-b-rgb', _trip(b.color, '37,244,238'));
   stg.setProperty('--seam', seam + '%');
+  stg.setProperty('--crest-rgb', FX_CREST[style] || '190,225,255'); // màu ngọn "mặt nước" theo kiểu FX
 
   const applyHalf = (half, side, isLoser, isWinner) => {
     half.className = 'pkfx-half ' + (side === 'A' ? 'left' : 'right')
@@ -187,15 +220,26 @@ function render(state = {}) {
       + (isWinner && !neutral ? ' winner' : '')
       + (finished ? ' finished' : '');
     half.style.setProperty('--fx-i', (isLoser ? intensity : 0).toFixed(3));
+    half.style.setProperty('--fx-fill', (isLoser ? fill : 0).toFixed(3));
+    half.style.setProperty('--fx-crest', (isLoser ? intensity : 0).toFixed(3)); // ngọn mặt nước hiện khi bị hiệu ứng
   };
   applyHalf(el.halfL, 'A', loserSide === 'A', leadSide === 'A');
   applyHalf(el.halfR, 'B', loserSide === 'B', leadSide === 'B');
+
+  // Quà mới trong lúc còn tính → nhá đợt sóng ở NGỌN bên đang bị ngập (kể cả khi đã ngập kịch trần,
+  // để late-gift lúc delay vẫn thấy FX phản hồi). restart animation bằng remove+reflow+add.
+  if (gained) {
+    const lh = loserSide === 'A' ? el.halfL : (loserSide === 'B' ? el.halfR : null);
+    const crest = lh && lh.querySelector('.fx-crest');
+    if (crest) { crest.classList.remove('splash'); void crest.offsetWidth; crest.classList.add('splash'); }
+  }
 
   el.stage.classList.toggle('is-neutral', neutral);
   el.stage.classList.toggle('is-live', live);
   el.stage.classList.toggle('is-finished', finished);
   el.stage.classList.toggle('is-idle', status === 'idle' || status === 'prestart');
-  el.seam.className = 'pkfx-seam' + (neutral ? ' neutral' : (aLead ? ' lead-a' : ' lead-b'));
+  el.stage.classList.toggle('is-fog', fog); // 🌫️ ẩn điểm HUD 10s cuối (CSS)
+  el.seam.className = 'pkfx-seam' + (fog || neutral ? ' neutral' : (aLead ? ' lead-a' : ' lead-b'));
 
   // Shockwave 1 nhịp khi đổi bên dẫn
   if (leadSide && leadSide !== lastLead && lastLead !== '') {

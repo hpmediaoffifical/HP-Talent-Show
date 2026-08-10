@@ -99,6 +99,12 @@ let lastTop1Id = '';        // THỜI GIAN #2: theo dõi TOP1 để phát hiện
 let lastResultKey = '';     // THỜI GIAN #5: chốt điểm hoành tráng chỉ bắn 1 lần/phiên
 let lastTickSec = -1;       // THỜI GIAN #4: tiếng "tick" 10s cuối, mỗi giây 1 lần
 
+// 🖼️ KHUNG avatar (KÊU GỌI) — ngẫu nhiên 1 trong 41 khung của 🏅 Vinh danh (mvp-frames/1..41.png, cùng tỷ lệ 1.25).
+// Chọn LẠI mỗi PHIÊN CHẠY MỚI (đổi theo runKey), giữ nguyên trong suốt 1 phiên để KHÔNG nháy khi dựng lại DOM.
+const CARD_FRAME_COUNT = 41;
+function pickCardFrame() { return `/mvp-frames/${1 + Math.floor(Math.random() * CARD_FRAME_COUNT)}.png`; }
+let cardFrameSrc = pickCardFrame();
+
 // Tiếng "tick" 10s cuối bằng WebAudio (không cần file). secLeft ≤ 3 kêu gấp/cao hơn.
 let _actx = null;
 function playTick(urgentHigh) {
@@ -195,6 +201,10 @@ function runnerHTML() {
 }
 
 function buildStructure(state, v) {
+  // 🌫️ Sương mù 10s cuối — che SỐ ĐIỂM (và thanh máu ở ĐƯỜNG ĐUA/KÊU GỌI). Kiểu THỜI GIAN chỉ che số,
+  // GIỮ NGUYÊN thanh đồng hồ. Veil dựng cùng structure (structKey đã gồm fog) nên chỉ đổi khi bật/tắt.
+  const fogVeil = v.fog && window.OverlayFog ? OverlayFog.veilHtml({ label: 'SƯƠNG MÙ' }) : '';
+  const fogVeilPlain = v.fog && window.OverlayFog ? OverlayFog.veilHtml() : '';
   if (v.timerLayout) {
     // THỜI GIAN (Douyin): thanh THỜI GIAN đếm lùi + đồng hồ VÒNG xoay (1 vòng ≈ 1 giây) ở mút phải;
     // dưới thanh: avatar+tên idol (trái) · nhãn giai đoạn 冲刺中/ĐANG NƯỚC RÚT (giữa) · Điểm vòng (phải).
@@ -217,7 +227,7 @@ function buildStructure(state, v) {
         <div class="st-phase"><span class="st-phase-text"></span></div>
         ${v.ended && v.showTop5
           ? '<div class="st-top5 st-top5-honor"></div>'
-          : '<div class="st-points"><small class="st-points-label">ĐIỂM</small><b class="score-points-cur"></b><span class="st-momentum" aria-hidden="true"></span></div>'}
+          : `<div class="st-points"><small class="st-points-label">ĐIỂM</small><b class="score-points-cur"></b><span class="st-momentum" aria-hidden="true"></span>${fogVeil}</div>`}
       </div>
       ${(!v.ended && v.showTop5) ? '<div class="st-top5"></div>' : ''}
       <div class="sc-fx-floats" aria-hidden="true"></div>
@@ -231,7 +241,7 @@ function buildStructure(state, v) {
       <div class="sc-fx-spotlight" aria-hidden="true"></div>
       <div class="sc-tab"><span class="sc-tab-text"></span></div>
       <div class="sc-card-mid">
-        ${state.hideAvatar ? '' : `<div class="sc-fx-aura" aria-hidden="true"></div><div class="sc-card-avatar"><img class="score-avatar-img" onerror="this.onerror=null;this.src='/logo.png'" /></div>`}
+        ${state.hideAvatar ? '' : `<div class="sc-fx-aura" aria-hidden="true"></div><div class="sc-card-avwrap"><div class="sc-card-avatar"><img class="score-avatar-img" onerror="this.onerror=null;this.src='/logo.png'" /></div><img class="sc-card-frame" src="${cardFrameSrc}" alt="" aria-hidden="true" onerror="this.style.display='none'" /></div>`}
         <div class="sc-card-clock"><span class="score-time-text sc-clock-text"></span></div>
         ${v.kpiX2 ? `<div class="sc-card-kpi2"><span class="score-points-x2"></span></div>` : ''}
       </div>
@@ -243,6 +253,7 @@ function buildStructure(state, v) {
           <span class="sc-score-chip"><span class="sc-score-chip-val"></span></span>
           <span class="sc-target-label"><small>ĐIỂM</small><b class="sc-target-value"></b></span>
         </div>
+        ${fogVeil}
       </div>
       <div class="sc-fx-floats" aria-hidden="true"></div>
     </div>
@@ -250,7 +261,7 @@ function buildStructure(state, v) {
     `;
   } else {
     root.innerHTML = `
-    <div class="score-barwrap"><div class="score-bar">${barInnerHTML(v)}</div><div class="score-flag">⚑</div>${v.showRunner ? runnerHTML() : ''}</div>
+    <div class="score-barwrap"><div class="score-bar">${barInnerHTML(v)}${fogVeil}</div><div class="score-flag">⚑</div>${v.showRunner ? runnerHTML() : ''}</div>
     <div class="score-meta">
       <div class="score-person">
         ${state.hideAvatar ? '' : `<div class="score-avatar"><img class="score-avatar-img" onerror="this.onerror=null;this.src='/logo.png'" /></div>`}
@@ -260,6 +271,7 @@ function buildStructure(state, v) {
       <div class="score-points">
         <span class="score-points-main"><b class="score-points-cur"></b><span class="score-points-rest"></span></span>
         ${v.kpiX2 ? `<span class="score-points-x2"></span>` : ''}
+        ${fogVeilPlain}
       </div>
     </div>
     ${v.showRemaining ? `<div class="score-remaining"><span class="score-remaining-text"></span></div>` : ''}
@@ -283,6 +295,7 @@ function buildStructure(state, v) {
     popGift: root.querySelector('.score-pop-gift'),
     popRunner: root.querySelector('.score-pop-runner'),
     avatarImg: root.querySelector('.score-avatar-img'),
+    cardFrame: root.querySelector('.sc-card-frame'),
     creator: root.querySelector('.score-creator'),
     pointsMain: root.querySelector('.score-points-main'),
     pointsCur: root.querySelector('.score-points-cur'),
@@ -332,6 +345,7 @@ function render(state = {}) {
     playedGoal = false;
     playedX2 = false;
     lastRenderedScore = 0;
+    cardFrameSrc = pickCardFrame();   // phiên mới → bốc khung avatar mới cho thẻ KÊU GỌI
   }
   const avatar = mediaUrl(state.creatorAvatar || '');
   const creator = state.creatorName || 'Creator';
@@ -393,6 +407,9 @@ function render(state = {}) {
   const showTop5 = timerLayout && state.timerTop5 !== false;
   const top5 = (showTop5 && Array.isArray(state.topUsers)) ? state.topUsers.slice(0, 5) : [];
   const urgent = ['running', 'grace'].includes(status) && remainingMs <= 10000 && remainingMs > 0;
+  // 🌫️ Sương mù 10s cuối — CHỈ khi đang chạy (grace/hết giờ là lộ điểm). Che số điểm (+ thanh máu ở ĐƯỜNG
+  // ĐUA/KÊU GỌI); kiểu THỜI GIAN chỉ che số, giữ thanh đồng hồ.
+  const fogOn = !!state.fogHide && status === 'running' && remainingMs <= 10000 && remainingMs > 0;
   const nearGoal = !noTarget && ['running', 'grace'].includes(status) && pct >= 80 && score < target;
   const goalMet = !noTarget && score >= target;
   const iconOff = ['success', 'failed'].includes(status);
@@ -404,7 +421,7 @@ function render(state = {}) {
   // Còn bao nhiêu tới đích (kêu gọi tặng thêm) — không mục tiêu thì không hiện
   const showRemaining = !noTarget && !!state.showRemaining;
   const remainingPts = Math.max(0, target - score);
-  const className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${noTarget ? ' no-target' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}${state.colorByProgress ? ' color-progress' : ''}${kpiX2 ? ' has-kpi-x2' : ''}${inX2 ? ' x2-active' : ''} layout-${layoutMode}${state.runnerDust === false ? ' runner-nodust' : ''}${state.fxGlowBorder ? ' fx-glowborder' : ''}${state.fxGlass ? ' fx-glass' : ''}${state.fxSparkle ? ' fx-sparkle' : ''}${state.fxSpotlight ? ' fx-spotlight' : ''}${state.fxAvatarAura ? ' fx-avataraura' : ''}${state.fxScoreBounce ? ' fx-scorebounce' : ''}${state.fxFloatPoints ? ' fx-floatpoints' : ''}${state.fxCardBreathe ? ' fx-cardbreathe' : ''}${state.fxLiquid ? ' fx-liquid' : ''}`;
+  const className = `score-obs status-${status} theme-${state.themePreset || 'custom'} size-${state.overlaySize || 'medium'} bar-${state.barStyle || 'pill'}${state.compactMode ? ' compact' : ''}${activeRunner ? ' has-add' : ''}${score > 0 ? ' has-score' : ''}${noTarget ? ' no-target' : ''}${urgent ? ' urgent' : ''}${nearGoal ? ' near-goal' : ''}${goalMet ? ' goal-met' : ''}${state.colorByProgress ? ' color-progress' : ''}${kpiX2 ? ' has-kpi-x2' : ''}${inX2 ? ' x2-active' : ''} layout-${layoutMode}${state.runnerDust === false ? ' runner-nodust' : ''}${state.fxGlowBorder ? ' fx-glowborder' : ''}${state.fxGlass ? ' fx-glass' : ''}${state.fxSparkle ? ' fx-sparkle' : ''}${state.fxSpotlight ? ' fx-spotlight' : ''}${state.fxAvatarAura ? ' fx-avataraura' : ''}${state.fxScoreBounce ? ' fx-scorebounce' : ''}${state.fxFloatPoints ? ' fx-floatpoints' : ''}${state.fxCardBreathe ? ' fx-cardbreathe' : ''}${state.fxLiquid ? ' fx-liquid' : ''}${fogOn ? ' fog-on' : ''}`;
   if (className !== lastClassName) { root.className = className; lastClassName = className; }
 
   root.style.setProperty('--score-time-color', state.timeColor || '#ffffff');
@@ -454,10 +471,10 @@ function render(state = {}) {
   root.style.setProperty('--score-result-glow', alphaHex(c1, .5));
 
   // Chỉ dựng lại khung khi khung xương đổi — thay vì mỗi 250ms (nguyên nhân restart animation → nhấp nháy).
-  const structKey = `${status}|${state.hideAvatar ? 1 : 0}|${state.hideCreator ? 1 : 0}|${over > 0 ? 1 : 0}|${showRunner ? 1 : 0}|${kpiX2 ? 1 : 0}|${showRemaining ? 1 : 0}|${layoutMode}|${hasContent ? 1 : 0}|${showTop5 ? 1 : 0}`;
+  const structKey = `${status}|${state.hideAvatar ? 1 : 0}|${state.hideCreator ? 1 : 0}|${over > 0 ? 1 : 0}|${showRunner ? 1 : 0}|${kpiX2 ? 1 : 0}|${showRemaining ? 1 : 0}|${layoutMode}|${hasContent ? 1 : 0}|${showTop5 ? 1 : 0}|${fogOn ? 1 : 0}`;
   if (structKey !== lastStructKey) {
     lastStructKey = structKey;
-    buildStructure(state, { iconOff, over, activeRunner, showRunner, kpiX2, showRemaining, cardLayout, timerLayout, hasContent, showTop5, ended: ['success', 'failed'].includes(status) });
+    buildStructure(state, { iconOff, over, activeRunner, showRunner, kpiX2, showRemaining, cardLayout, timerLayout, hasContent, showTop5, fog: fogOn, ended: ['success', 'failed'].includes(status) });
   }
 
   // Cập nhật tại chỗ (không dựng lại DOM → animation chạy liền mạch)
@@ -548,6 +565,8 @@ function render(state = {}) {
   if (els.overVal) els.overVal.textContent = fmt(over);
   if (els.creator) { els.creator.textContent = shortCreator; els.creator.title = creator; }
   if (els.avatarImg && avatar && els.avatarImg.getAttribute('src') !== avatar) els.avatarImg.src = avatar;
+  // KHUNG avatar (KÊU GỌI): đổi src khi phiên mới bốc khung khác — cập nhật tại chỗ, khỏi chờ dựng lại DOM.
+  if (els.cardFrame && els.cardFrame.getAttribute('src') !== cardFrameSrc) { els.cardFrame.style.display = ''; els.cardFrame.src = cardFrameSrc; }
   if (els.pop) {
     const hasGift = !!state.lastAdd && ['running', 'grace'].includes(status);
     els.pop.className = `score-pop${big ? ' big' : ''}${runnerAtStart ? ' at-start' : ''}${hasGift ? ' has-gift' : ' no-gift'}${showRunnerAvatar ? ' has-avatar' : ''}${showRunnerGift ? ' has-gifticon' : ''}`;

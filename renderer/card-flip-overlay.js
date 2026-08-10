@@ -46,7 +46,7 @@ function render(state = {}) {
   // nếu tính lại sẽ đội skew lên đúng bằng thời gian đã trôi → dueAt lùi mãi, thanh ngang KHÔNG bao giờ lật.
   // skew chỉ cập nhật khi có gói SSE MỚI (onCardflip).
   const cards = Array.isArray(state.cards) ? state.cards : [];
-  const style = state.cardStyle === 'pink' ? 'pink' : 'gold';
+  const style = /^[\w-]{1,40}$/.test(state.cardStyle) ? state.cardStyle : 'gold';
   const target = Math.max(0, Number(state.heartTarget) || 0);
   const hearts = Math.max(0, Number(state.hearts) || 0);
   const done = hearts >= target; // 0/0 cũng coi là THÀNH CÔNG (như thiết kế)

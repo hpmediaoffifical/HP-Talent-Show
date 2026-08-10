@@ -1,0 +1,278 @@
+/* PK Nhóm FX — overlay phủ lên lưới video PK Nhóm (kiểu "Rời nhau theo TOP 1").
+   Chia màn hình ĐỀU theo SỐ Thành viên; N-1 GẠCH ranh giới (đen + quầng màu theo fx) ở KHE giữa;
+   hiệu ứng băng/lửa… phủ người KÉM TOP 1. Bộ hiệu ứng bê nguyên từ PK Đôi FX (nhìn y hệt).
+   Chỉ animate transform/opacity → nét, mượt trên OBS. % theo bề rộng nên chạy mọi độ phân giải. */
+
+html, body { width: 100%; height: 100%; margin: 0; background: transparent; overflow: hidden; }
+#pkgfxRoot { position: fixed; inset: 0; }
+.pkgfx-stage { position: absolute; inset: 0; overflow: hidden; }
+body.fx-off .pkgfx-stage { display: none; }
+
+/* ===== Cột (mỗi Thành viên) — chia đều bề ngang, vị trí left/width do JS đặt inline ===== */
+.pkgfx-col { position: absolute; top: 0; bottom: 0; overflow: hidden; --fx-i: 0; --fx-fill: 0;
+  --wl: calc((1 - var(--fx-fill, 0)) * 100%); } /* waterline: đỉnh vùng ngập (từ trên xuống) */
+
+/* Nhịp "dính đòn" khi bắt đầu bị afflicted / lúc chốt trận */
+.pkgfx-col.afflicted { animation: pkfxHit .45s ease; }
+.pkgfx-col.afflicted.finished { animation: pkfxHit .45s ease, pkfxDefeat 2.2s ease-in-out .45s infinite; }
+@keyframes pkfxHit { 0% { transform: translateX(0); } 22% { transform: translateX(calc(var(--fx-i) * 12px)); } 50% { transform: translateX(calc(var(--fx-i) * -9px)); } 74% { transform: translateX(calc(var(--fx-i) * 4px)); } 100% { transform: translateX(0); } }
+@keyframes pkfxDefeat { 0%,100% { filter: brightness(1); } 50% { filter: brightness(.72); } }
+
+/* NGẬP TỪ ĐÁY LÊN: bộ hiệu ứng bị "mặt nước" cắt theo --fx-fill (0→1) — ngập THẤP lúc mới kém
+   TOP 1, cao dần, full overlay khi cách xa (thay vì phủ kín tức thì). + KHOÉT giữa (radial ~.1)
+   để lộ mặt Creator. Mask 2 lớp GIAO nhau (intersect / -webkit source-in) → đọc được trên OBS. */
+.pkgfx-col .fx { position: absolute; inset: 0; pointer-events: none; display: none;
+  -webkit-mask-image:
+    linear-gradient(to bottom, rgba(0,0,0,0) calc(var(--wl) - 9%), #000 var(--wl)),
+    radial-gradient(48% 32% at 50% 44%, rgba(0,0,0,.1) 24%, #000 76%);
+  -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, rgba(0,0,0,0) calc(var(--wl) - 9%), #000 var(--wl)),
+    radial-gradient(48% 32% at 50% 44%, rgba(0,0,0,.1) 24%, #000 76%);
+  mask-repeat: no-repeat; mask-size: 100% 100%; mask-composite: intersect; }
+.pkgfx-col.afflicted.fx-freeze   .fx-freeze   { display: block; }
+.pkgfx-col.afflicted.fx-fire     .fx-fire     { display: block; }
+.pkgfx-col.afflicted.fx-water    .fx-water    { display: block; }
+.pkgfx-col.afflicted.fx-dim      .fx-dim      { display: block; }
+.pkgfx-col.afflicted.fx-electric .fx-electric { display: block; }
+.pkgfx-col.afflicted.fx-poison   .fx-poison   { display: block; }
+.pkgfx-col.afflicted.fx-shadow   .fx-shadow   { display: block; }
+.pkgfx-col.afflicted.fx-shatter  .fx-shatter  { display: block; }
+.pkgfx-col .fx i, .pkgfx-col .fx span { position: absolute; }
+
+/* ===== NGỌN "MẶT NƯỚC" 3D tại đường ngập — dùng CHUNG cho MỌI hiệu ứng =====
+   Thân chất lỏng có mép trên GỢN SÓNG (mask SVG cuộn) + bọt trắng bắt sáng + vệt specular trượt →
+   mặt thoáng nổi khối 3D, không còn là vệt mờ phẳng. Màu theo hiệu ứng (--crest-rgb), đặt ĐÚNG
+   waterline (--wl), bồng bềnh nhẹ. Chỉ transform/opacity/position → mượt & nét trên OBS. */
+.pkgfx-col .fx-crest { position: absolute; left: -2%; right: -2%; height: 118px; z-index: 4; pointer-events: none;
+  top: calc(var(--wl) - 58px); opacity: var(--fx-crest, 0); --crest: var(--crest-rgb, 190,225,255);
+  transition: top .28s ease, opacity .28s ease; animation: pkfxCrestBob 3.6s ease-in-out infinite; }
+.pkgfx-col:not(.afflicted) .fx-crest { display: none; }
+.pkgfx-col .fx-crest i { position: absolute; left: 0; right: 0; }
+.fx-crest .crest-glow { top: 66px; height: 240px; mix-blend-mode: screen;
+  background: linear-gradient(180deg, rgba(var(--crest),.6), rgba(var(--crest),0) 70%); }
+.fx-crest .crest-fill { top: 50px; height: 68px;
+  background: linear-gradient(180deg, rgba(var(--crest),.96) 0%, rgba(var(--crest),.5) 60%, rgba(var(--crest),.15));
+  box-shadow: inset 0 6px 12px rgba(255,255,255,.4), inset 0 -14px 26px rgba(0,0,0,.25);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='68' viewBox='0 0 320 68'%3E%3Cpath d='M0 24 Q40 6 80 24 T160 24 T240 24 T320 24 V68 H0 Z' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 0 / 320px 68px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='68' viewBox='0 0 320 68'%3E%3Cpath d='M0 24 Q40 6 80 24 T160 24 T240 24 T320 24 V68 H0 Z' fill='%23000'/%3E%3C/svg%3E") repeat-x 0 0 / 320px 68px;
+  animation: pkfxCrestMask 4.6s linear infinite; }
+.fx-crest .crest-foam { top: 44px; height: 44px; opacity: .92; mix-blend-mode: screen; filter: drop-shadow(0 0 6px rgba(255,255,255,.6));
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='44' viewBox='0 0 320 44'%3E%3Cpath d='M0 30 Q40 12 80 30 T160 30 T240 30 T320 30' fill='none' stroke='%23ffffff' stroke-width='7' stroke-opacity='.85' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x 0 0 / 320px 44px;
+  animation: pkfxCrestFoam 3.1s linear infinite reverse; }
+.fx-crest .crest-rim { top: 52px; height: 12px; opacity: .8; mix-blend-mode: screen; filter: blur(1px);
+  background: linear-gradient(90deg, transparent 18%, rgba(255,255,255,.95) 50%, transparent 82%) no-repeat 0 0 / 55% 100%;
+  animation: pkfxCrestShine 3.4s ease-in-out infinite; }
+@keyframes pkfxCrestMask { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 320px 0; mask-position: 320px 0; } }
+@keyframes pkfxCrestFoam { from { background-position: 0 0; } to { background-position: 320px 0; } }
+@keyframes pkfxCrestShine { 0% { background-position: -45% 0; } 55% { background-position: 145% 0; } 100% { background-position: 145% 0; } }
+@keyframes pkfxCrestBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+/* 💥 Nhá SÓNG khi có quà mới (kể cả lúc delay / ngập kịch trần) → late-gift luôn thấy FX phản hồi. */
+.fx-crest .crest-splash { top: 8px; height: 96px; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(64% 100% at 50% 100%, rgba(255,255,255,.92), rgba(var(--crest),.5) 46%, transparent 76%); }
+.fx-crest.splash .crest-splash { animation: pkfxCrestSplash .6s ease-out; }
+@keyframes pkfxCrestSplash { 0% { opacity: 0; transform: translateY(24px) scaleY(.4); } 22% { opacity: .95; } 100% { opacity: 0; transform: translateY(-34px) scaleY(1.5); } }
+
+/* ===== BASE CAST — nền màu ĐẶC (blend thường) đọc rõ trên video OBS ===== */
+.fx .fx-cast { inset: 0; opacity: 0; }
+.fx-freeze .fx-cast { opacity: calc(var(--fx-i) * .92);
+  background:
+    radial-gradient(130% 100% at 50% 42%, rgba(150,205,255,.10) 0%, rgba(70,140,230,.32) 52%, rgba(16,62,140,.68) 100%),
+    linear-gradient(180deg, rgba(210,238,255,.20), rgba(40,110,200,.16)); }
+.fx-fire .fx-cast { opacity: calc(var(--fx-i) * .96);
+  background:
+    radial-gradient(120% 95% at 50% 110%, rgba(255,140,26,.58), rgba(200,40,0,.3) 46%, transparent 72%),
+    linear-gradient(180deg, rgba(26,4,0,.64), rgba(60,10,0,.14) 42%, transparent 66%); }
+.fx-water .fx-cast { opacity: calc(var(--fx-i) * .82);
+  background:
+    radial-gradient(130% 100% at 50% 62%, rgba(60,150,230,.16) 0%, rgba(10,72,164,.42) 60%, rgba(3,34,94,.7) 100%); }
+.fx-dim .fx-cast { opacity: calc(var(--fx-i) * .92);
+  background: radial-gradient(120% 100% at 50% 50%, rgba(8,10,16,.18) 30%, rgba(1,2,5,.84) 100%); }
+.fx-electric .fx-cast { opacity: calc(var(--fx-i) * .84);
+  background: radial-gradient(120% 100% at 50% 44%, rgba(40,90,190,.12) 0%, rgba(9,24,70,.5) 58%, rgba(2,9,32,.8) 100%); }
+.fx-poison .fx-cast { opacity: calc(var(--fx-i) * .92);
+  background:
+    radial-gradient(120% 95% at 50% 100%, rgba(74,224,84,.36) 0%, rgba(22,120,40,.32) 48%, transparent 72%),
+    radial-gradient(120% 100% at 50% 40%, transparent 40%, rgba(5,38,13,.72) 100%); }
+.fx-shadow .fx-cast { opacity: calc(var(--fx-i) * .97);
+  background: radial-gradient(115% 100% at 50% 48%, rgba(40,6,64,.18) 22%, rgba(5,0,14,.92) 100%); }
+.fx-shatter .fx-cast { opacity: calc(var(--fx-i) * .82);
+  background:
+    radial-gradient(90% 80% at 50% 45%, rgba(255,255,255,.06) 0%, transparent 40%),
+    radial-gradient(60% 50% at 50% 46%, rgba(255,64,52,.24), transparent 60%),
+    radial-gradient(120% 100% at 50% 50%, transparent 44%, rgba(5,7,13,.72) 100%); }
+
+/* ============================================================
+   ❄️ FREEZE
+   ============================================================ */
+.fx-freeze .ice-slab { inset: 0; opacity: var(--fx-i);
+  background: linear-gradient(135deg, rgba(255,255,255,.42), rgba(190,225,255,.08) 42%, rgba(120,180,240,.3));
+  box-shadow: inset 16px 16px 54px rgba(255,255,255,.5), inset -20px -22px 70px rgba(30,100,180,.6), inset 0 0 140px rgba(150,205,255,.45); }
+.fx-freeze .frost-sheet { inset: 0; opacity: calc(var(--fx-i) * .85); mix-blend-mode: screen;
+  background:
+    radial-gradient(120% 50% at 20% 0%, rgba(224,244,255,.55), transparent 55%),
+    radial-gradient(120% 50% at 80% 100%, rgba(200,232,255,.5), transparent 58%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,.06) 0 6px, transparent 6px 14px); }
+.fx-freeze .frost-edge { opacity: var(--fx-i); }
+.fx-freeze .frost-edge.top    { top: 0; left: 0; right: 0; height: 40%; background: linear-gradient(180deg, rgba(236,250,255,.92), transparent); }
+.fx-freeze .frost-edge.bottom { bottom: 0; left: 0; right: 0; height: 40%; background: linear-gradient(0deg, rgba(236,250,255,.92), transparent); }
+.fx-freeze .frost-edge.out    { top: 0; bottom: 0; left: 0; width: 38%; background: linear-gradient(90deg, rgba(236,250,255,.88), transparent); }
+.fx-freeze .frost-edge.in     { top: 0; bottom: 0; right: 0; width: 38%; background: linear-gradient(270deg, rgba(236,250,255,.88), transparent); }
+.fx-freeze .ice-crack { inset: 0; opacity: calc(var(--fx-i) * .95); background-position: center; background-repeat: no-repeat; background-size: 92% 92%;
+  filter: drop-shadow(0 0 3px rgba(180,230,255,.9));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 360'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.92' stroke-width='2.6'%3E%3Cpath d='M100 0 L96 90 L120 150 L104 220 L118 300 L100 360'/%3E%3Cpath d='M96 90 L40 70 M96 90 L150 60 M120 150 L180 140 M104 220 L44 210 M118 300 L170 320 M104 220 L60 280'/%3E%3C/g%3E%3C/svg%3E"); }
+.fx-freeze .ice-shine { inset: 0; opacity: calc(var(--fx-i) * .62); mix-blend-mode: screen;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.62) 50%, transparent 60%); background-size: 300% 100%;
+  animation: pkfxShine 4.5s linear infinite; }
+.fx-freeze .crystal { left: var(--x); top: var(--y); opacity: calc(var(--fx-i) * .95); font-size: calc(56px * var(--s)); line-height: 1; color: #eaf6ff;
+  text-shadow: 0 0 18px rgba(180,225,255,.95), 0 0 6px #fff; animation: pkfxTwinkle 3s ease-in-out infinite; animation-delay: var(--d); }
+.fx-freeze .crystal::before { content: '❄'; }
+.fx-freeze .flake { left: var(--x); top: -20px; width: calc(8px * var(--s)); height: calc(8px * var(--s)); border-radius: 50%;
+  background: radial-gradient(circle, #fff, rgba(220,240,255,.25) 70%, transparent); opacity: calc(var(--fx-i) * .95);
+  box-shadow: 0 0 6px rgba(220,242,255,.8); animation: pkfxSnow var(--dur) linear infinite; animation-delay: var(--d); }
+@keyframes pkfxShine { 0% { background-position: 150% 0; } 100% { background-position: -150% 0; } }
+@keyframes pkfxTwinkle { 0%,100% { opacity: calc(var(--fx-i) * .35); transform: scale(.82) rotate(0deg); } 50% { opacity: calc(var(--fx-i) * 1); transform: scale(1.12) rotate(25deg); } }
+@keyframes pkfxSnow { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(var(--sway,0), 1960px, 0); } }
+
+/* ============================================================
+   🔥 FIRE
+   ============================================================ */
+.fx-fire .fire-glow { inset: auto 0 0 0; height: calc(34% + var(--fx-i) * 52%); opacity: calc(.42 + var(--fx-i) * .58); mix-blend-mode: screen;
+  background: radial-gradient(120% 100% at 50% 100%, rgba(255,200,80,1), rgba(255,95,20,.6) 45%, transparent 80%); }
+.fx-fire .flames { inset: auto 0 0 0; height: calc(36% + var(--fx-i) * 58%); mix-blend-mode: screen; }
+.fx-fire .flames.back { opacity: calc(.4 + var(--fx-i) * .5); filter: blur(7px); }
+.fx-fire .flames.front { opacity: calc(.6 + var(--fx-i) * .4); }
+.fx-fire .flame { bottom: -4%; left: var(--x); width: calc(168px * var(--w)); height: calc(100% * var(--h)); margin-left: calc(-84px * var(--w)); transform-origin: 50% 100%;
+  background: radial-gradient(60% 90% at 50% 100%, #fff8d4 0%, #ffd23f 22%, #ff7a18 55%, #ff2f06 78%, transparent 92%);
+  border-radius: 50% 50% 46% 46% / 62% 62% 40% 40%; animation: pkfxFlame 1.05s ease-in-out infinite; animation-delay: var(--d); }
+.fx-fire .flames.back .flame { background: radial-gradient(60% 90% at 50% 100%, #ffa346, #ff5a12 55%, #b81f00 82%, transparent 92%); }
+.fx-fire .smoke { inset: 0; opacity: calc(var(--fx-i) * .6); }
+.fx-fire .puff { bottom: 20%; left: var(--x); width: 240px; height: 240px; margin-left: -120px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(50,42,40,.62), transparent 66%); animation: pkfxSmoke var(--dur) ease-in infinite; animation-delay: var(--d); }
+.fx-fire .ember { bottom: 4%; left: var(--x); width: calc(9px * var(--s)); height: calc(9px * var(--s)); border-radius: 50%;
+  background: radial-gradient(circle, #fff0bc, #ff7a18 60%, transparent); opacity: 0; box-shadow: 0 0 14px rgba(255,160,50,.95);
+  animation: pkfxEmber var(--dur) ease-out infinite; animation-delay: var(--d); }
+.fx-fire .heat { inset: 0; opacity: calc(var(--fx-i) * .5); background: repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0 3px, transparent 3px 7px); animation: pkfxHeat 2.2s ease-in-out infinite; mix-blend-mode: screen; }
+@keyframes pkfxFlame { 0%,100% { transform: scaleY(1) scaleX(1) skewX(0deg); } 30% { transform: scaleY(1.28) scaleX(.86) skewX(7deg); } 60% { transform: scaleY(.88) scaleX(1.12) skewX(-7deg); } }
+@keyframes pkfxSmoke { 0% { transform: translate3d(0,0,0) scale(.5); opacity: 0; } 20% { opacity: calc(var(--fx-i) * .6); } 100% { transform: translate3d(0,-1160px,0) scale(1.7); opacity: 0; } }
+@keyframes pkfxEmber { 0% { transform: translate3d(0,0,0) scale(1); opacity: 0; } 12% { opacity: calc(var(--fx-i) * 1); } 100% { transform: translate3d(var(--drift), -1320px, 0) scale(.2); opacity: 0; } }
+@keyframes pkfxHeat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+/* ============================================================
+   💧 WATER
+   ============================================================ */
+.fx-water .water-body { inset: auto 0 0 0; height: calc(var(--fx-i) * 100%); overflow: visible; transition: height .3s ease;
+  background: linear-gradient(180deg, rgba(66,180,248,.52), rgba(6,66,158,.78));
+  box-shadow: inset 0 26px 70px rgba(160,225,255,.34), inset 0 -34px 90px rgba(0,26,84,.58); }
+.fx-water .caustics { inset: 0; opacity: .55; mix-blend-mode: screen;
+  background: radial-gradient(60px 30px at 30% 20%, rgba(190,240,255,.58), transparent 60%), radial-gradient(80px 40px at 70% 50%, rgba(160,225,255,.48), transparent 60%), radial-gradient(50px 26px at 45% 80%, rgba(210,245,255,.48), transparent 60%);
+  background-size: 300px 300px; animation: pkfxCaustic 6s ease-in-out infinite; }
+.fx-water .wave { left: -50%; top: -40px; width: 200%; height: 48px; background-repeat: repeat-x; background-size: 320px 48px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='48' viewBox='0 0 320 48'%3E%3Cpath d='M0 24 Q80 2 160 24 T320 24 V48 H0 Z' fill='%2338b0f2' fill-opacity='.9'/%3E%3C/svg%3E"); }
+.fx-water .wave.wave1 { animation: pkfxWave 3.2s linear infinite; opacity: .95; }
+.fx-water .wave.wave2 { top: -30px; opacity: .55; background-size: 260px 40px; animation: pkfxWave 2.3s linear infinite reverse; }
+.fx-water .water-glass { inset: 0; opacity: calc(var(--fx-i) * .55); mix-blend-mode: screen;
+  background: linear-gradient(100deg, transparent 30%, rgba(190,235,255,.32) 50%, transparent 70%); background-size: 260% 100%; animation: pkfxShine 5s linear infinite; }
+.fx-water .bubble { bottom: 2%; left: var(--x); width: calc(16px * var(--s)); height: calc(16px * var(--s)); border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.95), rgba(180,225,255,.3) 60%, transparent); opacity: 0; box-shadow: inset 0 0 7px rgba(255,255,255,.65);
+  animation: pkfxBubble var(--dur) ease-in infinite; animation-delay: var(--d); }
+@keyframes pkfxWave { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(320px,0,0); } }
+@keyframes pkfxCaustic { 0%,100% { background-position: 0 0, 40px 20px, 20px 60px; opacity: .38; } 50% { background-position: 60px 40px, 0 0, 80px 20px; opacity: .68; } }
+@keyframes pkfxBubble { 0% { transform: translate3d(0,0,0) scale(.6); opacity: 0; } 15% { opacity: calc(var(--fx-i) * .95); } 100% { transform: translate3d(var(--drift), calc(var(--fx-i) * -1720px - 120px), 0) scale(1); opacity: 0; } }
+
+/* ============================================================
+   🌫️ DIM / GLITCH
+   ============================================================ */
+.fx-dim .dim-scrim { inset: 0; background: #05070c; opacity: calc(var(--fx-i) * .7); }
+.fx-dim .dim-blocks { inset: -4%; opacity: calc(var(--fx-i) * .6);
+  background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 24px, transparent 24px 26px), repeating-linear-gradient(90deg, rgba(0,0,0,.34) 0 24px, transparent 24px 26px);
+  animation: pkfxStatic 3.5s steps(2) infinite, pkfxSlice 2.6s steps(1) infinite; }
+.fx-dim .dim-scan { inset: 0; opacity: calc(var(--fx-i) * .45); background: repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 2px, transparent 2px 5px); animation: pkfxScan 8s linear infinite; }
+.fx-dim .dim-rgb { inset: 0; opacity: calc(var(--fx-i) * .55); mix-blend-mode: screen;
+  background: linear-gradient(90deg, rgba(255,0,60,.7), transparent 18%, transparent 82%, rgba(0,180,255,.7)); animation: pkfxGlitch 2.2s steps(3) infinite; }
+.fx-dim .dim-vignette { inset: 0; opacity: calc(var(--fx-i) * .92); background: radial-gradient(120% 100% at 50% 50%, transparent 42%, rgba(0,0,0,.78) 100%); }
+@keyframes pkfxStatic { 0%,100% { opacity: calc(var(--fx-i) * .6); } 50% { opacity: calc(var(--fx-i) * .34); } }
+@keyframes pkfxScan { 0% { background-position: 0 0; } 100% { background-position: 0 200px; } }
+@keyframes pkfxGlitch { 0%,100% { transform: translateX(0); } 33% { transform: translateX(6px); } 66% { transform: translateX(-6px); } }
+@keyframes pkfxSlice { 0%,72%,100% { transform: translateX(0); } 78% { transform: translateX(14px); } 84% { transform: translateX(-12px); } 90% { transform: translateX(6px); } }
+
+/* ============================================================
+   ⚡ ELECTRIC
+   ============================================================ */
+.fx-electric .volt-flash { inset: 0; opacity: calc(var(--fx-i) * .18); mix-blend-mode: screen; background: radial-gradient(120% 80% at 50% 40%, rgba(170,235,255,.85), rgba(60,140,255,.4) 45%, transparent 72%); animation: pkfxVoltFlash 1.7s ease-in-out infinite; }
+.fx-electric .bolts { inset: 0; }
+.fx-electric .bolt { top: 0; bottom: 0; left: var(--x); width: calc(74px * var(--s)); margin-left: calc(-37px * var(--s)); opacity: calc(var(--fx-i) * .95); transform-origin: top center;
+  background-repeat: no-repeat; background-position: center; background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 400' preserveAspectRatio='none'%3E%3Cpath d='M32 0 L16 118 L40 130 L12 250 L36 262 L20 400' fill='none' stroke='%23eaffff' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M32 0 L16 118 L40 130 L12 250 L36 262 L20 400' fill='none' stroke='%2380d0ff' stroke-width='15' stroke-opacity='.55' stroke-linejoin='round'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 10px rgba(120,215,255,1)) drop-shadow(0 0 26px rgba(70,150,255,.85)); animation: pkfxBolt var(--dur) ease-in-out infinite; animation-delay: var(--d); }
+.fx-electric .spark { left: var(--x); top: var(--y); width: 10px; height: 10px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, #eaffff, #57c8ff 60%, transparent); box-shadow: 0 0 16px rgba(120,215,255,1);
+  animation: pkfxSpark var(--dur) ease-out infinite; animation-delay: var(--d); }
+.fx-electric .volt-vignette { inset: 0; opacity: calc(var(--fx-i) * .78); background: radial-gradient(120% 100% at 50% 50%, transparent 42%, rgba(6,16,40,.78) 100%); }
+@keyframes pkfxVoltFlash { 0%,100% { opacity: calc(var(--fx-i) * .14); } 8% { opacity: calc(var(--fx-i) * .7); } 12% { opacity: calc(var(--fx-i) * .22); } 46% { opacity: calc(var(--fx-i) * .5); } 52% { opacity: calc(var(--fx-i) * .16); } }
+@keyframes pkfxBolt {
+  0%,100% { opacity: calc(var(--fx-i) * .55); transform: scaleX(1) translateX(0); }
+  20% { opacity: calc(var(--fx-i) * 1); transform: scaleX(-1) translateX(6px); }
+  40% { opacity: calc(var(--fx-i) * .3); transform: scaleX(1) translateX(-4px); }
+  60% { opacity: calc(var(--fx-i) * .95); transform: scaleX(-1) translateX(3px); }
+  80% { opacity: calc(var(--fx-i) * .5); transform: scaleX(1) translateX(-2px); }
+}
+@keyframes pkfxSpark { 0% { opacity: 0; transform: translate(0,0) scale(1); } 10% { opacity: var(--fx-i); } 100% { opacity: 0; transform: translate(30px, -40px) scale(.2); } }
+
+/* ============================================================
+   ☠️ POISON
+   ============================================================ */
+.fx-poison .tox-fog { inset: 0; opacity: calc(var(--fx-i) * .9); mix-blend-mode: screen;
+  background: radial-gradient(60% 45% at 25% 90%, rgba(130,255,130,.6), transparent 60%), radial-gradient(55% 40% at 75% 100%, rgba(100,240,100,.55), transparent 62%), radial-gradient(70% 50% at 50% 100%, rgba(70,215,90,.5), transparent 70%);
+  animation: pkfxTox 5s ease-in-out infinite; }
+.fx-poison .toxbubble { bottom: 3%; left: var(--x); width: calc(24px * var(--s)); height: calc(24px * var(--s)); border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle at 35% 30%, rgba(225,255,205,.95), rgba(96,225,96,.55) 55%, transparent); box-shadow: 0 0 16px rgba(130,255,130,.8);
+  animation: pkfxToxBub var(--dur) ease-in infinite; animation-delay: var(--d); }
+.fx-poison .tox-vignette { inset: 0; opacity: calc(var(--fx-i) * .9); background: radial-gradient(120% 100% at 50% 60%, transparent 40%, rgba(6,32,10,.78) 100%); }
+@keyframes pkfxTox { 0%,100% { opacity: calc(var(--fx-i) * .6); transform: translateY(0) scale(1); } 50% { opacity: calc(var(--fx-i) * .92); transform: translateY(-16px) scale(1.05); } }
+@keyframes pkfxToxBub { 0% { transform: translate3d(0,0,0) scale(.5); opacity: 0; } 15% { opacity: calc(var(--fx-i) * .95); } 85% { opacity: calc(var(--fx-i) * .75); } 100% { transform: translate3d(var(--drift), -1500px, 0) scale(1.1); opacity: 0; } }
+
+/* ============================================================
+   🌑 SHADOW
+   ============================================================ */
+.fx-shadow .shadow-core { inset: 0; opacity: calc(var(--fx-i) * .9); background: radial-gradient(120% 100% at 50% 50%, rgba(30,0,50,.25) 26%, rgba(5,0,12,.92) 100%); animation: pkfxShadowPulse 3.4s ease-in-out infinite; }
+.fx-shadow .tendril { opacity: calc(var(--fx-i) * .98); mix-blend-mode: multiply; }
+.fx-shadow .tendril.top    { top: 0; left: 0; right: 0; height: 46%; background: linear-gradient(180deg, rgba(6,0,14,.98), transparent); animation: pkfxTendril 4s ease-in-out infinite; }
+.fx-shadow .tendril.bottom { bottom: 0; left: 0; right: 0; height: 46%; background: linear-gradient(0deg, rgba(6,0,14,.98), transparent); animation: pkfxTendril 4.4s ease-in-out infinite reverse; }
+.fx-shadow .tendril.out    { top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, rgba(6,0,14,.94), transparent); animation: pkfxTendrilX 5s ease-in-out infinite; }
+.fx-shadow .tendril.in     { top: 0; bottom: 0; right: 0; width: 40%; background: linear-gradient(270deg, rgba(6,0,14,.94), transparent); animation: pkfxTendrilX 4.6s ease-in-out infinite reverse; }
+.fx-shadow .wisp { left: var(--x); top: var(--y); width: calc(66px * var(--s)); height: calc(66px * var(--s)); border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, rgba(160,90,235,.6), transparent 65%); box-shadow: 0 0 26px rgba(130,60,215,.6);
+  animation: pkfxWisp var(--dur) ease-in-out infinite; animation-delay: var(--d); }
+.fx-shadow .shadow-vignette { inset: 0; opacity: var(--fx-i); background: radial-gradient(120% 100% at 50% 50%, transparent 32%, rgba(2,0,8,.9) 100%); }
+@keyframes pkfxShadowPulse { 0%,100% { opacity: calc(var(--fx-i) * .68); } 50% { opacity: calc(var(--fx-i) * .95); } }
+@keyframes pkfxTendril { 0%,100% { transform: translateY(-8%) scaleY(.9); } 50% { transform: translateY(0) scaleY(1.12); } }
+@keyframes pkfxTendrilX { 0%,100% { transform: translateX(-8%) scaleX(.9); } 50% { transform: translateX(0) scaleX(1.12); } }
+@keyframes pkfxWisp { 0% { opacity: 0; transform: translate(0,0) scale(.6); } 30% { opacity: calc(var(--fx-i) * .85); } 100% { opacity: 0; transform: translate(20px,-60px) scale(1.3); } }
+
+/* ============================================================
+   💥 SHATTER
+   ============================================================ */
+.fx-shatter .shatter-flash { inset: 0; opacity: 0; background: radial-gradient(circle at 50% 45%, rgba(255,255,255,.95), transparent 58%); animation: pkfxKOflash 3.2s ease-out infinite; }
+.fx-shatter .crack-glass { inset: 0; opacity: var(--fx-i); background-position: center; background-repeat: no-repeat; background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 500'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.95' stroke-width='2.4'%3E%3Cpath d='M150 250 L150 0 M150 250 L300 90 M150 250 L300 300 M150 250 L210 500 M150 250 L20 470 M150 250 L0 250 M150 250 L60 40'/%3E%3Cpath d='M110 130 L150 250 L230 200 M96 360 L150 250 L250 380 M40 250 L150 250'/%3E%3Cpath stroke-opacity='.65' d='M150 250 m-70 0 a70 70 0 1 0 140 0 a70 70 0 1 0 -140 0 M150 250 m-130 0 a130 130 0 1 0 260 0 a130 130 0 1 0 -260 0'/%3E%3C/g%3E%3C/svg%3E");
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)) drop-shadow(0 0 2px rgba(255,255,255,.5)); }
+.fx-shatter .shard { left: var(--x); top: var(--y); width: calc(54px * var(--s)); height: calc(54px * var(--s)); opacity: calc(var(--fx-i) * .85); transform: rotate(var(--r));
+  background: linear-gradient(135deg, rgba(255,255,255,.62), rgba(180,210,240,.14) 55%, rgba(120,160,210,.4)); clip-path: polygon(50% 0, 100% 65%, 62% 100%, 8% 78%); box-shadow: inset 0 0 10px rgba(255,255,255,.55);
+  animation: pkfxShardGlint 3s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes pkfxKOflash { 0% { opacity: 0; transform: scale(.6); } 6% { opacity: calc(var(--fx-i) * .95); } 30% { opacity: 0; transform: scale(1.2); } 100% { opacity: 0; } }
+@keyframes pkfxShardGlint { 0%,100% { opacity: calc(var(--fx-i) * .35); } 50% { opacity: calc(var(--fx-i) * .85); } }
+
+/* ===== GẠCH ranh giới (N-1) ở KHE giữa 2 Thành viên =====
+   MẢNH, MỜ NHẸ, KHÔNG viền màu — chỉ 1 vệt tối mềm, gọn để đỡ che khung idol (hiệu ứng FX là chính). */
+.pkgfx-seam { position: absolute; top: 0; bottom: 0; width: var(--pkgfx-sw, 6px); transform: translateX(-50%); z-index: 5; pointer-events: none; }
+.pkgfx-stage.no-seam .pkgfx-seam { display: none; }
+/* Vệt tối feather ngang (mép mờ dần → mỏng mịn) + quầng tối trung tính rất nhẹ, không màu. */
+.pkgfx-seam .seam-core { position: absolute; inset: 0; border-radius: 999px;
+  background: linear-gradient(90deg, rgba(6,8,12,0) 0%, rgba(6,8,12,.46) 30%, rgba(6,8,12,.46) 70%, rgba(6,8,12,0) 100%);
+  box-shadow: 0 0 4px 1px rgba(0,0,0,.16); }
+/* Chốt trận: đậm hơn CHÚT xíu cho rõ, vẫn không viền màu. */
+.pkgfx-stage.is-finished .pkgfx-seam .seam-core { background: linear-gradient(90deg, rgba(6,8,12,0) 0%, rgba(6,8,12,.6) 30%, rgba(6,8,12,.6) 70%, rgba(6,8,12,0) 100%); }
+
+/* Review window: nền để dễ nhìn khi kéo cửa sổ */
+body.overlay-review { background: var(--review-bg, #101014); }

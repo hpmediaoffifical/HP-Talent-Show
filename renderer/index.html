@@ -251,6 +251,7 @@
             <button class="nav-btn nav-child" data-tab="mvphonor" title="VINH DANH"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span><span class="nav-txt">VINH DANH</span></button>
             <button class="nav-btn nav-child" data-tab="luckywheel" title="VÒNG QUAY"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/><path d="M12 12 6.5 8"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span><span class="nav-txt">VÒNG QUAY</span></button>
             <button class="nav-btn nav-child" data-tab="mtrio" title="BỘ BA"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="15" y2="12"/><line x1="4" y1="18" x2="18" y2="18"/></svg></span><span class="nav-txt">BỘ BA</span></button>
+            <button class="nav-btn nav-child" data-tab="taptim" title="TÁP TIM"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></span><span class="nav-txt">TÁP TIM</span></button>
             <button class="nav-btn nav-child" data-tab="cardflip" title="THẺ BÀI"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="11" height="15" rx="2"/><path d="M8.5 9.5h1M8.5 15.5h1"/><path d="M16 7l4 1.2a2 2 0 0 1 1.4 2.5l-2.5 8.3"/></svg></span><span class="nav-txt">THẺ BÀI</span></button>
           </div>
         </div>
@@ -448,6 +449,7 @@
             <button id="pkStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="pkReset" class="ghost" type="button" title="Reset điểm/trạng thái trận, GIỮ chuỗi WIN">↺ Reset</button>
             <button id="pkResetAll" class="ghost danger" type="button" title="Xoá tất cả: điểm, trạng thái VÀ chuỗi WIN (không hoàn tác)">🗑️ RESET TẤT CẢ</button>
+            <label class="pk-row-field fog-toggle" title="Sương mù che thanh máu + số điểm ở 10 giây cuối, hết giờ mới lộ kết quả (tạo kịch tính)"><input type="checkbox" id="pkFogHide" /> 🌫️ Sương</label>
             <label class="pk-row-field" title="Chế độ chơi">🎮 Chế độ
               <select id="pkJoinMode">
                 <option value="false" title="Quà rơi vào đội đã gán sẵn">Cố Định</option>
@@ -672,6 +674,15 @@
                     <span id="pkFxThresholdValue" class="prefix">8%</span>
                   </div>
                 </label>
+                <label>🌊 Điểm ngập FULL <span class="cfg-adv__hint" style="font-weight:400">chênh điểm ≥ mức này → ngập kín; dưới thì dâng dần</span>
+                  <input id="pkFxFullPoints" type="number" min="10" max="100000" step="10" value="100" />
+                </label>
+                <label class="full">📵 Chừa mép trên (TikTok che điểm) <span class="cfg-adv__hint" style="font-weight:400">để luôn thấy đợt sóng lên xuống</span>
+                  <div class="range-inline">
+                    <input id="pkFxTopSafe" type="range" min="0" max="40" step="1" value="14" />
+                    <span id="pkFxTopSafeValue" class="prefix">14%</span>
+                  </div>
+                </label>
               </div>
             </div>
           </details>
@@ -706,6 +717,7 @@
             <button id="kcStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="kcReset" class="ghost" type="button" title="Reset điểm/trạng thái ván, GIỮ chuỗi trụ ghế + số vòng">↺ Reset</button>
             <button id="kcResetAll" class="ghost danger" type="button" title="Xoá tất cả: điểm, chuỗi trụ ghế, số vòng và người kế (không hoàn tác)">🗑️ RESET TẤT CẢ</button>
+            <label class="pk-row-field fog-toggle" title="Sương mù che thanh máu + số điểm ở 10 giây cuối, hết giờ mới lộ ai giữ ghế (tạo kịch tính)"><input type="checkbox" id="kcFogHide" /> 🌫️ Sương</label>
             <label class="pk-row-field" title="Chế độ chơi">🎮 Chế độ
               <select id="kcJoinMode">
                 <option value="false" title="Quà rơi vào phe đã gán sẵn">Cố Định</option>
@@ -910,6 +922,9 @@
             <button id="pkgStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="pkgReset" class="ghost" type="button" title="Reset điểm/trạng thái trận, GIỮ chuỗi WIN">↺ Reset</button>
             <button id="pkgResetAll" class="ghost danger" type="button" title="Xoá tất cả: điểm, trạng thái VÀ chuỗi WIN (không hoàn tác)">🗑️ RESET TẤT CẢ</button>
+            <label class="pk-row-field fog-toggle" title="Sương mù che thanh máu + số điểm ở 10 giây cuối, hết giờ mới lộ ai dẫn (tạo kịch tính)">
+              <input type="checkbox" id="pkgFogHide" /> 🌫️ Sương
+            </label>
             <label class="pk-row-field" title="Chế độ chơi">🎮 Chế độ
               <select id="pkgPlayMode">
                 <option value="fixed">Cố định</option>
@@ -1006,8 +1021,8 @@
                 <label>Delay sau kết thúc (giây) <input id="pkgDelay" type="number" min="0" max="120" value="5" /></label>
                 <label>Khoảng cách Creator rời
                   <div class="range-inline">
-                    <input id="pkgSeparatedGap" type="range" min="0" max="800" step="10" value="170" />
-                    <span id="pkgSeparatedGapValue" class="prefix">170px</span>
+                    <input id="pkgSeparatedGap" type="range" min="0" max="800" step="10" value="330" />
+                    <span id="pkgSeparatedGapValue" class="prefix">330px</span>
                   </div>
                 </label>
                 <label class="switch-row" style="flex-direction:column-reverse; align-items:flex-start; gap:6px" title="Chỉ kiểu Rời nhau: nền tên + phần máu (được tặng) tô ĐẬM không trong suốt, số điểm trắng; nền rỗng giữ xám mờ trong suốt — dễ đọc trên OBS">
@@ -1044,6 +1059,71 @@
                   <div class="range-inline">
                     <input id="pkgOverlayScale" type="range" min="80" max="300" step="5" value="200" />
                     <span id="pkgOverlayScaleValue" class="prefix">200%</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <details class="cfg-adv" open>
+            <summary>
+              <span class="cfg-adv__ico">⚔️</span>
+              <span>Overlay FX toàn màn hình</span>
+              <span class="cfg-adv__hint">chỉ kiểu Rời nhau</span>
+              <span class="cfg-adv__chev">▾</span>
+            </summary>
+            <div class="cfg-adv__body">
+              <div class="form-grid">
+                <div class="cfg-adv__note">Nguồn OBS riêng phủ lên lưới video — CHỈ chạy khi bật kiểu <b>Rời nhau theo TOP 1</b>. Chia đều màn hình theo số Thành viên: gạch ranh giới ở khe giữa (đen + màu theo fx) + hiệu ứng phủ người kém TOP 1.</div>
+                <label>Bật hiệu ứng FX
+                  <select id="pkgFxEnabled">
+                    <option value="true">Bật</option>
+                    <option value="false">Tắt</option>
+                  </select>
+                </label>
+                <label>Gạch ranh giới (khe giữa)
+                  <select id="pkgFxSeam">
+                    <option value="true">Hiện</option>
+                    <option value="false">Ẩn</option>
+                  </select>
+                </label>
+                <label>Kiểu hiệu ứng bên kém TOP 1
+                  <select id="pkgFxStyle">
+                    <option value="auto">🎲 Auto (đổi theo vòng)</option>
+                    <option value="freeze">❄️ Đóng băng (băng 3D)</option>
+                    <option value="fire">🔥 Lửa (2 lớp + khói)</option>
+                    <option value="water">💧 Ọc nước (khúc xạ)</option>
+                    <option value="dim">🌫️ Mờ / nhiễu glitch</option>
+                    <option value="electric">⚡ Điện giật</option>
+                    <option value="poison">☠️ Độc xanh</option>
+                    <option value="shadow">🌑 Bóng tối nuốt chửng</option>
+                    <option value="shatter">💥 Nứt kính KO</option>
+                  </select>
+                </label>
+                <label>Số người bị hiệu ứng <span class="cfg-adv__hint" style="font-weight:400">chọn K người điểm thấp nhất</span>
+                  <select id="pkgFxLoserCount">
+                    <option value="0">Tất cả (trừ TOP 1)</option>
+                    <option value="1">1 người thấp nhất</option>
+                    <option value="2">2 người thấp nhất</option>
+                    <option value="3">3 người thấp nhất</option>
+                    <option value="4">4 người thấp nhất</option>
+                    <option value="5">5 người thấp nhất</option>
+                    <option value="6">6 người thấp nhất</option>
+                  </select>
+                </label>
+                <label class="full">Ngưỡng bật hiệu ứng (kém TOP 1 %)
+                  <div class="range-inline">
+                    <input id="pkgFxThreshold" type="range" min="0" max="60" step="1" value="8" />
+                    <span id="pkgFxThresholdValue" class="prefix">8%</span>
+                  </div>
+                </label>
+                <label>🌊 Điểm ngập FULL <span class="cfg-adv__hint" style="font-weight:400">kém TOP 1 ≥ mức này → ngập kín; dưới thì dâng dần</span>
+                  <input id="pkgFxFullPoints" type="number" min="10" max="100000" step="10" value="100" />
+                </label>
+                <label class="full">📵 Chừa mép trên (TikTok che điểm) <span class="cfg-adv__hint" style="font-weight:400">để luôn thấy đợt sóng lên xuống</span>
+                  <div class="range-inline">
+                    <input id="pkgFxTopSafe" type="range" min="0" max="40" step="1" value="14" />
+                    <span id="pkgFxTopSafeValue" class="prefix">14%</span>
                   </div>
                 </label>
               </div>
@@ -1365,6 +1445,7 @@
               <div class="sc-run-secondary">
                 <button id="scReset" class="ghost" type="button">↺ Reset</button>
                 <button id="scSaveCfg" class="ghost" type="button">💾 Lưu</button>
+                <label class="fog-toggle sc-fog-toggle" title="Sương mù che số điểm (và thanh máu) ở 10 giây cuối, hết giờ mới lộ kết quả (tạo kịch tính). Kiểu THỜI GIAN chỉ che số, giữ thanh đồng hồ."><input id="scFogHide" type="checkbox" /> 🌫️ Sương</label>
                 <div class="score-command-test sc-test-compact">
                   <span>TEST</span>
                   <div class="score-test-row">
@@ -1721,11 +1802,113 @@
         </div>
       </section>
 
+      <section class="panel" data-panel="taptim">
+        <div class="panel-head">
+          <h1>❤️ NHIỆM VỤ · TÁP TIM</h1>
+          <div class="panel-head-right">
+            <button class="rk-settings-icon" type="button" data-modal-open="lwallSettingsModal" title="Cài đặt ❤️ TÁP TIM (Esc để đóng)" aria-label="Cài đặt Táp Tim">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="card mt-card">
+          <p class="mt-desc">Bức tường thả tim (点赞墙): BXH người xem <b>táp tim</b> nhiều nhất theo <b>ID từng người</b>. Mỗi ô = avatar + tên + thanh máu (người top = 100%); thanh máu <b>tổng</b> = tổng tim / mục tiêu. Khi ai vượt <b>mốc tim tích luỹ</b> sẽ bung <b>popup danh hiệu</b>. Bấm <b>BẮT ĐẦU</b> để đếm từ 0, <b>COPY OBS</b> để lấy link overlay.</p>
+
+          <div class="mt-command">
+            <div class="lwall-preview" id="lwallPreview"></div>
+          </div>
+          <p class="mt-hint mt-prev-note">Xem trước gọn — chỉ theo dõi số liệu. Giao diện đầy đủ (9 ô, vương miện, popup) hiển thị trên OBS.</p>
+
+          <div class="mt-actions">
+            <button id="lwallStart" class="primary" type="button">▶ BẮT ĐẦU</button>
+            <button id="lwallReset" class="ghost" type="button">↺ Reset</button>
+            <button id="lwallCopy" class="ghost" type="button" title="Link overlay OBS">📋 COPY OBS</button>
+            <span id="lwallRunState" class="mt-runstate">● Đang dừng</span>
+            <div class="mt-test">
+              <span>TEST</span>
+              <input id="lwallTestAmt" type="number" min="1" max="999999" value="50" />
+              <button class="ghost" type="button" data-lwall-bump="1">＋ Tim (người ngẫu nhiên)</button>
+            </div>
+          </div>
+
+          <!-- ⚙️ Popup Cài đặt ❤️ TÁP TIM -->
+          <div id="lwallSettingsModal" class="gp-overlay sc-flatcfg">
+            <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="lwallSettingsTitle">
+              <header class="gp-head">
+                <h3 id="lwallSettingsTitle">⚙️ Cài đặt · ❤️ NHIỆM VỤ · TÁP TIM</h3>
+                <button class="gp-close-btn" type="button" data-modal-close aria-label="Đóng" title="Đóng (Esc)">✕</button>
+              </header>
+              <div class="rk-settings-body">
+                <fieldset class="score-config-card">
+                  <legend>Nội dung &amp; mục tiêu</legend>
+                  <div class="form-grid compact">
+                    <label class="full">Tiêu đề <input id="lwallTitle" type="text" maxlength="60" value="BỨC TƯỜNG THẢ TIM" /></label>
+                    <label>Mục tiêu tổng tim <input id="lwallTarget" type="text" inputmode="numeric" value="5.000" /></label>
+                    <label>Số ô hiển thị <input id="lwallTopN" type="number" min="1" max="12" value="9" /></label>
+                    <label>Ngưỡng chạy chữ tên (ký tự) <input id="lwallNameChars" type="number" min="3" max="40" value="6" /></label>
+                  </div>
+                </fieldset>
+
+                <fieldset class="score-config-card">
+                  <legend>Popup danh hiệu (点赞萌新)</legend>
+                  <div class="form-grid compact">
+                    <label class="chk-inline"><input id="lwallPopup" type="checkbox" checked /> Bật popup khi vượt mốc tim</label>
+                    <label>Thời gian hiện popup (ms) <input id="lwallPopupMs" type="number" min="1200" max="8000" step="100" value="2600" /></label>
+                  </div>
+                  <div class="lwall-tier-head"><span>Mốc tim tích luỹ</span><span>Tên danh hiệu</span><span></span></div>
+                  <div id="lwallTierList" class="lwall-tier-list"></div>
+                  <button id="lwallTierAdd" type="button" class="ghost tiny">＋ Thêm mốc</button>
+                  <p class="mt-hint">Mỗi khi tim tích luỹ của 1 người vượt một mốc, popup bung với tên danh hiệu tương ứng (X1, X2… theo thứ tự mốc).</p>
+                </fieldset>
+
+                <fieldset class="score-config-card">
+                  <legend>Khung avatar VIP · TOP 1-5 (từ 🏅 VINH DANH)</legend>
+                  <label class="chk-inline"><input id="lwallFramesEnabled" type="checkbox" checked /> Lồng khung VIP cho avatar TOP 1-5 (WOW)</label>
+                  <div class="form-grid compact">
+                    <label>Khung TOP 1 (số ảnh) <input id="lwallFrame1" type="number" min="1" max="60" value="2" /></label>
+                    <label>Khung TOP 2 <input id="lwallFrame2" type="number" min="1" max="60" value="7" /></label>
+                    <label>Khung TOP 3 <input id="lwallFrame3" type="number" min="1" max="60" value="12" /></label>
+                    <label>Khung TOP 4 <input id="lwallFrame4" type="number" min="1" max="60" value="19" /></label>
+                    <label>Khung TOP 5 <input id="lwallFrame5" type="number" min="1" max="60" value="29" /></label>
+                    <label class="full">Cỡ khung so với avatar
+                      <div class="range-inline"><input id="lwallFrameScale" type="range" min="120" max="240" step="4" value="172" /><span id="lwallFrameScaleVal" class="prefix">172%</span></div>
+                    </label>
+                  </div>
+                  <p class="mt-hint">Số ảnh = tên file khung trong VINH DANH (vd 2 → <code>2.png</code>). Khung bao quanh avatar, thay cho vương miện/vòng mặc định. Để trống 1 ô = TOP đó dùng viền mặc định.</p>
+                </fieldset>
+
+                <details class="cfg-adv" open>
+                  <summary><span class="cfg-adv__ico">⚙️</span><span>Giao diện OBS</span><span class="cfg-adv__chev">▾</span></summary>
+                  <div class="cfg-adv__body">
+                    <div class="form-grid compact">
+                      <label>Màu đậm — đích <input id="lwallColor1" type="color" value="#ff2e4d" /></label>
+                      <label>Màu nhạt — đầu <input id="lwallColor2" type="color" value="#ff8a9a" /></label>
+                      <label>Màu nền ngoài <input id="lwallCardBg" type="color" value="#3a3d46" /></label>
+                      <label>Màu nền ô <input id="lwallCellBg" type="color" value="#000000" /></label>
+                      <label>Màu chữ tiêu đề <input id="lwallTitleColor" type="color" value="#ffffff" /></label>
+                      <label class="chk-inline"><input id="lwallShowTicker" type="checkbox" checked /> Hiện người đang táp (ticker)</label>
+                      <label class="full">Độ đậm nền ngoài
+                        <div class="range-inline"><input id="lwallCardOp" type="range" min="0" max="100" step="5" value="70" /><span id="lwallCardOpVal" class="prefix">70%</span></div>
+                      </label>
+                      <label class="full">Độ đậm nền ô
+                        <div class="range-inline"><input id="lwallCellOp" type="range" min="0" max="100" step="5" value="50" /><span id="lwallCellOpVal" class="prefix">50%</span></div>
+                      </label>
+                      <label class="full">Scale overlay OBS
+                        <div class="range-inline"><input id="lwallScale" type="range" min="50" max="300" step="5" value="200" /><span id="lwallScaleVal" class="prefix">200%</span></div>
+                      </label>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+          <!-- /Popup Cài đặt · ❤️ TÁP TIM -->
+        </div>
+      </section>
+
       <section class="panel" data-panel="cardflip">
         <h1>🃏 THẺ BÀI</h1>
         <div class="card cf-panel-card">
-          <p class="cf-desc">MC dựa vào KPI <b>TÁP TIM</b> để chơi cùng người xem và lật thẻ theo yêu cầu. Overlay <b>bấm được</b> (OBS Interact / cửa sổ Review) — bấm thẻ nào lật thẻ đó. Bật <b>Chọn thẻ</b> để thẻ rung báo hiệu; bấm <b>Lật thẻ</b> để mở mặt trước kèm nội dung. Thanh máu đếm số <b>tim</b> tích luỹ so với mục tiêu.</p>
-
           <div class="cf-toolbar">
             <button class="primary" data-review-toggle="cardflip" type="button">🖥 Mở Overlay</button>
             <button class="ghost" data-review-top="cardflip" type="button">📌 BỎ GHIM</button>
@@ -2656,6 +2839,16 @@
             <button class="ghost" data-review-bg-clear="pkgroup" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
+            <label>🧩 PK NHÓM · FX</label>
+            <button class="primary" data-copy="urlPkgFx" type="button">📋COPY OBS (phủ lưới video)</button>
+            <button class="ghost" data-review-toggle="pkgroupfx" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="pkgroupfx" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="pkgroupfx" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="pkgroupfx" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="pkgroupfx" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="pkgroupfx" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
             <label>🏆 THI ĐẤU DỌC</label>
             <button class="primary" data-copy="urlRk" type="button">📋COPY OBS (900×1600)</button>
             <button class="ghost" data-review-toggle="ranking" type="button">🖥 CỬA SỔ</button>
@@ -2764,6 +2957,16 @@
             <input class="review-bg-picker" data-review-bg="missiontrio" type="color" title="Màu nền Review" value="#000000" />
             <input class="review-bg-alpha" data-review-alpha="missiontrio" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
             <button class="ghost" data-review-bg-clear="missiontrio" type="button">Trong suốt</button>
+          </div>
+          <div class="ovl-row">
+            <label>❤️ TÁP TIM</label>
+            <button class="primary" data-copy="urlTaptim" type="button">📋COPY OBS (540×900)</button>
+            <button class="ghost" data-review-toggle="likewall" type="button">🖥 CỬA SỔ</button>
+            <button class="ghost" data-review-top="likewall" type="button">📌 BỎ GHIM</button>
+            <button class="ghost" data-review-click="likewall" type="button">🖱 Xuyên</button>
+            <input class="review-bg-picker" data-review-bg="likewall" type="color" title="Màu nền Review" value="#000000" />
+            <input class="review-bg-alpha" data-review-alpha="likewall" type="range" title="Độ trong suốt nền Review" min="0" max="100" value="100" />
+            <button class="ghost" data-review-bg-clear="likewall" type="button">Trong suốt</button>
           </div>
           <div class="ovl-row">
             <label>🃏 THẺ BÀI</label>

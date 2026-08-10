@@ -286,10 +286,14 @@ html, body { margin:0; width:100%; height:100%; background:transparent; overflow
 .layout-card.size-small .sc-card-mid { min-height:60px; }
 .layout-card.size-large .sc-card-mid { min-height:88px; }
 /* Avatar idol TO, canh giữa theo chiều dọc ở mép trái (đúng chỗ đánh dấu) */
-.layout-card .sc-card-avatar { position:absolute; left:16px; top:50%; transform:translateY(-50%); width:64px; height:64px; border-radius:50%; overflow:hidden; background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.62); box-shadow:0 4px 14px rgba(0,0,0,.45); }
+/* Bọc avatar để đặt KHUNG (mvp-frames/4.png từ 🏅 Vinh danh) đè quanh avatar — khung to hơn avatar (172%) nên overflow:visible */
+.layout-card .sc-card-avwrap { position:absolute; left:16px; top:50%; transform:translateY(-50%); width:64px; height:64px; }
+.layout-card.size-small .sc-card-avwrap { width:50px; height:50px; left:12px; }
+.layout-card.size-large .sc-card-avwrap { width:78px; height:78px; left:20px; }
+.layout-card .sc-card-avatar { position:relative; width:100%; height:100%; border-radius:50%; overflow:hidden; background:rgba(255,255,255,.1); box-shadow:0 4px 14px rgba(0,0,0,.45); z-index:1; }
 .layout-card .sc-card-avatar img { width:100%; height:100%; object-fit:cover; }
-.layout-card.size-small .sc-card-avatar { width:50px; height:50px; left:12px; }
-.layout-card.size-large .sc-card-avatar { width:78px; height:78px; left:20px; }
+/* Khung avatar (crown/wings) — đè lên avatar, tâm trùng avatar, rộng 172% avatar (khớp tỷ lệ mặc định ở Vinh danh) */
+.layout-card .sc-card-frame { position:absolute; left:50%; top:50%; width:172%; max-width:none; height:auto; transform:translate(-50%,-50%); z-index:2; pointer-events:none; }
 /* Đồng hồ đếm lùi (khi chạy) — chuyển thành chữ trạng thái nhỏ gọn khi grace/kết thúc */
 .layout-card .sc-card-clock { text-align:center; min-width:0; }
 .layout-card .sc-clock-text { font-size:42px; font-weight:950; color:var(--score-time-color,#fff); line-height:1; letter-spacing:.02em; font-variant-numeric:tabular-nums; }
@@ -651,3 +655,15 @@ body[data-skin] .score-bar::before { content:''; position:absolute; z-index:4; i
 body[data-skin] .layout-card .sc-tab { background:linear-gradient(180deg, var(--osk-chip1, #222636), var(--osk-chip2, #222636)); border-color:rgba(var(--osk-frame-rgb, 255,255,255), .55); }
 body[data-skin] .layout-card .sc-tab-text { color:var(--osk-chip-fg, #fff); }
 body[data-skin] .layout-card .score-card { border-color:rgba(var(--osk-frame-rgb, 255,255,255), .5); box-shadow:0 12px 34px rgba(0,0,0,.5), inset 0 0 0 1px rgba(var(--osk-accent2-rgb, 255,255,255), .3), 0 0 20px rgba(var(--osk-frame-rgb, 255,255,255), .25); }
+
+/* 🌫️ SƯƠNG MÙ 10 GIÂY CUỐI — che SỐ ĐIỂM (và thanh máu ở ĐƯỜNG ĐUA/KÊU GỌI); kiểu THỜI GIAN chỉ che số,
+   GIỮ NGUYÊN thanh đồng hồ để người xem thấy đếm lùi. Ẩn số + người chạy + cờ đích bên dưới sương. */
+.score-obs.fog-on .sc-cardbar-wrap { position:relative; border-radius:14px; }
+.score-obs.fog-on .score-points { position:relative; border-radius:10px; }
+.score-obs.fog-on .st-points { position:relative; border-radius:12px; }
+.score-obs.fog-on .score-points .score-points-main,
+.score-obs.fog-on .score-barwrap .score-pop,
+.score-obs.fog-on .score-barwrap .score-flag,
+.score-obs.fog-on .st-points .score-points-cur,
+.score-obs.fog-on .st-points .st-points-label,
+.score-obs.fog-on .st-points .st-momentum { opacity:0 !important; }
