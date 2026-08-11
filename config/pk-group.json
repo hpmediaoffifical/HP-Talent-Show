@@ -1,28 +1,28 @@
 {
   "content": "PK NHÓM",
   "groupId": "g_mrtg107e1aqmz",
-  "layoutMode": "separated",
+  "layoutMode": "joined",
   "playMode": "fixed",
   "creatorLive": false,
   "tiktokCombine": true,
   "linkRanking": true,
   "pointsBy": "diamond",
   "noteEnabled": true,
-  "noteText": "Chọn quà chỉ định, sau đó lên bao nhiêu cũng tính điểm hoặc vào hộp quà sau đó chọn Thành viên và tặng điểm. Tặng 1 điểm để kiểm tra tính năng",
+  "noteText": "Tặng quà chỉ định để chọn Creator (vẫn được tính điểm), sau đó lên gì cũng tính cho Creator đó. Tặng quà Creator khác để chuyển, hết trận sẽ tự hủy",
   "noteBgColor": "#000000",
   "noteTextColor": "#ffea00",
   "noteSpeedSec": 19,
   "noteEffect": "soft",
-  "separatedGap": 330,
+  "separatedGap": 30,
   "sepSolidBg": true,
   "autoTextContrast": true,
   "durationSec": 15,
   "prepSec": 3,
   "delaySec": 5,
   "textSize": 30,
-  "nameSize": 120,
+  "nameSize": 150,
   "giftSize": 60,
-  "overlayScale": 200,
+  "overlayScale": 185,
   "showMvpTotals": true,
   "selectFx": "arrow",
   "skin": "auto",
@@ -42,7 +42,7 @@
       "creatorId": "c_mrtg28mrb1ni1",
       "tiktokId": "raidenhyun",
       "name": "Raiden",
-      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=0b63f205&x-expires=1786467600&x-signature=NHGVmWtFSSET7iUcpK6DVRTuUHY%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2",
+      "avatar": "https://p19-common-sign.tiktokcdn.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=2cd8b192&x-expires=1786640400&x-signature=RWrraEkJ%2FN6yHFVWJDhLJR6q7QY%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my3",
       "color": "#bc3cdd",
       "giftOverride": false,
       "gifts": [
@@ -54,15 +54,14 @@
         }
       ],
       "streak": 0,
-      "nameOverride": false,
-      "score": 0
+      "nameOverride": false
     },
     {
       "id": "c_mrtg2crd6d27p",
       "creatorId": "c_mrtg2crd6d27p",
       "tiktokId": "manhhao2309",
       "name": "Xuhao",
-      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=c3b91b19&x-expires=1786467600&x-signature=d8rJZ4ex9EMbCK64gkVZ7tzhIEI%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2",
+      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=33faaf8e&x-expires=1786640400&x-signature=9Vd8QI8UbKn1v1aril7zkB2juW0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my3",
       "color": "#3c7cdd",
       "giftOverride": false,
       "gifts": [
@@ -73,16 +72,15 @@
           "diamond": 1
         }
       ],
-      "streak": 2,
-      "nameOverride": false,
-      "score": 0
+      "streak": 0,
+      "nameOverride": false
     },
     {
       "id": "c_mrtg2obyczu0h",
       "creatorId": "c_mrtg2obyczu0h",
       "tiktokId": "callme.ice23",
       "name": "I.Ce",
-      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/ceab283203632412f0469537c948036e~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=ea1c8826&x-expires=1786467600&x-signature=ce4qWQBtMpCONJIwNQUFy7Wavfc%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2",
+      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/ceab283203632412f0469537c948036e~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=1e12d97d&x-expires=1786640400&x-signature=hVgndIBIzaLSHKGAyXlhU6%2FFqP0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my3",
       "color": "#3cdd7c",
       "giftOverride": false,
       "gifts": [
@@ -94,8 +92,88 @@
         }
       ],
       "streak": 0,
-      "nameOverride": false,
-      "score": 0
+      "nameOverride": false
+    },
+    {
+      "id": "c_mrtg2s085v57p",
+      "creatorId": "c_mrtg2s085v57p",
+      "tiktokId": "gin.2264",
+      "name": "Gin",
+      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/e5347129601a0333df9ba28b85a7a468~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=7794e8f3&x-expires=1786640400&x-signature=Q0iXJoAOYM4Axg9Bq3XFl6bQa5w%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my3",
+      "color": "#bcdd3c",
+      "giftOverride": false,
+      "gifts": [
+        {
+          "giftName": "Ice Cream Cone",
+          "giftId": "5827",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/968820bc85e274713c795a6aef3f7c67~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
+      "streak": 0,
+      "nameOverride": false
+    },
+    {
+      "id": "c_mrtg396ra59ws",
+      "creatorId": "c_mrtg396ra59ws",
+      "tiktokId": "d.one_2607",
+      "name": "D-One",
+      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/412869dc3e6fe48871a2754d67b12aae~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=990cf943&x-expires=1786640400&x-signature=op2JtpM7PjgOkr23yU2bWbBdu2w%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my3",
+      "color": "#dd3c3c",
+      "giftOverride": false,
+      "gifts": [
+        {
+          "giftName": "Birthday Cake",
+          "giftId": "9340",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3ac5ec732f6f4ba7b1492248bfea83d6~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
+      "streak": 0,
+      "nameOverride": false
+    },
+    {
+      "id": "c_ms71nvzoicoaa",
+      "creatorId": "c_ms71nvzoicoaa",
+      "tiktokId": "phucdao8886",
+      "name": "NPC•YAN🔥",
+      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/49793b8e0ec4f4dd3cfc07e21a1d2167~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=1ef3a908&x-expires=1786471200&x-signature=ieRftNv96SUdhRfvFqB4Y35C7wA%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2",
+      "color": "#3cdddd",
+      "giftOverride": false,
+      "gifts": [
+        {
+          "giftName": "Rose",
+          "giftId": "5655",
+          "icon": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
+          "diamond": 1
+        }
+      ],
+      "streak": 0,
+      "nameOverride": false
+    },
+    {
+      "id": "c_msoviigu555lf",
+      "creatorId": "c_msoviigu555lf",
+      "tiktokId": "natra12031",
+      "name": "NPC NATRA",
+      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/c74b3836f0d2bc37cc0c12581af32366~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=43255910&x-expires=1786640400&x-signature=DCyso%2Br13nJDLZS7ioc6sODY6MA%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my3",
+      "color": "#3cdd97",
+      "giftOverride": false,
+      "gifts": [],
+      "streak": 0,
+      "nameOverride": false
+    },
+    {
+      "id": "c_msoyhibfjvuuw",
+      "creatorId": "c_msoyhibfjvuuw",
+      "tiktokId": "llnhvyyyy",
+      "name": "NPC Krixi Linh Vyy",
+      "avatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/213b334c42a5e63c49d5440d6f6324d4~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=33ed2eca&x-expires=1786640400&x-signature=DG79ntv421mmI4eH1MuYhLsBnCo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my3",
+      "color": "#3cdd64",
+      "giftOverride": false,
+      "gifts": [],
+      "streak": 0,
+      "nameOverride": false
     }
   ],
   "creatorColors": {
@@ -145,7 +223,9 @@
     "c_mrtgak9qoxuww": "#3cdd3c",
     "c_ms70qso6zj9wv": "#3cdddd",
     "c_mrtgasf29swma": "#3c3cdd",
-    "c_mrtgaherq7zln": "#dd3cdd"
+    "c_mrtgaherq7zln": "#dd3cdd",
+    "c_msoviigu555lf": "#3cdd97",
+    "c_msoyhibfjvuuw": "#3cdd64"
   },
   "smartColor": true
 }

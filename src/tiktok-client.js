@@ -43,6 +43,10 @@ async function fetchWithTimeout(url, opts = {}, ms = 7000) {
   }
 }
 
+// UA desktop Chrome đầy đủ — TikTok phục vụ TRANG THẬT (kèm JSON hồ sơ) cho request giống trình
+// duyệt thật; UA cụt hay bị trả trang thử-thách JS rỗng.
+const UA_DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
 // Ghép một message dễ hiểu (tiếng Việt) từ lỗi connect cuối cùng, gợi ý cách xử lý.
 function friendlyConnectError(err, username) {
   const raw = errMessage(err);
@@ -173,62 +177,48 @@ class TikTokClient extends EventEmitter {
   }
 
   // Lấy profile info từ username (không cần đang LIVE). Trả về { uniqueId, nickname, avatar, found }
-  async fetchProfile(rawUsername) {
+  async fetchProfile(rawUsername, opts = {}) {
     const username = String(rawUsername || '').trim().replace(/^@/, '');
     if (!username) throw new Error('Username trống.');
-    let best = { uniqueId: username, nickname: username, avatar: '', found: false, source: 'fallback' };
-    // Lấy sẵn hồ sơ tikwm (user.id = toMemberId = ID nhận quà) để đính userId vào MỌI nhánh trả về,
-    // phục vụ tính năng tự tính điểm theo người nhận quà trong LIVE nhóm.
+    // Gộp từ NHIỀU nguồn (mỗi nguồn nay hay khuyết avatar/UID): tikwm (user.id = ID nhận quà) →
+    // oembed (nickname) → TRANG @user (avatar + userId + nickname, dùng cookie Session ID nếu có).
+    let nickname = '', avatar = '', userId = '', title = '', source = 'fallback', found = false;
+
     let apiProfile = {};
     try { apiProfile = await fetchTikwmProfile(username); } catch {}
-    const userId = apiProfile.id ? String(apiProfile.id) : '';
-    try {
-      const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent('https://www.tiktok.com/@' + username)}`;
-      const res = await fetchWithTimeout(oembedUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-      if (res.ok) {
-        const data = await res.json();
-        best = {
-          uniqueId: username,
-          nickname: data.author_name || username,
-          avatar: data.thumbnail_url || '',
-          title: data.title || '',
-          userId,
-          found: true,
-          source: 'oembed',
-        };
-        if (best.avatar) return best;
-      }
-    } catch {}
-    try {
-      const api = apiProfile;
-      if (api.nickname || api.avatar) {
-        return {
-          uniqueId: username,
-          nickname: api.nickname || best.nickname || username,
-          avatar: api.avatar || best.avatar || '',
-          title: best.title || '',
-          userId,
-          found: true,
-          source: api.source || 'tikwm',
-        };
-      }
-    } catch {}
-    try {
-      const page = await fetchTikTokProfilePage(username);
-      if (page.nickname || page.avatar) {
-        return {
-          uniqueId: username,
-          nickname: page.nickname || best.nickname || username,
-          avatar: page.avatar || best.avatar || '',
-          title: page.title || best.title || '',
-          userId,
-          found: true,
-          source: page.source,
-        };
-      }
-    } catch {}
-    best.userId = userId;
-    return best;
+    if (apiProfile.id) userId = String(apiProfile.id);
+    if (apiProfile.nickname) nickname = apiProfile.nickname;
+    if (apiProfile.avatar) avatar = apiProfile.avatar;
+    if (apiProfile.nickname || apiProfile.avatar) { found = true; source = apiProfile.source || 'tikwm'; }
+
+    if (!avatar || !nickname) {
+      try {
+        const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent('https://www.tiktok.com/@' + username)}`;
+        const res = await fetchWithTimeout(oembedUrl, { headers: { 'User-Agent': UA_DESKTOP } });
+        if (res.ok) {
+          const data = await res.json();
+          if (!nickname && data.author_name) { nickname = data.author_name; found = true; if (source === 'fallback') source = 'oembed'; }
+          if (!avatar && data.thumbnail_url) { avatar = data.thumbnail_url; found = true; }
+          if (!title && data.title) title = data.title;
+        }
+      } catch {}
+    }
+
+    // Nguồn CHÍNH cho avatar + userId khi tikwm bị chặn. Cần khi thiếu bất kỳ trường quan trọng nào.
+    if (!avatar || !userId || !nickname) {
+      try {
+        const page = await fetchTikTokProfilePage(username, opts);
+        if (page) {
+          if (!userId && page.userId) userId = String(page.userId);
+          if (!avatar && page.avatar) avatar = page.avatar;
+          if (!nickname && page.nickname) nickname = page.nickname;
+          if (!title && page.title) title = page.title;
+          if (page.avatar || page.nickname || page.userId) { found = true; if (source === 'fallback' || source === 'oembed') source = page.source; }
+        }
+      } catch {}
+    }
+
+    return { uniqueId: username, nickname: nickname || username, avatar, title, userId, found, source };
   }
 
   _wireEvents(conn, EV) {
@@ -283,30 +273,79 @@ async function fetchTikwmProfile(username) {
   };
 }
 
-async function fetchTikTokProfilePage(username) {
-  const url = `https://www.tiktok.com/@${encodeURIComponent(username)}`;
-  const res = await fetchWithTimeout(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
-      'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
-    },
-  });
-  if (!res.ok) return {};
-  const html = await res.text();
-  const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1]
-    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1]
-    || '';
-  const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1]
-    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)?.[1]
-    || '';
+// Bóc hồ sơ (userId + avatar + nickname) từ HTML trang @user. Ưu tiên khối JSON nhúng
+// (__UNIVERSAL_DATA_FOR_REHYDRATION__ / SIGI_STATE) vì có ĐỦ userId lẫn avatar; rơi về regex nếu thiếu.
+function parseProfileHtml(html) {
+  let user = null;
+  const m = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/i);
+  if (m) {
+    try {
+      const data = JSON.parse(m[1]);
+      user = data?.__DEFAULT_SCOPE__?.['webapp.user-detail']?.userInfo?.user || null;
+    } catch {}
+  }
+  if (!user) {
+    const m2 = html.match(/<script id="SIGI_STATE"[^>]*>([\s\S]*?)<\/script>/i);
+    if (m2) {
+      try {
+        const d = JSON.parse(m2[1]);
+        const um = d?.UserModule?.users || {};
+        user = Object.values(um)[0] || null;
+      } catch {}
+    }
+  }
+  if (user) {
+    return {
+      userId: String(user.id || user.uid || ''),
+      uniqueId: user.uniqueId || '',
+      nickname: user.nickname || '',
+      avatar: user.avatarLarger || user.avatarMedium || user.avatarThumb || '',
+      source: 'profile-page',
+    };
+  }
+  // Fallback regex (JSON đổi khoá hoặc bị rút gọn): vẫn cố lấy avatar + id + nickname.
   const avatarEsc = html.match(/"avatarLarger"\s*:\s*"([^"]+)"/)?.[1]
     || html.match(/"avatarMedium"\s*:\s*"([^"]+)"/)?.[1]
     || html.match(/"avatarThumb"\s*:\s*"([^"]+)"/)?.[1]
     || '';
-  const nicknameEsc = html.match(/"nickname"\s*:\s*"([^"]+)"/)?.[1] || '';
-  const avatar = decodeJsonString(avatarEsc) || decodeHtmlAttr(ogImage);
-  const nickname = decodeJsonString(nicknameEsc) || cleanTikTokTitle(decodeHtmlAttr(ogTitle));
-  return { avatar, nickname, title: decodeHtmlAttr(ogTitle), source: 'profile-page' };
+  const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1]
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1] || '';
+  return {
+    userId: html.match(/"id"\s*:\s*"(\d{6,25})"/)?.[1] || '',
+    uniqueId: '',
+    nickname: decodeJsonString(html.match(/"nickname"\s*:\s*"([^"]+)"/)?.[1] || ''),
+    avatar: decodeJsonString(avatarEsc) || decodeHtmlAttr(ogImage),
+    source: 'profile-page',
+  };
+}
+
+async function fetchTikTokProfilePage(username, opts = {}) {
+  const headers = {
+    'User-Agent': UA_DESKTOP,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+    'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'none',
+    'sec-fetch-user': '?1',
+    'upgrade-insecure-requests': '1',
+  };
+  // Cookie ĐĂNG NHẬP (Session ID người dùng, dùng chung với kết nối LIVE) → TikTok trả TRANG THẬT
+  // có đủ JSON hồ sơ thay vì trang thử-thách JS rỗng (nguyên nhân "Tải" không ra avatar/UID).
+  const sid = opts.sessionId && String(opts.sessionId).trim();
+  if (sid) headers['Cookie'] = `sessionid=${sid}; tt-target-idc=${opts.ttTargetIdc || 'useast2a'}`;
+  const url = `https://www.tiktok.com/@${encodeURIComponent(username)}`;
+  const res = await fetchWithTimeout(url, { headers }, 10000);
+  if (!res.ok) return {};
+  const html = await res.text();
+  const parsed = parseProfileHtml(html);
+  const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1]
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)?.[1] || '';
+  parsed.title = cleanTikTokTitle(decodeHtmlAttr(ogTitle));
+  return parsed;
 }
 
 function decodeJsonString(value) {

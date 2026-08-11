@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const api = {
   // ===== TikTok connection =====
@@ -370,6 +370,8 @@ const api = {
     prepareGiftDrag: (data) => ipcRenderer.invoke('shell:prepareGiftDrag', data),
     startGiftDrag: (file) => ipcRenderer.send('shell:startGiftDrag', file),
     confirm: (opts) => ipcRenderer.invoke('shell:confirm', opts),
+    // Electron 33 đã bỏ File.path → lấy đường dẫn thật của file KÉO-THẢ qua webUtils.
+    pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch { return ''; } },
   },
 };
 

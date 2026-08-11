@@ -360,6 +360,139 @@ function syncBattleAvatarReferences(creators) {
     pkGroupEngine._emit();
   }
 }
+
+function parseTikTokProfilePayload(payload = {}) {
+  const out = { uniqueId: '', nickname: '', avatar: '', userId: '', found: false, source: 'browser' };
+  const uni = payload.uni || '';
+  const sigi = payload.sigi || '';
+  const html = payload.html || '';
+  const ogTitle = payload.ogTitle || '';
+  const ogImage = payload.ogImage || payload.twImage || '';
+
+  const parseJson = (raw) => {
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  };
+
+  const uniData = parseJson(uni);
+  const uniUser = uniData?.__DEFAULT_SCOPE__?.['webapp.user-detail']?.userInfo?.user || null;
+  if (uniUser) {
+    out.uniqueId = String(uniUser.uniqueId || uniUser.unique_id || '').trim();
+    out.nickname = String(uniUser.nickname || '').trim();
+    out.userId = String(uniUser.id || uniUser.uid || '').trim();
+    out.avatar = String(uniUser.avatarLarger || uniUser.avatarMedium || uniUser.avatarThumb || uniUser.avatar || '').trim();
+    if (out.uniqueId || out.nickname || out.userId || out.avatar) out.found = true;
+  }
+
+  if (!out.userId || !out.avatar || !out.nickname) {
+    const sigiData = parseJson(sigi);
+    const sigiUser = sigiData?.UserModule?.users ? Object.values(sigiData.UserModule.users)[0] : null;
+    if (sigiUser) {
+      if (!out.uniqueId) out.uniqueId = String(sigiUser.uniqueId || sigiUser.unique_id || sigiUser.displayId || '').trim();
+      if (!out.nickname) out.nickname = String(sigiUser.nickname || sigiUser.nickName || '').trim();
+      if (!out.userId) out.userId = String(sigiUser.id || sigiUser.uid || '').trim();
+      if (!out.avatar) out.avatar = String(sigiUser.avatarLarger || sigiUser.avatarMedium || sigiUser.avatarThumb || sigiUser.profilePictureUrl || '').trim();
+      if (out.uniqueId || out.nickname || out.userId || out.avatar) out.found = true;
+    }
+  }
+
+  if ((!out.avatar || !out.userId || !out.nickname) && html) {
+    const avatarEsc = html.match(/"avatarLarger"\s*:\s*"([^"]+)"/i)?.[1]
+      || html.match(/"avatarMedium"\s*:\s*"([^"]+)"/i)?.[1]
+      || html.match(/"avatarThumb"\s*:\s*"([^"]+)"/i)?.[1]
+      || html.match(/"profilePictureUrl"\s*:\s*"([^"]+)"/i)?.[1]
+      || '';
+    const idEsc = html.match(/"id"\s*:\s*"(\d{6,25})"/i)?.[1]
+      || html.match(/"uid"\s*:\s*"(\d{6,25})"/i)?.[1]
+      || '';
+    const nickEsc = html.match(/"nickname"\s*:\s*"([^"]+)"/i)?.[1]
+      || html.match(/"nickName"\s*:\s*"([^"]+)"/i)?.[1]
+      || '';
+    if (!out.avatar && avatarEsc) out.avatar = avatarEsc.replace(/\\u002F/g, '/').replace(/\\\//g, '/');
+    if (!out.userId && idEsc) out.userId = idEsc;
+    if (!out.nickname && nickEsc) out.nickname = nickEsc;
+    if (out.avatar || out.userId || out.nickname) out.found = true;
+  }
+
+  if (!out.nickname && ogTitle) {
+    out.nickname = String(ogTitle).replace(/\s+on TikTok.*$/i, '').replace(/\s+\|\s+TikTok.*$/i, '').trim();
+  }
+  if (!out.avatar && ogImage) out.avatar = String(ogImage).trim();
+  if (out.uniqueId && !out.nickname) out.nickname = out.uniqueId;
+  return out;
+}
+
+async function fetchTikTokProfileWithBrowser(username, opts = {}, timeoutMs = 18000) {
+  const clean = String(username || '').trim().replace(/^@/, '');
+  if (!clean) return null;
+  const url = `https://www.tiktok.com/@${encodeURIComponent(clean)}?lang=en`;
+  // Kích thước bình thường (không 1×1): trang tiny-viewport đôi khi TikTok bỏ hydrate.
+  const win = new BrowserWindow({
+    show: false,
+    width: 1280,
+    height: 800,
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+  const deadline = Date.now() + timeoutMs;
+  try {
+    win.removeMenu();
+    // Cookie đăng nhập (Session ID, nếu người dùng đã nhập) → TikTok trả TRANG THẬT,
+    // giảm khả năng bị đẩy sang trang thử-thách/captcha khi lấy avatar hàng loạt.
+    const sid = opts.sessionId && String(opts.sessionId).trim();
+    if (sid) {
+      try {
+        await win.webContents.session.cookies.set({
+          url: 'https://www.tiktok.com', name: 'sessionid', value: sid,
+          domain: '.tiktok.com', path: '/', secure: true, httpOnly: true,
+        });
+      } catch {}
+    }
+    // TikTok hay redirect client-side (đổi region/param) → loadURL reject ERR_ABORTED dù trang
+    // VẪN load được. Nuốt lỗi load rồi cứ poll DOM; nếu trang chết thật thì vòng poll hết giờ trả null.
+    await win.loadURL(url, { userAgent: UA }).catch(() => {});
+    // QUAN TRỌNG: TikTok nhồi __UNIVERSAL_DATA_FOR_REHYDRATION__ / SIGI_STATE SAU khi 'load'
+    // fire (hydrate chậm). Đọc DOM ngay lúc loadURL resolve chỉ thấy VỎ RỖNG ~1.8KB → mất avatar.
+    // Vì vậy PHẢI poll lại tới khi khối JSON xuất hiện (thường 1–2s) rồi mới bóc tách.
+    const scrape = `(() => {
+      const q = (sel) => document.querySelector(sel)?.content || '';
+      const byId = (id) => document.getElementById(id)?.textContent || '';
+      return {
+        uni: byId('__UNIVERSAL_DATA_FOR_REHYDRATION__'),
+        sigi: byId('SIGI_STATE'),
+        ogTitle: q('meta[property="og:title"]') || q('meta[name="twitter:title"]'),
+        ogImage: q('meta[property="og:image"]'),
+        twImage: q('meta[name="twitter:image"]'),
+        html: document.documentElement.outerHTML || ''
+      };
+    })()`;
+    let payload = null;
+    while (Date.now() < deadline) {
+      let result = {};
+      try { result = await win.webContents.executeJavaScript(scrape, true); } catch {}
+      const parsed = parseTikTokProfilePayload(result || {});
+      // Đủ dữ liệu quan trọng (avatar hoặc userId từ khối JSON) → xong, dừng sớm.
+      if (parsed && (parsed.avatar || parsed.userId)) return parsed;
+      // Nhớ kết quả tốt nhất (nickname/og) phòng khi hết giờ.
+      if (parsed && parsed.found) payload = parsed;
+      // Khối JSON đã hiện mà vẫn thiếu avatar/userId (tài khoản riêng tư/rỗng) → đợi thêm vô ích.
+      const hydrated = (result && (String(result.uni || '').length > 1000 || String(result.sigi || '').length > 1000));
+      if (hydrated) break;
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    return payload;
+  } catch (err) {
+    try { console.error('[tt:fetchProfile browser]', err); } catch {}
+    return null;
+  } finally {
+    try { if (!win.isDestroyed()) win.destroy(); } catch {}
+  }
+}
 function saveSettings() { saveJson(SETTINGS_PATH, settings); }
 
 function getDeviceId() {
@@ -4710,7 +4843,28 @@ function bootstrapEngines() {
 // Cache avatar theo user — TikTok hay gửi GIFT event THIẾU avatar (user data tối giản);
 // ta lưu avatar từ chat/join/… (có avatar) rồi bù cho gift để vinh danh TOP hiện đúng ảnh.
 const _avatarCache = new Map(); // userKey -> avatar url
+// Hồ sơ THẬT thu từ chính LIVE (chat/join/gift/like…) theo uniqueId → {avatar, userId, nickname}.
+// tikwm + oembed nay bị chặn (Cloudflare "Just a moment" / thumbnail rỗng) nên "Tải"/"Lấy UID"
+// hay ra trắng avatar + UID. Đây là nguồn bù ĐÁNG TIN vì lấy từ đúng người trong phòng LIVE.
+const _liveProfileByUnique = new Map();
+function _normUnique(s) { return String(s || '').trim().replace(/^@/, '').toLowerCase(); }
+function _cacheLiveProfile(ev) {
+  const uni = _normUnique(ev && ev.uniqueId);
+  if (!uni) return;
+  const prev = _liveProfileByUnique.get(uni) || {};
+  const next = {
+    avatar: ev.avatar || prev.avatar || '',
+    userId: (ev.userId && String(ev.userId)) || prev.userId || '',
+    nickname: ev.nickname || prev.nickname || '',
+  };
+  // Chỉ ghi khi có thêm dữ liệu (tránh xoá cái đã học bằng event nghèo field).
+  if (next.avatar !== prev.avatar || next.userId !== prev.userId || next.nickname !== prev.nickname) {
+    _liveProfileByUnique.set(uni, next);
+    if (_liveProfileByUnique.size > 5000) _liveProfileByUnique.delete(_liveProfileByUnique.keys().next().value);
+  }
+}
 function _cacheAvatar(ev) {
+  _cacheLiveProfile(ev); // thu hồ sơ (kể cả khi event không có avatar nhưng có userId)
   const key = ev && (ev.uniqueId || ev.userId);
   if (!key || !ev.avatar) return;
   _avatarCache.set(String(key), ev.avatar);
@@ -4921,10 +5075,50 @@ function registerIpc() {
   });
   ipcMain.handle('tt:disconnect', async () => { await ttClient.disconnect(); return true; });
   ipcMain.handle('tt:status', () => ({ connected: ttClient?.isConnected(), info: ttClient?.roomInfo || null }));
-  ipcMain.handle('tt:fetchProfile', async (_e, { username }) => ttClient.fetchProfile(username));
+  ipcMain.handle('tt:fetchProfile', async (_e, { username }) => {
+    // Truyền Session ID (cookie đăng nhập, dùng chung với LIVE) để TikTok trả trang thật có JSON hồ sơ.
+    const p = await ttClient.fetchProfile(username, {
+      sessionId: settings.sessionId || '',
+      ttTargetIdc: settings.ttTargetIdc || '',
+    }) || {};
+    // tikwm/oembed bị chặn (Cloudflare) → avatar/UID hay trống. Bù bằng hồ sơ THẬT đã thu từ
+    // LIVE (chat/join/gift) theo uniqueId. Nhờ đó "Tải" + "Lấy tất cả UID" vẫn ra avatar + UID
+    // đúng miễn là thành viên đã từng xuất hiện trong phòng LIVE đang/đã kết nối.
+    const live = _liveProfileByUnique.get(_normUnique(username));
+    if (live) {
+      if (!p.avatar && live.avatar) { p.avatar = live.avatar; p.found = true; if (!p.source) p.source = 'live'; }
+      if (!p.userId && live.userId) { p.userId = live.userId; p.found = true; }
+      if ((!p.nickname || p.nickname === _normUnique(username)) && live.nickname) p.nickname = live.nickname;
+    }
+    // Fallback cuối: mở Chromium ẩn để đọc JSON/DOM đã render của trang profile.
+    // Dùng khi TikTok chặn fetch HTML/plain request nhưng page trong Electron vẫn render được.
+    if (!p.avatar || !p.userId || !p.nickname) {
+      const browser = await fetchTikTokProfileWithBrowser(username, {
+        sessionId: settings.sessionId || '', ttTargetIdc: settings.ttTargetIdc || '',
+      }).catch(() => null);
+      if (browser) {
+        if (!p.avatar && browser.avatar) p.avatar = browser.avatar;
+        if (!p.userId && browser.userId) p.userId = browser.userId;
+        if ((!p.nickname || p.nickname === _normUnique(username)) && browser.nickname) p.nickname = browser.nickname;
+        if (!p.uniqueId && browser.uniqueId) p.uniqueId = browser.uniqueId;
+        if ((browser.avatar || browser.userId || browser.nickname) && !p.source) p.source = 'browser';
+        if (browser.found) p.found = true;
+      }
+    }
+    return p;
+  });
   // Lấy avatar theo ID TikTok rồi TẢI VỀ 1 LẦN dưới dạng dataURL (lưu thẳng vào config, không phải fetch lại từ TikTok).
   ipcMain.handle('tt:fetchAvatarData', async (_e, { username }) => {
-    const p = await ttClient.fetchProfile(username);
+    const p = await ttClient.fetchProfile(username, {
+      sessionId: settings.sessionId || '',
+      ttTargetIdc: settings.ttTargetIdc || '',
+    }) || {};
+    if (!p.avatar) {
+      const browser = await fetchTikTokProfileWithBrowser(username, {
+        sessionId: settings.sessionId || '', ttTargetIdc: settings.ttTargetIdc || '',
+      }).catch(() => null);
+      if (browser?.avatar) p.avatar = browser.avatar;
+    }
     let dataUrl = '';
     if (p?.avatar) {
       try {

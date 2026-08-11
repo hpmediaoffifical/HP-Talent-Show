@@ -648,7 +648,7 @@ function cleanNickname(name) {
     .trim();
 }
 
-// Tìm avatar/nickname ĐÃ BIẾT của một TikTok ID từ creator/nhóm khác đang có trong máy.
+// Tìm avatar/nickname/UID ĐÃ BIẾT của một TikTok ID từ creator/nhóm khác đang có trong máy.
 // Dùng để TÁI SỬ DỤNG NGAY khi thêm/sửa một thành viên trùng ID đã tồn tại — không phụ thuộc
 // mạng (oembed nay bỏ avatar, tikwm hay bị giới hạn tần suất) nên "bấm Tải"/lưu vẫn ra avatar.
 // Ưu tiên bản còn hạn (avatarNeedsRefetch=false); nếu không có thì lấy tạm bản bất kỳ có avatar.
@@ -659,13 +659,13 @@ function knownProfileForTiktokId(tiktokId, exceptCreatorId = '') {
   const gs = (typeof groups !== 'undefined' ? groups : []);
   const fresh = (av) => av && !avatarNeedsRefetch(av);
   const cFresh = cs.find(x => (x.id || '') !== exceptCreatorId && normTiktokId(x.tiktokId) === id && fresh(x.avatar));
-  if (cFresh) return { avatar: cFresh.avatar, nickname: cFresh.nickname || cFresh.channelName || '' };
+  if (cFresh) return { avatar: cFresh.avatar, nickname: cFresh.nickname || cFresh.channelName || '', userId: cFresh.userId || '' };
   const gFresh = gs.find(x => normTiktokId(x.tiktokId) === id && fresh(x.avatar));
-  if (gFresh) return { avatar: gFresh.avatar, nickname: gFresh.name || '' };
+  if (gFresh) return { avatar: gFresh.avatar, nickname: gFresh.name || '', userId: gFresh.userId || '' };
   const cAny = cs.find(x => (x.id || '') !== exceptCreatorId && normTiktokId(x.tiktokId) === id && x.avatar);
-  if (cAny) return { avatar: cAny.avatar, nickname: cAny.nickname || cAny.channelName || '' };
+  if (cAny) return { avatar: cAny.avatar, nickname: cAny.nickname || cAny.channelName || '', userId: cAny.userId || '' };
   const gAny = gs.find(x => normTiktokId(x.tiktokId) === id && x.avatar);
-  if (gAny) return { avatar: gAny.avatar, nickname: gAny.name || '' };
+  if (gAny) return { avatar: gAny.avatar, nickname: gAny.name || '', userId: gAny.userId || '' };
   return null;
 }
 
@@ -1410,7 +1410,7 @@ const MusicQueue = (() => {
     duckRefresh();
     notify();
   }
-  function clearCount(n) { q.splice(0, Math.max(0, Number(n) || 0)); notify(); }  // xóa N cái đầu hàng chờ
+  function clearCount(n) { const removed = q.splice(0, Math.max(0, Number(n) || 0)).length; notify(); return removed; }  // xóa N cái đầu hàng chờ → trả về số đã xóa thực
   function removeUid(uid) { const i = q.findIndex(x => x.uid === uid); if (i >= 0) { q.splice(i, 1); notify(); } }
   // Bấm icon trên thanh rail → DỒN mọi lượt của quà này lên ĐẦU hàng đợi để "phát ngay".
   // Không cắt clip đang phát (chờ hết cái hiện tại rồi tới quà vừa bấm).
@@ -1955,6 +1955,7 @@ function openAudioModal(m) {
           <button class="ml-modal-add primary" type="button">＋ Thêm nhạc</button>
           <button class="ml-modal-add-video ghost" type="button">🎬 Thêm video</button>
           <button class="ml-modal-add-folder ghost" type="button" title="Nạp mọi file nhạc/video trong 1 thư mục">📁 Chọn thư mục</button>
+          <button class="ml-modal-clear ghost danger" type="button" title="Xóa TẤT CẢ nhạc/video của quà này (để thay bộ file mới)">🗑️ Xóa tất cả</button>
           <span class="ml-modal-hint hint"></span>
         </div>
       </div>
@@ -2041,7 +2042,7 @@ function openAudioModal(m) {
           <button class="ml-modal-play ghost tiny" type="button" title="Nghe/xem thử">▶</button>
           <button class="ml-modal-del ghost tiny danger" type="button" title="Bỏ file">✕</button>
         </div>`).join('')
-      : '<div class="ml-modal-empty">Chưa có file nào. Bấm “＋ Thêm nhạc” hoặc “🎬 Thêm video”.</div>';
+      : '<div class="ml-modal-empty">Chưa có file nào. Bấm “＋ Thêm nhạc” / “🎬 Thêm video”, hoặc 🡇 KÉO-THẢ file nhạc/video vào đây.</div>';
     listEl.querySelectorAll('.ml-modal-play').forEach(btn => btn.addEventListener('click', () => {
       const ai = Number(btn.closest('.ml-modal-item').dataset.ai);
       toggleAudioModalPreview(btn, filePathToUrl(m.audios[ai]), m.volume, isVideoFile(m.audios[ai]));
@@ -2077,6 +2078,54 @@ function openAudioModal(m) {
     scheduleMusicSave(); renderMusicList(); refresh();
     toast(`Đã nạp ${files.length} file từ thư mục`, 'success');
   });
+  // 🗑️ Xóa TẤT CẢ nhạc/video của quà này 1 lần — để thay bộ file mới không bị dính file cũ.
+  overlay.querySelector('.ml-modal-clear').addEventListener('click', async () => {
+    const n = (m.audios || []).length;
+    if (!n) { toast('Chưa có file nào để xóa', ''); return; }
+    const ok = await window.api.shell.confirm({
+      title: 'Xóa tất cả nhạc/video',
+      message: `Xóa toàn bộ ${n} file nhạc/video của quà này?`,
+      detail: 'Xóa sạch để thêm bộ file mới. Hành động này không thể hoàn tác.',
+      confirmText: 'Xóa hết', cancelText: 'Huỷ',
+    }).catch(() => false);
+    if (!ok) return;
+    m.audios = []; m.audioPath = '';
+    scheduleMusicSave(); renderMusicList(); refresh();
+    toast('🗑️ Đã xóa tất cả file nhạc/video', 'success');
+  });
+  // ==== Kéo-thả file nhạc/video thẳng vào khu "Âm thanh & hiệu ứng" ====
+  // Electron mặc định điều hướng cửa sổ khi thả file → chặn 1 lần trên window (thả trượt vùng
+  // nhận cũng không làm hỏng app). Vùng nhận tự xử lý + stopPropagation.
+  if (!window.__mediaDropGuard) {
+    window.__mediaDropGuard = true;
+    window.addEventListener('dragover', e => e.preventDefault());
+    window.addEventListener('drop', e => e.preventDefault());
+  }
+  const dropZone = listEl.closest('.ml-modal-sec');
+  if (dropZone) {
+    const isMediaPath = p => /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus|mp4|webm|mov|m4v|ogv|mkv)$/i.test(String(p || '').split('?')[0]);
+    const stop = e => { e.preventDefault(); e.stopPropagation(); };
+    ['dragenter', 'dragover'].forEach(ev => dropZone.addEventListener(ev, e => {
+      stop(e); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; dropZone.classList.add('ml-drop-hot');
+    }));
+    ['dragleave', 'dragend'].forEach(ev => dropZone.addEventListener(ev, e => {
+      stop(e);
+      if (ev === 'dragleave' && e.relatedTarget && dropZone.contains(e.relatedTarget)) return; // vẫn trong vùng
+      dropZone.classList.remove('ml-drop-hot');
+    }));
+    dropZone.addEventListener('drop', e => {
+      stop(e); dropZone.classList.remove('ml-drop-hot');
+      const paths = Array.from(e.dataTransfer?.files || [])
+        .map(f => window.api.shell.pathForFile(f))
+        .filter(p => p && isMediaPath(p));
+      if (!paths.length) { toast('Chỉ thả file nhạc (mp3/wav…) hoặc video (mp4/webm…)', 'error'); return; }
+      m.audios = [...(m.audios || []), ...paths.map(filePathToUrl)];
+      m.audioPath = m.audios[0] || '';
+      scheduleMusicSave(); renderMusicList(); refresh();
+      const nv = paths.filter(isVideoFile).length, na = paths.length - nv;
+      toast(`Đã thả ${[na && `${na} nhạc`, nv && `${nv} video`].filter(Boolean).join(' · ')}`, 'success');
+    });
+  }
   // ==== Nhạc trước (riêng quà) ====
   overlay.querySelector('.ml-pre-enabled').addEventListener('change', (e) => { m.preEnabled = e.target.checked; scheduleMusicSave(); renderMusicList(); });
   overlay.querySelector('.ml-pre-add').addEventListener('click', async () => {
@@ -2132,7 +2181,7 @@ function mlqItemHtml(it, cls, pos) {
     <span class="mlq-name">${escapeHtml(label)}</span>
     ${file ? `<span class="mlq-file" title="${escapeAttr(file)}">${isVid ? '🎬' : '🎵'} ${escapeHtml(file)}</span>` : ''}
     ${isVid ? `<span class="mlq-ov">${escapeHtml(danceOverlayName(it.overlay))}</span>` : ''}
-    ${cls === 'wait' ? '<button class="mlq-x" type="button" title="Xóa khỏi danh sách phát">✕</button>' : '<em class="mlq-live">Đang phát</em>'}
+    ${cls === 'wait' ? '<button class="mlq-x" type="button" title="Xóa khỏi danh sách phát">✕</button>' : '<em class="mlq-live">Đang phát</em><button class="mlq-x mlq-x-live" type="button" title="Xóa quà đang phát">✕</button>'}
   </div>`;
 }
 // Gói 1 mục cho cửa sổ DANH SÁCH PHÁT tách rời (chỉ dữ liệu, không HTML — cửa sổ tự dựng).
@@ -2221,6 +2270,15 @@ function renderMusicQueue(st) {
   pushStickerQueueCounts(st);
   listEl.querySelectorAll('.mlq-item.wait .mlq-x').forEach(btn => {
     btn.addEventListener('click', () => { MusicQueue.removeUid(btn.closest('.mlq-item').dataset.uid); });
+  });
+  // [✕] trên mục ĐANG PHÁT: hỏi Có/Không rồi bỏ clip hiện tại (chuyển sang mục kế nếu còn).
+  const liveX = cur && cur.querySelector('.mlq-x-live');
+  if (liveX) liveX.addEventListener('click', async () => {
+    const it = MusicQueue.state().current; if (!it) return;
+    const nm = it.name || it.giftName || ('ID ' + it.giftId);
+    const ok = await window.api.shell.confirm({ title: 'Xóa quà đang phát', message: `Xóa “${nm}” đang phát khỏi danh sách?`, detail: 'Dừng clip hiện tại và chuyển sang mục kế tiếp (nếu còn).' });
+    if (!ok) return;
+    MusicQueue.skipCurrent();
   });
   const skip = $('#mlqSkip'); if (skip) skip.disabled = !st.current;
   const pauseBtn = $('#mlqPause');
@@ -2383,7 +2441,7 @@ function wireMusicListTab() {
   applyMusicRailCfg();
   // Xóa tất cả = NGƯNG luôn clip đang phát + xóa sạch danh sách phát (không giữ lại cái đang chạy).
   $('#mlqClearAll')?.addEventListener('click', () => { MusicQueue.stopAll(); Backgrounds.stopAll(); toast('Đã ngưng & xóa toàn bộ danh sách phát', 'success'); });
-  $('#mlqClearN')?.addEventListener('click', () => { const n = clampInt($('#mlqClearNum')?.value, 10, 1, 100000); MusicQueue.clearCount(n); toast(`Đã xóa ${n} quà đầu hàng chờ`, 'success'); });
+  $('#mlqClearN')?.addEventListener('click', () => { const n = clampInt($('#mlqClearNum')?.value, 10, 1, 100000); const removed = MusicQueue.clearCount(n); toast(removed ? `Đã xóa ${removed} quà đầu hàng chờ` : 'Hàng chờ trống — không có quà nào để xóa', removed ? 'success' : ''); });
   $('#mlqSkip')?.addEventListener('click', () => MusicQueue.skipCurrent());
   $('#mlqPause')?.addEventListener('click', () => { MusicQueue.togglePause(); renderMusicQueue(); });
   $('#mlqPopout')?.addEventListener('click', async () => {
@@ -6645,26 +6703,27 @@ function wireCreatorTab() {
       // Mạng có thể trả rỗng (tikwm giới hạn tần suất, oembed đã bỏ avatar). Bù bằng dữ liệu
       // đã lưu của cùng TikTok ID để "bấm Tải" luôn ra avatar/nickname nếu ID này từng có.
       const known = knownProfileForTiktokId(u, currentEditingCreator?.id);
-      const nickname = cleanNickname(p.nickname || known?.nickname || '');
-      const avatar = p.avatar || known?.avatar || '';
+      const currentNickname = $('#crNickname').value.trim();
+      const currentAvatar = $('#crAvatarUrl').value.trim();
+      const currentUserId = $('#crUserId')?.value.trim() || '';
+      const nickname = cleanNickname(p.nickname || known?.nickname || currentNickname || '');
+      const avatar = p.avatar || known?.avatar || currentAvatar || '';
+      const userId = String(p.userId || known?.userId || currentUserId || '');
       if (nickname) {
-        if (!$('#crNickname').value || !currentEditingCreator) $('#crNickname').value = nickname;
+        if (!currentNickname || !currentEditingCreator) $('#crNickname').value = nickname;
         $('#crChannel').textContent = nickname;
       }
       if (avatar) {
         $('#crAvatarUrl').value = avatar;
         $('#crAvatarPreview').src = avatar;
-      } else {
-        $('#crAvatarUrl').value = '';
-        $('#crAvatarPreview').src = '../logo/hp-logo.png';
       }
       // ID nhận quà (= toMemberId của gift). Đã kiểm chứng tikwm user.id KHỚP toMemberId,
       // nên "Tải" tự điền ID đúng. Chỉ điền khi ô trống — không đè ID đã học/nhập tay.
-      if (p.userId && $('#crUserId') && !$('#crUserId').value.trim()) {
-        $('#crUserId').value = p.userId;
+      if (userId && $('#crUserId') && !currentUserId) {
+        $('#crUserId').value = userId;
       }
-      if (avatar || nickname) {
-        toast(p.avatar ? 'Đã tải Nick Name và Avatar' : (avatar ? 'Đã dùng lại avatar đã lưu của ID này' : 'Đã tải Nick Name'), 'success');
+      if (avatar || nickname || userId) {
+        toast(p.avatar ? 'Đã tải Nick Name và Avatar' : (avatar ? 'Đã dùng lại avatar đã lưu của ID này' : (userId ? 'Đã tải UID' : 'Đã tải Nick Name')), 'success');
       } else {
         toast('Không tìm thấy profile, vẫn có thể lưu thủ công.', 'error');
       }
