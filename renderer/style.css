@@ -73,7 +73,22 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .brand-text strong { display: block; color: var(--tt-ink); font-size: 14px; text-transform:uppercase; letter-spacing:.01em; white-space:nowrap; }
 .brand-text span { font-size: 11.5px; color: var(--tt-ink-3); text-transform:uppercase; letter-spacing:.04em; }
 
-.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav {
+  display: flex; flex-direction: column; gap: 2px;
+  /* Chiếm hết chiều cao còn lại của sidebar để danh sách menu luôn nằm gọn TRÊN
+     thanh trạng thái "Chưa kết nối", không tràn đè lên */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Chỉ cuộn khi menu mở rộng; lúc THU GỌN để overflow hiện flyout con bên phải
+   (overflow-y:auto sẽ ép overflow-x cắt mất bảng con) */
+.sidebar:not(.collapsed) .nav {
+  overflow-y: auto;
+  padding-bottom: 12px;
+  scrollbar-width: thin;
+}
+.sidebar:not(.collapsed) .nav::-webkit-scrollbar { width: 6px; }
+.sidebar:not(.collapsed) .nav::-webkit-scrollbar-thumb { background: var(--tt-border); border-radius: 6px; }
 .nav-btn {
   display: flex; align-items: center; gap: 11px;
   padding: 9px 12px;
@@ -660,6 +675,43 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .pkg-member-check b { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pkg-member .pkg-name { background:#fff; border:1px solid var(--tt-border); border-radius:var(--r-sm); padding:8px 10px; font-size:13px; }
 .pkg-member .pkg-color { width:56px; }
+
+/* ⚡ Chọn nhanh thành viên PK Nhóm — bấm avatar chọn/bỏ, đã chọn dồn lên căn giữa */
+.pkg-quickpick { margin-top:12px; padding:12px; border:1px solid var(--tt-border); border-radius:14px; background:linear-gradient(180deg,#fff,#f6f8ff); }
+.pkg-quickpick__head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.pkg-quickpick__title { font-weight:950; font-size:14px; color:var(--tt-ink); }
+.pkg-quickpick__count { font-size:12px; font-weight:800; color:var(--tt-ink-3); }
+.pkg-quickpick__tools { margin-left:auto; display:flex; gap:6px; }
+.pkg-quickpick__grid { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; }
+.pkg-quickpick__grid .hint { width:100%; text-align:center; }
+.pkg-chip { position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; width:88px; padding:9px 6px 8px; border-radius:14px; border:1.5px solid transparent; background:#fff; cursor:grab; transition:transform .12s ease, border-color .15s ease, opacity .15s ease, filter .15s ease, box-shadow .15s ease; }
+.pkg-chip:hover { transform:translateY(-2px); }
+.pkg-chip:active { transform:translateY(0) scale(.97); cursor:grabbing; }
+.pkg-chip img { width:58px; height:58px; border-radius:50%; object-fit:cover; background:#fff; border:3px solid #d7dbe6; box-shadow:0 3px 8px rgba(22,24,35,.10); transition:border-color .15s ease; }
+.pkg-chip b { font-size:12px; font-weight:850; max-width:84px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; color:var(--tt-ink); }
+/* Đã chọn: sáng, viền theo màu thanh máu của Creator. Thứ tự do JS sắp (DOM = hiển thị) để kéo thả mượt cả 2 chế độ. */
+.pkg-chip.is-on { border-color:var(--chip,#FE2C55); box-shadow:0 6px 16px rgba(22,24,35,.10); }
+.pkg-chip.is-on img { border-color:var(--chip,#FE2C55); }
+.pkg-chip.is-on::after { content:'✓'; position:absolute; top:5px; right:8px; width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--chip,#FE2C55); color:#fff; font-size:11px; font-weight:900; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+/* Chưa chọn: xám mờ */
+.pkg-chip.is-off { opacity:.5; filter:grayscale(1); }
+.pkg-chip.is-off img { border-color:#c9ccd6; box-shadow:none; }
+.pkg-chip.is-off:hover { opacity:.9; filter:grayscale(.3); }
+/* Chế độ chỉ avatar (gọn hơn) */
+.pkg-quickpick.is-avatars-only .pkg-chip { width:66px; padding:7px 5px; }
+.pkg-quickpick.is-avatars-only .pkg-chip b { display:none; }
+/* Kéo thả (pointer + FLIP) — dùng được ở cả chế độ Ghim lẫn bỏ Ghim */
+.pkg-chip.is-dragging { opacity:.55; transform:scale(.96); box-shadow:0 10px 22px rgba(22,24,35,.2); z-index:3; }
+.pkg-chip.is-dragging::after { transform:scale(1.05); } /* giữ dấu ✓ rõ khi đang kéo idol đã tích */
+body.pkg-dragging-active { user-select:none; }
+body.pkg-dragging-active, body.pkg-dragging-active .pkg-chip { cursor:grabbing !important; }
+.pkg-quickpick__tools .ghost.is-active { background:#fde7ee; border-color:rgba(254,44,85,.5); color:#c81e4f; }
+.pkg-quickpick__hint { font-size:11px; font-weight:750; color:var(--tt-ink-3); }
+/* Thu gọn bảng chi tiết */
+.pkg-detail-head { margin-top:14px; }
+.pkg-detail-toggle { font-weight:850; }
+.pkg-detail-wrap.is-collapsed { display:none; }
+
 .pkg-streak-input { width:74px; background:#fff; border:1px solid var(--tt-border); border-radius:var(--r-sm); padding:8px 10px; font-size:13px; }
 .pkg-gift-cell { display:flex; align-items:center; gap:4px; min-width:0; }
 .pkg-gift-cell .pkg-pick-gift { flex:1 1 auto; }
@@ -1756,6 +1808,10 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .rk-scorebox { display:flex; align-items:center; justify-content:flex-end; gap:6px; min-width:0; flex-wrap:wrap; }
 .rk-mini-input { width: 124px; padding: 7px 9px; border: 1px solid var(--tt-border); border-radius: 10px; background: #fff; font-size: 13px; font-weight: 900; text-align: right; font-variant-numeric:tabular-nums; }
 .rk-mini-input:focus { outline:none; border-color:var(--tt-pink); box-shadow:0 0 0 3px rgba(254,44,85,.12); }
+/* 🔒 Khóa gõ trực tiếp: nền xám nhạt + con trỏ khóa, chỉ chuột phải mới Cộng/Trừ. */
+.rk-mini-input.is-locked { background:#f1f0f6; color:#4b4668; cursor:context-menu; border-style:dashed; }
+.rk-mini-input.is-locked:focus { box-shadow:none; border-color:var(--tt-border); }
+.ml-collapse.is-on { background:var(--tt-pink,#fe2c55); color:#fff; }
 .rk-round-chip { display:inline-flex; align-items:center; gap:2px; height:32px; padding:0 8px; border:1px solid var(--tt-border); border-radius:999px; background:#fff; color:var(--tt-ink-2); font-size:12px; font-weight:900; }
 .rk-round-chip input { width:32px; border:0; background:transparent; font-size:12px; font-weight:900; color:var(--tt-ink); text-align:center; }
 .rk-round-chip input:focus { outline:none; }
@@ -2441,6 +2497,8 @@ button.tiny { padding:4px 7px; font-size:12px; }
 .ml-bghint { margin-left:auto; color:var(--tt-ink-2); }
 .ml-empty { padding:18px 4px; text-align:center; color:var(--tt-ink-2); }
 .ml-list { display:flex; flex-direction:column; gap:10px; }
+/* Thu gọn danh sách quà: class thắng cả display:flex ở trên (thuộc tính [hidden] không đủ mạnh). */
+.ml-card.ml-collapsed .ml-list, .ml-card.ml-collapsed .ml-empty { display:none !important; }
 /* Mỗi quà = 1 THẺ hàng ngang gọn: icon trái, tên + nhạc trên 1 hàng ở giữa, điều khiển phải. */
 .ml-row { display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:13px; background:var(--tt-bg); border:1px solid var(--tt-border); box-shadow:var(--tt-shadow); }
 .ml-row.no-audio { border-color:rgba(254,44,85,.35); background:linear-gradient(0deg, rgba(254,44,85,.04), rgba(254,44,85,.04)), var(--tt-bg); }

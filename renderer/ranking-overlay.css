@@ -123,6 +123,13 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-row.loser > .ranking-rank,
 .ranking-row.loser > .ranking-avatar,
 .ranking-row.loser > .ranking-main { position:relative; }
+/* Round (R#) / Quà / STT vẫn PHẢI absolute — rule "> *" ở trên ép chúng thành relative làm R0/R4
+   TRÔI theo dòng, rơi xuống góc DƯỚI-TRÁI và lòi ra ngoài card (đúng bug user khoanh đỏ). Giữ absolute
+   → về đúng góc trên-phải, vẫn xám mờ (kế thừa filter/opacity từ "> *"), z-index 2 < 6 nên NẰM DƯỚI ruy
+   băng LOSE (::after z-index:6) → LOSE đè lên tất cả, Round/Quà/Thông tin luôn ở dưới. */
+.ranking-row.loser > .ranking-round,
+.ranking-row.loser > .ranking-gift,
+.ranking-row.loser > .ranking-perf { position:absolute; }
 /* Lớp phủ tối rất mảnh để đồng nhất tông (nằm DƯỚI nội dung) */
 .ranking-row.loser::before {
   content:""; position:absolute; inset:0; z-index:1; border-radius:inherit; pointer-events:none;
@@ -356,7 +363,7 @@ body { display:flex; justify-content:center; align-items:flex-start; }
 .ranking-rank::before {
   content:""; position:absolute; z-index:-1;
   left:-5px; top:-4px; bottom:-4px; right:-2px;
-  background:rgba(0,0,0,.9); /* đen đặc */
+  background:rgba(0,0,0,.62); /* đen mờ vừa (đậm hơn .5, không đặc như .9) */
   border-radius:4px 0 0 4px;
 }
 /* Hàng active: viền streak bao quanh chip đen (thay cho kiểu "leo mép" cũ) */

@@ -166,6 +166,11 @@ function render(state = {}) {
   const max = Math.max(1, ...participants.map(p => Number(p.score) || 0));
   let leaderIdx = 0, best = -1;
   participants.forEach((p, i) => { const s = Number(p.score) || 0; if (s > best) { best = s; leaderIdx = i; } });
+  // 🔒 CHƯA CÓ QUÀ (reset / trận mới → mọi điểm = 0) → best ≤ 0 → KHÔNG phủ FX cho ai (LUÔN ẨN đến
+  // khi có người tặng quà). Bằng "max floor = 1" ở trên tạo GAP GIẢ (score 0 vs max 1) khiến bottom-K
+  // bị phủ ngay lúc bấm Bắt đầu → chỉ hiện 2/3 cột & không tự tắt. Guard này diệt tận gốc (giống PK Đôi
+  // dùng "neutral" khi sA===sB). Có ≥1 quà (best>0) mới bắt đầu tính người kém TOP 1.
+  const anyScored = best > 0;
 
   // Chọn SỐ người bị hiệu ứng = K người điểm THẤP NHẤT (bottom-K). 0 = tất cả trừ TOP 1.
   // Kẹp về [1, N-1] → 5 người: tối đa 4, tối thiểu 1 (TOP 1 luôn sạch vì K ≤ N-1).
@@ -200,7 +205,7 @@ function render(state = {}) {
     let intensity = 0, fill = 0;
     // Chỉ K người điểm thấp nhất (loserSet) bị hiệu ứng; bật khi qua ngưỡng % hoặc đã kết thúc.
     // Sương mù 10s cuối → KHÔNG ngập (fog) để giấu ai kém TOP 1.
-    if (loserSet.has(i) && !isLeader && !fog && (finished || (live && gapPct > thr))) {
+    if (anyScored && loserSet.has(i) && !isLeader && !fog && (finished || (live && gapPct > thr))) {
       const t = clamp(gapAbs / fullPts, 0, 1); // 0 (bằng TOP 1) → 1 (kém ≥ điểm trần = ngập FULL)
       intensity = (0.62 + 0.38 * t) * cap; // sàn 0.62: vùng đã ngập MÀU luôn ĐẬM, đọc rõ trên OBS [[obs-fx-cast-layer]]
       // Ngập từ ĐÁY lên: thấp (18%) → dâng NHANH (sqrt) rồi mượt tới đỉnh fillMax → cảm giác nước dâng thật.

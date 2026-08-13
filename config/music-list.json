@@ -2,12 +2,13 @@
   "items": [],
   "duckWaiting": true,
   "bgEnabled": false,
-  "paused": true,
+  "paused": false,
   "displayLimit": 50,
   "videoLimit": 10,
   "subGroups": [],
   "speedGifts": [],
   "railIconScale": 1,
-  "railCountScale": 1,
-  "railCountBg": true
+  "railCountScale": 1.3,
+  "railCountBg": true,
+  "listCollapsed": false
 }

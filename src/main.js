@@ -422,13 +422,26 @@ function parseTikTokProfilePayload(payload = {}) {
   return out;
 }
 
+// Trả keyboard-focus về webContents cửa sổ chính sau khi thao tác nền (mở/đóng cửa sổ Chromium ẩn)
+// có thể đã lấy mất focus. CHỈ khi cửa sổ chính vẫn là cửa sổ đang hoạt động → không giật focus của
+// app khác nếu người dùng đã ALT+Tab đi. webContents.focus() không kéo cửa sổ lên trước.
+function restoreMainWindowFocus() {
+  try {
+    if (win && !win.isDestroyed() && win.isFocused()) win.webContents.focus();
+  } catch {}
+}
+
 async function fetchTikTokProfileWithBrowser(username, opts = {}, timeoutMs = 18000) {
   const clean = String(username || '').trim().replace(/^@/, '');
   if (!clean) return null;
   const url = `https://www.tiktok.com/@${encodeURIComponent(clean)}?lang=en`;
   // Kích thước bình thường (không 1×1): trang tiny-viewport đôi khi TikTok bỏ hydrate.
+  // focusable:false → cửa sổ Chromium ẩn KHÔNG cướp keyboard-focus của webContents cửa sổ chính.
+  // Nếu không, mỗi lần lấy avatar (mở app / thêm ID / bấm Tải-UID) sẽ khiến các ô nhập của app
+  // "không gõ được" cho tới khi ALT+Tab ra/vào — dù cửa sổ chính vẫn nằm trên và trông như đang focus.
   const win = new BrowserWindow({
     show: false,
+    focusable: false,
     width: 1280,
     height: 800,
     webPreferences: {
@@ -491,6 +504,8 @@ async function fetchTikTokProfileWithBrowser(username, opts = {}, timeoutMs = 18
     return null;
   } finally {
     try { if (!win.isDestroyed()) win.destroy(); } catch {}
+    // An toàn kép: dù focusable:false, vẫn trả focus về app phòng khi Chromium cướp trong lúc load.
+    restoreMainWindowFocus();
   }
 }
 function saveSettings() { saveJson(SETTINGS_PATH, settings); }
@@ -2637,6 +2652,11 @@ class PkGroupEngine {
       fxLoserCount: Number(this.config.fxLoserCount) || 0,
       // 🌫️ Sương mù 10s cuối (overlay tự bật khi status running & còn ≤10s).
       fogHide: !!this.config.fogHide,
+      // ⚡ Tuỳ chọn UI khu chọn thành viên trong App (overlay bỏ qua) — echo lại để giữ khi mở lại.
+      quickPickShowName: this.config.quickPickShowName !== false,
+      membersCollapsed: this.config.membersCollapsed !== false,
+      quickPickStableOrder: this.config.quickPickStableOrder !== false,
+      memberOrder: Array.isArray(this.config.memberOrder) ? this.config.memberOrder : [],
     };
   }
   // Kiểu FX đánh dấu người vào trận: 'random' → chốt 1 kiểu cho mỗi vòng; 'off' → tắt hẳn.
@@ -5846,6 +5866,10 @@ function registerIpc() {
   ipcMain.on('playlist:push', (_e, data) => {
     if (playlistWindow && !playlistWindow.isDestroyed()) { try { playlistWindow.webContents.send('playlist:update', data); } catch {} }
   });
+  // Lệnh từ cửa sổ popup DANH SÁCH PHÁT → chuyển về renderer chính để thao tác hàng chờ nhạc.
+  ipcMain.on('playlist:command', (_e, cmd) => {
+    try { if (win && !win.isDestroyed()) win.webContents.send('playlist:command', cmd); } catch {}
+  });
   ipcMain.handle('review:close', (_e, type) => closeReviewWindow(type));
   ipcMain.handle('review:alwaysOnTop', (_e, { type, value }) => setReviewAlwaysOnTop(type, value));
   ipcMain.handle('review:clickThrough', (_e, { type, value }) => setReviewClickThrough(type, value));
@@ -5865,6 +5889,7 @@ function registerIpc() {
     overlayPort: settings.overlayPort,
     overlay: { ...(settings.overlay || {}) },
     audio: { ...(settings.audio || {}) },
+    ui: { ...(settings.ui || {}) }, // cờ giao diện app-only (cố định BXH, khóa gõ ô điểm…)
     scoreLinkRanking: !!settings.scoreLinkRanking,
     scoreLinkVoteLock: !!settings.scoreLinkVoteLock,
     autoRecognizeRecipient: settings.autoRecognizeRecipient !== false,
@@ -5885,6 +5910,9 @@ function registerIpc() {
       }
       if (patch.audio && typeof patch.audio === 'object') {
         settings.audio = { ...(settings.audio || {}), ...patch.audio };
+      }
+      if (patch.ui && typeof patch.ui === 'object') {
+        settings.ui = { ...(settings.ui || {}), ...patch.ui };
       }
       if (typeof patch.autoConnect === 'boolean') settings.autoConnect = patch.autoConnect;
       if (typeof patch.lastActiveGroupId === 'string' || patch.lastActiveGroupId === null) settings.lastActiveGroupId = patch.lastActiveGroupId;

@@ -233,7 +233,6 @@
         </button>
         <div class="brand-text">
           <strong>HP GROUP LIVE</strong>
-          <button id="versionCheckBtn" class="brand-ver version-check" type="button" title="Bấm để kiểm tra cập nhật">v<span id="appVersionText">0.1.0</span></button>
         </div>
       </div>
       <nav class="nav">
@@ -944,6 +943,28 @@
             </details>
           </div>
 
+          <section class="pkg-members-section" aria-labelledby="pkgMembersHeading">
+            <div class="pkg-members-head">
+              <div>
+                <h2 id="pkgMembersHeading">Thành viên tham gia</h2>
+              </div>
+            </div>
+
+            <!-- ⚡ Chọn nhanh: bấm avatar để chọn (sáng) / bỏ chọn (xám); người đã chọn dồn lên căn giữa -->
+            <div class="pkg-quickpick" id="pkgQuickPickCard">
+              <div class="pkg-quickpick__head">
+                <span class="pkg-quickpick__title">⚡ Chọn nhanh thành viên</span>
+                <span class="pkg-quickpick__count" id="pkgQuickCount"></span>
+                <span class="pkg-quickpick__hint">✋ Kéo avatar để đổi vị trí trên OBS</span>
+                <div class="pkg-quickpick__tools">
+                  <button id="pkgQuickStable" class="ghost tiny" type="button" title="Ghim: giữ nguyên vị trí ai ở đâu. Bỏ ghim: dồn người ĐANG THI ĐẤU (đã chọn) lên trên. Cả hai đều KÉO THẢ avatar được để đổi vị trí thanh máu trên OBS.">📌 Giữ vị trí</button>
+                  <button id="pkgQuickMode" class="ghost tiny" type="button" title="Đổi chế độ hiển thị: Avatar + Tên ⇄ Chỉ avatar (gọn hơn)">🅰️ Avatar + Tên</button>
+                </div>
+              </div>
+              <div class="pkg-quickpick__grid" id="pkgQuickPick"></div>
+            </div>
+          </section>
+
           <div class="form-grid">
             <div class="full pkg-config-row">
               <label class="pkg-config-field pkg-config-field--wide">Nội dung hiển thị <input id="pkgContent" placeholder="PK NHÓM" maxlength="30" /></label>
@@ -969,13 +990,20 @@
             </div>
           </div>
 
-          <section class="pkg-members-section" aria-labelledby="pkgMembersHeading">
-            <div class="pkg-members-head">
-              <div>
-                <h2 id="pkgMembersHeading">Thành viên tham gia</h2>
-                <p>Chọn Creator, thứ tự hiển thị, quà tính điểm và chuỗi MVP cho trận này.</p>
-              </div>
+          <!-- 🏆 Sửa tổng MVP — đặt ngay dưới Thời gian, gộp gọn (details) để chỉnh nhanh -->
+          <details class="pkg-mvp-total-editor" id="pkgMvpTotalEditor">
+            <summary><span>🏆 Sửa tổng MVP từng Creator</span><span class="cfg-adv__hint">tự cộng khi thắng duy nhất, có thể sửa chính xác</span></summary>
+            <div class="pkg-mvp-total-editor__body">
+              <p>Chuỗi MVP và tổng MVP là hai chỉ số khác nhau. Nhập số đúng rồi bấm Lưu để xử lý mất kết nối hoặc thao tác nhầm.</p>
+              <div class="pkg-mvp-total-list" id="pkgMvpTotals"></div>
             </div>
+          </details>
+
+          <!-- ▸ Chi tiết (màu · quà · thứ tự · cộng điểm) — ít dùng, đặt cuối cùng dưới Sửa tổng MVP -->
+          <div class="pkg-detail-head">
+            <button id="pkgDetailToggle" class="ghost tiny pkg-detail-toggle" type="button" aria-expanded="false" title="Mở/thu gọn bảng chi tiết (màu · quà · thứ tự · MVP · cộng điểm)">▸ Chi tiết (màu · quà · thứ tự · cộng điểm)</button>
+          </div>
+          <div class="pkg-detail-wrap is-collapsed" id="pkgDetailWrap">
             <div class="pkg-members-toolbar">
               <label class="switch-row" title="Tự động gán màu khác nhau cho mỗi Creator; màu chữ trên thanh luôn tương phản với màu nền">
                 <input id="pkgSmartColor" type="checkbox" checked /><span></span><b>🎨 Phối màu thông minh (không trùng)</b>
@@ -986,18 +1014,10 @@
               <label class="switch-row" title="Hiện huy hiệu số tổng MVP của từng Creator trên tên ở overlay PK Nhóm">
                 <input id="pkgShowMvpTotals" type="checkbox" /><span></span><b>🏆 Hiện tổng MVP</b>
               </label>
-              <button id="pkgEditMvpTotals" class="ghost tiny" type="button" title="Sửa số tổng MVP khi mất kết nối hoặc thao tác nhầm">🏆 Sửa tổng MVP</button>
               <button id="pkgAutoColor" class="ghost tiny" type="button">🎲 Phối lại màu</button>
             </div>
-            <details class="pkg-mvp-total-editor" id="pkgMvpTotalEditor">
-              <summary><span>🏆 Tổng MVP từng Creator</span><span class="cfg-adv__hint">tự cộng khi thắng duy nhất, có thể sửa chính xác</span></summary>
-              <div class="pkg-mvp-total-editor__body">
-                <p>Chuỗi MVP và tổng MVP là hai chỉ số khác nhau. Nhập số đúng rồi bấm Lưu để xử lý mất kết nối hoặc thao tác nhầm.</p>
-                <div class="pkg-mvp-total-list" id="pkgMvpTotals"></div>
-              </div>
-            </details>
             <div class="pkg-member-list" id="pkgMembers"></div>
-          </section>
+          </div>
 
           <!-- ⚙️ Popup Cài đặt 🧩 PK Nhóm — CHỈ bọc config nâng cao (thiết lập + thành viên hiển thị ngoài) -->
           <div id="pkgSettingsModal" class="gp-overlay sc-flatcfg">
@@ -1238,6 +1258,8 @@
                   <label title="Tô màu nền kim-bạc-đồng cho TOP 1/2/3 (dọc + ngang). Bỏ tích = nền đồng đều, chỉ khác 👑 vương miện bên trái."><input id="rkShowTopColors" type="checkbox" checked /> Màu TOP 123</label>
                   <label title="Thanh xanh dưới cùng: hiện người dẫn đầu/đang nổi bật (áp dụng cả OBS dọc và ngang)"><input id="rkShowActive" type="checkbox" checked /> Thanh dưới</label>
                   <label><input id="rkHideAllScores" type="checkbox" /> Ẩn điểm</label>
+                  <label title="Cố định thứ tự bảng ĐIỀU KHIỂN (app) — không tự nhảy chỗ theo điểm cho dễ kiểm soát. KHÔNG ảnh hưởng thứ tự trên OBS."><input id="rkFreezeOrder" type="checkbox" /> 📌 Cố định danh sách</label>
+                  <label title="Khóa gõ trực tiếp ô điểm để tránh sửa nhầm. Vẫn cộng/trừ được bằng CHUỘT PHẢI vào ô điểm → nhập số → CỘNG/TRỪ."><input id="rkLockInput" type="checkbox" /> 🔒 Khóa gõ ô điểm (chuột phải để +/−)</label>
                 </div>
                 <label class="rk-sync-check" title="Cho Thanh dưới (người dẫn đầu) dùng chung Màu nền + Kiểu FX như hàng được VOTE">
                   <input id="rkActiveSync" type="checkbox" /> 🔗 Đồng bộ Thanh dưới
@@ -2029,6 +2051,7 @@
             <button id="mlBgToggle" class="ml-bgbtn" type="button" title="Nhạc nền = Nhạc chờ; bật để phát khi bắt đầu game">▶ 🎶 Nhạc nền</button>
             <span class="mlq-spacer"></span>
             <label class="ml-switch ml-master" title="STOP ALL — Ngưng toàn bộ NHẠC DANCE: không tự phát nhạc nền & nhạc biểu diễn khi đang dùng tính năng khác"><input type="checkbox" id="mlPaused" /> ⏸ STOP ALL</label>
+            <button id="mlCollapse" class="ghost tiny ml-collapse" type="button" title="Thu gọn / mở danh sách quà cho gọn màn hình">▾ Thu gọn</button>
           </div>
           <div class="ml-list" id="mlList"></div>
           <div class="ml-empty hint" id="mlEmpty">Chưa có quà nào. Bấm “＋ Thêm quà” để bắt đầu.</div>

@@ -642,5 +642,19 @@
         "delta": 43
       }
     ]
+  },
+  {
+    "id": "ap_msrudmtg8o0nv",
+    "at": 1786645126852,
+    "source": "score",
+    "label": "🎯 Tính điểm (chưa đạt)",
+    "entries": [
+      {
+        "creatorId": "c_mrtg396ra59ws",
+        "tiktokId": "d.one_2607",
+        "name": "D-One",
+        "delta": 8509
+      }
+    ]
   }
 ]

@@ -333,6 +333,8 @@ const api = {
     open: () => ipcRenderer.invoke('playlist:open'),
     isOpen: () => ipcRenderer.invoke('playlist:isOpen'),
     push: (data) => ipcRenderer.send('playlist:push', data),
+    // Lệnh từ cửa sổ popup gửi ngược về renderer chính (xóa mục, bỏ mục đang phát, tạm dừng, xáo trộn, xóa tất cả…).
+    command: (cmd) => ipcRenderer.send('playlist:command', cmd),
   },
 
   // ===== OBS WebSocket (reset overlay) =====
@@ -348,7 +350,7 @@ const api = {
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
       'pkduo:state', 'pkduo:config', 'kcduo:state', 'kcduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'likewall:state', 'cardflip:state', 'dancevideo:ended',
       'history:changed', 'scoreHistory:changed', 'rankingHistory:changed', 'ranking:links',
-      'playlist:update', 'playlist:requestState',
+      'playlist:update', 'playlist:requestState', 'playlist:command',
       'tt:recipientLearned',
       'app:confirmQuit',
       'hosts:status',

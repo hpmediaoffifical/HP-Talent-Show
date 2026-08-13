@@ -376,6 +376,11 @@ let talentShowUsername = '';
 let activeGroupChangeSeq = 0;
 let scoreLinkRanking = false;
 let scoreLinkVoteLock = false;
+// THI ĐẤU NHÓM: cố định thứ tự bảng ĐIỀU KHIỂN (app) — không tự sắp lại theo điểm (chỉ app, OBS vẫn xếp theo điểm).
+let freezeRankingOrderOn = false;
+let rkFrozenOrder = []; // thứ tự id đã "đóng băng"; new Creator được nối vào cuối
+// THI ĐẤU NHÓM: khóa gõ trực tiếp ô điểm — chỉ chuột phải > CỘNG/TRỪ (bật/tắt trong CÀI ĐẶT chung).
+let lockRankingInputOn = false;
 let latestScoreState = null;
 // Áp điểm 🎯 Tính điểm vào BXH: nhớ batch đã áp theo từng lượt chạy (chống cộng trùng + cho hoàn tác).
 let scoreApplyBatchId = null;   // id batch trong sổ áp điểm (để hoàn tác)
@@ -1651,7 +1656,7 @@ async function loadMusicListConfig() {
   const st = await window.api.musiclist.getState().catch(() => null);
   musicItems = Array.isArray(st?.items) ? st.items.map(normalizeMusicItem) : [];
   // NHẠC DANCE mặc định LUÔN bật STOP ALL khi mở app để không tự phát nhạc; user tự tắt khi cần dùng.
-  musicCfg = { duckWaiting: st?.duckWaiting !== false, bgEnabled: !!st?.bgEnabled, paused: true, displayLimit: clampInt(st?.displayLimit, 50, 1, 500), videoLimit: clampInt(st?.videoLimit, 10, 1, 100), subGroups: normalizeSubGroups(st?.subGroups), speedGifts: normalizeSpeedGifts(st?.speedGifts), railIconScale: clampFloat(st?.railIconScale, 1, 0.7, 1.8), railCountScale: clampFloat(st?.railCountScale, 1, 0.7, 2), railCountBg: st?.railCountBg !== false };
+  musicCfg = { duckWaiting: st?.duckWaiting !== false, bgEnabled: !!st?.bgEnabled, paused: true, displayLimit: clampInt(st?.displayLimit, 50, 1, 500), videoLimit: clampInt(st?.videoLimit, 10, 1, 100), subGroups: normalizeSubGroups(st?.subGroups), speedGifts: normalizeSpeedGifts(st?.speedGifts), railIconScale: clampFloat(st?.railIconScale, 1, 0.7, 1.8), railCountScale: clampFloat(st?.railCountScale, 1, 0.7, 2), railCountBg: st?.railCountBg !== false, listCollapsed: !!st?.listCollapsed };
   musicBaseItems = musicItems.map(normalizeMusicItem); // chốt danh sách gốc TALENT SHOW
   musicGroupId = '';
   danceVideoCfg = await window.api.dancevideo.getConfig().catch(() => null); // cấu hình overlay Video
@@ -1660,7 +1665,7 @@ async function loadMusicListConfig() {
 // nhóm lưu trong hồ sơ nhóm (groupProfiles[gid].music).
 function collectMusicCfg() {
   const items = musicGroupId ? (musicBaseItems || []) : musicItems;
-  return { items, duckWaiting: musicCfg.duckWaiting, bgEnabled: musicCfg.bgEnabled, paused: musicCfg.paused, displayLimit: musicCfg.displayLimit, videoLimit: musicCfg.videoLimit, subGroups: normalizeSubGroups(musicCfg.subGroups), speedGifts: normalizeSpeedGifts(musicCfg.speedGifts), railIconScale: musicCfg.railIconScale, railCountScale: musicCfg.railCountScale, railCountBg: musicCfg.railCountBg };
+  return { items, duckWaiting: musicCfg.duckWaiting, bgEnabled: musicCfg.bgEnabled, paused: musicCfg.paused, displayLimit: musicCfg.displayLimit, videoLimit: musicCfg.videoLimit, subGroups: normalizeSubGroups(musicCfg.subGroups), speedGifts: normalizeSpeedGifts(musicCfg.speedGifts), railIconScale: musicCfg.railIconScale, railCountScale: musicCfg.railCountScale, railCountBg: musicCfg.railCountBg, listCollapsed: !!musicCfg.listCollapsed };
 }
 const _musicSaver = makeAutoSaver(() => {
   // Đang ở nhóm → lưu danh sách quà vào hồ sơ nhóm; cờ chung + danh sách gốc vẫn ghi file gốc.
@@ -1846,6 +1851,7 @@ function renderMusicList() {
   }
   wireMusicRows(list);
   wireMusicSections(list);
+  applyMusicListCollapsed(); // giữ trạng thái thu gọn + cập nhật số đếm trên nút sau mỗi lần dựng lại
 }
 // Gắn sự kiện cho từng hàng quà.
 function wireMusicRows(scope) {
@@ -1866,10 +1872,8 @@ function wireMusicRows(scope) {
     row.querySelector('.ml-qty').addEventListener('change', (e) => { m.qty = clampInt(e.target.value, 1, 1, 1000); e.target.value = m.qty; scheduleMusicSave(); });
     row.querySelector('.ml-add').addEventListener('click', () => enqueueFromRow(m, row.querySelector('.ml-qty').value));
     row.querySelector('.ml-auto-input').addEventListener('change', (e) => { m.autoEnabled = e.target.checked; scheduleMusicSave(); renderMusicList(); });
-    row.querySelector('.ml-del').addEventListener('click', async () => {
-      const nameShown = m.name || m.giftName || ('ID ' + m.giftId);
-      const ok = await window.api.shell.confirm({ title: 'Xóa quà', message: `Xóa "${nameShown}" khỏi danh sách nhạc?`, detail: 'Hành động này không thể hoàn tác.', defaultYes: true });
-      if (!ok) return;
+    row.querySelector('.ml-del').addEventListener('click', () => {
+      // Bỏ hỏi Có/Không: xóa ngay cho nhanh (theo yêu cầu vận hành LIVE).
       musicItems.splice(i, 1); renderMusicList(); scheduleMusicSave();
     });
   });
@@ -2235,6 +2239,21 @@ function applyMusicRailCfg() {
   wrap.style.setProperty('--rail-count-scale', clampFloat(musicCfg.railCountScale, 1, 0.7, 2));
   wrap.classList.toggle('no-rail-count-bg', musicCfg.railCountBg === false);
 }
+// Thu gọn danh sách quà (chỉ ẩn phần liệt kê để gọn màn hình; thanh công cụ + DANH SÁCH PHÁT giữ nguyên).
+function applyMusicListCollapsed() {
+  const on = !!musicCfg.listCollapsed;
+  const card = document.querySelector('.ml-card');
+  if (card) card.classList.toggle('ml-collapsed', on);
+  const list = $('#mlList'); if (list) list.hidden = on;
+  const empty = $('#mlEmpty'); if (empty && on) empty.hidden = true; // khi thu gọn thì luôn giấu ô "trống"
+  const btn = $('#mlCollapse');
+  if (btn) {
+    const n = Array.isArray(musicItems) ? musicItems.length : 0;
+    btn.textContent = on ? `▸ Mở danh sách (${n})` : '▾ Thu gọn';
+    btn.title = on ? 'Mở lại danh sách quà' : 'Thu gọn danh sách quà cho gọn màn hình';
+    btn.classList.toggle('is-on', on);
+  }
+}
 // Thanh icon quà đang chờ: gộp số lượt theo giftId (kể cả cái đang phát), bấm để đẩy lên đầu.
 function renderMusicRail(st) {
   const rail = $('#mlqRail'); if (!rail) return;
@@ -2271,13 +2290,10 @@ function renderMusicQueue(st) {
   listEl.querySelectorAll('.mlq-item.wait .mlq-x').forEach(btn => {
     btn.addEventListener('click', () => { MusicQueue.removeUid(btn.closest('.mlq-item').dataset.uid); });
   });
-  // [✕] trên mục ĐANG PHÁT: hỏi Có/Không rồi bỏ clip hiện tại (chuyển sang mục kế nếu còn).
+  // [✕] trên mục ĐANG PHÁT: bỏ ngay clip hiện tại (chuyển sang mục kế nếu còn) — không hỏi Có/Không.
   const liveX = cur && cur.querySelector('.mlq-x-live');
-  if (liveX) liveX.addEventListener('click', async () => {
-    const it = MusicQueue.state().current; if (!it) return;
-    const nm = it.name || it.giftName || ('ID ' + it.giftId);
-    const ok = await window.api.shell.confirm({ title: 'Xóa quà đang phát', message: `Xóa “${nm}” đang phát khỏi danh sách?`, detail: 'Dừng clip hiện tại và chuyển sang mục kế tiếp (nếu còn).' });
-    if (!ok) return;
+  if (liveX) liveX.addEventListener('click', () => {
+    if (!MusicQueue.state().current) return;
     MusicQueue.skipCurrent();
   });
   const skip = $('#mlqSkip'); if (skip) skip.disabled = !st.current;
@@ -2345,10 +2361,8 @@ function wireSpeedRows(scope) {
       SpeedControl.trigger(r);
       toast(`⚡ Chạy thử: ${musicSpeedLabel(r.speed)} · ${r.duration}s · ${SPEED_MODE_LABEL[r.mode]}`, 'success');
     });
-    row.querySelector('.sg-del').addEventListener('click', async () => {
-      const nm = r.giftName ? `“${r.giftName}”` : 'quà tốc độ này';
-      const ok = await window.api.shell.confirm({ title: 'Xóa quà tốc độ', message: `Xóa ${nm} khỏi Tốc độ theo quà?`, detail: 'Hành động này không thể hoàn tác.' });
-      if (!ok) return;
+    row.querySelector('.sg-del').addEventListener('click', () => {
+      // Bỏ hỏi Có/Không: xóa ngay quà tốc độ.
       speedRules().splice(i, 1); scheduleMusicSave(); renderSpeedGifts();
     });
   });
@@ -2398,6 +2412,8 @@ function wireMusicListTab() {
   $('#mlBgToggle')?.addEventListener('click', () => { WaitingMusic.isEnabled() ? stopBgMusic() : startBgMusic(); });
   // Cờ "Tạm dừng nhạc nền" chung đã bỏ khỏi giao diện — mỗi quà tự chỉnh trong ⚙ Cài đặt (mục Nhạc nền).
   $('#mlPaused')?.addEventListener('change', (e) => setMusicPaused(e.target.checked));
+  // Thu gọn / mở danh sách quà (nhớ trạng thái qua musicCfg.listCollapsed).
+  $('#mlCollapse')?.addEventListener('click', () => { musicCfg.listCollapsed = !musicCfg.listCollapsed; applyMusicListCollapsed(); scheduleMusicSave(); });
   $('#waitingVolume')?.addEventListener('input', () => WaitingMusic.refreshVolume());
   updateMusicPausedUI();
   // Hàng đợi hiệu ứng
@@ -2452,6 +2468,19 @@ function wireMusicListTab() {
   });
   // Cửa sổ tách rời vừa mở/nạp xong → đẩy trạng thái hiện tại sang ngay.
   window.api.on('playlist:requestState', () => { playlistWindowOn = true; broadcastPlaylistWindow(); });
+  // Lệnh điều khiển từ cửa sổ popup (xóa mục / bỏ mục đang phát / tạm dừng / xáo trộn / xóa tất cả).
+  window.api.on('playlist:command', (cmd) => {
+    if (!cmd || typeof cmd !== 'object') return;
+    try {
+      switch (cmd.action) {
+        case 'removeUid': if (cmd.uid) MusicQueue.removeUid(cmd.uid); break;
+        case 'skipCurrent': MusicQueue.skipCurrent(); break;
+        case 'togglePause': MusicQueue.togglePause(); renderMusicQueue(); break;
+        case 'shuffle': MusicQueue.shuffle(); break;
+        case 'clearAll': MusicQueue.stopAll(); Backgrounds.stopAll(); break;
+      }
+    } catch {}
+  });
   $('#mlqShuffle')?.addEventListener('click', () => { MusicQueue.shuffle(); toast('🎲 Đã xáo trộn thứ tự hàng chờ', 'success'); });
   // Tốc độ theo quà
   $('#sgAdd')?.addEventListener('click', () => { speedRules().push(normalizeSpeedGift({})); scheduleMusicSave(); renderSpeedGifts(); });
@@ -5242,7 +5271,7 @@ async function initLicenseGate() {
   wireLicenseUi();
   IS_DEV = await window.api.app.isDev().catch(() => false);
   const version = await window.api.app.getVersion().catch(() => '0.1.0');
-  $('#appVersionText').textContent = version;
+  if ($('#appVersionText')) $('#appVersionText').textContent = version;
   if ($('#updateCurrentVer')) $('#updateCurrentVer').textContent = 'v' + version;
   if ($('#bootVer')) $('#bootVer').textContent = 'v' + version;
   document.title = `HP GROUP LIVE — Phiên bản v${version}`;
@@ -7301,7 +7330,7 @@ function groupDefaultGift(groupId) {
 }
 
 // ===== PK Nhóm: chụp / nạp thông số theo nhóm =====
-const PKG_PROFILE_FIELDS = ['content', 'layoutMode', 'playMode', 'creatorLive', 'tiktokCombine', 'pointsBy', 'noteEnabled', 'noteText', 'noteBgColor', 'noteTextColor', 'noteSpeedSec', 'noteEffect', 'separatedGap', 'sepSolidBg', 'autoTextContrast', 'showMvpTotals', 'durationSec', 'prepSec', 'delaySec', 'textSize', 'nameSize', 'giftSize', 'overlayScale', 'smartColor', 'creatorColors', 'participants'];
+const PKG_PROFILE_FIELDS = ['content', 'layoutMode', 'playMode', 'creatorLive', 'tiktokCombine', 'pointsBy', 'noteEnabled', 'noteText', 'noteBgColor', 'noteTextColor', 'noteSpeedSec', 'noteEffect', 'separatedGap', 'sepSolidBg', 'autoTextContrast', 'showMvpTotals', 'durationSec', 'prepSec', 'delaySec', 'textSize', 'nameSize', 'giftSize', 'overlayScale', 'smartColor', 'creatorColors', 'participants', 'memberOrder'];
 
 // Chụp thông số PK Nhóm hiện tại thành object (KHÔNG đọc DOM — caller tự sync trước).
 function pkGroupProfileSnapshot() {
@@ -8663,6 +8692,13 @@ async function loadPkGroupConfig() {
     fxFullPoints: st.fxFullPoints ?? 100, fxTopSafe: st.fxTopSafe ?? 14,
     creatorColors: st.creatorColors || {},
     smartColor: st.smartColor !== false,
+    // ⚡ Chọn nhanh: hiện tên dưới avatar (mặc định BẬT); bảng chi tiết mặc định THU GỌN cho gọn
+    quickPickShowName: st.quickPickShowName !== false,
+    membersCollapsed: st.membersCollapsed !== false,
+    // 📌 Giữ vị trí: mặc định BẬT (cố định vị trí theo danh sách nhóm để MC dễ nhớ ai ở đâu). Tắt để dồn người đã chọn lên, căn giữa.
+    quickPickStableOrder: st.quickPickStableOrder !== false,
+    // Thứ tự đứng tùy chỉnh (kéo thả) toàn roster — quyết định vị trí thanh máu trên OBS.
+    memberOrder: Array.isArray(st.memberOrder) ? st.memberOrder : [],
     participants: Array.isArray(st.participants) ? st.participants : [],
   };
   renderPkGroupGroupSelect();
@@ -8718,6 +8754,19 @@ function applyPkGroupCfgToInputs() {
   if ($('#pkgFxThreshold')) { $('#pkgFxThreshold').value = pkGroupCfg.fxThreshold ?? 8; if ($('#pkgFxThresholdValue')) $('#pkgFxThresholdValue').textContent = `${$('#pkgFxThreshold').value}%`; }
   if ($('#pkgFxFullPoints')) { $('#pkgFxFullPoints').value = pkGroupCfg.fxFullPoints ?? 100; if ($('#pkgFxFullPointsValue')) $('#pkgFxFullPointsValue').textContent = `${$('#pkgFxFullPoints').value} điểm`; }
   if ($('#pkgFxTopSafe')) { $('#pkgFxTopSafe').value = pkGroupCfg.fxTopSafe ?? 14; if ($('#pkgFxTopSafeValue')) $('#pkgFxTopSafeValue').textContent = `${$('#pkgFxTopSafe').value}%`; }
+  applyPkGroupMembersUi();
+}
+
+// Áp trạng thái UI khu thành viên: thu gọn/mở bảng chi tiết + nút. (Chế độ tên avatar do renderPkGroupQuickPick lo.)
+function applyPkGroupMembersUi() {
+  const collapsed = pkGroupCfg?.membersCollapsed !== false; // mặc định thu gọn
+  const wrap = $('#pkgDetailWrap');
+  if (wrap) wrap.classList.toggle('is-collapsed', collapsed);
+  const btn = $('#pkgDetailToggle');
+  if (btn) {
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    btn.textContent = collapsed ? '▸ Chi tiết (màu · quà · thứ tự · cộng điểm)' : '▾ Thu gọn chi tiết';
+  }
 }
 
 function renderPkGroupGroupSelect() {
@@ -8822,6 +8871,7 @@ function selectAllPkGroupMembers(groupId) {
 function renderPkGroupMembers() {
   const wrap = $('#pkgMembers');
   if (!wrap || !pkGroupCfg) return;
+  renderPkGroupQuickPick(); // ⚡ luôn làm mới lưới chọn nhanh (kể cả khi bỏ qua render chi tiết vì đang gõ)
   // Đang gõ trong danh sách (tên/streak) thì KHÔNG dựng lại — tránh nền tự làm mới avatar
   // xoá mất thao tác đang nhập (dữ liệu đã đồng bộ realtime qua listener input).
   if (wrap.contains(document.activeElement) && document.activeElement.matches('input, textarea, select')) return;
@@ -8836,13 +8886,8 @@ function renderPkGroupMembers() {
     wrap.innerHTML = '<div class="hint">Nhóm này chưa có Creator.</div>';
     return;
   }
-  const order = new Map((pkGroupCfg.participants || []).map((p, i) => [p.creatorId || p.id, i]));
-  const displayMembers = members.slice().sort((a, b) => {
-    const ai = order.has(a.id) ? order.get(a.id) : Number.MAX_SAFE_INTEGER;
-    const bi = order.has(b.id) ? order.get(b.id) : Number.MAX_SAFE_INTEGER;
-    if (ai !== bi) return ai - bi;
-    return (a.nickname || a.tiktokId || '').localeCompare(b.nickname || b.tiktokId || '', 'vi');
-  });
+  // Bảng chi tiết bám thứ tự đứng chủ (memberOrder) — khớp lưới chọn nhanh & vị trí thanh máu OBS.
+  const displayMembers = pkgOrderMembers(members);
   const smartColor = pkGroupCfg.smartColor !== false;
   const colorMap = smartColor ? ensureDistinctPkgColors(displayMembers) : null;
   if (colorMap) {
@@ -8937,14 +8982,191 @@ function renderPkGroupMembers() {
   });
 }
 
+// ===== PK Nhóm: thứ tự đứng chủ (memberOrder) — nguồn sự thật cho vị trí thanh máu trên OBS =====
+function pkgCurrentGroupMembers() {
+  const groupId = $('#pkgGroup')?.value || pkGroupCfg?.groupId || '';
+  return groupId ? visibleCreators().filter(c => c.groupId === groupId) : [];
+}
+// Đảm bảo memberOrder chứa đúng mọi Creator của nhóm: append người mới ở cuối, bỏ id không còn.
+// Giữ nguyên thứ tự người dùng đã kéo. Trả về mảng id theo thứ tự.
+function pkgEnsureMemberOrder(members) {
+  if (!pkGroupCfg) return [];
+  const ids = (members || pkgCurrentGroupMembers()).map(c => c.id);
+  const idSet = new Set(ids);
+  let order = Array.isArray(pkGroupCfg.memberOrder) ? pkGroupCfg.memberOrder.filter(id => idSet.has(id)) : [];
+  for (const id of ids) if (!order.includes(id)) order.push(id);
+  pkGroupCfg.memberOrder = order;
+  return order;
+}
+// Sắp mảng members theo memberOrder (dùng cho cả grid chọn nhanh lẫn bảng chi tiết).
+function pkgOrderMembers(members) {
+  const order = pkgEnsureMemberOrder(members);
+  const rank = new Map(order.map((id, i) => [id, i]));
+  return members.slice().sort((a, b) => (rank.get(a.id) ?? 1e9) - (rank.get(b.id) ?? 1e9));
+}
+// Sắp lại participants (người ĐÃ chọn) theo memberOrder → overlay OBS xếp thanh máu đúng vị trí.
+function pkgSortParticipantsByOrder() {
+  if (!pkGroupCfg || !Array.isArray(pkGroupCfg.memberOrder) || !Array.isArray(pkGroupCfg.participants)) return;
+  const rank = new Map(pkGroupCfg.memberOrder.map((id, i) => [id, i]));
+  pkGroupCfg.participants = pkGroupCfg.participants.slice().sort((a, b) =>
+    (rank.get(a.creatorId || a.id) ?? 1e9) - (rank.get(b.creatorId || b.id) ?? 1e9));
+}
+
+// ⚡ Lưới chọn nhanh: avatar + tên, bấm để chọn/bỏ. Người đã chọn sáng + dồn lên căn giữa (CSS order),
+// người chưa chọn xám mờ. KHÔNG giữ nguồn dữ liệu riêng — chỉ điều khiển checkbox hàng chi tiết ẩn
+// rồi gọi lại đúng luồng syncPkGroupMembersFromDom → tránh lệch state, không lỗi vặt.
+function renderPkGroupQuickPick() {
+  const grid = $('#pkgQuickPick');
+  if (!grid || !pkGroupCfg) return;
+  const card = $('#pkgQuickPickCard');
+  const countEl = $('#pkgQuickCount');
+  const modeBtn = $('#pkgQuickMode');
+  const showName = pkGroupCfg.quickPickShowName !== false;
+  card?.classList.toggle('is-avatars-only', !showName);
+  if (modeBtn) modeBtn.textContent = showName ? '🅰️ Avatar + Tên' : '🖼️ Chỉ avatar';
+  const stable = !!pkGroupCfg.quickPickStableOrder;
+  card?.classList.toggle('is-stable', stable);
+  $('#pkgQuickStable')?.classList.toggle('is-active', stable);
+  const groupId = $('#pkgGroup')?.value || pkGroupCfg.groupId || '';
+  if (!groupId) { grid.innerHTML = '<div class="hint">Chọn một nhóm để chọn nhanh thành viên.</div>'; if (countEl) countEl.textContent = ''; return; }
+  const members = visibleCreators().filter(c => c.groupId === groupId);
+  if (!members.length) { grid.innerHTML = '<div class="hint">Nhóm này chưa có Creator.</div>'; if (countEl) countEl.textContent = ''; return; }
+  const selected = new Map((pkGroupCfg.participants || []).map(p => [p.creatorId || p.id, p]));
+  const rank = new Map(pkgEnsureMemberOrder(members).map((id, i) => [id, i]));
+  // CẢ HAI chế độ đều KÉO THẢ được để đổi vị trí thanh máu trên OBS (ghi vào memberOrder).
+  // 📌 Ghim BẬT → giữ nguyên vị trí theo memberOrder. TẮT → dồn người ĐANG THI ĐẤU (đã chọn) lên trên,
+  // trong từng nhóm (đã chọn / chưa chọn) vẫn theo memberOrder để kéo thả nhất quán.
+  const sorted = stable ? pkgOrderMembers(members) : members.slice().sort((a, b) => {
+    const asel = selected.has(a.id), bsel = selected.has(b.id);
+    if (asel !== bsel) return asel ? -1 : 1;
+    return (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0);
+  });
+  if (countEl) countEl.textContent = `${selected.size}/${members.length} đã chọn`;
+  grid.innerHTML = sorted.map(c => {
+    const on = selected.has(c.id);
+    const col = normalizeHexColor(selected.get(c.id)?.color || pkGroupCfg?.creatorColors?.[c.id], '#FE2C55');
+    const nm = c.nickname || c.tiktokId || 'Creator';
+    return `<button type="button" class="pkg-chip ${on ? 'is-on' : 'is-off'}" data-id="${escapeAttr(c.id)}" style="--chip:${escapeAttr(col)}" title="${on ? 'Bỏ chọn' : 'Chọn'} ${escapeAttr(nm)} · kéo để đổi vị trí">
+      <img src="${escapeAttr(c.avatar || '../logo/hp-logo.png')}" alt="" draggable="false" />
+      <b>${escapeHtml(nm)}</b>
+    </button>`;
+  }).join('');
+  wirePkgQuickPickDrag(grid); // gắn 1 lần: pointer-drag có ngưỡng (kéo) TÁCH BẠCH với bấm chọn/bỏ
+}
+
+// Kéo thả chip bằng POINTER (mượt hơn native DnD): có NGƯỠNG di chuyển tách rõ "kéo" và "bấm chọn"
+// (nên kéo idol đã tích không còn bị bỏ chọn nhầm), + hoạt ảnh FLIP cho các chip trượt chỗ.
+// Ghi memberOrder → thanh máu OBS đổi vị trí realtime. Dùng ở cả 2 chế độ (Ghim / bỏ Ghim).
+function wirePkgQuickPickDrag(grid) {
+  if (grid.dataset.interactWired === '1') return; // grid giữ nguyên qua các lần dựng lại → gắn 1 lần
+  grid.dataset.interactWired = '1';
+  let g = null;
+  const THRESHOLD = 6; // px — dưới ngưỡng = bấm chọn/bỏ; vượt = kéo
+  const endDrag = (commit) => {
+    if (!g) return;
+    const { chip, id, dragging } = g;
+    g = null;
+    if (dragging) {
+      chip.classList.remove('is-dragging');
+      document.body.classList.remove('pkg-dragging-active');
+      if (commit) commitPkgChipOrder(grid);
+    } else if (commit) {
+      togglePkGroupMember(id); // không kéo → coi là bấm chọn/bỏ
+    }
+  };
+  grid.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    const chip = e.target.closest('.pkg-chip');
+    if (!chip || !grid.contains(chip)) return;
+    g = { chip, id: chip.dataset.id, x: e.clientX, y: e.clientY, dragging: false };
+  });
+  window.addEventListener('pointermove', e => {
+    if (!g) return;
+    if (!g.dragging) {
+      if (Math.hypot(e.clientX - g.x, e.clientY - g.y) < THRESHOLD) return;
+      g.dragging = true;
+      g.chip.classList.add('is-dragging');
+      document.body.classList.add('pkg-dragging-active');
+    }
+    e.preventDefault();
+    const ref = pkgDragAfterChip(grid, e.clientX, e.clientY);
+    if (ref === g.chip) return;
+    if (ref !== g.chip.nextElementSibling) {
+      pkgFlipReorder(grid, () => { if (ref == null) grid.appendChild(g.chip); else grid.insertBefore(g.chip, ref); });
+    }
+  }, { passive: false });
+  window.addEventListener('pointerup', () => endDrag(true));
+  window.addEventListener('pointercancel', () => endDrag(true));
+}
+// Hoạt ảnh FLIP: chụp vị trí trước → đổi DOM → cho các chip TRƯỢT mượt về chỗ mới.
+function pkgFlipReorder(grid, mutate) {
+  const chips = [...grid.querySelectorAll('.pkg-chip')];
+  const before = new Map(chips.map(el => [el, el.getBoundingClientRect()]));
+  mutate();
+  for (const el of grid.querySelectorAll('.pkg-chip')) {
+    const a = before.get(el); if (!a) continue;
+    const b = el.getBoundingClientRect();
+    const dx = a.left - b.left, dy = a.top - b.top;
+    if (!dx && !dy) continue;
+    el.style.transition = 'none';
+    el.style.transform = `translate(${dx}px,${dy}px)`;
+    void el.offsetWidth; // ép reflow để mốc bắt đầu ăn
+    el.style.transition = 'transform .18s cubic-bezier(.2,.7,.3,1)';
+    el.style.transform = '';
+  }
+}
+// Tìm chip cần chèn NGAY TRƯỚC theo con trỏ: ô mà con trỏ đứng trước điểm giữa (theo thứ tự đọc —
+// hàng trên hoặc cùng hàng & bên trái tâm), chọn ô GẦN con trỏ nhất. Trả null = thả vào cuối.
+// Nhờ vậy kéo tới đâu là chèn đúng chỗ đó, hai bên tự tạt ra. (offX/offY thô trước đây làm chọn sai ô.)
+function pkgDragAfterChip(grid, x, y) {
+  const els = [...grid.querySelectorAll('.pkg-chip:not(.is-dragging)')];
+  let best = null, bestDist = Infinity;
+  for (const el of els) {
+    const b = el.getBoundingClientRect();
+    const cx = b.left + b.width / 2;
+    const cy = b.top + b.height / 2;
+    const sameRow = y >= b.top && y <= b.bottom;
+    const insertBefore = y < b.top || (sameRow && x < cx);
+    if (!insertBefore) continue;
+    const d = Math.hypot(cx - x, cy - y);
+    if (d < bestDist) { bestDist = d; best = el; }
+  }
+  return best;
+}
+// Chốt thứ tự sau khi kéo: đọc thứ tự DOM → memberOrder → sắp participants → lưu + đẩy overlay + dựng lại.
+function commitPkgChipOrder(grid) {
+  const ids = [...grid.querySelectorAll('.pkg-chip')].map(c => c.dataset.id).filter(Boolean);
+  if (!ids.length || !pkGroupCfg) return;
+  pkGroupCfg.memberOrder = ids;
+  pkgSortParticipantsByOrder();
+  schedulePkGroupAutoSave();
+  renderPkGroupMembers();
+}
+
+// Lật chọn/bỏ 1 Creator qua checkbox của hàng chi tiết (hàng luôn tồn tại trong DOM dù bảng đang thu gọn).
+function togglePkGroupMember(creatorId) {
+  let cb = null;
+  $$('#pkgMembers .pkg-member').forEach(row => {
+    if (row.dataset.id === creatorId) cb = row.querySelector('input[type="checkbox"]');
+  });
+  if (cb) cb.checked = !cb.checked;
+  syncPkGroupMembersFromDom();
+  schedulePkGroupAutoSave();
+  renderPkGroupMembers();
+}
+
 function movePkGroupParticipant(creatorId, dir) {
   syncPkGroupMembersFromDom();
-  const idx = pkGroupCfg.participants.findIndex(p => (p.creatorId || p.id) === creatorId);
-  if (idx < 0) { toast('Cần tích chọn thành viên trước', 'error'); return; }
+  // Di chuyển trong thứ tự đứng chủ (memberOrder) — đồng nhất với kéo thả & vị trí thanh máu OBS.
+  const order = pkgEnsureMemberOrder();
+  const idx = order.indexOf(creatorId);
+  if (idx < 0) return;
   const next = idx + dir;
-  if (next < 0 || next >= pkGroupCfg.participants.length) return;
-  const [item] = pkGroupCfg.participants.splice(idx, 1);
-  pkGroupCfg.participants.splice(next, 0, item);
+  if (next < 0 || next >= order.length) return;
+  const [id] = order.splice(idx, 1);
+  order.splice(next, 0, id);
+  pkGroupCfg.memberOrder = order;
+  pkgSortParticipantsByOrder();
   renderPkGroupMembers();
   schedulePkGroupAutoSave();
 }
@@ -9013,6 +9235,7 @@ function syncPkGroupMembersFromDom() {
     });
   });
   pkGroupCfg.participants = participants;
+  pkgSortParticipantsByOrder(); // giữ thứ tự thanh máu OBS bám theo thứ tự đứng chủ (kéo thả)
 }
 
 const _pkGroupSaver = makeAutoSaver(async () => {
@@ -9125,13 +9348,32 @@ function wirePkGroupTab() {
       if (pkGroupCfg.groupId) snapshotPkGroupToProfile(pkGroupCfg.groupId);
     } catch {}
   });
-  $('#pkgEditMvpTotals')?.addEventListener('click', () => {
-    const editor = $('#pkgMvpTotalEditor');
-    if (!editor) return;
-    editor.open = !editor.open;
-    if (editor.open) renderPkGroupMvpTotals();
+  // 🏆 Sửa tổng MVP (details gộp gọn dưới Thời gian): mở ra thì dựng lại danh sách để chỉnh chính xác
+  $('#pkgMvpTotalEditor')?.addEventListener('toggle', () => {
+    if ($('#pkgMvpTotalEditor')?.open) renderPkGroupMvpTotals();
   });
   $('#pkgAutoColor').addEventListener('click', autoAssignPkgColors);
+  // ⚡ Thu gọn / mở bảng chi tiết (giữ hàng trong DOM để sync checkbox vẫn chạy)
+  $('#pkgDetailToggle')?.addEventListener('click', () => {
+    if (!pkGroupCfg) return;
+    pkGroupCfg.membersCollapsed = $('#pkgDetailWrap')?.classList.contains('is-collapsed') ? false : true;
+    applyPkGroupMembersUi();
+    schedulePkGroupAutoSave();
+  });
+  // ⚡ Đổi chế độ hiển thị lưới chọn nhanh: Avatar + Tên ⇄ Chỉ avatar
+  $('#pkgQuickMode')?.addEventListener('click', () => {
+    if (!pkGroupCfg) return;
+    pkGroupCfg.quickPickShowName = !(pkGroupCfg.quickPickShowName !== false);
+    renderPkGroupQuickPick();
+    schedulePkGroupAutoSave();
+  });
+  // 📌 Giữ vị trí: bật/tắt dồn người đã chọn lên
+  $('#pkgQuickStable')?.addEventListener('click', () => {
+    if (!pkGroupCfg) return;
+    pkGroupCfg.quickPickStableOrder = !pkGroupCfg.quickPickStableOrder;
+    renderPkGroupQuickPick();
+    schedulePkGroupAutoSave();
+  });
   // Cấu hình PK Nhóm tự lưu real-time (schedulePkGroupAutoSave) — không cần nút Cập nhật.
   $('#pkgStart').addEventListener('click', async () => {
     if ($('#pkgStart').dataset.running === 'true') { await window.api.pkgroup.stop(); return; }
@@ -9289,6 +9531,8 @@ async function loadRankingConfig() {
   if ($('#rkShowTopColors')) $('#rkShowTopColors').checked = st.showTopColors !== false;
   $('#rkShowActive').checked = st.showActive !== false;
   $('#rkHideAllScores').checked = !!st.hideAllScores;
+  if ($('#rkFreezeOrder')) $('#rkFreezeOrder').checked = freezeRankingOrderOn; // cờ app-only, không thuộc config engine
+  if ($('#rkLockInput')) $('#rkLockInput').checked = lockRankingInputOn;
   $('#rkGridRows').value = st.gridRows || 3;
   $('#rkGridCols').value = st.gridCols || 3;
   $('#rkGridFlow').value = st.gridFlow || 'row';
@@ -9425,6 +9669,20 @@ function wireRankingTab() {
     const el = $('#' + id);
     el.addEventListener('input', updateRkRealtime);
     el.addEventListener('change', updateRkRealtime);
+  });
+  // 📌 Cố định danh sách + 🔒 Khóa gõ ô điểm (đều app-only): không đẩy vào config engine → OBS không đổi. Lưu vào settings.ui.
+  $('#rkFreezeOrder')?.addEventListener('change', (e) => {
+    freezeRankingOrderOn = !!e.target.checked;
+    rkFrozenOrder = []; // reset để lần render tới chụp lại thứ tự hiện tại làm mốc đóng băng
+    window.api.settings.set({ ui: { freezeRankingOrder: freezeRankingOrderOn } }).catch(() => {});
+    refreshRankingPreview();
+    toast(freezeRankingOrderOn ? '📌 Đã cố định thứ tự bảng điều khiển' : 'Đã bỏ cố định — bảng tự xếp theo điểm', 'success');
+  });
+  $('#rkLockInput')?.addEventListener('change', (e) => {
+    lockRankingInputOn = !!e.target.checked;
+    window.api.settings.set({ ui: { lockRankingInput: lockRankingInputOn } }).catch(() => {});
+    refreshRankingPreview();
+    toast(lockRankingInputOn ? '🔒 Đã khóa gõ ô điểm — chuột phải để Cộng/Trừ' : 'Đã mở khóa gõ ô điểm', 'success');
   });
   wireSkinHint('rkSkin', 'rkSkinHint');
   $('#rkSaveCfg').addEventListener('click', async () => {
@@ -9934,6 +10192,23 @@ function pointHistoryHtml(id) {
   }).join('');
 }
 
+// Sắp lại rows theo thứ tự đã "đóng băng" (rkFrozenOrder). Giữ id cũ đúng vị trí, id mới nối vào cuối
+// theo thứ tự điểm hiện tại; tự dọn id đã biến mất. Cập nhật lại rkFrozenOrder mỗi lần để bền vững.
+function applyFrozenRankingOrder(rows) {
+  const byId = new Map(rows.map(r => [String(r.id), r]));
+  const ordered = [];
+  for (const id of rkFrozenOrder) {
+    const r = byId.get(String(id));
+    if (r) { ordered.push(r); byId.delete(String(id)); }
+  }
+  for (const r of rows) if (byId.has(String(r.id))) ordered.push(r);
+  rkFrozenOrder = ordered.map(r => String(r.id));
+  return ordered;
+}
+function refreshRankingPreview() {
+  window.api.ranking.getState().then(st => { if (st) renderRkPreview(st); }).catch(() => {});
+}
+
 async function adjustRankingPoints(id, sign, amountText) {
   const c = creators.find(x => x.id === id || x.tiktokId === id);
   if (!c) return;
@@ -9997,7 +10272,7 @@ function openPointMenu(input) {
 function renderRkPreview(st) {
   const el = $('#rkPreview');
   const showCreatorControls = st.mode === 'creator';
-  const rows = Array.isArray(st.rows) ? st.rows.slice() : [];
+  let rows = Array.isArray(st.rows) ? st.rows.slice() : [];
   if (showCreatorControls) {
     const visibleIds = new Set(rows.map(r => r.id));
     const groupsById = new Map(groups.map(g => [g.id, g]));
@@ -10031,6 +10306,9 @@ function renderRkPreview(st) {
     el.innerHTML = '<div class="hint">Chưa có dữ liệu — cần Creator + nối LIVE. Tạo creator có "Quà mặc định" trùng với gift người xem tặng.</div>';
     return;
   }
+  // Cố định thứ tự bảng điều khiển (app): giữ nguyên vị trí đã đóng băng, Creator mới nối vào cuối.
+  // Chỉ đổi thứ tự HIỂN THỊ trong app — huy hiệu hạng (r.rank) vẫn theo điểm thật để biết ai TOP.
+  if (freezeRankingOrderOn) rows = applyFrozenRankingOrder(rows);
   el.innerHTML = rows.slice(0, 30).map((r) => `
     <div class="rk-row${r.active ? ' is-active' : ''}${r.lost ? ' is-lost' : ''}${r.hideObs ? ' is-hidden-obs' : ''}">
       <div class="rk-left">
@@ -10043,7 +10321,7 @@ function renderRkPreview(st) {
       </div>
       ${showCreatorControls ? `<div class="rk-scorebox">
         ${st.showGift === false || !r.giftIcon ? '' : `<img class="rk-gift-icon" src="${escapeAttr(r.giftIcon)}" />`}
-        <input class="rk-mini-input" data-rk-points="${escapeAttr(r.id)}" type="text" inputmode="numeric" value="${formatNumber(r.points)}" title="Điểm thi đấu" />
+        <input class="rk-mini-input${lockRankingInputOn ? ' is-locked' : ''}" data-rk-points="${escapeAttr(r.id)}" type="text" inputmode="numeric" value="${formatNumber(r.points)}"${lockRankingInputOn ? ' readonly' : ''} title="${lockRankingInputOn ? 'Đã khóa gõ — chuột phải để CỘNG/TRỪ điểm' : 'Điểm thi đấu'}" />
         <span class="rk-round-chip">R<input data-rk-round="${escapeAttr(r.id)}" type="number" min="0" value="${Number(r.round) || 0}" title="Round" /></span>
         <div class="rk-actions">
           <button class="rk-pill${r.voteActive ? ' on' : ''}" data-rk-toggle="voteActive" data-id="${escapeAttr(r.id)}" type="button" ${scoreLinkRanking && scoreLinkVoteLock && ['prestart','running','grace'].includes(latestScoreState?.status) ? 'disabled' : ''}>VOTE</button>
@@ -11021,6 +11299,12 @@ async function loadSettings() {
   syncLiveConnectionUi(activeGroupId);
   scoreLinkRanking = !!s.scoreLinkRanking;
   scoreLinkVoteLock = !!s.scoreLinkVoteLock;
+  // Cờ giao diện chung (app-only) cho THI ĐẤU NHÓM: cố định thứ tự bảng + khóa gõ ô điểm.
+  const ui = s.ui || {};
+  freezeRankingOrderOn = !!ui.freezeRankingOrder;
+  lockRankingInputOn = !!ui.lockRankingInput;
+  if ($('#rkFreezeOrder')) $('#rkFreezeOrder').checked = freezeRankingOrderOn;
+  if ($('#rkLockInput')) $('#rkLockInput').checked = lockRankingInputOn;
   if (typeof applyGameLinksToUI === 'function') applyGameLinksToUI(); // đồng bộ mọi ô Liên kết (tiêu đề + bảng tổng)
   if ($('#rkLockVoteRunning')) $('#rkLockVoteRunning').checked = scoreLinkVoteLock;
   renderScoreBridge();
