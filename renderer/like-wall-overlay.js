@@ -13,6 +13,8 @@ if (params.get('review') === '1') {
 const stage = document.getElementById('lwStage');
 const card = document.getElementById('lwCard');
 const toastLayer = document.getElementById('lwToast');
+let _toastLayoutKey = '';
+let _toastPositionQueued = false;
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('vi-VN'); }
@@ -83,7 +85,8 @@ function cellHtml(row, rank, nameMax, frameFile) {
   const name = filled ? marqueeHtml(row.name || 'Người xem', 'lw-name', nameMax) : '<div class="lw-name lw-name-empty"><span>Chờ tim…</span></div>';
   const pct = filled ? Math.max(0, Math.min(100, Number(row.pct) || 0)) : 0;
   const count = filled ? fmt(row.count) : '0';
-  return `<div class="lw-cell lw-r${rank} ${filled ? '' : 'lw-empty'}${(rank <= 3 || frameFile) ? ' lw-podium' : ''}${frameFile ? ' lw-framed' : ''}">
+  const identity = JSON.stringify([filled, row && row.name, row && row.avatar, row && row.avatarKey, nameMax, frameFile]);
+  return `<div class="lw-cell lw-r${rank} ${filled ? '' : 'lw-empty'}${(rank <= 3 || frameFile) ? ' lw-podium' : ''}${frameFile ? ' lw-framed' : ''}" data-lw-identity="${esc(identity)}">
     ${avatarWrap}
     ${name}
     <div class="lw-bar">
@@ -91,6 +94,51 @@ function cellHtml(row, rank, nameMax, frameFile) {
       <div class="lw-bar-val">${count}</div>
     </div>
   </div>`;
+}
+
+function setWidth(el, pct) {
+  const width = `${pct}%`;
+  if (el && el.style.width !== width) el.style.width = width;
+}
+
+// Popup bám vào tâm thực tế của lưới: đổi 9 ô sang 6 ô vẫn nằm giữa danh sách,
+// thay vì giữ một vị trí cố định rồi đè lệch sang thanh KPI.
+function syncToastPosition() {
+  if (_toastPositionQueued) return;
+  _toastPositionQueued = true;
+  requestAnimationFrame(() => {
+    _toastPositionQueued = false;
+    const grid = card.querySelector('.lw-grid');
+    if (!grid) return;
+    toastLayer.style.top = `${grid.offsetTop + grid.offsetHeight / 2}px`;
+    toastLayer.style.setProperty('--lw-toast-max-height', `${Math.max(78, grid.offsetHeight - 14)}px`);
+  });
+}
+
+// Khung avatar có thể tải trễ một nhịp; căn lại sau khi kích thước khung đã ổn định.
+stage.addEventListener('load', (event) => {
+  if (event.target.classList && event.target.classList.contains('lw-frame')) syncToastPosition();
+}, true);
+
+function updateTicker(ticker) {
+  const host = card.querySelector('.lw-ticker-host');
+  if (!host) return;
+  if (!ticker) { host.textContent = ''; return; }
+
+  let el = host.firstElementChild;
+  if (!el) {
+    host.innerHTML = `<div class="lw-ticker">
+      <div class="lw-ticker-av">${avatarImg(ticker.avatar, ticker.avatarKey)}</div>
+      <div class="lw-ticker-name"></div>
+      <div class="lw-ticker-combo"><svg viewBox="0 0 24 24" class="lw-thumb" aria-hidden="true"><path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3zm3 0 4-7a2 2 0 0 1 2 2v4h4a2 2 0 0 1 2 2.3l-1.3 7A2 2 0 0 1 20.7 21H10z"/></svg><b></b></div>
+    </div>`;
+    el = host.firstElementChild;
+  }
+  const img = el.querySelector('.lw-ticker-av img');
+  const avatar = mediaUrl(ticker.avatar, ticker.avatarKey);
+  if (img && img.getAttribute('src') !== avatar) img.src = avatar;
+  el.querySelector('.lw-ticker-name').textContent = ticker.nickname || 'Người xem';
+  el.querySelector('.lw-ticker-combo b').textContent = `+${fmt(ticker.combo || 1)}`;
 }
 
 function render(state = {}) {
@@ -124,27 +172,55 @@ function render(state = {}) {
   card.style.setProperty('--lw-cell-bg', rgba(state.cellBgColor || '#000000', num(state.cellBgOpacity, .30)));
   card.style.setProperty('--lw-title-color', state.titleColor || '#ffffff');
 
-  const cells = [];
-  for (let r = 1; r <= topN; r++) cells.push(cellHtml(rows[r - 1] || null, r, nameMax, frameOf(r)));
-
-  const tk = state.ticker;
-  const tickerHtml = tk ? `<div class="lw-ticker">
-    <div class="lw-ticker-av">${avatarImg(tk.avatar, tk.avatarKey)}</div>
-    <div class="lw-ticker-name">${esc(tk.nickname || 'Người xem')}</div>
-    <div class="lw-ticker-combo"><svg viewBox="0 0 24 24" class="lw-thumb" aria-hidden="true"><path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3zm3 0 4-7a2 2 0 0 1 2 2v4h4a2 2 0 0 1 2 2.3l-1.3 7A2 2 0 0 1 20.7 21H10z"/></svg><b>+${fmt(tk.combo || 1)}</b></div>
-  </div>` : '';
-
-  card.innerHTML = `
-    ${marqueeHtml(state.title || 'BỨC TƯỜNG THẢ TIM', 'lw-title', 18)}
-    <div class="lw-grid">${cells.join('')}</div>
-    <div class="lw-total">
-      <div class="lw-total-bar">
-        <div class="lw-total-fill" style="width:${totalPct}%"><span class="lw-stripes"></span></div>
-        <div class="lw-total-val">${fmt(total)}<span>/${fmt(target)}</span></div>
+  const title = state.title || 'BỨC TƯỜNG THẢ TIM';
+  const isNewLayout = card.dataset.lwTopN !== String(topN);
+  if (isNewLayout) {
+    const cells = [];
+    for (let r = 1; r <= topN; r++) cells.push(cellHtml(rows[r - 1] || null, r, nameMax, frameOf(r)));
+    card.dataset.lwTopN = String(topN);
+    card.dataset.lwTitle = title;
+    card.innerHTML = `
+      ${marqueeHtml(title, 'lw-title', 18)}
+      <div class="lw-grid">${cells.join('')}</div>
+      <div class="lw-total">
+        <div class="lw-total-bar">
+          <div class="lw-total-fill" style="width:${totalPct}%"><span class="lw-stripes"></span></div>
+          <div class="lw-total-val"><b>${fmt(total)}</b><span>/${fmt(target)}</span></div>
+        </div>
       </div>
-    </div>
-    ${tickerHtml}`;
-  syncMarquee();
+      <div class="lw-ticker-host"></div>`;
+    syncMarquee();
+  } else {
+    if (card.dataset.lwTitle !== title) {
+      card.dataset.lwTitle = title;
+      card.querySelector('.lw-title').outerHTML = marqueeHtml(title, 'lw-title', 18);
+      syncMarquee();
+    }
+    const grid = card.querySelector('.lw-grid');
+    for (let r = 1; r <= topN; r++) {
+      const row = rows[r - 1] || null;
+      const frameFile = frameOf(r);
+      const identity = JSON.stringify([!!row, row && row.name, row && row.avatar, row && row.avatarKey, nameMax, frameFile]);
+      let cell = grid.children[r - 1];
+      if (cell.dataset.lwIdentity !== identity) {
+        cell.outerHTML = cellHtml(row, r, nameMax, frameFile);
+        cell = grid.children[r - 1];
+      }
+      const pct = row ? Math.max(0, Math.min(100, Number(row.pct) || 0)) : 0;
+      setWidth(cell.querySelector('.lw-fill'), pct);
+      cell.querySelector('.lw-bar-val').textContent = row ? fmt(row.count) : '0';
+    }
+    setWidth(card.querySelector('.lw-total-fill'), totalPct);
+    const totalValue = card.querySelector('.lw-total-val');
+    totalValue.querySelector('b').textContent = fmt(total);
+    totalValue.querySelector('span').textContent = `/${fmt(target)}`;
+  }
+  const toastLayoutKey = [topN, num(state.frameScale, 172), framesEnabled, ...Array.from({ length: topN }, (_v, i) => frameOf(i + 1))].join('|');
+  if (_toastLayoutKey !== toastLayoutKey) {
+    _toastLayoutKey = toastLayoutKey;
+    syncToastPosition();
+  }
+  updateTicker(state.ticker);
   updateToast(state);
 }
 

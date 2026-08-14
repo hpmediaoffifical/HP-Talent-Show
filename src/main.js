@@ -439,9 +439,10 @@ async function fetchTikTokProfileWithBrowser(username, opts = {}, timeoutMs = 18
   // focusable:false → cửa sổ Chromium ẩn KHÔNG cướp keyboard-focus của webContents cửa sổ chính.
   // Nếu không, mỗi lần lấy avatar (mở app / thêm ID / bấm Tải-UID) sẽ khiến các ô nhập của app
   // "không gõ được" cho tới khi ALT+Tab ra/vào — dù cửa sổ chính vẫn nằm trên và trông như đang focus.
-  const win = new BrowserWindow({
+  const browserWin = new BrowserWindow({
     show: false,
     focusable: false,
+    skipTaskbar: true,
     width: 1280,
     height: 800,
     webPreferences: {
@@ -451,16 +452,32 @@ async function fetchTikTokProfileWithBrowser(username, opts = {}, timeoutMs = 18
       backgroundThrottling: false,
     },
   });
+  // `focusable:false` không hoàn toàn ngăn Chromium nhận focus webContents trên một số bản
+  // Electron/Windows. Nếu browser ẩn vừa chiếm focus, trả ngay cho cửa sổ chính; còn khi người
+  // dùng đã chuyển sang app/cửa sổ khác thì tuyệt đối không kéo họ quay lại.
+  const keepMainInputFocused = () => {
+    try {
+      const main = win;
+      const focused = BrowserWindow.getFocusedWindow();
+      if (main && !main.isDestroyed() && (main.isFocused() || focused === browserWin)) {
+        main.focus();
+        main.webContents.focus();
+      }
+    } catch {}
+  };
+  browserWin.on('focus', keepMainInputFocused);
+  browserWin.webContents.on('focus', keepMainInputFocused);
+  browserWin.webContents.on('did-start-loading', keepMainInputFocused);
   const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
   const deadline = Date.now() + timeoutMs;
   try {
-    win.removeMenu();
+    browserWin.removeMenu();
     // Cookie đăng nhập (Session ID, nếu người dùng đã nhập) → TikTok trả TRANG THẬT,
     // giảm khả năng bị đẩy sang trang thử-thách/captcha khi lấy avatar hàng loạt.
     const sid = opts.sessionId && String(opts.sessionId).trim();
     if (sid) {
       try {
-        await win.webContents.session.cookies.set({
+        await browserWin.webContents.session.cookies.set({
           url: 'https://www.tiktok.com', name: 'sessionid', value: sid,
           domain: '.tiktok.com', path: '/', secure: true, httpOnly: true,
         });
@@ -468,7 +485,7 @@ async function fetchTikTokProfileWithBrowser(username, opts = {}, timeoutMs = 18
     }
     // TikTok hay redirect client-side (đổi region/param) → loadURL reject ERR_ABORTED dù trang
     // VẪN load được. Nuốt lỗi load rồi cứ poll DOM; nếu trang chết thật thì vòng poll hết giờ trả null.
-    await win.loadURL(url, { userAgent: UA }).catch(() => {});
+    await browserWin.loadURL(url, { userAgent: UA }).catch(() => {});
     // QUAN TRỌNG: TikTok nhồi __UNIVERSAL_DATA_FOR_REHYDRATION__ / SIGI_STATE SAU khi 'load'
     // fire (hydrate chậm). Đọc DOM ngay lúc loadURL resolve chỉ thấy VỎ RỖNG ~1.8KB → mất avatar.
     // Vì vậy PHẢI poll lại tới khi khối JSON xuất hiện (thường 1–2s) rồi mới bóc tách.
@@ -487,7 +504,7 @@ async function fetchTikTokProfileWithBrowser(username, opts = {}, timeoutMs = 18
     let payload = null;
     while (Date.now() < deadline) {
       let result = {};
-      try { result = await win.webContents.executeJavaScript(scrape, true); } catch {}
+      try { result = await browserWin.webContents.executeJavaScript(scrape, true); } catch {}
       const parsed = parseTikTokProfilePayload(result || {});
       // Đủ dữ liệu quan trọng (avatar hoặc userId từ khối JSON) → xong, dừng sớm.
       if (parsed && (parsed.avatar || parsed.userId)) return parsed;
@@ -503,7 +520,7 @@ async function fetchTikTokProfileWithBrowser(username, opts = {}, timeoutMs = 18
     try { console.error('[tt:fetchProfile browser]', err); } catch {}
     return null;
   } finally {
-    try { if (!win.isDestroyed()) win.destroy(); } catch {}
+    try { if (!browserWin.isDestroyed()) browserWin.destroy(); } catch {}
     // An toàn kép: dù focusable:false, vẫn trả focus về app phòng khi Chromium cướp trong lúc load.
     restoreMainWindowFocus();
   }
@@ -3001,13 +3018,17 @@ function resolveDiamond(ev) {
 // KHÔNG mất quà khi TikTok gửi gói repeatEnd muộn HOẶC rớt mạng (chính là lỗi "tặng 2 quà chỉ nhận 1":
 // gói chốt của combo thứ 2 bị rớt → cách cũ gate theo shouldProcess bỏ luôn quà đó). Mỗi combo khoá
 // riêng theo NGƯỜI + QUÀ nên nhiều người combo cùng lúc vẫn đúng (không đúp, không bỏ sót).
-//   • Quà KHÔNG combo (giftType != 1): trả thẳng repeatCount (mỗi event là 1 lần độc lập).
+//   • Quà KHÔNG combo (giftType != 1, repeatCount=1, không repeatEnd): trả thẳng repeatCount.
 //   • Trả 0 = nhịp này đã cộng ở lần trước rồi → engine phải bỏ qua (return).
 // LƯU Ý: engine dùng hàm này PHẢI được gọi trên MỌI nhịp quà (không gate theo shouldProcess nữa).
 function comboDelta(map, ev) {
   const repeat = Math.max(1, Number(ev.repeatCount) || 1);
-  if (Number(ev.giftType) !== 1) return repeat;
   const key = `${ev.uniqueId || ev.nickname || ev.avatar || 'anonymous'}:${ev.giftId || ev.giftName || 'gift'}`;
+  // Một số payload v2 thiếu giftType nhưng vẫn gửi repeatCount tích luỹ + repeatEnd.
+  // Nhận diện theo chính chuỗi đếm để gói chốt không bị cộng lần hai. Quà đơn lẻ
+  // repeatCount=1, không có state trước đó vẫn giữ hành vi độc lập như cũ.
+  const isCombo = Number(ev.giftType) === 1 || !!ev.repeatEnd || repeat > 1 || map.has(key);
+  if (!isCombo) return repeat;
   const previous = map.get(key);
   let delta = repeat;
   if (previous) {
@@ -4210,7 +4231,7 @@ class LikeWallEngine {
   // TEST thủ công: đổ tim vào vài người xem GIẢ để canh giao diện (không cần LIVE).
   bump(amount) {
     const n = Math.max(1, Math.round(Number(amount) || 1));
-    const demo = ['雾隐灯', '如果取名有天赋', '黎黎', '壹零', '盐焗虾', '所有人父亲', 'Mèo Con', 'Bông Xù', 'zin zin'];
+    const demo = Array.from({ length: 9 }, (_v, i) => `HP Media ${i + 1}`);
     const i = Math.floor(Math.random() * demo.length);
     this._add('demo-' + i, demo[i], '', n, true);
   }
@@ -5095,7 +5116,7 @@ function registerIpc() {
   });
   ipcMain.handle('tt:disconnect', async () => { await ttClient.disconnect(); return true; });
   ipcMain.handle('tt:status', () => ({ connected: ttClient?.isConnected(), info: ttClient?.roomInfo || null }));
-  ipcMain.handle('tt:fetchProfile', async (_e, { username }) => {
+  ipcMain.handle('tt:fetchProfile', async (_e, { username, opts } = {}) => {
     // Truyền Session ID (cookie đăng nhập, dùng chung với LIVE) để TikTok trả trang thật có JSON hồ sơ.
     const p = await ttClient.fetchProfile(username, {
       sessionId: settings.sessionId || '',
@@ -5111,8 +5132,9 @@ function registerIpc() {
       if ((!p.nickname || p.nickname === _normUnique(username)) && live.nickname) p.nickname = live.nickname;
     }
     // Fallback cuối: mở Chromium ẩn để đọc JSON/DOM đã render của trang profile.
-    // Dùng khi TikTok chặn fetch HTML/plain request nhưng page trong Electron vẫn render được.
-    if (!p.avatar || !p.userId || !p.nickname) {
+    // Tác vụ tự cập nhật avatar chạy nền không được mở cửa sổ Chromium, vì Windows/Electron có
+    // thể cướp focus ô nhập. Người dùng vẫn có thể bấm Tải thủ công để dùng fallback này.
+    if (opts?.allowBrowserFallback !== false && (!p.avatar || !p.userId || !p.nickname)) {
       const browser = await fetchTikTokProfileWithBrowser(username, {
         sessionId: settings.sessionId || '', ttTargetIdc: settings.ttTargetIdc || '',
       }).catch(() => null);
@@ -5689,21 +5711,19 @@ function registerIpc() {
   // ===== Liên kết điểm mini-game → THI ĐẤU NHÓM (contestPoints), idempotent + hoàn tác =====
   // 🎯 Tính điểm: cộng số điểm đạt được vào 1 Creator (thường là Creator đang VOTE).
   ipcMain.handle('ranking:applyScore', (_e, { creatorId, points, label } = {}) => {
-    // Thanh LIVE trên BXH đang hiển thị = rankingEngine.scores[creatorId].points (bucket live cộng dồn
-    // TOÀN phiên LIVE). Bucket này có thể LỚN hơn st.score (bộ đếm ScoreEngine reset về 0 lúc bấm bắt đầu →
-    // chỉ đếm quà TRONG phiên Tính điểm) vì còn ôm điểm LIVE chưa Chốt vòng có TỪ TRƯỚC phiên. Bên dưới ta
-    // XÓA cả bucket live để tránh cộng đôi → nếu chỉ cộng st.score thì phần điểm live trước phiên sẽ BỐC HƠI
-    // (bug: BXH tụt điểm khi hết giờ). Vì vậy gộp ĐÚNG bằng bucket live khi có; st.score chỉ dùng cho nhãn.
+    // ScoreEngine là nguồn chuẩn của RIÊNG lượt Tính điểm đang chốt. Không lấy toàn bộ bucket LIVE,
+    // vì bucket có thể còn điểm từ lượt trước; chuyển cả bucket rồi xoá sẽ làm điểm của người khác/lượt
+    // khác bị hụt khi hiện đồng thời trên bảng dọc/ngang.
     const live = Number(rankingEngine?.scores?.[creatorId]?.points) || 0;
-    const pts = live > 0 ? live : (Number(points) || 0);
+    const pts = Math.max(0, Number(points) || 0);
     if (!creatorId || !pts) return { ok: false, reason: 'invalid' };
     const res = applyDeltaBatchToCreators([{ creatorId, delta: pts }], { label: label || '🎯 Tính điểm', source: 'score' });
-    // CHỐNG CỘNG ĐÔI ("nhân 2 điểm"): trong phiên 🎯 Tính điểm có VOTE, BXH ĐÃ tự cộng LIVE từng món quà
-    // vào rankingEngine.scores[creatorId] (thanh leo realtime). Điểm chính thức (st.score) vừa được cộng
-    // vào contestPoints ở trên → phải DỌN điểm LIVE của Creator này về 0, nếu không overlay hiển thị
-    // contestPoints + điểm live ≈ GẤP ĐÔI (giống 🔒 Chốt vòng dọn scores sau khi gộp).
+    // Điểm đã được BXH hiển thị live trong lượt này cần được chuyển sang contestPoints. Chỉ trừ tối đa
+    // số điểm đang chốt, để phần live còn lại (ví dụ lượt trước chưa chốt) không bị mất.
     if (res.ok && rankingEngine && rankingEngine.scores && rankingEngine.scores[creatorId]) {
-      delete rankingEngine.scores[creatorId];
+      const remaining = Math.max(0, live - pts);
+      if (remaining > 0) rankingEngine.scores[creatorId].points = remaining;
+      else delete rankingEngine.scores[creatorId];
       rankingEngine._emit();
     }
     return res;

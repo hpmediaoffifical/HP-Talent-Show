@@ -6,7 +6,7 @@ const api = {
     connect: (username, opts) => ipcRenderer.invoke('tt:connect', { username, opts }),
     disconnect: () => ipcRenderer.invoke('tt:disconnect'),
     status: () => ipcRenderer.invoke('tt:status'),
-    fetchProfile: (username) => ipcRenderer.invoke('tt:fetchProfile', { username }),
+    fetchProfile: (username, opts) => ipcRenderer.invoke('tt:fetchProfile', { username, opts }),
     fetchAvatarData: (username) => ipcRenderer.invoke('tt:fetchAvatarData', { username }),
   },
 

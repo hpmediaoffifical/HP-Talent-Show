@@ -5736,7 +5736,8 @@ async function fillAvatarFromTikTok(img, uniqueId) {
   }
   userAvatarCache.set(id, '');
   try {
-    const p = await window.api.tt.fetchProfile(id);
+    // Avatar của người xem là dữ liệu phụ trợ, không được tạo Chromium ẩn giữa lúc MC nhập liệu.
+    const p = await window.api.tt.fetchProfile(id, { allowBrowserFallback: false });
     if (p?.avatar) {
       userAvatarCache.set(id, p.avatar);
       img.src = p.avatar;
@@ -6930,7 +6931,10 @@ async function autoRefetchStaleAvatars() {
       let avatar = knownProfileForTiktokId(raw)?.avatar || '';
       if (!avatar || avatarNeedsRefetch(avatar)) {
         try {
-          const p = await window.api.tt.fetchProfile(raw);
+          // Không mở Chromium ẩn trong luồng nền: một số máy Windows bị mất keyboard-focus
+          // toàn app khi webContents của cửa sổ fallback nhận focus. Nút Tải thủ công vẫn cho
+          // phép fallback đầy đủ nếu cần lấy avatar/UID ngay.
+          const p = await window.api.tt.fetchProfile(raw, { allowBrowserFallback: false });
           if (p?.found && p.avatar) avatar = p.avatar;
         } catch {}
         await new Promise(r => setTimeout(r, 150));
@@ -7196,6 +7200,9 @@ function wireGroupTab() {
   });
 
   async function autoFetchGroup(force = false) {
+    // addEventListener truyền FocusEvent làm đối số đầu. Chỉ `true` thật mới là thao tác chủ động
+    // (nút Tải/Enter); nếu không blur sẽ vô tình bật Chromium fallback và cướp bàn phím.
+    force = force === true;
     const u = $('#grTiktokId').value.trim().replace(/^@/, '');
     if (!u) { toast('Nhập ID nhóm trước đã.', 'error'); return; }
     if (!force && u === lastFetchedGroupId) return;
@@ -7203,7 +7210,9 @@ function wireGroupTab() {
     $('#grSpinner').hidden = false;
     $('#btnLoadGroup').disabled = true;
     try {
-      const p = await window.api.tt.fetchProfile(u);
+      // Tự tải khi rời ô chỉ dùng request nền. Chỉ nút Tải/Enter (force) mới được mở fallback
+      // Chromium nếu TikTok chặn API, tránh cướp focus khi người dùng chuyển sang ô kế tiếp.
+      const p = await window.api.tt.fetchProfile(u, { allowBrowserFallback: force });
       if (p.found) {
         if (p.nickname) {
           if (!$('#grName').value || !currentEditingGroup) $('#grName').value = p.nickname;
@@ -7226,7 +7235,7 @@ function wireGroupTab() {
       $('#btnLoadGroup').disabled = false;
     }
   }
-  $('#grTiktokId').addEventListener('blur', autoFetchGroup);
+  $('#grTiktokId').addEventListener('blur', () => autoFetchGroup(false));
   $('#grTiktokId').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); autoFetchGroup(true); }
   });
@@ -9820,12 +9829,15 @@ async function syncScoreToCreator(c) {
   await window.api.score.setConfig(cfg);
 }
 
-function getRequiredTargetForCreator(creatorId) {
-  const rows = Array.from(document.querySelectorAll('#rkPreview .rk-row'));
-  const idx = rows.findIndex(row => row.querySelector('[data-rk-points]')?.dataset.rkPoints === String(creatorId));
+async function getRequiredTargetForCreator(creatorId) {
+  // Lấy state từ engine thay vì thứ tự DOM: bảng điều khiển có thể đang lọc/đóng băng/thêm hàng ẩn,
+  // khiến mục tiêu được tính từ nhầm Creator khi thứ hạng thay đổi trong lúc gọi điểm.
+  const st = await window.api.ranking.getState();
+  const rows = Array.isArray(st?.rows) ? st.rows : [];
+  const idx = rows.findIndex(row => String(row.id) === String(creatorId));
   if (idx <= 0) return Math.max(1, parseNumberInput($('#scTarget').value) || 1000);
-  const current = parseNumberInput(rows[idx].querySelector('[data-rk-points]')?.value || '0');
-  const above = parseNumberInput(rows[idx - 1].querySelector('[data-rk-points]')?.value || '0');
+  const current = Math.max(0, Number(rows[idx].points) || 0);
+  const above = Math.max(0, Number(rows[idx - 1].points) || 0);
   // Điểm sàn (mặc định 0): yêu cầu = (điểm TOP trên − điểm người đang VOTE) + Điểm sàn.
   // Để 0/để trống → tính bình thường (chỉ cần hơn TOP trên 1 điểm).
   const floor = Math.max(0, parseNumberInput($('#rkScoreFloor')?.value) || 0);
@@ -9834,7 +9846,7 @@ function getRequiredTargetForCreator(creatorId) {
 
 async function applyAutoTargetForVote(c) {
   if (!scoreLinkRanking || !c) return;
-  const target = getRequiredTargetForCreator(c.id || c.tiktokId);
+  const target = await getRequiredTargetForCreator(c.id || c.tiktokId);
   scoreTargetSyncing = true;
   $('#rkScoreTarget').value = formatNumber(target);
   $('#scTarget').value = formatNumber(target);
@@ -9905,10 +9917,10 @@ function renderScoreBridge() {
 }
 
 // TỰ ĐỘNG cộng điểm Tính điểm vào BXH khi lượt kết thúc (đã bật Liên kết). Idempotent theo lượt chạy.
-async function autoApplyScoreToRanking(st) {
-  // Ưu tiên Creator đang VOTE; nếu chưa VOTE (vd bắt đầu từ tab TÍNH ĐIỂM) → dùng Creator đang tính điểm.
-  // Nhờ vậy "hết giờ tự cộng" chạy dù bắt đầu từ đâu, KHÔNG phụ thuộc PK Nhóm hay trò chơi khác.
-  const c = getVotedCreator() || creators.find(x => String(x.id) === String(st?.creatorId || ''));
+async function autoApplyScoreToRanking(st, runCreator = null) {
+  // Creator được chụp trong cấu hình lúc bắt đầu lượt là nguồn chuẩn. Không dùng VOTE hiện tại trước,
+  // vì khi VOTE đổi giữa lượt thì điểm Over có thể bị đẩy sang nhầm hàng trên BXH.
+  const c = runCreator || creators.find(x => String(x.id) === String(st?.creatorId || '')) || getVotedCreator();
   const score = Math.max(0, Number(st?.score) || 0);
   const runKey = String(st?.runStartedAt || st?.resultAt || '');
   if (scoreApplyBatchId && scoreApplyRunKey === runKey) return; // đã cộng cho lượt này rồi
@@ -10127,8 +10139,7 @@ function applyVoteLockState() {
   });
 }
 
-async function bumpVotedCreatorRound() {
-  const c = getVotedCreator();
+async function bumpVotedCreatorRound(c = getVotedCreator()) {
   if (!c) return;
   const nextRound = (Number(c.voteRound) || 0) + 1;
   await updateRankingCreator(c.id || c.tiktokId, {
@@ -10137,8 +10148,7 @@ async function bumpVotedCreatorRound() {
   }, `Round ${c.nickname || c.tiktokId}: R${nextRound}`);
 }
 
-async function markVotedCreatorLost() {
-  const c = getVotedCreator();
+async function markVotedCreatorLost(c = getVotedCreator()) {
   if (!c || c.lost) return;
   await updateRankingCreator(c.id || c.tiktokId, {
     lost: true,
@@ -10821,11 +10831,12 @@ function renderScPreview(st) {
   if (scoreLinkRanking && !scoreStoppedManually && !scoreAutoRoundHandled && ['running', 'grace'].includes(prevStatus) && ['success', 'failed'].includes(st.status)) {
     scoreAutoRoundHandled = true;
     (async () => {
+      const runCreator = creators.find(x => String(x.id) === String(st.creatorId || '')) || getVotedCreator();
       // Đã bật Liên kết → TỰ ĐỘNG cộng điểm đạt được vào BXH cho Creator VOTE (vẫn hoàn tác được).
-      await autoApplyScoreToRanking(st);
-      await bumpVotedCreatorRound();
+      await autoApplyScoreToRanking(st, runCreator);
+      await bumpVotedCreatorRound(runCreator);
       // Không đạt số điểm cần để vượt hạng thì mặc định loại Creator đang VOTE.
-      if (st.status === 'failed') await markVotedCreatorLost();
+      if (st.status === 'failed') await markVotedCreatorLost(runCreator);
     })().catch(() => {});
   }
   if (['idle', 'prestart', 'running'].includes(st.status)) {

@@ -2,7 +2,7 @@
   "items": [],
   "duckWaiting": true,
   "bgEnabled": false,
-  "paused": false,
+  "paused": true,
   "displayLimit": 50,
   "videoLimit": 10,
   "subGroups": [],

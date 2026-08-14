@@ -183,7 +183,7 @@ class ObsOverlayServer {
   getLuckyWheelUrl() { return `http://${this.linkHost}:${this._portFor('lucky-wheel')}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=15`; }
   getGiftMenuUrl() { return `http://${this.linkHost}:${this._portFor('gift-menu')}/gift-menu?token=${encodeURIComponent(this.token)}&v=2`; }
   getMissionTrioUrl(mode) { const m = mode === 'horizontal' ? 'horizontal' : 'vertical'; return `http://${this.linkHost}:${this._portFor('mission-trio')}/mission-trio?token=${encodeURIComponent(this.token)}&mode=${m}&v=2`; }
-  getLikeWallUrl() { return `http://${this.linkHost}:${this._portFor('like-wall')}/like-wall?token=${encodeURIComponent(this.token)}&v=1`; }
+  getLikeWallUrl() { return `http://${this.linkHost}:${this._portFor('like-wall')}/like-wall?token=${encodeURIComponent(this.token)}&v=3`; }
   getCardFlipUrl() { return `http://${this.linkHost}:${this._portFor('card-flip')}/card-flip?token=${encodeURIComponent(this.token)}&v=5`; }
   // Overlay "lật 3D" toàn màn hình — DÙNG CHUNG stream /card-flip-events (không cần set/route riêng),
   // nhưng ở cổng riêng để né trần 6 kết nối/host của CEF.

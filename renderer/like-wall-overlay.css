@@ -136,26 +136,30 @@ body { display:flex; align-items:flex-start; justify-content:center; min-height:
 }
 .lw-total-val {
   position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; gap:2px;
-  font-size:24px; font-weight:950; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.7);
+  font-size:29px; font-weight:950; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.7);
 }
-.lw-total-val span { font-size:19px; }
+.lw-total-val span { font-size:22px; }
 .lw-total-val span { font-weight:800; opacity:.82; }
 
 /* Ticker — người vừa táp + combo (vinh danh người đang táp) */
 .lw-ticker { display:flex; align-items:center; gap:8px; margin:9px -7px 0; padding:6px 12px; border-radius:999px; background:rgba(0,0,0,.28); }
 .lw-ticker-av { width:26px; height:26px; border-radius:50%; overflow:hidden; background:#fff; flex:0 0 auto; box-shadow:0 1px 3px rgba(0,0,0,.5); }
 .lw-ticker-av img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; }
-.lw-ticker-name { flex:1 1 auto; min-width:0; font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 2px rgba(0,0,0,.7); }
+.lw-ticker-name { flex:1 1 auto; min-width:0; font-size:18px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 2px rgba(0,0,0,.7); }
 .lw-ticker-combo { flex:0 0 auto; display:flex; align-items:center; gap:3px; padding:2px 10px; border-radius:999px; background:linear-gradient(180deg,#ff5b74,#ff2e4d); box-shadow:0 2px 5px rgba(255,46,77,.5); }
 .lw-ticker-combo b { font-size:15px; font-weight:950; color:#fff; }
 .lw-thumb { width:16px; height:16px; fill:#fff; }
 .lw-ticker-combo .lw-thumb { filter:drop-shadow(0 1px 1px rgba(0,0,0,.3)); }
 
 /* ==== Popup DANH HIỆU (点赞萌新) ==== */
-.lw-toast-layer { position:absolute; left:0; right:0; top:82px; display:flex; justify-content:center; pointer-events:none; z-index:20; }
+.lw-toast-layer {
+  position:absolute; left:16px; right:16px; top:50%; transform:translateY(-50%);
+  display:flex; justify-content:center; pointer-events:none; z-index:20;
+}
 .lw-toast {
   display:flex; align-items:center; gap:12px; box-sizing:border-box;
-  min-width:300px; max-width:440px; padding:12px 18px 12px 12px; border-radius:16px;
+  width:100%; min-width:0; max-width:none; max-height:var(--lw-toast-max-height, none); overflow:hidden;
+  padding:15px 20px 15px 15px; border-radius:18px;
   background:linear-gradient(180deg, rgba(38,30,10,.96), rgba(24,18,6,.96));
   border:2px solid transparent;
   background-clip:padding-box;
@@ -167,20 +171,20 @@ body { display:flex; align-items:flex-start; justify-content:center; min-height:
 .lw-toast.hide { opacity:0; transform:translateY(-10px) scale(.94); }
 /* Huy hiệu vàng + nút LIVE (thumb) */
 .lw-toast-emblem {
-  flex:0 0 auto; width:62px; height:62px; border-radius:50%;
+  flex:0 0 auto; width:72px; height:72px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
   background:radial-gradient(circle at 50% 35%, #ffe9a8, #f2b23a 60%, #b9791f);
   box-shadow:0 0 0 3px rgba(255,225,150,.55), 0 4px 12px rgba(0,0,0,.5);
 }
-.lw-toast-emblem .lw-thumb { width:30px; height:30px; fill:#7a4a12; filter:drop-shadow(0 1px 0 rgba(255,255,255,.5)); }
+.lw-toast-emblem .lw-thumb { width:34px; height:34px; fill:#7a4a12; filter:drop-shadow(0 1px 0 rgba(255,255,255,.5)); }
 .lw-toast-body { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:4px; }
 .lw-toast-badge { display:flex; align-items:center; gap:10px; padding:3px 12px; border-radius:8px; background:rgba(0,0,0,.4); box-shadow:inset 0 0 0 1px rgba(217,164,65,.5); }
-.lw-toast-title { font-size:17px; font-weight:950; color:#ff5666; text-shadow:0 1px 2px rgba(0,0,0,.6); letter-spacing:.02em; }
-.lw-toast-x { margin-left:auto; font-size:16px; font-weight:950; color:#ff5666; }
+.lw-toast-title { font-size:21px; font-weight:950; color:#ff5666; text-shadow:0 1px 2px rgba(0,0,0,.6); letter-spacing:.02em; }
+.lw-toast-x { margin-left:auto; font-size:20px; font-weight:950; color:#ff5666; }
 .lw-toast-user { display:flex; align-items:center; gap:8px; }
-.lw-toast-av { width:24px; height:24px; border-radius:50%; overflow:hidden; background:#fff; flex:0 0 auto; }
+.lw-toast-av { width:28px; height:28px; border-radius:50%; overflow:hidden; background:#fff; flex:0 0 auto; }
 .lw-toast-av img { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; }
-.lw-toast-nick { font-size:15px; font-weight:800; color:#ffd98a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.lw-toast-desc { font-size:15px; font-weight:900; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.6); }
+.lw-toast-nick { font-size:18px; font-weight:800; color:#ffd98a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lw-toast-desc { font-size:18px; font-weight:900; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 2px rgba(0,0,0,.6); }
 
 @keyframes lwMarquee { from { transform:translateX(0); } to { transform:translateX(-50%); } }

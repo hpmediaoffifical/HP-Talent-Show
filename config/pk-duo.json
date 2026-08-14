@@ -190,6 +190,6 @@
   "arrowStyle": "random",
   "selectFx": "random",
   "skin": "auto",
-  "barLayout": "douyin",
+  "barLayout": "hp",
   "fogHide": true
 }

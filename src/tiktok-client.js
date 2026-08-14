@@ -436,7 +436,17 @@ function shapeGift(d) {
     || d?.extendedGiftInfo?.image?.url_list?.[0]
     || '';
   const diamond = d?.gift?.diamond_count ?? d?.diamondCount ?? d?.gift?.diamondCount ?? d?.giftDetails?.diamondCount ?? 0;
-  const giftType = Number(d?.giftType ?? d?.gift?.gift_type ?? d?.giftDetails?.giftType ?? 0) || 0;
+  // Connector v2 trả gift_type ở cả event cha lẫn nested gift tùy loại quà. Bỏ sót
+  // snake_case ở event cha làm combo bị coi là quà thường và cộng lại gói chốt.
+  const giftType = Number(
+    d?.giftType
+    ?? d?.gift_type
+    ?? d?.gift?.giftType
+    ?? d?.gift?.gift_type
+    ?? d?.giftDetails?.giftType
+    ?? d?.giftDetails?.gift_type
+    ?? 0
+  ) || 0;
   const repeatCount = Number(
     d?.repeatCount
     ?? d?.repeat_count
