@@ -2669,6 +2669,11 @@ class PkGroupEngine {
       fxLoserCount: Number(this.config.fxLoserCount) || 0,
       // 🌫️ Sương mù 10s cuối (overlay tự bật khi status running & còn ≤10s).
       fogHide: !!this.config.fogHide,
+      // Ảnh chụp điểm lúc vào sương mù (xem _syncFogSnap). Overlay vẽ BỀ RỘNG thanh máu theo bảng
+      // này thay vì điểm thật → thanh đứng im suốt 10s cuối. null = không sương mù, vẽ điểm thật.
+      fogSnap: this.state.fogSnap || null,
+      // Mốc TAN sương — overlay thấy mốc này đổi thì diễn màn lật bài (tween dài, không snap).
+      fogRevealAt: Number(this.state.fogRevealAt) || 0,
       // ⚡ Tuỳ chọn UI khu chọn thành viên trong App (overlay bỏ qua) — echo lại để giữ khi mở lại.
       quickPickShowName: this.config.quickPickShowName !== false,
       membersCollapsed: this.config.membersCollapsed !== false,
@@ -2704,6 +2709,9 @@ class PkGroupEngine {
     if (this.config.selectFx === 'random') { const rnd = ['arrow', 'lock', 'spotlight', 'versus']; this.state.selectFxActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     this.state.resultHandled = false;
     this.state.historySaved = false;
+    // Vòng mới: bỏ ảnh chụp + mốc lật bài của vòng trước, kẻo overlay diễn lại màn reveal cũ.
+    this.state.fogSnap = null;
+    this.state.fogRevealAt = 0;
     this._resetGifters();
     this._comboRepeats.clear();
     this._runTicker();
@@ -2760,6 +2768,8 @@ class PkGroupEngine {
       boostAt: 0,
       boostDir: 'right',
       gifters: {},
+      fogSnap: null,
+      fogRevealAt: 0,
     };
     this._emit();
   }
@@ -2977,7 +2987,34 @@ class PkGroupEngine {
     this._emit();
   }
   _clearTicker() { if (this._tick) { clearInterval(this._tick); this._tick = null; } }
-  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+  // 🌫️ ĐÓNG BĂNG THANH MÁU khi sương mù: chụp điểm tại nhịp ĐẦU TIÊN vào 10 giây cuối và giữ
+  // nguyên tới lúc tan sương. Overlay vẽ BỀ RỘNG theo ảnh chụp này, còn điểm THẬT (state.scores)
+  // vẫn cộng đủ như thường (BXH/MVP/chốt vòng không đổi gì). Nếu không đóng băng thì ở bố cục
+  // "gộp" — width = score/total nên các cột dính liền nhau — chỉ cần một cột nhích là khán giả
+  // đọc ngay được ai đang lên, sương mù thành vô nghĩa.
+  // Chốt ở ENGINE chứ không ở overlay vì: overlay tự reload khi cập nhật (__ver) → mất mốc đóng
+  // băng cục bộ là snap về width thật, lộ điểm; và nhiều nguồn (OBS/TikTok Studio/Review) phải
+  // khớp nhau tuyệt đối. Nằm trong state nên cũng tự vào live-runtime.json, app văng mở lại vẫn giữ.
+  // Gọi từ _emit() — funnel DUY NHẤT của mọi đường phát state (ticker, routeGift, addPoints,
+  // start/stop/reset, setConfig) → không đường nào lọt cạnh lên/xuống của sương mù.
+  _syncFogSnap() {
+    // Điều kiện phải TRÙNG KHÍT công thức `urgent` của overlay, lệch một nhịp là hở lộ điểm.
+    const sec = Math.ceil((this.state.remainingMs || 0) / 1000);
+    const inFog = !!this.config.fogHide && this.state.status === 'running' && sec <= 10 && sec > 0;
+    if (inFog) {
+      if (!this.state.fogSnap) {
+        this.state.fogSnap = Object.fromEntries(
+          (this.config.participants || []).map(p => [p.id, Number(this.state.scores[p.id]) || 0])
+        );
+      }
+    } else if (this.state.fogSnap) {
+      this.state.fogSnap = null;
+      // Cạnh XUỐNG (hết giờ, hoặc user tự tắt sương giữa chừng) → overlay diễn màn LẬT BÀI:
+      // thanh trượt + số đếm cùng lúc bằng tween dài thay vì búng một phát.
+      this.state.fogRevealAt = Date.now();
+    }
+  }
+  _emit() { this._syncFogSnap(); try { this.onState(this.getStateForOverlay()); } catch {} }
 }
 
 function colorFromId(id) {
@@ -5647,6 +5684,49 @@ function registerIpc() {
     rankingEngine.reset();
     rankingEngine._emit();
     return true;
+  });
+  // Sửa điểm tay theo TỔNG đang hiển thị (điểm đã chốt + điểm LIVE). Nếu chỉ ghi contestPoints
+  // từ renderer thì phần LIVE sẽ bị cộng thêm lần nữa, khiến một số hàng trông như không sửa được.
+  ipcMain.handle('ranking:adjustPoints', (_e, { creatorId, mode, points } = {}) => {
+    if (rankingEngine.config.mode !== 'creator') return { ok: false, reason: 'not-creator-mode' };
+    const id = String(creatorId || '');
+    const value = Number(points);
+    if (!id || !Number.isFinite(value)) return { ok: false, reason: 'invalid' };
+    const list = loadCreators();
+    const index = list.findIndex(c => String(c.id) === id);
+    if (index < 0) return { ok: false, reason: 'not-found' };
+
+    const creator = list[index];
+    const persisted = Math.max(0, Number(creator.contestPoints) || 0);
+    const bucket = rankingEngine.scores[id];
+    const live = Number(bucket?.points) || 0;
+    const before = persisted + live;
+    const after = Math.max(0, mode === 'delta' ? before + value : value);
+    let nextPersisted = after - live;
+    let nextLive = live;
+    // Không thể có contestPoints âm. Khi sửa xuống dưới phần LIVE, giảm bucket LIVE để tổng
+    // hiển thị vẫn chính xác và lần chốt vòng sau không cộng lại phần điểm vừa trừ.
+    if (nextPersisted < 0) {
+      nextLive = after;
+      nextPersisted = 0;
+    }
+    if (nextLive) {
+      rankingEngine.scores[id] = { ...(bucket || { lastGiftId: '', lastGiftIcon: '', lastGiftName: '' }), points: nextLive };
+    } else {
+      delete rankingEngine.scores[id];
+    }
+
+    const delta = after - before;
+    const label = mode === 'delta' ? (delta >= 0 ? 'Cộng KC' : 'Trừ KC') : 'Sửa KC';
+    const history = Array.isArray(creator.gameplayHistory) ? creator.gameplayHistory : [];
+    list[index] = {
+      ...creator,
+      contestPoints: nextPersisted,
+      gameplayHistory: [{ at: Date.now(), before, delta, after, label }, ...history].slice(0, 30),
+    };
+    saveCreators(list);
+    rankingEngine._emit();
+    return { ok: true, before, after, delta };
   });
   ipcMain.handle('ranking:startRound', () => {
     const list = loadCreators().map(c => ({ ...c, voteRound: (Number(c.voteRound) || 0) + 1 }));

@@ -215,6 +215,7 @@ const api = {
     getState: () => ipcRenderer.invoke('ranking:getState'),
     setConfig: (cfg) => ipcRenderer.invoke('ranking:setConfig', cfg),
     reset: () => ipcRenderer.invoke('ranking:reset'),
+    adjustPoints: (creatorId, mode, points) => ipcRenderer.invoke('ranking:adjustPoints', { creatorId, mode, points }),
     startRound: () => ipcRenderer.invoke('ranking:startRound'),
     resetRound: () => ipcRenderer.invoke('ranking:resetRound'),
     setActive: (id) => ipcRenderer.invoke('ranking:setActive', id),

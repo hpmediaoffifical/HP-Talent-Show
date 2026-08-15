@@ -6345,6 +6345,8 @@ function applyActiveGroupMode() {
 let launcherSelId = null; // null = chưa chọn; '' = TALENT SHOW; id = nhóm cụ thể
 let launcherMandatory = false; // true = màn chọn nhóm bắt buộc khi mở app (không cho X/Esc thoát)
 let launcherEntering = false;
+let launcherKcDensity = 'full';
+let launcherResizeObserver = null;
 
 function membersOfGroup(groupId) {
   return creators.filter(c => c.groupId === groupId);
@@ -6456,6 +6458,39 @@ function kcShort(n) {
   return String(n);
 }
 
+// Khung launcher bị kéo nhỏ vẫn giữ được số KC dễ đọc: rút gọn theo chiều rộng thật của khung,
+// nhưng title của chip luôn chứa số đầy đủ để MC kiểm tra chính xác khi hover.
+function launcherKcDensityForWidth() {
+  const measured = document.querySelector('.launcher-inner')?.clientWidth || 0;
+  // Khi launcher đang hidden, clientWidth = 0; dùng viewport để render đúng mức ngay lần mở đầu.
+  const width = measured > 0 ? measured : Math.max(0, window.innerWidth - 48);
+  return width < 720 ? 'compact' : (width < 980 ? 'short' : 'full');
+}
+function launcherKcText(value) {
+  const n = Math.max(0, Number(value) || 0);
+  if (launcherKcDensity === 'full') return formatNumber(n);
+  if (n < 1000) return formatNumber(n);
+  const unit = n >= 1e6 ? ['M', 1e6] : ['K', 1e3];
+  const scaled = n / unit[1];
+  const digits = scaled >= 100 ? 0 : (scaled >= 10 ? 1 : 2);
+  return `${scaled.toFixed(digits).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1').replace('.', ',')}${unit[0]}`;
+}
+function launcherKcChip(value, extraClass = '') {
+  const full = formatNumber(value);
+  return `<span class="lc-kc${extraClass ? ` ${extraClass}` : ''}" title="${escapeAttr(full)} kim cương">
+    <span class="lc-kc-ic" aria-hidden="true">💎</span><span class="lc-kc-value">${launcherKcText(value)}</span>
+  </span>`;
+}
+function syncLauncherKcDensity(render = true) {
+  const inner = document.querySelector('.launcher-inner');
+  if (!inner) return;
+  const next = launcherKcDensityForWidth();
+  inner.dataset.kcDensity = next;
+  if (next === launcherKcDensity) return;
+  launcherKcDensity = next;
+  if (render && !$('#groupLauncher')?.hidden) renderGroupLauncher();
+}
+
 // Vẽ chart cột 6 tháng gần nhất vào hồ sơ nhóm (bất đồng bộ: nạp xong mới vẽ).
 async function drawGroupTrend(gid) {
   const sel = `.gd-trend[data-gid="${gid}"] .gd-trend-chart`;
@@ -6508,6 +6543,7 @@ function memberAvatarStack(members, max = 6) {
 function renderGroupLauncher() {
   const grid = $('#launcherGrid');
   if (!grid) return;
+  syncLauncherKcDensity(false);
   grid.innerHTML = '';
 
   const hasKc = Object.keys(kcData.byGroup || {}).length > 0;
@@ -6521,7 +6557,7 @@ function renderGroupLauncher() {
     <span class="lc-kc-band-main">
       <span class="lc-kc-band-label">KIM CƯƠNG TỔNG</span>
       <span class="lc-kc-band-valrow">
-        <span class="lc-kc-band-val">${hasKc ? formatNumber(kcData.total) : '—'}</span>
+      <span class="lc-kc-band-val" title="${hasKc ? escapeAttr(formatNumber(kcData.total)) : ''} kim cương">${hasKc ? launcherKcText(kcData.total) : '—'}</span>
         ${hasKc ? kcDeltaBadge(kcData.totalDeltaPct) : ''}
       </span>
     </span>
@@ -6542,7 +6578,7 @@ function renderGroupLauncher() {
       <span class="lc-handle">Tất cả nhóm — gộp toàn bộ Creator</span>
       <span class="lc-count">${formatNumber(creators.length)} Creator · ${formatNumber(groups.length)} nhóm</span>
     </span>
-    ${hasKc ? `<span class="lc-kc lc-kc-total">💎 ${formatNumber(kcData.total)}</span>` : ''}
+    ${hasKc ? launcherKcChip(kcData.total, 'lc-kc-total') : ''}
     <span class="lc-members">${memberAvatarStack(creators, 8)}</span>
   `;
   grid.appendChild(hero);
@@ -6565,7 +6601,7 @@ function renderGroupLauncher() {
       <img class="lc-ava" src="${escapeAttr(g.avatar || '../logo/hp-logo.png')}" alt="" style="border-color:${escapeAttr(color)}" onerror="this.onerror=null;this.src='../logo/hp-logo.png'" />
       <span class="lc-name">${escapeHtml(g.name || g.tiktokId || 'Nhóm')}</span>
       <span class="lc-handle">@${escapeHtml(g.tiktokId || '—')}</span>
-      ${kc != null ? `<span class="lc-kc-row"><span class="lc-kc">💎 ${formatNumber(kc)}</span>${kcDeltaBadge(delta)}</span>` : ''}
+      ${kc != null ? `<span class="lc-kc-row">${launcherKcChip(kc)}${kcDeltaBadge(delta)}</span>` : ''}
       ${g.mc ? `<span class="lc-role">🎤 MC: ${escapeHtml(g.mc)}</span>` : ''}
       ${g.manager ? `<span class="lc-role">🛡️ Quản lý: ${escapeHtml(g.manager)}</span>` : ''}
       <span class="lc-count">${formatNumber(members.length)} thành viên</span>
@@ -6616,6 +6652,7 @@ function openGroupLauncher(mandatory = false) {
   markLauncherSelection();
   hideBootSplash(); // để lộ màn chọn nhóm (splash nằm trên launcher)
   ov.hidden = false;
+  requestAnimationFrame(() => syncLauncherKcDensity());
   // Lấy lại avatar nhóm nếu URL đã hết hạn (mở app lâu rồi mới mở lại màn chọn nhóm).
   autoRefetchStaleAvatars();
   // Nạp KIM CƯƠNG TỔNG (sheet DAILY DATA) rồi tự vẽ lại xếp hạng + vương miện.
@@ -6648,6 +6685,11 @@ async function enterFromLauncher() {
 }
 
 function wireGroupLauncher() {
+  const inner = document.querySelector('.launcher-inner');
+  if (inner && window.ResizeObserver) {
+    launcherResizeObserver = new ResizeObserver(() => syncLauncherKcDensity());
+    launcherResizeObserver.observe(inner);
+  }
   $('#launcherEnter')?.addEventListener('click', enterFromLauncher);
   $('#launcherClose')?.addEventListener('click', closeGroupLauncher);
   $('#openLauncherBtn')?.addEventListener('click', () => { closeConnectModal(); openGroupLauncher(); });
@@ -10220,17 +10262,13 @@ function refreshRankingPreview() {
 }
 
 async function adjustRankingPoints(id, sign, amountText) {
-  const c = creators.find(x => x.id === id || x.tiktokId === id);
-  if (!c) return;
-  const before = Number(c.contestPoints) || 0;
   const amount = parseNumberInput(amountText);
   if (!amount) { toast('Số điểm không hợp lệ', 'error'); return; }
-  const delta = amount * sign;
-  const next = Math.max(0, before + delta);
-  await updateRankingCreator(id, {
-    contestPoints: next,
-    __history: { at: Date.now(), before, delta, label: sign > 0 ? 'Cộng KC' : 'Trừ KC', after: next },
-  }, sign > 0 ? 'Đã cộng điểm' : 'Đã trừ điểm');
+  const res = await window.api.ranking.adjustPoints(id, 'delta', amount * sign);
+  if (!res?.ok) { toast('Không cập nhật được điểm', 'error'); return; }
+  await refreshCreators();
+  refreshRankingPreview();
+  toast(sign > 0 ? 'Đã cộng điểm' : 'Đã trừ điểm', 'success');
 }
 
 function openPointMenu(input) {
@@ -10348,13 +10386,12 @@ function renderRkPreview(st) {
     </div>
   `).join('');
   el.querySelectorAll('[data-rk-points]').forEach(input => input.addEventListener('change', async () => {
-    const c = creators.find(x => x.id === input.dataset.rkPoints || x.tiktokId === input.dataset.rkPoints);
-    const before = Number(c?.contestPoints) || 0;
     const after = parseNumberInput(input.value);
-    await updateRankingCreator(input.dataset.rkPoints, {
-      contestPoints: after,
-      __history: { at: Date.now(), before, delta: after - before, label: 'Sửa KC', after },
-    }, 'Đã cập nhật điểm');
+    const res = await window.api.ranking.adjustPoints(input.dataset.rkPoints, 'set', after);
+    if (!res?.ok) { toast('Không cập nhật được điểm', 'error'); return; }
+    await refreshCreators();
+    refreshRankingPreview();
+    toast('Đã cập nhật điểm', 'success');
   }));
   el.querySelectorAll('[data-rk-points]').forEach(input => input.addEventListener('contextmenu', (e) => {
     e.preventDefault();

@@ -197,11 +197,10 @@ html, body { margin:0; width:100%; height:100%; background:transparent; overflow
 .size-small.status-failed .score-time { font-size:14px; height:28px; line-height:28px; }
 .size-large.status-success .score-time { font-size:26px; height:42px; line-height:42px; }
 .size-large.status-failed .score-time { font-size:21px; height:40px; line-height:40px; }
-/* THÀNH CÔNG: bỏ icon; KHÔNG HOÀN THÀNH: giữ icon nhỏ */
+/* Trạng thái kết quả chỉ dùng chữ và emoji cảm xúc, không hiện biểu tượng đồng hồ. */
 .status-success .score-time-icon { display:none; }
+.status-failed .score-time-icon { display:none; }
 .status-success .score-time { gap:0; }
-.status-failed .score-time-icon { width:18px; height:18px; border-width:2.5px; }
-.status-failed .score-time-icon.off::after { width:23px; height:3px; }
 @keyframes scoreFlow { from { transform:translate3d(-40px,0,0); } to { transform:translate3d(0,0,0); } }
 @keyframes scoreWaveTravel { 0%,18% { transform:translate3d(-125%,0,0) skewX(-16deg); opacity:0; } 24% { opacity:.95; } 52% { transform:translate3d(245%,0,0) skewX(-16deg); opacity:.9; } 62%,100% { transform:translate3d(245%,0,0) skewX(-16deg); opacity:0; } }
 @keyframes scoreAddFlash { 0%, 70% { opacity:0; transform:scale(.8); } 78% { opacity:.95; transform:scale(1.2); } 100% { opacity:0; transform:scale(1.8); } }

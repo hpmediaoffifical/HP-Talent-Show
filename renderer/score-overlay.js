@@ -17,6 +17,18 @@ let lastRunKey = '';
 let playedWarning = false;
 let playedGoal = false;
 let playedX2 = false;
+const FAILED_STATUS_TEXTS = [
+  { icon: '😵', text: 'KHÔNG HOÀN THÀNH' },
+  { icon: '😜', text: 'ĐỒ CON GÀ' },
+  { icon: '😅', text: 'IDOL CÙI BẮP' },
+  { icon: '😝', text: 'BÁI BÁI NHÉ' },
+  { icon: '😛', text: 'LÊU LÊU LÊU' },
+  { icon: '😭', text: 'SUÝT NỮA RỒI' },
+  { icon: '🥲', text: 'QUÀ ĐI LẠC RỒI' },
+  { icon: '😏', text: 'HẸN KÈO SAU' },
+  { icon: '😤', text: 'LẦN SAU PHỤC THÙ' },
+];
+let failedStatusText = FAILED_STATUS_TEXTS[0];
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('vi-VN'); }
@@ -42,7 +54,7 @@ function scoreStatusText(status, timeText) {
   if (status === 'prestart') return timeText || 'CHUẨN BỊ';
   if (status === 'grace') return 'ĐANG TÍNH ĐIỂM';
   if (status === 'success') return 'THÀNH CÔNG';
-  if (status === 'failed') return 'KHÔNG HOÀN THÀNH';
+  if (status === 'failed') return `${failedStatusText.icon} ${failedStatusText.text}`;
   return timeText || '03:00';
 }
 
@@ -344,8 +356,12 @@ function render(state = {}) {
     playedWarning = false;
     playedGoal = false;
     playedX2 = false;
+    failedStatusText = FAILED_STATUS_TEXTS[0];
     lastRenderedScore = 0;
     cardFrameSrc = pickCardFrame();   // phiên mới → bốc khung avatar mới cho thẻ KÊU GỌI
+  }
+  if (status === 'failed' && lastStatus !== 'failed') {
+    failedStatusText = FAILED_STATUS_TEXTS[Math.floor(Math.random() * FAILED_STATUS_TEXTS.length)];
   }
   const avatar = mediaUrl(state.creatorAvatar || '');
   const creator = state.creatorName || 'Creator';

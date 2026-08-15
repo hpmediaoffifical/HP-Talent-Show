@@ -340,6 +340,7 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
   box-shadow: 0 30px 90px rgba(22,24,35,.22), inset 0 1px 0 rgba(255,255,255,.7);
   backdrop-filter: blur(14px) saturate(1.2);
   animation: launcherIn .28s cubic-bezier(.22,1,.36,1);
+  container-type: inline-size;
 }
 @keyframes launcherIn { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
 .launcher-head { display: flex; align-items: center; gap: 12px; }
@@ -435,10 +436,12 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 
 /* Chip số Kim cương trên thẻ nhóm */
 .lc-kc {
-  margin-top: 1px; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 900;
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 1px; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 900;
   color: #0b3b5c; background: linear-gradient(120deg, #d6f3ff, #a9e2ff);
   border: 1px solid rgba(30,120,180,.35); box-shadow: 0 2px 6px rgba(30,120,180,.16);
 }
+.lc-kc-ic { font-size: 1.1em; line-height: 1; filter: drop-shadow(0 1px 1px rgba(30,120,180,.22)); }
+.lc-kc-value { font-variant-numeric: tabular-nums; }
 .lc-hero .lc-kc-total {
   margin: 0 8px 0 auto; font-size: 14px; padding: 5px 14px; align-self: center;
   background: linear-gradient(120deg, #1c4b8a, #0f8bb0); color: #fff; border-color: rgba(255,255,255,.3);
@@ -476,6 +479,51 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .launcher-pick { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: var(--tt-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .launcher-pick b { color: var(--tt-pink); }
 .launcher-enter { height: 40px; padding: 0 22px; border-radius: 12px; font-size: 14px; font-weight: 900; }
+
+/* Kéo nhỏ cửa sổ: số KC rút gọn bằng JS, còn chip/icon/metadata co theo đúng bề rộng khung. */
+.launcher-inner[data-kc-density="short"] .lc-kc-band { padding: 9px 13px; gap: 10px; }
+.launcher-inner[data-kc-density="short"] .lc-kc-band-ic { font-size: 22px; }
+.launcher-inner[data-kc-density="short"] .lc-kc-band-val { font-size: 21px; }
+.launcher-inner[data-kc-density="short"] .lc-kc-band-sub { font-size: 11px; padding: 4px 9px; }
+.launcher-inner[data-kc-density="short"] .lc-card { padding: 11px 9px 9px; gap: 3px; }
+.launcher-inner[data-kc-density="short"] .lc-ava { width: 52px; height: 52px; }
+.launcher-inner[data-kc-density="short"] .lc-name { font-size: 12.5px; }
+.launcher-inner[data-kc-density="short"] .lc-role { font-size: 10px; }
+.launcher-inner[data-kc-density="short"] .lc-mini { width: 21px; height: 21px; }
+.launcher-inner[data-kc-density="short"] .lc-members { min-height: 21px; }
+.launcher-inner[data-kc-density="short"] .lc-kc { font-size: 10.5px; padding: 2px 8px; }
+.launcher-inner[data-kc-density="short"] .lc-hero { gap: 11px; padding: 10px 13px; }
+.launcher-inner[data-kc-density="short"] .lc-hero .lc-kc-total { font-size: 12px; padding: 4px 10px; }
+
+.launcher-inner[data-kc-density="compact"] { gap: 8px; padding: 13px 14px 12px; border-radius: 20px; }
+.launcher-inner[data-kc-density="compact"] .launcher-head { gap: 8px; }
+.launcher-inner[data-kc-density="compact"] .launcher-logo { width: 34px; height: 34px; border-radius: 9px; }
+.launcher-inner[data-kc-density="compact"] .launcher-title strong { font-size: 15px; }
+.launcher-inner[data-kc-density="compact"] .launcher-title span { font-size: 11px; }
+.launcher-inner[data-kc-density="compact"] .launcher-grid { grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 8px; }
+.launcher-inner[data-kc-density="compact"] .lc-kc-band { padding: 8px 10px; gap: 8px; border-radius: 13px; }
+.launcher-inner[data-kc-density="compact"] .lc-kc-band-ic { font-size: 19px; }
+.launcher-inner[data-kc-density="compact"] .lc-kc-band-label { font-size: 9px; }
+.launcher-inner[data-kc-density="compact"] .lc-kc-band-val { font-size: 18px; }
+.launcher-inner[data-kc-density="compact"] .lc-kc-band .kc-delta { font-size: 9px; padding: 1px 5px; }
+.launcher-inner[data-kc-density="compact"] .lc-kc-band-sub { font-size: 10px; padding: 3px 7px; }
+.launcher-inner[data-kc-density="compact"] .lc-card { padding: 9px 7px 8px; gap: 2px; border-radius: 14px; }
+.launcher-inner[data-kc-density="compact"] .lc-ava { width: 44px; height: 44px; border-width: 2px; }
+.launcher-inner[data-kc-density="compact"] .lc-name { font-size: 11.5px; }
+.launcher-inner[data-kc-density="compact"] .lc-handle { font-size: 9.5px; }
+.launcher-inner[data-kc-density="compact"] .lc-role { font-size: 9.5px; }
+.launcher-inner[data-kc-density="compact"] .lc-role + .lc-role { display: none; }
+.launcher-inner[data-kc-density="compact"] .lc-count { font-size: 9.5px; padding: 1px 7px; }
+.launcher-inner[data-kc-density="compact"] .lc-mini { width: 18px; height: 18px; border-width: 1.5px; margin-left: -5px; }
+.launcher-inner[data-kc-density="compact"] .lc-members { min-height: 18px; margin-top: 3px; padding-left: 5px; }
+.launcher-inner[data-kc-density="compact"] .lc-more { min-width: 18px; height: 18px; font-size: 9px; margin-left: -5px; border-width: 1.5px; }
+.launcher-inner[data-kc-density="compact"] .lc-kc { font-size: 9.5px; gap: 3px; padding: 1px 6px; }
+.launcher-inner[data-kc-density="compact"] .kc-delta { font-size: 9px; padding: 1px 5px; }
+.launcher-inner[data-kc-density="compact"] .lc-hero { gap: 8px; padding: 8px 10px; }
+.launcher-inner[data-kc-density="compact"] .lc-hero .lc-ava { width: 42px; height: 42px; border-radius: 12px; }
+.launcher-inner[data-kc-density="compact"] .lc-hero .lc-name { font-size: 13px; }
+.launcher-inner[data-kc-density="compact"] .lc-hero .lc-kc-total { font-size: 10px; padding: 3px 7px; margin-right: 3px; }
+.launcher-inner[data-kc-density="compact"] .lc-hero .lc-members { display: none; }
 
 /* ===== Panels ===== */
 .panel { display: none; padding: 24px; max-width: 1280px; margin: 0 auto; width: 100%; }

@@ -121,23 +121,29 @@ function rankParticipants(participants) {
 // trên root bằng rAF; grid/thanh kế thừa nên trôi mượt thay vì búng. Khi số người / thứ tự /
 // layout đổi (thay đổi cấu trúc) thì snap ngay để tránh sai khớp cột.
 const PUSH_MS = 520;
+// 10 giây cuối đẩy gấp hơn (hợp nhịp căng + bớt cảm giác trễ); tan sương thì kéo dài để màn
+// LẬT BÀI có sức nặng — thanh trượt và số đếm chạy cùng một mốc thời gian.
+const URGENT_MS = 260;
+const REVEAL_MS = 1600;
+let lastRevealAt = 0, revealUntil = 0;
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 
 // (1) Thanh gộp: nội suy từng trọng số fr của --pkg-cols
-let colsCur = [], colsFrom = [], colsTarget = [], colsKey = '', colsT0 = 0, colsRaf = 0;
+let colsCur = [], colsFrom = [], colsTarget = [], colsKey = '', colsT0 = 0, colsRaf = 0, colsMs = PUSH_MS;
 function applyCols(arr) {
   root.style.setProperty('--pkg-cols', arr.map(w => `minmax(0,${w.toFixed(4)}fr)`).join(' ') || '1fr');
 }
 function stepCols(now) {
-  const e = easeOutCubic(Math.min(1, (now - colsT0) / PUSH_MS));
+  const e = easeOutCubic(Math.min(1, (now - colsT0) / colsMs));
   colsCur = colsTarget.map((v, i) => { const f = colsFrom[i] ?? v; return f + (v - f) * e; });
   applyCols(colsCur);
-  colsRaf = (now - colsT0) < PUSH_MS ? requestAnimationFrame(stepCols) : 0;
+  colsRaf = (now - colsT0) < colsMs ? requestAnimationFrame(stepCols) : 0;
 }
-function pushCols(target, key) {
+function pushCols(target, key, ms) {
   const snap = key !== colsKey || target.length !== colsCur.length;
   // Tick đồng hồ với cùng target: đang chạy dở thì để yên, khỏi reset easing.
   if (!snap && colsRaf && target.every((v, i) => Math.abs(v - colsTarget[i]) < 0.01)) return;
+  colsMs = ms || PUSH_MS;
   colsKey = key;
   colsTarget = target.slice();
   if (snap) {
@@ -153,19 +159,20 @@ function pushCols(target, key) {
 
 // (2) Thẻ tách rời: nội suy width từng người theo biến --cw-<id>
 const cardCur = new Map(), cardTarget = new Map(), cardFrom = new Map();
-let cardT0 = 0, cardRaf = 0;
+let cardT0 = 0, cardRaf = 0, cardMs = PUSH_MS;
 function cardVar(id) { return '--cw-' + String(id).replace(/[^a-zA-Z0-9_-]/g, '_'); }
 function applyCards() { for (const [id, v] of cardCur) root.style.setProperty(cardVar(id), v.toFixed(3) + '%'); }
 function stepCards(now) {
-  const e = easeOutCubic(Math.min(1, (now - cardT0) / PUSH_MS));
+  const e = easeOutCubic(Math.min(1, (now - cardT0) / cardMs));
   for (const [id, tv] of cardTarget) { const f = cardFrom.has(id) ? cardFrom.get(id) : tv; cardCur.set(id, f + (tv - f) * e); }
   applyCards();
-  cardRaf = (now - cardT0) < PUSH_MS ? requestAnimationFrame(stepCards) : 0;
+  cardRaf = (now - cardT0) < cardMs ? requestAnimationFrame(stepCards) : 0;
 }
-function pushCards(targets) {
+function pushCards(targets, ms) {
   // Tick đồng hồ với cùng bộ target: đang chạy dở thì để yên, khỏi reset easing.
   if (cardRaf && targets.length === cardTarget.size
       && targets.every(t => Math.abs((cardTarget.get(t.id) ?? -1) - t.width) < 0.01)) return;
+  cardMs = ms || PUSH_MS;
   cardTarget.clear();
   for (const { id, width } of targets) { cardTarget.set(id, width); if (!cardCur.has(id)) cardCur.set(id, width); }
   for (const id of [...cardCur.keys()]) if (!cardTarget.has(id)) { cardCur.delete(id); root.style.removeProperty(cardVar(id)); }
@@ -178,7 +185,7 @@ function pushCards(targets) {
 // (3) Count-up điểm số — đồng bộ nhịp đẩy máu. Số nằm trong <span data-score-id> (có thể bị
 // dựng lại mỗi render), nên mỗi frame ta quét lại các span đang có trong DOM và ghi giá trị nội suy.
 const scoreCur = new Map(), scoreTarget = new Map(), scoreFrom = new Map();
-let scoreT0 = 0, scoreRaf = 0;
+let scoreT0 = 0, scoreRaf = 0, scoreMs = PUSH_MS;
 function applyScores() {
   root.querySelectorAll('[data-score-id]').forEach(el => {
     const v = scoreCur.get(el.getAttribute('data-score-id'));
@@ -186,18 +193,19 @@ function applyScores() {
   });
 }
 function stepScores(now) {
-  const e = easeOutCubic(Math.min(1, (now - scoreT0) / PUSH_MS));
+  const e = easeOutCubic(Math.min(1, (now - scoreT0) / scoreMs));
   for (const [id, tv] of scoreTarget) { const f = scoreFrom.has(id) ? scoreFrom.get(id) : tv; scoreCur.set(id, f + (tv - f) * e); }
   applyScores();
-  scoreRaf = (now - scoreT0) < PUSH_MS ? requestAnimationFrame(stepScores) : 0;
+  scoreRaf = (now - scoreT0) < scoreMs ? requestAnimationFrame(stepScores) : 0;
 }
-function pushScores(targets, structChanged) {
+function pushScores(targets, structChanged, ms) {
   // Snap khi: đổi cấu trúc / lần đầu / điểm GIẢM (reset trận hay chỉnh tay) — đếm ngược trông kỳ.
   let snap = structChanged || scoreCur.size === 0;
   if (!snap) for (const t of targets) if ((scoreCur.get(t.id) ?? 0) > t.score + 0.5) { snap = true; break; }
   // Tick đồng hồ cùng target đang chạy dở → để yên.
   if (!snap && scoreRaf && targets.length === scoreTarget.size
       && targets.every(t => (scoreTarget.get(t.id) ?? NaN) === t.score)) return;
+  scoreMs = ms || PUSH_MS;
   scoreTarget.clear();
   for (const { id, score } of targets) { scoreTarget.set(id, score); if (snap || !scoreCur.has(id)) scoreCur.set(id, score); }
   for (const id of [...scoreCur.keys()]) if (!scoreTarget.has(id)) scoreCur.delete(id);
@@ -257,10 +265,24 @@ function applySkin(state) {
 }
 
 function render(state = {}) {
-  const participants = Array.isArray(state.participants) ? state.participants : [];
+  const realParticipants = Array.isArray(state.participants) ? state.participants : [];
   const sec = Math.ceil((state.remainingMs || 0) / 1000);
   const status = state.status || 'idle';
   const urgent = status === 'running' && sec <= 10 && sec > 0;
+  // 🌫️ Sương mù 10s cuối: vẽ theo ẢNH CHỤP điểm engine đã chốt (state.fogSnap, xem _syncFogSnap)
+  // thay vì điểm thật → thanh máu ĐỨNG IM suốt 10 giây, dù điểm vẫn cộng bình thường phía sau.
+  // Thay NGUYÊN MẢNG ở đây thay vì sửa từng chỗ dùng: width / total / max / xếp hạng / count-up
+  // đều đọc p.score nên tự đóng băng theo, không sót đường nào rò rỉ ai đang lên. Thiếu id trong
+  // ảnh chụp (người vào trận muộn) thì rơi về điểm thật.
+  const fog = !!state.fogHide && urgent;
+  const participants = fog && state.fogSnap
+    ? realParticipants.map(p => ({ ...p, score: state.fogSnap[p.id] ?? (Number(p.score) || 0) }))
+    : realParticipants;
+  // Tan sương → LẬT BÀI: tween dài cho thanh trượt + số đếm cùng lúc. Trong sương thì đẩy gấp
+  // (URGENT_MS) — vừa hợp nhịp căng thẳng, vừa cắt nửa độ trễ nhìn thấy ở giây cuối.
+  const revealAt = Number(state.fogRevealAt) || 0;
+  if (revealAt && revealAt !== lastRevealAt) { lastRevealAt = revealAt; revealUntil = performance.now() + REVEAL_MS; }
+  const pushMs = performance.now() < revealUntil ? REVEAL_MS : (urgent ? URGENT_MS : PUSH_MS);
   const statusText = status === 'prestart' ? `Chuẩn bị ${sec}s`
     : status === 'running' ? mmss(sec)
     : status === 'grace' ? 'ĐANG TÍNH ĐIỂM'
@@ -277,7 +299,9 @@ function render(state = {}) {
   const mvpParticipant = participants.find(p => (Number(p.streak) || 0) >= 1) || null;
   // Đổi ngôi: có leader mới khác leader trước, trong lúc trận đang diễn ra → lóe sáng 1 nhịp.
   const leaderChanged = lastLeaderId && leaderId && leaderId !== lastLeaderId && (status === 'running' || status === 'grace');
-  // "Vừa lên quà": điểm thật của người đó tăng so với lần render trước → bắn 1 nhịp gợn sóng (port từ PK Đôi).
+  // "Vừa lên quà": điểm ĐANG VẼ tăng so với lần render trước → bắn 1 nhịp gợn sóng (port từ PK Đôi).
+  // Trong sương mù điểm vẽ bị đóng băng nên gợn sóng tự tắt (không lộ ai vừa được tặng); tan sương
+  // thì nó bắn một loạt cho những người có tăng — đúng nhịp màn lật bài.
   const gained = new Set();
   if (status === 'running' || status === 'grace') {
     for (const p of participants) {
@@ -285,7 +309,9 @@ function render(state = {}) {
       if (prev != null && (Number(p.score) || 0) > prev + 0.5) gained.add(p.id);
     }
   }
-  const boostActive = state.boostId && Date.now() - (Number(state.boostAt) || 0) < 1300;
+  // Mũi tên "vượt hạng" đến từ điểm THẬT (engine), nên phải tắt tay khi sương mù — nếu không nó
+  // báo thẳng cho khán giả là vừa có người vượt lên, hớ hết cả 10 giây giấu bài.
+  const boostActive = !fog && state.boostId && Date.now() - (Number(state.boostAt) || 0) < 1300;
   const boostDir = state.boostDir === 'left' ? 'left' : 'right';
   const rankMap = new Map(ranked.map((p, i) => [p.id, i + 1]));
   const widthOf = (p) => layout === 'separated'
@@ -325,8 +351,7 @@ function render(state = {}) {
   const nameScaleM = Math.max(.9, Math.min(3, ((parseInt(state.nameSize, 10) || 100) / 100) * 1.5));
   // 🌫️ Sương mù 10s cuối: che thanh máu + số điểm (đồng hồ ở tiêu đề vẫn hiện) → giấu ai đang dẫn tới giây
   // chót. Bố cục GỘP: 1 veil phủ cả thanh (ẩn ranh giới các segment). Bố cục RỜI: mỗi thẻ 1 veil (ẩn độ dài
-  // thanh). class fog-on ẩn số/hạng/vương miện bên dưới.
-  const fog = !!state.fogHide && urgent;
+  // thanh). class fog-on ẩn số/hạng/vương miện bên dưới. (fog tính ở đầu render — xem fogSnap.)
   // Chú thích "SƯƠNG MÙ" chỉ hiện MỘT lần: bố cục Gộp = trên thanh chung; Rời = chỉ thẻ ĐẦU (các thẻ sau
   // dùng bản KHÔNG chữ để khỏi lặp rối).
   const fogVeil = fog && window.OverlayFog ? OverlayFog.veilHtml({ label: 'SƯƠNG MÙ' }) : '';
@@ -424,10 +449,10 @@ function render(state = {}) {
   // Key = layout + thứ tự id: đổi cấu trúc thì snap, chỉ đổi điểm thì nội suy.
   const idsKey = participants.map(p => p.id).join('|');
   const layoutKey = layout + '#' + idsKey;
-  if (layout === 'joined') { pushCols(participants.map(widthOf), layoutKey); }
-  else { colsKey = ''; pushCards(participants.map(p => ({ id: p.id, width: widthOf(p) }))); }
+  if (layout === 'joined') { pushCols(participants.map(widthOf), layoutKey, pushMs); }
+  else { colsKey = ''; pushCards(participants.map(p => ({ id: p.id, width: widthOf(p) })), pushMs); }
   // Count-up điểm: đổi cấu trúc người chơi thì snap, chỉ đổi điểm thì đếm dần.
-  pushScores(participants.map(p => ({ id: p.id, score: Number(p.score) || 0 })), idsKey !== lastIdsKey);
+  pushScores(participants.map(p => ({ id: p.id, score: Number(p.score) || 0 })), idsKey !== lastIdsKey, pushMs);
   lastIdsKey = idsKey;
   lastLeaderId = leaderId;
   // Cập nhật điểm thật lần này để so ở lần sau (bắn gợn sóng khi tăng).
