@@ -20,6 +20,9 @@ const ROOT = path.join(__dirname, '..');
 // cập nhật đọc đúng creators/groups/settings đã lưu (phải đặt TRƯỚC khi gọi getPath('userData')).
 try { app.setPath('userData', path.join(app.getPath('appData'), 'HP Talent Show')); } catch {}
 const USER_DATA_DIR = app.getPath('userData');
+// Cho phép video tự phát KÈM TIẾNG trong app + cửa sổ Review (mặc định Chromium chặn video có tiếng
+// tự phát khi trang chưa được bấm vào → clip NHẠC DANCE chớp 1 cái rồi mất). OBS đã tự bật cờ này.
+try { app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required'); } catch {}
 
 // Chặn CRASH toàn cục: một lỗi lẻ (vd icon kéo-thả không load) không được làm sập app đang LIVE.
 process.on('uncaughtException', (err) => {

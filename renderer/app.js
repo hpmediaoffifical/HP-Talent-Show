@@ -352,6 +352,8 @@ let danceVideoCfg = null;            // cấu hình overlay Video NHẠC DANCE (
 const DANCE_POS = ['default', 'full', 'center', 'tl', 'tr', 'bl', 'br'];
 // 3 overlay NHẠC DANCE độc lập (mỗi cái 1 link OBS riêng). Mỗi quà chọn 1 kênh để phát video.
 const DANCE_CHANNELS = ['webm1', 'webm2', 'webm3'];
+// Kênh WEBM → loại cửa sổ Review tương ứng (main.js REVIEW_TYPES).
+const DANCE_REVIEW_TYPE = { webm1: 'dancevideo', webm2: 'dancevideo2', webm3: 'dancevideo3' };
 function danceChannelOf(item) { const o = String(item && item.overlay || 'webm1'); return DANCE_CHANNELS.includes(o) ? o : 'webm1'; }
 // Nhận diện file VIDEO theo đuôi (bỏ query) → phát trên overlay OBS; còn lại (mp3…) phát trong app.
 function isVideoFile(p) { return /\.(mp4|webm|mov|m4v|ogv|mkv)$/i.test(String(p || '').split('?')[0].split('#')[0]); }
@@ -2009,6 +2011,15 @@ function openAudioModal(m) {
             </select>
           </label>
         </div>
+        <div class="ml-mv-link">
+          <span class="ml-mv-link-h">🖥 Link overlay OBS <b class="ml-mv-link-ch"></b></span>
+          <div class="ml-mv-link-row">
+            <input class="ml-mv-url" type="text" readonly value="…" title="Dán link này vào OBS → Nguồn → Trình duyệt (1080×1920)" />
+            <button class="ml-mv-copy primary tiny" type="button" title="Copy link để dán vào OBS Browser Source">📋 COPY OBS</button>
+            <button class="ml-mv-review ghost tiny" type="button" title="Mở cửa sổ Review để xem thử overlay này">🖥 Review</button>
+          </div>
+          <span class="hint ml-mv-link-hint">Video quà này phát lên overlay đang chọn ở trên — mỗi WEBM 1 link riêng, cỡ 1080×1920.</span>
+        </div>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -2153,7 +2164,31 @@ function openAudioModal(m) {
   volEl.addEventListener('change', () => { scheduleMusicSave(); renderMusicList(); });
   // Cài đặt video per-item (lưu ngay, không cần đóng modal).
   overlay.querySelector('.ml-mv-bgmode').addEventListener('change', (e) => { m.bgMode = e.target.checked; scheduleMusicSave(); });
-  overlay.querySelector('.ml-mv-overlay').addEventListener('change', (e) => { m.overlay = DANCE_CHANNELS.includes(e.target.value) ? e.target.value : 'webm1'; scheduleMusicSave(); renderMusicList(); });
+  overlay.querySelector('.ml-mv-overlay').addEventListener('change', (e) => {
+    m.overlay = DANCE_CHANNELS.includes(e.target.value) ? e.target.value : 'webm1';
+    scheduleMusicSave(); renderMusicList(); syncOvLink();
+  });
+  // ==== Link overlay OBS của WEBM đang chọn (copy để dán vào OBS / mở Review xem thử) ====
+  const urlEl = overlay.querySelector('.ml-mv-url');
+  const chEl = overlay.querySelector('.ml-mv-link-ch');
+  let ovUrl = '';
+  async function syncOvLink() {
+    const ch = danceChannelOf(m);
+    chEl.textContent = '· ' + danceOverlayName(ch);
+    ovUrl = await window.api.dancevideo.getUrl(ch).catch(() => '');
+    urlEl.value = ovUrl || 'Chưa mở được máy chủ overlay';
+  }
+  overlay.querySelector('.ml-mv-copy').addEventListener('click', async () => {
+    if (!ovUrl) { toast('Chưa lấy được link overlay', 'error'); return; }
+    await window.api.shell.copyText(ovUrl);
+    toast(`Đã copy link OBS ${danceOverlayName(danceChannelOf(m))}`, 'success');
+  });
+  urlEl.addEventListener('focus', () => urlEl.select());
+  overlay.querySelector('.ml-mv-review').addEventListener('click', () => {
+    const type = DANCE_REVIEW_TYPE[danceChannelOf(m)] || 'dancevideo';
+    window.api.review.open(type).catch(() => toast('Không mở được Review', 'error'));
+  });
+  syncOvLink();
   overlay.querySelector('.ml-mv-duck').addEventListener('change', (e) => { m.videoDuck = (e.target.value === 'on' || e.target.value === 'off') ? e.target.value : 'inherit'; scheduleMusicSave(); });
   const closeModal = () => { stopAudioModalPreview(); overlay.remove(); document.removeEventListener('keydown', onKey); };
   const onKey = (e) => { if (e.key === 'Escape') closeModal(); };
@@ -5274,6 +5309,7 @@ async function initLicenseGate() {
   if ($('#appVersionText')) $('#appVersionText').textContent = version;
   if ($('#updateCurrentVer')) $('#updateCurrentVer').textContent = 'v' + version;
   if ($('#bootVer')) $('#bootVer').textContent = 'v' + version;
+  renderChangelog(version);
   document.title = `HP GROUP LIVE — Phiên bản v${version}`;
   setBootStatus('Đang kiểm tra bản quyền'); setBootProgress(12);
   const st = await window.api.license.check().catch(e => ({ ok: false, error: e.message || String(e), license: {} }));
@@ -5398,6 +5434,112 @@ async function activateLicenseFrom(inputId) {
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+// Tóm tắt 3 bản gần nhất cho trang CẬP NHẬT — mỗi bản 1 thẻ, nhóm theo tính năng.
+// Ra bản mới thì thêm mục vào đầu mảng và bỏ mục cuối (giữ đúng 3 thẻ).
+const RECENT_CHANGELOG = [
+  {
+    ver: '0.1.85',
+    date: '17/08/2026',
+    title: 'NHẠC DANCE: video chạy được ngoài OBS + link overlay ngay trong popup quà',
+    groups: [
+      {
+        name: '🎬 Sửa lỗi video chớp một cái rồi mất',
+        items: [
+          'Video quà nay chạy hết clip cả khi xem overlay bằng trình duyệt, TikTok Studio hay cửa sổ Review — trước đây chỉ OBS mới chạy, chỗ khác thì hàng đợi tự trôi tuột.',
+          'Nơi nào chặn tiếng tự phát thì video vẫn hiện (tạm câm) và có tiếng lại ngay khi bấm vào trang, thay vì bị bỏ qua.',
+          'Cửa sổ Review phát kèm tiếng bình thường.',
+        ],
+      },
+      {
+        name: '🖥 Link overlay ngay trong popup quà',
+        items: [
+          'Popup cài đặt quà có sẵn ô link OBS của WEBM đang chọn: bấm COPY OBS để dán vào Nguồn Trình duyệt, hoặc bấm Review để xem thử.',
+          'Đổi WEBM 1 / 2 / 3 ở dropdown thì link đổi theo, khỏi quay về trang LINK OVERLAY.',
+        ],
+      },
+    ],
+  },
+  {
+    ver: '0.1.84',
+    date: '15/08/2026',
+    title: 'Sương mù PK Nhóm giấu được thật + BXH cộng điểm đúng',
+    groups: [
+      {
+        name: '🌫️ PK Nhóm — sương mù 10 giây cuối',
+        items: [
+          'Thanh máu ĐỨNG IM suốt sương mù, điểm vẫn cộng bình thường phía sau — hết sương mới trượt tới giá trị thật (trước đây bố cục Gộp bị lộ bài vì thanh vẫn trôi).',
+          'Điểm chốt được chụp ở engine nên OBS / TikTok Studio / cửa sổ Review khớp nhau tuyệt đối, overlay reload giữa chừng cũng không lộ điểm.',
+          'Tắt mũi tên “vượt hạng” khi đang có sương mù (nó tính từ điểm thật nên báo thẳng ai vừa vượt lên).',
+          'Thêm màn LẬT BÀI 1.6 giây lúc tan sương; trong sương đẩy nhanh 260ms cho mượt.',
+        ],
+      },
+      {
+        name: '🏆 THI ĐẤU NHÓM',
+        items: [
+          'Cộng / trừ / sửa điểm chia đúng giữa điểm đã lưu và điểm LIVE chưa chốt — không còn tụt điểm sau khi bấm Tính điểm.',
+        ],
+      },
+      {
+        name: '✨ Khác',
+        items: [
+          'Màn chọn nhóm: số kim cương rút gọn theo bề rộng khung khi thu nhỏ cửa sổ (đưa chuột vào xem số đầy đủ), chip / avatar co theo 3 mức.',
+          'TÍNH ĐIỂM: kết quả không đạt hiện câu động viên ngẫu nhiên kèm emoji thay vì một câu cố định.',
+        ],
+      },
+    ],
+  },
+  {
+    ver: '0.1.83',
+    date: '14/08/2026',
+    title: 'Sửa gõ liệu phải ALT+Tab & tính điểm vào đúng người',
+    groups: [
+      {
+        name: '⌨️ Gõ liệu bình thường trở lại',
+        items: [
+          'Hết cảnh mở app rồi gõ không được, phải ALT+Tab: việc lấy avatar / UID nền không còn cướp bàn phím của cửa sổ chính.',
+          'Rời ô nhập TikTok ID chỉ tải nền; muốn lấy avatar ngay thì bấm nút Tải hoặc Enter.',
+        ],
+      },
+      {
+        name: '🎯 TÍNH ĐIỂM',
+        items: [
+          'Mục tiêu “cần bao nhiêu để vượt hạng” lấy từ dữ liệu BXH thật, không đọc theo thứ tự bảng — đang lọc / đóng băng bảng vẫn tính đúng.',
+          'Hết giờ cộng điểm cho đúng Creator của lượt đó, kể cả khi VOTE bị đổi giữa lượt.',
+        ],
+      },
+      {
+        name: '❤️ NHIỆM VỤ · TÁP TIM',
+        items: [
+          'Overlay cập nhật tại chỗ nên mượt hơn, không nhấp nháy khi có tim mới.',
+          'Popup danh hiệu luôn nằm giữa lưới, đổi 9 ô sang 6 ô không còn đè lệch sang thanh KPI.',
+        ],
+      },
+    ],
+  },
+];
+
+function renderChangelog(currentVer = '') {
+  const host = $('#changelogGrid');
+  if (!host) return;
+  const cur = String(currentVer || '').replace(/^v/i, '');
+  host.innerHTML = RECENT_CHANGELOG.map(rel => {
+    const isCur = cur && cur === rel.ver;
+    const groups = rel.groups.map(g => `<div class="cl-group">
+      <div class="cl-group-name">${escapeHtml(g.name)}</div>
+      <ul class="cl-list">${g.items.map(it => `<li>${escapeHtml(it)}</li>`).join('')}</ul>
+    </div>`).join('');
+    return `<div class="cl-card${isCur ? ' is-current' : ''}">
+      <div class="cl-top">
+        <span class="cl-ver">v${escapeHtml(rel.ver)}</span>
+        ${isCur ? '<span class="cl-now">Đang dùng</span>' : ''}
+        <span class="cl-date">${escapeHtml(rel.date)}</span>
+        <div class="cl-title">${escapeHtml(rel.title)}</div>
+      </div>
+      <div class="cl-body">${groups}</div>
+    </div>`;
+  }).join('');
 }
 
 function wireLicenseUi() {

@@ -670,6 +670,30 @@ input[type="color"] { width: 56px; height: 32px; padding: 2px; border: 1px solid
 .update-progress-bar { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,var(--tt-pink,#fe2c55),#ff6a8b); transition:width .18s ease; }
 .update-progress-pct { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#7a1730; text-shadow:0 1px 0 rgba(255,255,255,.6); }
 
+/* ===== Lịch sử 3 bản gần nhất — mỗi bản 1 thẻ rời, thân thẻ tự cuộn ===== */
+.changelog-head { margin:18px 0 10px; }
+.changelog-head h2 { margin:0; font-size:15px; color:var(--tt-ink); }
+.changelog-head .sub { margin:3px 0 0; }
+.changelog-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; align-items:start; }
+.cl-card { display:flex; flex-direction:column; min-width:0; border:1px solid var(--tt-border); border-radius:16px; background:#fff; overflow:hidden; }
+.cl-card.is-current { border-color:rgba(254,44,85,.45); box-shadow:0 6px 20px rgba(254,44,85,.10); }
+.cl-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:11px 13px 9px; border-bottom:1px solid var(--tt-border); background:linear-gradient(135deg,#ffffff 0%,#eef3ff 100%); }
+.cl-card.is-current .cl-top { background:linear-gradient(135deg,#fff 0%,#fff2f6 100%); }
+.cl-ver { padding:3px 10px; border-radius:999px; background:var(--tt-ink); color:#fff; font-size:12px; font-weight:800; letter-spacing:.2px; }
+.cl-card.is-current .cl-ver { background:var(--tt-pink); }
+.cl-now { font-size:10.5px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:var(--tt-pink); }
+.cl-date { margin-left:auto; font-size:11.5px; color:var(--tt-ink-2); }
+.cl-title { flex:0 0 100%; font-size:12.5px; font-weight:700; color:var(--tt-ink-2); line-height:1.45; }
+.cl-body { padding:10px 13px 12px; max-height:330px; overflow:auto; overscroll-behavior:contain; }
+.cl-group + .cl-group { margin-top:11px; padding-top:10px; border-top:1px dashed var(--tt-border); }
+.cl-group-name { font-size:11px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--tt-pink); }
+.cl-list { margin:5px 0 0; padding-left:16px; font-size:12.5px; line-height:1.6; color:var(--tt-ink); }
+.cl-list li { margin:0 0 3px; }
+.cl-list li::marker { color:var(--tt-ink-2); }
+.cl-body::-webkit-scrollbar { width:8px; }
+.cl-body::-webkit-scrollbar-thumb { border-radius:999px; background:rgba(22,24,35,.18); }
+.cl-body::-webkit-scrollbar-thumb:hover { background:rgba(22,24,35,.3); }
+
 /* Settings use native disclosure so secondary tools do not dominate the page. */
 .card.settings-card { padding:0; overflow:hidden; }
 .settings-card > summary { display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; list-style:none; user-select:none; }
@@ -2597,6 +2621,13 @@ button.tiny { padding:4px 7px; font-size:12px; }
 .ml-mv-row label { display:flex; flex-direction:column; gap:3px; font-size:11.5px; color:var(--tt-ink-2); }
 .ml-mv-row select, .ml-mv-row input { min-width:90px; }
 .ml-mv-row .ml-mv-size { width:80px; }
+/* Link overlay OBS của WEBM đang chọn (copy để dán vào OBS Browser Source) */
+.ml-mv-link { display:flex; flex-direction:column; gap:5px; padding:9px 11px; border:1px solid var(--tt-border); border-radius:11px; background:var(--tt-bg); }
+.ml-mv-link-h { font-size:11.5px; font-weight:700; color:var(--tt-ink-2); }
+.ml-mv-link-h b { color:var(--tt-pink); }
+.ml-mv-link-row { display:flex; align-items:center; gap:7px; }
+.ml-mv-url { flex:1 1 auto; min-width:0; font-size:11px; font-family:ui-monospace, Consolas, monospace; }
+.ml-mv-link-hint { font-size:10.5px; }
 /* ==== KHU CON (phân nhóm con) trong NHẠC DANCE ==== */
 .ml-sec { border:1px solid var(--tt-border); border-radius:14px; background:var(--tt-bg-2); box-shadow:var(--tt-shadow); overflow:hidden; }
 .ml-sec-head { display:flex; align-items:center; gap:8px; padding:8px 11px; background:linear-gradient(0deg, rgba(254,44,85,.05), rgba(254,44,85,.05)), var(--tt-bg); border-bottom:1px solid var(--tt-border); }

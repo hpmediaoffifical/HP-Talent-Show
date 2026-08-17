@@ -25,6 +25,34 @@ function applySpeed() {
 }
 
 function clamp01(v) { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1; }
+
+// Autoplay: OBS cho phép phát kèm tiếng, nhưng TRÌNH DUYỆT thường / TikTok Studio / cửa sổ Review
+// chặn video CÓ TIẾNG tự phát (NotAllowedError) → play() bị từ chối, trước đây coi như "phát xong"
+// nên clip chớp 1 cái rồi mất. Giờ: bị chặn thì phát KHÔNG TIẾNG để video vẫn hiện, và mở tiếng lại
+// ngay khi có thao tác đầu tiên của người dùng (bấm chuột/phím).
+let autoMuted = false;
+function unmuteAll() {
+  if (!autoMuted) return;
+  autoMuted = false;
+  try { vMain.muted = false; } catch (_) {}
+  try { vBg.muted = false; } catch (_) {}
+}
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, unmuteAll, { once: true, passive: true }));
+// Phát 1 lớp video; autoplay bị chặn → thử lại ở chế độ tắt tiếng, hỏng thật mới gọi onFail.
+function playEl(el, onFail) {
+  const p = el.play();
+  if (!p || !p.catch) return;
+  p.catch((err) => {
+    if (err && err.name === 'NotAllowedError') {
+      autoMuted = true;
+      el.muted = true;
+      const p2 = el.play();
+      if (p2 && p2.catch) p2.catch(onFail);
+      return;
+    }
+    onFail();
+  });
+}
 function mediaUrl(src) { return '/dance-media?token=' + encodeURIComponent(token) + '&src=' + encodeURIComponent(src); }
 function postEnded(playId, layer) {
   try { fetch('/dance-video-ended?ch=' + encodeURIComponent(CH) + '&playId=' + encodeURIComponent(playId) + '&layer=' + encodeURIComponent(layer) + '&token=' + encodeURIComponent(token), { method: 'POST' }).catch(() => {}); } catch (_) {}
@@ -66,11 +94,12 @@ function playMain(main) {
   const done = () => { if (pid !== handledMainId) return; vMain.onended = vMain.onerror = null; vMain.style.display = 'none'; postEnded(pid, 'main'); };
   vMain.onended = done;
   vMain.onerror = done;
+  vMain.muted = autoMuted;
   vMain.src = mediaUrl(main.src);
   try { vMain.currentTime = 0; } catch (_) {}
   baseMainRate = (Number(main.rate) > 0 ? Number(main.rate) : 1);
   try { vMain.playbackRate = clampRate(baseMainRate * curSpeed); } catch (_) {}
-  vMain.play().catch(done);
+  playEl(vMain, done);
 }
 
 // ---------- Lớp BG ("Chạy nền") ----------
@@ -95,10 +124,11 @@ function playBgNext(seq) {
   const next = () => { if (seq === handledBgSeq) playBgNext(seq); };
   vBg.onended = next;
   vBg.onerror = next;
+  vBg.muted = autoMuted;
   vBg.src = mediaUrl(url);
   try { vBg.currentTime = 0; } catch (_) {}
   try { vBg.playbackRate = clampRate((Number(bgRate) > 0 ? bgRate : 1) * curSpeed); } catch (_) {}
-  vBg.play().catch(next);
+  playEl(vBg, next);
 }
 function startBg(bg) {
   bgClips = Array.isArray(bg.clips) ? bg.clips.filter(Boolean) : [];
