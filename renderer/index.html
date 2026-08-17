@@ -1593,6 +1593,17 @@
                     <label><input id="scHideCreator" type="checkbox" /> Ẩn Creator</label>
                   </div>
                 </div>
+                <div class="fld full" title="Chỉ áp kiểu KÊU GỌI — khung lồng quanh avatar, dùng chung bộ khung của 🏅 VINH DANH">Khung avatar · KÊU GỌI
+                  <button type="button" id="scCardFrameBtn" class="sc-framebtn" title="Bấm để mở danh sách khung">
+                    <span class="mvp-skin-thumb">
+                      <img class="mvp-skin-ava" src="mvp-frames/avatar.png" alt="" onerror="this.style.visibility='hidden'" />
+                      <img class="mvp-skin-frame" id="scCardFrameImg" alt="" hidden />
+                    </span>
+                    <span class="sc-framebtn-label" id="scCardFrameLabel">🎲 Ngẫu nhiên mỗi phiên</span>
+                    <span class="sc-framebtn-cta">Đổi ›</span>
+                  </button>
+                  <input id="scCardFrame" type="hidden" value="" />
+                </div>
                 <input id="scCompact" type="checkbox" hidden />
                 <input id="scShowGiftUser" type="checkbox" hidden />
                 <input id="scShowTopUsers" type="checkbox" hidden />
@@ -3211,6 +3222,21 @@
         </button>
       </footer>
     </main>
+  </div>
+
+  <!-- ===== Frame Picker modal (chọn khung avatar — đặt CUỐI body để Esc đóng đúng lớp trên cùng) ===== -->
+  <div id="framePicker" class="gp-overlay fp-overlay">
+    <div class="gp-modal" role="dialog" aria-labelledby="fpTitle">
+      <header class="gp-head">
+        <h3 id="fpTitle">🖼️ Chọn khung avatar</h3>
+        <span class="gp-count" id="fpCount"></span>
+        <button id="fpClose" class="gp-close-btn" type="button" aria-label="Đóng" title="Đóng (Esc)">✕</button>
+      </header>
+      <div class="gp-search">
+        <input id="fpQuery" type="text" placeholder="🔎 Lọc theo số khung… (vd 12)" autocomplete="off" />
+      </div>
+      <div class="mvp-skins fp-grid" id="fpGrid"></div>
+    </div>
   </div>
 
   <script src="obs-reset.js"></script>

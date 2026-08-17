@@ -111,11 +111,19 @@ let lastTop1Id = '';        // THỜI GIAN #2: theo dõi TOP1 để phát hiện
 let lastResultKey = '';     // THỜI GIAN #5: chốt điểm hoành tráng chỉ bắn 1 lần/phiên
 let lastTickSec = -1;       // THỜI GIAN #4: tiếng "tick" 10s cuối, mỗi giây 1 lần
 
-// 🖼️ KHUNG avatar (KÊU GỌI) — ngẫu nhiên 1 trong 41 khung của 🏅 Vinh danh (mvp-frames/1..41.png, cùng tỷ lệ 1.25).
-// Chọn LẠI mỗi PHIÊN CHẠY MỚI (đổi theo runKey), giữ nguyên trong suốt 1 phiên để KHÔNG nháy khi dựng lại DOM.
+// 🖼️ KHUNG avatar (KÊU GỌI) — dùng chung bộ khung của 🏅 Vinh danh (mvp-frames/1..41.png, cùng tỷ lệ 1.25).
+// state.cardFrame:  '' = 🎲 NGẪU NHIÊN (bốc lại mỗi PHIÊN CHẠY MỚI theo runKey, giữ nguyên trong phiên để KHÔNG nháy
+// khi dựng lại DOM) · 'none' = không khung · 'mvp-frames/N.png' = khung CỐ ĐỊNH do người dùng chọn trong Cài đặt.
 const CARD_FRAME_COUNT = 41;
 function pickCardFrame() { return `/mvp-frames/${1 + Math.floor(Math.random() * CARD_FRAME_COUNT)}.png`; }
 let cardFrameSrc = pickCardFrame();
+// Khung thực sự vẽ ra: ưu tiên lựa chọn cố định, rơi về khung ngẫu nhiên của phiên. '' = không vẽ khung.
+function resolveCardFrame(state) {
+  const want = String(state?.cardFrame || '').trim();
+  if (want === 'none') return '';
+  if (!want) return cardFrameSrc;
+  return want.startsWith('/') ? want : `/${want}`;
+}
 
 // Tiếng "tick" 10s cuối bằng WebAudio (không cần file). secLeft ≤ 3 kêu gấp/cao hơn.
 let _actx = null;
@@ -253,7 +261,7 @@ function buildStructure(state, v) {
       <div class="sc-fx-spotlight" aria-hidden="true"></div>
       <div class="sc-tab"><span class="sc-tab-text"></span></div>
       <div class="sc-card-mid">
-        ${state.hideAvatar ? '' : `<div class="sc-fx-aura" aria-hidden="true"></div><div class="sc-card-avwrap"><div class="sc-card-avatar"><img class="score-avatar-img" onerror="this.onerror=null;this.src='/logo.png'" /></div><img class="sc-card-frame" src="${cardFrameSrc}" alt="" aria-hidden="true" onerror="this.style.display='none'" /></div>`}
+        ${state.hideAvatar ? '' : `<div class="sc-fx-aura" aria-hidden="true"></div><div class="sc-card-avwrap"><div class="sc-card-avatar"><img class="score-avatar-img" onerror="this.onerror=null;this.src='/logo.png'" /></div>${v.frame ? `<img class="sc-card-frame" src="${v.frame}" alt="" aria-hidden="true" onerror="this.style.display='none'" />` : ''}</div>`}
         <div class="sc-card-clock"><span class="score-time-text sc-clock-text"></span></div>
         ${v.kpiX2 ? `<div class="sc-card-kpi2"><span class="score-points-x2"></span></div>` : ''}
       </div>
@@ -358,8 +366,9 @@ function render(state = {}) {
     playedX2 = false;
     failedStatusText = FAILED_STATUS_TEXTS[0];
     lastRenderedScore = 0;
-    cardFrameSrc = pickCardFrame();   // phiên mới → bốc khung avatar mới cho thẻ KÊU GỌI
+    cardFrameSrc = pickCardFrame();   // phiên mới → bốc khung avatar mới cho thẻ KÊU GỌI (chỉ dùng khi để 🎲 Ngẫu nhiên)
   }
+  const frameSrc = resolveCardFrame(state);
   if (status === 'failed' && lastStatus !== 'failed') {
     failedStatusText = FAILED_STATUS_TEXTS[Math.floor(Math.random() * FAILED_STATUS_TEXTS.length)];
   }
@@ -487,10 +496,10 @@ function render(state = {}) {
   root.style.setProperty('--score-result-glow', alphaHex(c1, .5));
 
   // Chỉ dựng lại khung khi khung xương đổi — thay vì mỗi 250ms (nguyên nhân restart animation → nhấp nháy).
-  const structKey = `${status}|${state.hideAvatar ? 1 : 0}|${state.hideCreator ? 1 : 0}|${over > 0 ? 1 : 0}|${showRunner ? 1 : 0}|${kpiX2 ? 1 : 0}|${showRemaining ? 1 : 0}|${layoutMode}|${hasContent ? 1 : 0}|${showTop5 ? 1 : 0}|${fogOn ? 1 : 0}`;
+  const structKey = `${status}|${state.hideAvatar ? 1 : 0}|${state.hideCreator ? 1 : 0}|${over > 0 ? 1 : 0}|${showRunner ? 1 : 0}|${kpiX2 ? 1 : 0}|${showRemaining ? 1 : 0}|${layoutMode}|${hasContent ? 1 : 0}|${showTop5 ? 1 : 0}|${fogOn ? 1 : 0}|${frameSrc ? 1 : 0}`;
   if (structKey !== lastStructKey) {
     lastStructKey = structKey;
-    buildStructure(state, { iconOff, over, activeRunner, showRunner, kpiX2, showRemaining, cardLayout, timerLayout, hasContent, showTop5, fog: fogOn, ended: ['success', 'failed'].includes(status) });
+    buildStructure(state, { iconOff, over, activeRunner, showRunner, kpiX2, showRemaining, cardLayout, timerLayout, hasContent, showTop5, fog: fogOn, frame: frameSrc, ended: ['success', 'failed'].includes(status) });
   }
 
   // Cập nhật tại chỗ (không dựng lại DOM → animation chạy liền mạch)
@@ -581,8 +590,9 @@ function render(state = {}) {
   if (els.overVal) els.overVal.textContent = fmt(over);
   if (els.creator) { els.creator.textContent = shortCreator; els.creator.title = creator; }
   if (els.avatarImg && avatar && els.avatarImg.getAttribute('src') !== avatar) els.avatarImg.src = avatar;
-  // KHUNG avatar (KÊU GỌI): đổi src khi phiên mới bốc khung khác — cập nhật tại chỗ, khỏi chờ dựng lại DOM.
-  if (els.cardFrame && els.cardFrame.getAttribute('src') !== cardFrameSrc) { els.cardFrame.style.display = ''; els.cardFrame.src = cardFrameSrc; }
+  // KHUNG avatar (KÊU GỌI): đổi src khi phiên mới bốc khung khác / người dùng chọn khung khác trong Cài đặt
+  // — cập nhật tại chỗ, khỏi chờ dựng lại DOM. (Bỏ khung hẳn thì structKey đã lo gỡ thẻ <img>.)
+  if (els.cardFrame && frameSrc && els.cardFrame.getAttribute('src') !== frameSrc) { els.cardFrame.style.display = ''; els.cardFrame.src = frameSrc; }
   if (els.pop) {
     const hasGift = !!state.lastAdd && ['running', 'grace'].includes(status);
     els.pop.className = `score-pop${big ? ' big' : ''}${runnerAtStart ? ' at-start' : ''}${hasGift ? ' has-gift' : ' no-gift'}${showRunnerAvatar ? ' has-avatar' : ''}${showRunnerGift ? ' has-gifticon' : ''}`;

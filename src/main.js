@@ -3823,6 +3823,9 @@ class ScoreEngine {
       barStyle: 'pill',
       cardLayout: false, // (cũ, giữ tương thích) false = Thanh ngang · true = Thẻ HUD góc
       scoreLayout: 'bar', // KIỂU: 'bar' ĐƯỜNG ĐUA · 'card' KÊU GỌI · 'timer' THỜI GIAN
+      // 🖼️ KÊU GỌI: khung avatar (bộ khung dùng chung với 🏅 VINH DANH).
+      // '' = 🎲 ngẫu nhiên mỗi phiên (mặc định cũ) · 'none' = không khung · 'mvp-frames/N.png' = cố định.
+      cardFrame: '',
       timerTop5: true, // THỜI GIAN: hiện cụm TOP 5 người tặng (avatar nửa chồng nhau) ở góc trên
       timerTailColor: '#a15cf0', // THỜI GIAN: màu lem cuối thanh (trong suốt dần về đồng hồ)
       timerFinalTick: true, // THỜI GIAN: tiếng "tick" 10 giây cuối

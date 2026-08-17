@@ -1051,6 +1051,70 @@ const GiftPicker = (() => {
   return { open, close, bind };
 })();
 
+// ============================================================
+// Frame Picker — chọn KHUNG avatar (dùng chung bộ khung của 🏅 VINH DANH)
+// Cùng khuôn với GiftPicker: open() trả Promise, resolve giá trị đã chọn hoặc null khi huỷ.
+// Giá trị: '' = 🎲 ngẫu nhiên · 'none' = không khung · 'mvp-frames/N.png' = khung cố định.
+// ============================================================
+const FramePicker = (() => {
+  let resolver = null;
+  let bound = false;
+  let current = '';
+
+  function open(opts = {}) {
+    if (!bound) bind();
+    return new Promise((resolve) => {
+      resolver = resolve;
+      current = String(opts.value || '');
+      $('#framePicker')?.classList.add('is-open');
+      if ($('#fpTitle')) $('#fpTitle').textContent = opts.title || '🖼️ Chọn khung avatar';
+      if ($('#fpCount')) $('#fpCount').textContent = `${MVP_FRAMES.length} khung`;
+      if ($('#fpQuery')) $('#fpQuery').value = '';
+      setTimeout(() => $('#fpQuery')?.focus(), 50);
+      render();
+    });
+  }
+  function close(value) {
+    $('#framePicker')?.classList.remove('is-open');
+    const r = resolver; resolver = null;
+    if (r) r(value === undefined ? null : value);
+  }
+  function isOpen() { return $('#framePicker')?.classList.contains('is-open'); }
+  function tile(val, label, num, extraCls) {
+    const sel = val === current ? ' sel' : '';
+    const frameImg = val && val !== 'none'
+      ? `<img class="mvp-skin-frame" src="${escapeAttr(val)}" alt="" onerror="this.closest('.mvp-skin')?.classList.add('broken')" />` : '';
+    return `<button type="button" class="mvp-skin${extraCls ? ' ' + extraCls : ''}${sel}" data-fp-frame="${escapeAttr(val)}" title="${escapeAttr(label)}">`
+      + `<span class="mvp-skin-thumb"><img class="mvp-skin-ava" src="mvp-frames/avatar.png" alt="" onerror="this.style.visibility='hidden'" />${frameImg}</span>`
+      + `<span class="mvp-skin-num">${escapeHtml(num)}</span></button>`;
+  }
+  function render() {
+    const box = $('#fpGrid'); if (!box) return;
+    const q = ($('#fpQuery')?.value || '').replace(/\D+/g, '');
+    const list = MVP_FRAMES.map((f, i) => ({ f, num: i + 1 })).filter(x => !q || String(x.num).includes(q));
+    // 2 ô đặc biệt chỉ hiện khi KHÔNG lọc số (giống bộ chọn khung của VINH DANH)
+    const specials = q ? '' : tile('', '🎲 Ngẫu nhiên mỗi phiên', '🎲', 'no-frame') + tile('none', 'Không khung', '∅', 'no-frame');
+    const tiles = list.map(({ f, num }) => tile(f, `Khung ${num}`, String(num))).join('');
+    box.innerHTML = (specials + tiles) || '<div class="mvp-hint">Không có khung khớp số.</div>';
+    box.querySelectorAll('[data-fp-frame]').forEach(b => b.addEventListener('click', () => close(b.dataset.fpFrame)));
+  }
+  function bind() {
+    if (bound) return;
+    const overlay = $('#framePicker'); if (!overlay) return;
+    $('#fpClose')?.addEventListener('click', (e) => { e.preventDefault(); close(null); });
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(null); });
+    $('#fpQuery')?.addEventListener('input', render);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen()) { e.preventDefault(); close(null); }
+    });
+    bound = true;
+  }
+  if (document.readyState !== 'loading') bind();
+  else document.addEventListener('DOMContentLoaded', bind);
+
+  return { open, close, bind };
+})();
+
 async function loadGiftMaster() {
   const r = await window.api.gifts.list();
   giftMaster = r.gifts || [];
@@ -10622,6 +10686,7 @@ async function loadScoreConfig() {
   $('#scBarStyle').value = st.barStyle || 'pill';
   if ($('#scLayout')) $('#scLayout').value = ['bar', 'card', 'timer'].includes(st.scoreLayout) ? st.scoreLayout : (st.cardLayout ? 'card' : 'bar');
   $('#scCompact').checked = false;
+  if ($('#scCardFrame')) { $('#scCardFrame').value = String(st.cardFrame || ''); syncScoreCardFrameBtn(); }
   $('#scHideAvatar').checked = !!st.hideAvatar;
   $('#scHideCreator').checked = !!st.hideCreator;
   if ($('#scColorByProgress')) $('#scColorByProgress').checked = !!st.colorByProgress;
@@ -10707,6 +10772,7 @@ function collectScoreCfg() {
     barStyle: $('#scBarStyle').value,
     scoreLayout: ['bar', 'card', 'timer'].includes($('#scLayout')?.value) ? $('#scLayout').value : 'bar',
     cardLayout: $('#scLayout')?.value === 'card', // giữ đồng bộ cho cấu hình/preview đời cũ
+    cardFrame: String($('#scCardFrame')?.value || ''), // '' = 🎲 ngẫu nhiên · 'none' = không khung · 'mvp-frames/N.png'
     compactMode: false,
     hideAvatar: $('#scHideAvatar').checked,
     hideCreator: $('#scHideCreator').checked,
@@ -10820,6 +10886,19 @@ async function syncScoreSelectToVote(c) {
   await applyAutoTargetForVote({ ...fresh, voteActive: true });
 }
 
+// Nhãn + thumbnail của nút chọn KHUNG avatar (KÊU GỌI) theo giá trị đang lưu ở ô ẩn #scCardFrame.
+function syncScoreCardFrameBtn() {
+  const v = String($('#scCardFrame')?.value || '');
+  const img = $('#scCardFrameImg');
+  const label = $('#scCardFrameLabel');
+  if (label) label.textContent = v === 'none' ? '∅ Không khung' : v ? `🖼️ Khung ${v.replace(/^.*\/(\d+)\.png$/i, '$1')}` : '🎲 Ngẫu nhiên mỗi phiên';
+  if (img) {
+    const show = !!v && v !== 'none';
+    img.hidden = !show;
+    if (show && img.getAttribute('src') !== v) img.src = v;
+  }
+}
+
 const _scoreSaver = makeAutoSaver(() => window.api.score.setConfig(collectScoreCfg()).catch(() => {}));
 function scheduleScoreAutoSave() { _scoreSaver.schedule(); }
 
@@ -10885,6 +10964,14 @@ function wireScoreTab() {
   $('#scBorderOpacity')?.addEventListener('input', () => { $('#scBorderOpacityValue').textContent = `${$('#scBorderOpacity').value}%`; scheduleScoreAutoSave(); });
   $('#scBorderWidth')?.addEventListener('input', () => { $('#scBorderWidthValue').textContent = `${$('#scBorderWidth').value}px`; scheduleScoreAutoSave(); });
   $('#scCardBgOpacity')?.addEventListener('input', () => { $('#scCardBgOpacityValue').textContent = `${$('#scCardBgOpacity').value}%`; scheduleScoreAutoSave(); });
+  // 🖼️ Khung avatar (KÊU GỌI): bấm thumbnail → popup lưới khung (giống bấm chọn icon quà)
+  $('#scCardFrameBtn')?.addEventListener('click', async () => {
+    const picked = await FramePicker.open({ value: $('#scCardFrame')?.value || '', title: '🖼️ Khung avatar · KÊU GỌI' });
+    if (picked === null) return; // huỷ (Esc / bấm nền)
+    if ($('#scCardFrame')) $('#scCardFrame').value = picked;
+    syncScoreCardFrameBtn();
+    scheduleScoreAutoSave();
+  });
   ['scPrep','scDelay','scTheme','scSize','scBarStyle','scLayout','scContent','scHideAvatar','scHideCreator','scColorByProgress','scFogHide','scKpiX2','scKpiMult','scShowRemaining','scFxGlowBorder','scFxGlass','scFxSparkle','scFxSpotlight','scFxAvatarAura','scFxScoreBounce','scFxFloatPoints','scFxCardBreathe','scFxLiquid','scRunnerForcePink','scRunnerDust','scTimerTop5','scTimerTail','scTimerFinalTick','scBorderColor','scTimeColor','scScoreFontSize','scContentColor','scOverColor','scBarColor1','scBarColor2','scWaveColor','scSkin'].forEach(id => {
     const el = $('#' + id);
     if (!el) return;
