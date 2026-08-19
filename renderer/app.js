@@ -1258,8 +1258,10 @@ const MusicQueue = (() => {
   const streaks = new Map(); // giftId -> mốc hết chuỗi (Date.now ms)
   function streakGameOn() { return !!(typeof stickerCfg !== 'undefined' && stickerCfg && stickerCfg.streakEnabled); }
   function stealOn() { return streakGameOn() && stickerCfg && stickerCfg.streakSteal !== false; }
-  function streakMs() { return Math.max(1, Math.min(120, Number(stickerCfg?.streakSeconds) || 10)) * 1000; }
+  function streakMs() { return Math.max(1, Math.min(120, Number(stickerCfg?.streakSeconds) || 30)) * 1000; }
   function refreshStreak(giftId) { if (!giftId) return; streaks.set(String(giftId), Date.now() + streakMs()); pushStreakState(); }
+  // Xoá sạch máu chuỗi (dùng khi "Reset số đếm" — thanh máu cũ không được sống sót qua lần reset).
+  function clearStreaks() { streaks.clear(); pushStreakState(); }
   function pushStreakState() {
     const obj = {}; streaks.forEach((v, k) => { obj[k] = v; });
     window.api.stickerdance.signal({ type: 'streak', streaks: obj }).catch(() => {});
@@ -1501,7 +1503,7 @@ const MusicQueue = (() => {
   function wantsDuck() { return !!(current && effectiveDuck(current)); }
   function setOnChange(fn) { onChange = fn || (() => {}); }
   function notify() { try { onChange(state()); } catch {} }
-  return { enqueue, skipCurrent, shuffle, clearAll, stopAll, clearCount, removeUid, bumpGiftToTop, state, wantsDuck, setOnChange, pushStreak: pushStreakState, onVideoEnded, setSpeedFactor, setPaused, togglePause, isPaused };
+  return { enqueue, skipCurrent, shuffle, clearAll, stopAll, clearCount, removeUid, bumpGiftToTop, state, wantsDuck, setOnChange, pushStreak: pushStreakState, clearStreaks, onVideoEnded, setSpeedFactor, setPaused, togglePause, isPaused };
 })();
 
 // (Đã gộp video vào MusicQueue — không còn hàng đợi video riêng. Video & mp3 phát LẦN LƯỢT chung 1 danh sách.)
@@ -2669,7 +2671,7 @@ function normalizeStickerCfg(c) {
       target: Math.max(0, Number(x.target) || 0), special: !!x.special,
     })) : [],
     bg: /^#[0-9a-f]{6}$/i.test(c.bg) ? c.bg : '#2b2f3a',
-    bgOpacity: clampInt(c.bgOpacity, 55, 0, 100),
+    bgOpacity: clampInt(c.bgOpacity, 60, 0, 100),
     iconSize: clampInt(c.iconSize, 66, 36, 140),
     textSize: clampInt(c.textSize, 14, 8, 40),
     overlayScale: clampInt(c.overlayScale, 100, 20, 400),
@@ -2678,33 +2680,43 @@ function normalizeStickerCfg(c) {
     rowGap: clampInt(c.rowGap, clampInt(c.gap, 14, 0, 80), -120, 120),
     animIcon: c.animIcon !== false,
     enlargeTop: c.enlargeTop !== false,
-    perfBg: ['none', 'gold', 'pink', 'blue', 'dark'].includes(c.perfBg) ? c.perfBg : 'gold',
-    perfBorder: ['none', 'glow', 'neon', 'rainbow', 'ring'].includes(c.perfBorder) ? c.perfBorder : 'glow',
+    cellStyle: c.cellStyle === 'classic' ? 'classic' : 'tiktok',
+    perfBg: ['none', 'random', 'gold', 'pink', 'blue', 'dark', 'violet', 'emerald', 'crimson', 'ocean', 'sunset', 'custom'].includes(c.perfBg) ? c.perfBg : 'random',
+    perfBgColor: /^#[0-9a-f]{6}$/i.test(String(c.perfBgColor || '')) ? c.perfBgColor : '#7a3bff',
+    perfBorder: ['none', 'glow', 'neon', 'rainbow', 'ring', 'comet'].includes(c.perfBorder) ? c.perfBorder : 'comet',
+    perfPreset: typeof c.perfPreset === 'string' ? c.perfPreset : '', // chỉ để NHỚ cho dropdown Chủ đề
     perfName: ['random', 'pill', 'metal', 'rainbow', 'eq', 'lights'].includes(c.perfName) ? c.perfName : 'random',
-    perfSparkle: !!c.perfSparkle,
+    perfSparkle: c.perfSparkle !== false,   // mặc định BẬT (đẹp & dễ nhìn), tắt tay vẫn nhớ
     perfRipple: !!c.perfRipple,
     perfShine: !!c.perfShine,
-    perfNotes: !!c.perfNotes,
+    perfNotes: c.perfNotes !== false,
     showMedals: c.showMedals !== false,
     showCrown: c.showCrown !== false,
     showLevelUp: c.showLevelUp !== false,
     eggWhenZero: c.eggWhenZero !== false,
-    eggSize: clampInt(c.eggSize, 85, 40, 140),
+    eggSize: clampInt(c.eggSize, 40, 40, 140),
     eggSkin: ['ivory', 'gold', 'pink', 'blue', 'dino'].includes(c.eggSkin) ? c.eggSkin : 'ivory',
     eggSkinRandom: !!c.eggSkinRandom,
+    specialSkin: ['random', 'bubble', 'halo', 'flame', 'ice', 'star', 'galaxy', 'podium3d', 'orb3d', 'ring3d', 'spotlight', 'aurora', 'none'].includes(c.specialSkin) ? c.specialSkin : 'random',
     streakEnabled: !!c.streakEnabled,
-    streakSeconds: clampInt(c.streakSeconds, 10, 1, 120),
+    streakSeconds: clampInt(c.streakSeconds, 30, 1, 120),
     streakSteal: c.streakSteal !== false,
-    streakBarColor: ['tiktok', 'blue', 'health'].includes(c.streakBarColor) ? c.streakBarColor : 'tiktok',
+    streakBarColor: ['tiktok', 'blue', 'health', 'gold'].includes(c.streakBarColor) ? c.streakBarColor : 'tiktok',
   };
 }
-// Gói chủ đề: set nhanh cả bộ hiệu ứng ô đang biểu diễn.
+// Bộ hiệu ứng "luôn bật" — đẹp & dễ nhìn ở MỌI chủ đề: viền đốm sáng chạy vòng quanh,
+// hạt lấp lánh, nốt nhạc bay. Mọi gói chủ đề đều bị đè bằng bộ này (xem STICKER_PRESETS);
+// còn Vòng sáng / Tia sáng / Nền / Tên đang diễn thì tuỳ người dùng chọn và tự lưu.
+const STICKER_PERF_ALWAYS = { perfBorder: 'comet', perfSparkle: true, perfNotes: true };
+// Gói chủ đề: set nhanh cả bộ hiệu ứng ô đang biểu diễn. Mỗi gói chỉ còn khác nhau ở
+// Nền + Vòng sáng + Tia sáng; 3 mục trong STICKER_PERF_ALWAYS luôn giữ nguyên.
 const STICKER_PRESETS = {
-  party:   { perfBg: 'pink', perfBorder: 'rainbow', perfSparkle: true,  perfRipple: true,  perfShine: false, perfNotes: true  },
-  luxury:  { perfBg: 'gold', perfBorder: 'glow',    perfSparkle: true,  perfRipple: false, perfShine: true,  perfNotes: false },
-  neon:    { perfBg: 'dark', perfBorder: 'neon',    perfSparkle: false, perfRipple: true,  perfShine: true,  perfNotes: false },
-  music:   { perfBg: 'blue', perfBorder: 'ring',    perfSparkle: true,  perfRipple: false, perfShine: false, perfNotes: true  },
-  minimal: { perfBg: 'none', perfBorder: 'glow',    perfSparkle: false, perfRipple: false, perfShine: false, perfNotes: false },
+  party:   { perfBg: 'pink', perfRipple: true,  perfShine: false, ...STICKER_PERF_ALWAYS },
+  luxury:  { perfBg: 'gold', perfRipple: false, perfShine: true,  ...STICKER_PERF_ALWAYS },
+  neon:    { perfBg: 'dark', perfRipple: true,  perfShine: true,  ...STICKER_PERF_ALWAYS },
+  music:   { perfBg: 'blue', perfRipple: false, perfShine: false, ...STICKER_PERF_ALWAYS },
+  // Bám sát thanh quà TikTok: ô gọn (tên trong nền), thanh chuỗi vàng, nền NGẪU NHIÊN mỗi lượt diễn.
+  tiktok:  { cellStyle: 'tiktok', streakBarColor: 'gold', perfBg: 'random', perfRipple: false, perfShine: false, ...STICKER_PERF_ALWAYS },
 };
 // ===== Sticker Dance theo NHÓM =====
 // stickerGroupId: nhóm mà stickerCfg đang hiển thị ('' = TALENT SHOW dùng file gốc).
@@ -2865,7 +2877,11 @@ function applyStickerCfgToInputs() {
   set('sdBg', stickerCfg.bg); set('sdBgOpacity', stickerCfg.bgOpacity);
   if ($('#sdAnimIcon')) $('#sdAnimIcon').checked = stickerCfg.animIcon !== false;
   if ($('#sdEnlargeTop')) $('#sdEnlargeTop').checked = stickerCfg.enlargeTop !== false;
+  set('sdCellStyle', stickerCfg.cellStyle);
   set('sdPerfBg', stickerCfg.perfBg); set('sdPerfBorder', stickerCfg.perfBorder); set('sdPerfName', stickerCfg.perfName);
+  set('sdPerfBgColor', stickerCfg.perfBgColor);
+  // Dropdown Chủ đề GIỮ tên chủ đề vừa chọn; chỉnh tay 1 mục hiệu ứng thì tự trả về "— Chọn nhanh —".
+  set('sdPerfPreset', STICKER_PRESETS[stickerCfg.perfPreset] ? stickerCfg.perfPreset : '');
   const chk = (id, v) => { const el = $('#' + id); if (el) el.checked = !!v; };
   chk('sdPerfSparkle', stickerCfg.perfSparkle);
   chk('sdPerfRipple', stickerCfg.perfRipple);
@@ -2877,6 +2893,7 @@ function applyStickerCfgToInputs() {
   chk('sdEggZero', stickerCfg.eggWhenZero !== false);
   set('sdEggSize', stickerCfg.eggSize);
   set('sdEggSkin', stickerCfg.eggSkin);
+  set('sdSpecialSkin', stickerCfg.specialSkin);
   chk('sdEggSkinRandom', !!stickerCfg.eggSkinRandom);
   if ($('#sdEggSkin')) $('#sdEggSkin').disabled = !!stickerCfg.eggSkinRandom;
   chk('sdStreakEnabled', stickerCfg.streakEnabled);
@@ -2898,37 +2915,55 @@ function wireStickerDanceTab() {
   $('#sdColGap')?.addEventListener('input', () => { stickerCfg.colGap = clampInt($('#sdColGap').value, 14, 0, 120); scheduleStickerSave(); });
   $('#sdRowGap')?.addEventListener('input', () => { stickerCfg.rowGap = clampInt($('#sdRowGap').value, 0, -120, 120); scheduleStickerSave(); });
   $('#sdBg')?.addEventListener('input', () => { stickerCfg.bg = $('#sdBg').value; scheduleStickerSave(); });
-  $('#sdBgOpacity')?.addEventListener('input', () => { stickerCfg.bgOpacity = clampInt($('#sdBgOpacity').value, 55, 0, 100); scheduleStickerSave(); });
+  $('#sdBgOpacity')?.addEventListener('input', () => { stickerCfg.bgOpacity = clampInt($('#sdBgOpacity').value, 60, 0, 100); scheduleStickerSave(); });
   $('#sdAnimIcon')?.addEventListener('change', () => { stickerCfg.animIcon = $('#sdAnimIcon').checked; scheduleStickerSave(); });
   $('#sdEnlargeTop')?.addEventListener('change', () => { stickerCfg.enlargeTop = $('#sdEnlargeTop').checked; scheduleStickerSave(); });
-  $('#sdPerfBg')?.addEventListener('change', () => { stickerCfg.perfBg = $('#sdPerfBg').value; scheduleStickerSave(); });
-  $('#sdPerfBorder')?.addEventListener('change', () => { stickerCfg.perfBorder = $('#sdPerfBorder').value; scheduleStickerSave(); });
+  $('#sdCellStyle')?.addEventListener('change', () => { stickerCfg.cellStyle = $('#sdCellStyle').value === 'tiktok' ? 'tiktok' : 'classic'; scheduleStickerSave(); });
+  // Chỉnh TAY bất kỳ mục hiệu ứng nào → tên chủ đề trên dropdown không còn đúng, trả về "— Chọn nhanh —".
+  const clearPerfPreset = () => { stickerCfg.perfPreset = ''; const el = $('#sdPerfPreset'); if (el) el.value = ''; };
+  $('#sdPerfBg')?.addEventListener('change', () => { stickerCfg.perfBg = $('#sdPerfBg').value; clearPerfPreset(); scheduleStickerSave(); });
+  // Ô chấm màu LUÔN bấm được: chấm màu trước rồi chọn Nền = "Tự chọn màu" cũng áp đúng.
+  $('#sdPerfBgColor')?.addEventListener('input', () => { stickerCfg.perfBgColor = $('#sdPerfBgColor').value; scheduleStickerSave(); });
+  $('#sdPerfBorder')?.addEventListener('change', () => { stickerCfg.perfBorder = $('#sdPerfBorder').value; clearPerfPreset(); scheduleStickerSave(); });
   $('#sdPerfName')?.addEventListener('change', () => { stickerCfg.perfName = $('#sdPerfName').value; scheduleStickerSave(); });
-  $('#sdPerfSparkle')?.addEventListener('change', () => { stickerCfg.perfSparkle = $('#sdPerfSparkle').checked; scheduleStickerSave(); });
-  $('#sdPerfRipple')?.addEventListener('change', () => { stickerCfg.perfRipple = $('#sdPerfRipple').checked; scheduleStickerSave(); });
-  $('#sdPerfShine')?.addEventListener('change', () => { stickerCfg.perfShine = $('#sdPerfShine').checked; scheduleStickerSave(); });
-  $('#sdPerfNotes')?.addEventListener('change', () => { stickerCfg.perfNotes = $('#sdPerfNotes').checked; scheduleStickerSave(); });
+  $('#sdPerfSparkle')?.addEventListener('change', () => { stickerCfg.perfSparkle = $('#sdPerfSparkle').checked; clearPerfPreset(); scheduleStickerSave(); });
+  $('#sdPerfRipple')?.addEventListener('change', () => { stickerCfg.perfRipple = $('#sdPerfRipple').checked; clearPerfPreset(); scheduleStickerSave(); });
+  $('#sdPerfShine')?.addEventListener('change', () => { stickerCfg.perfShine = $('#sdPerfShine').checked; clearPerfPreset(); scheduleStickerSave(); });
+  $('#sdPerfNotes')?.addEventListener('change', () => { stickerCfg.perfNotes = $('#sdPerfNotes').checked; clearPerfPreset(); scheduleStickerSave(); });
   $('#sdShowMedals')?.addEventListener('change', () => { stickerCfg.showMedals = $('#sdShowMedals').checked; scheduleStickerSave(); });
   $('#sdShowCrown')?.addEventListener('change', () => { stickerCfg.showCrown = $('#sdShowCrown').checked; scheduleStickerSave(); });
   $('#sdShowLevelUp')?.addEventListener('change', () => { stickerCfg.showLevelUp = $('#sdShowLevelUp').checked; scheduleStickerSave(); });
   $('#sdEggZero')?.addEventListener('change', () => { stickerCfg.eggWhenZero = $('#sdEggZero').checked; scheduleStickerSave(); });
-  $('#sdEggSize')?.addEventListener('input', () => { stickerCfg.eggSize = clampInt($('#sdEggSize').value, 85, 40, 140); scheduleStickerSave(); });
+  $('#sdEggSize')?.addEventListener('input', () => { stickerCfg.eggSize = clampInt($('#sdEggSize').value, 40, 40, 140); scheduleStickerSave(); });
   $('#sdEggSkin')?.addEventListener('change', () => { stickerCfg.eggSkin = $('#sdEggSkin').value; scheduleStickerSave(); });
+  $('#sdSpecialSkin')?.addEventListener('change', () => { stickerCfg.specialSkin = $('#sdSpecialSkin').value; scheduleStickerSave(); });
   $('#sdEggSkinRandom')?.addEventListener('change', () => { stickerCfg.eggSkinRandom = $('#sdEggSkinRandom').checked; if ($('#sdEggSkin')) $('#sdEggSkin').disabled = stickerCfg.eggSkinRandom; scheduleStickerSave(); });
   $('#sdStreakEnabled')?.addEventListener('change', () => { stickerCfg.streakEnabled = $('#sdStreakEnabled').checked; scheduleStickerSave(); MusicQueue.pushStreak(); });
-  $('#sdStreakSeconds')?.addEventListener('change', () => { stickerCfg.streakSeconds = clampInt($('#sdStreakSeconds').value, 10, 1, 120); $('#sdStreakSeconds').value = stickerCfg.streakSeconds; scheduleStickerSave(); });
+  $('#sdStreakSeconds')?.addEventListener('change', () => { stickerCfg.streakSeconds = clampInt($('#sdStreakSeconds').value, 30, 1, 120); $('#sdStreakSeconds').value = stickerCfg.streakSeconds; scheduleStickerSave(); });
   $('#sdStreakSteal')?.addEventListener('change', () => { stickerCfg.streakSteal = $('#sdStreakSteal').checked; scheduleStickerSave(); });
   $('#sdStreakBarColor')?.addEventListener('change', () => { stickerCfg.streakBarColor = $('#sdStreakBarColor').value; scheduleStickerSave(); });
   $('#sdPerfPreset')?.addEventListener('change', (e) => {
-    const p = STICKER_PRESETS[e.target.value];
-    e.target.value = ''; // trả về "— Chọn nhanh —" vì trạng thái thật nằm ở từng ô
-    if (!p) return;
+    const name = e.target.value;
+    const p = STICKER_PRESETS[name];
+    // GIỮ tên chủ đề trên dropdown (trước đây tự trả về "— Chọn nhanh —" nên không biết đang dùng gói nào).
+    // Nhớ trong config để mở lại app vẫn thấy đúng; chỉnh tay 1 mục hiệu ứng là tự xoá (clearPerfPreset).
+    stickerCfg.perfPreset = p ? name : '';
+    if (!p) { scheduleStickerSave(); return; }
     Object.assign(stickerCfg, p);
     applyStickerCfgToInputs();
     scheduleStickerSave();
     toast('Đã áp dụng chủ đề hiệu ứng', 'success');
   });
-  $('#sdReset')?.addEventListener('click', async () => { await window.api.stickerdance.reset().catch(() => {}); toast('Đã reset số đếm Đập Trứng', 'success'); });
+  // ↺ Reset số đếm. Ở chế độ ĐẾM LÙI, số trên ô KHÔNG nằm trong engine mà là số lượt còn trong
+  // DANH SÁCH PHÁT (renderer đẩy sang qua pushStickerQueueCounts) → chỉ reset engine thì hết clip
+  // hàng đợi lại đẩy đúng số cũ sang, ô "hồi sinh". Vì vậy đếm lùi phải dọn luôn danh sách phát.
+  $('#sdReset')?.addEventListener('click', async () => {
+    const countdown = stickerCfg && stickerCfg.countMode === 'countdown';
+    if (countdown) MusicQueue.stopAll();   // dừng clip đang phát + xoá hàng chờ → pending về 0
+    MusicQueue.clearStreaks();             // xoá máu chuỗi còn sót (engine cũng tự xoá bên dưới)
+    await window.api.stickerdance.reset().catch(() => {});
+    toast(countdown ? 'Đã reset số đếm + xoá danh sách phát Đập Trứng' : 'Đã reset số đếm Đập Trứng', 'success');
+  });
   $('#sdCopyUrl')?.addEventListener('click', async () => { const url = await window.api.stickerdance.getUrl(); await window.api.shell.copyText(url); toast('Đã copy link OBS Đập Trứng', 'success'); });
   applyStickerCfgToInputs();
   renderStickerEditor();
@@ -5504,6 +5539,38 @@ async function activateLicenseFrom(inputId) {
 // Ra bản mới thì thêm mục vào đầu mảng và bỏ mục cuối (giữ đúng 3 thẻ).
 const RECENT_CHANGELOG = [
   {
+    ver: '0.1.89',
+    date: '20/08/2026',
+    title: 'ĐẬP TRỨNG: ô quà gọn kiểu TikTok, thanh giữ chuỗi mượt hẳn, thêm skin quà đặc biệt',
+    groups: [
+      {
+        name: '🥚 Ô quà gọn gàng & thẳng hàng',
+        items: [
+          'Thêm kiểu ô “TikTok” (mặc định): tên quà nằm luôn trong nền xám, số xu bọc trong viên thuốc tối nên nền đổi màu gì cũng đọc rõ, thanh thời lượng chạy gần trọn bề ngang sát đáy — cụm quà thấp và gọn hơn hẳn. Vẫn giữ kiểu “Cổ điển” cũ nếu bạn quen.',
+          'Ô đang là trứng và ô “Quà đặc biệt” nay cao BẰNG các ô thường, nên hàng icon quà luôn thẳng tắp. Kéo “Cỡ trứng” to quá thì trứng tràn lên đè icon chứ không đội nền xám lên làm lệch hàng nữa.',
+          'Ô “Quà đặc biệt” dùng chung nền xám như quà thường (bỏ viền màu vì bong bóng đã có vòng sáng riêng) — cả lưới nhìn cân đối hơn.',
+          'Số điểm căn giữa chính xác trong nền đen; tên quà 2 dòng không còn đẩy ô cao lệch.',
+        ],
+      },
+      {
+        name: '⏱️ Thanh “Thời lượng chuỗi” không còn đứng hình',
+        items: [
+          'Trước đây nguồn OBS bị ẩn (đổi cảnh) là thanh đứng im rồi nhảy giật khi hiện lại. Nay thanh chạy theo đồng hồ thật nên ẩn/hiện cảnh bao nhiêu lần vẫn đúng và mượt.',
+          'Mặc định thời lượng chuỗi đổi thành 30 giây.',
+        ],
+      },
+      {
+        name: '✨ Nhiều lựa chọn trang trí hơn',
+        items: [
+          'Nền ô đang biểu diễn: thêm Ngẫu nhiên (mặc định — mỗi lượt diễn một màu), Tím, Ngọc lục bảo, Đỏ ruby, Xanh đại dương, Hoàng hôn và Tự chọn màu.',
+          'Viền mới “Đốm sáng chạy vòng quanh” (mặc định) — một đốm sáng chạy trọn vòng mỗi giây, khác kiểu quay cả dải màu.',
+          'Thêm 11 skin cho ô “Quà đặc biệt”: bong bóng, hào quang, quầng lửa, tấm băng, tia sáng toả, xoáy thiên hà, và nhóm làm nền 3D (bệ tròn, cầu pha lê, vòng nghiêng, đèn sân khấu, cực quang) — nhóm làm nền nằm sau icon nên quà luôn rõ nét.',
+          'Dropdown “Chủ đề” giữ đúng tên gói bạn vừa chọn thay vì nhảy về “— Chọn nhanh —”.',
+        ],
+      },
+    ],
+  },
+  {
     ver: '0.1.88',
     date: '19/08/2026',
     title: 'Hết cảnh app tự đóng vì “Bản quyền bị thu hồi” + nhớ KEY khi cài lại',
@@ -5550,35 +5617,6 @@ const RECENT_CHANGELOG = [
         items: [
           'Popup cài đặt quà có sẵn ô link OBS của WEBM đang chọn: bấm COPY OBS để dán vào Nguồn Trình duyệt, hoặc bấm Review để xem thử.',
           'Đổi WEBM 1 / 2 / 3 ở dropdown thì link đổi theo, khỏi quay về trang LINK OVERLAY.',
-        ],
-      },
-    ],
-  },
-  {
-    ver: '0.1.84',
-    date: '15/08/2026',
-    title: 'Sương mù PK Nhóm giấu được thật + BXH cộng điểm đúng',
-    groups: [
-      {
-        name: '🌫️ PK Nhóm — sương mù 10 giây cuối',
-        items: [
-          'Thanh máu ĐỨNG IM suốt sương mù, điểm vẫn cộng bình thường phía sau — hết sương mới trượt tới giá trị thật (trước đây bố cục Gộp bị lộ bài vì thanh vẫn trôi).',
-          'Điểm chốt được chụp ở engine nên OBS / TikTok Studio / cửa sổ Review khớp nhau tuyệt đối, overlay reload giữa chừng cũng không lộ điểm.',
-          'Tắt mũi tên “vượt hạng” khi đang có sương mù (nó tính từ điểm thật nên báo thẳng ai vừa vượt lên).',
-          'Thêm màn LẬT BÀI 1.6 giây lúc tan sương; trong sương đẩy nhanh 260ms cho mượt.',
-        ],
-      },
-      {
-        name: '🏆 THI ĐẤU NHÓM',
-        items: [
-          'Cộng / trừ / sửa điểm chia đúng giữa điểm đã lưu và điểm LIVE chưa chốt — không còn tụt điểm sau khi bấm Tính điểm.',
-        ],
-      },
-      {
-        name: '✨ Khác',
-        items: [
-          'Màn chọn nhóm: số kim cương rút gọn theo bề rộng khung khi thu nhỏ cửa sổ (đưa chuột vào xem số đầy đủ), chip / avatar co theo 3 mức.',
-          'TÍNH ĐIỂM: kết quả không đạt hiện câu động viên ngẫu nhiên kèm emoji thay vì một câu cố định.',
         ],
       },
     ],

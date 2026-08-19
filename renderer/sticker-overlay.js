@@ -50,8 +50,24 @@ function pickEggSkin(prev) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// ---- SKIN vòng trang trí ô "QUÀ ĐẶC BIỆT" (thay quả bong bóng nước). 'random' bốc theo TỪNG Ô và
+// giữ ổn định chừng nào ô đó còn gắn cùng 1 quà (đổi quà mới bốc lại) → không nhấp nháy mỗi lần vẽ. ----
+const SPECIAL_SKINS = ['bubble', 'halo', 'flame', 'ice', 'star', 'galaxy', 'podium3d', 'orb3d', 'ring3d', 'spotlight', 'aurora'];
+const specialSkinByKey = new Map(); // key ô -> { giftId, skin }
+
 // ---- Kiểu NHÃN TÊN người ĐANG DIỄN (pill/metal/rainbow/eq/lights). Chế độ 'random' bốc 1 kiểu
 // khi ô VỪA vào diễn rồi GIỮ suốt lượt (không nhấp nháy mỗi frame vì render dựng lại innerHTML). ----
+// Nền ô đang biểu diễn. 'custom' lấy màu người dùng chấm (st.perfBgColor) qua biến --sd-perf;
+// 'random' (MẶC ĐỊNH) bốc 1 màu trong POOL mỗi khi ĐỔI quà lên diễn — tại một thời điểm chỉ có
+// đúng 1 quà biểu diễn nên chọn ở cấp gốc là đủ, giữ nguyên suốt lượt để nền không nhấp nháy.
+const PERF_BGS = ['none', 'random', 'gold', 'pink', 'blue', 'dark', 'violet', 'emerald', 'crimson', 'ocean', 'sunset', 'custom'];
+const PERF_BG_POOL = ['gold', 'pink', 'blue', 'dark', 'violet', 'emerald', 'crimson', 'ocean', 'sunset'];
+let perfBgPick = 'violet', perfBgPickFor = '';
+function pickPerfBg() {
+  const pool = PERF_BG_POOL.filter(x => x !== perfBgPick); // loại màu vừa dùng → không trùng liền kề
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 const PERF_NAME_STYLES = ['pill', 'metal', 'rainbow', 'eq', 'lights'];
 const perfNameByKey = new Map(); // key ô -> kiểu đang áp (chỉ giữ khi đang diễn)
 function pickPerfName() { return PERF_NAME_STYLES[Math.floor(Math.random() * PERF_NAME_STYLES.length)]; }
@@ -76,8 +92,13 @@ function tweenLoop() {
   if (active) raf = requestAnimationFrame(tweenLoop);
 }
 
-// ---- GIỮ CHUỖI: thanh máu cạn dần theo thời gian (nội suy trên rAF cho mượt giữa 2 lần state). ----
-let streakDur = 10000, streakRaf = 0, streakBarColor = 'tiktok';
+// ---- GIỮ CHUỖI: thanh máu cạn dần theo thời gian ----
+// Màu CỐ ĐỊNH (tiktok/blue/gold): chỉ ghi width MỘT LẦN mỗi lần vẽ rồi giao cho CSS transition
+//   chạy nốt tới 0. Mượt tuyệt đối, không tốn JS mỗi frame, và quan trọng nhất là ĐÚNG khi
+//   nguồn OBS bị ẩn — rAF không chạy ở tab ẩn nên cách cũ đứng hình rồi nhảy giật khi hiện lại.
+// Màu THEO MỨC (health): màu phải đổi liên tục nên vẫn phải nội suy từng frame → giữ vòng rAF
+//   riêng cho chế độ này (tự tính lại từ Date.now() nên hiện lại là khớp ngay, không trôi).
+let streakDur = 30000, streakRaf = 0, streakBarColor = 'tiktok';
 function streakColor(p) {
   p = Math.max(0, Math.min(1, p));
   let r, g;
@@ -85,8 +106,36 @@ function streakColor(p) {
   else { const t = p * 2; r = 255; g = Math.round(75 + t * 135); }                                       // đỏ → vàng
   return `rgb(${r}, ${g}, 74)`;
 }
+// Đặt lại mốc cho MỌI thanh sau khi render dựng lại DOM (innerHTML mới → inline style mất sạch).
+function armStreakBars() {
+  const bars = root.querySelectorAll('.sd-streak');
+  if (!bars.length) return;
+  const now = Date.now();
+  const pending = [];
+  bars.forEach(bar => {
+    const fill = bar.firstElementChild;
+    if (!fill) return;
+    const left = Math.max(0, (Number(bar.dataset.until) || 0) - now);
+    const p = streakDur > 0 ? Math.max(0, Math.min(1, left / streakDur)) : 0;
+    fill.style.transition = 'none';
+    fill.style.width = (p * 100).toFixed(2) + '%';
+    fill.style.background = streakBarColor === 'health' ? streakColor(p) : '';
+    bar.classList.toggle('dead', p <= 0);
+    if (left > 0 && streakBarColor !== 'health') pending.push([bar, fill, left]);
+  });
+  if (!pending.length) return;
+  // MỘT lần reflow cho cả lưới (không phải mỗi thanh) để trình duyệt chốt mốc bắt đầu,
+  // nếu không thì gán width mới ngay sau đó sẽ bị gộp và transition không chạy.
+  void root.offsetWidth;
+  for (const [bar, fill, left] of pending) {
+    fill.style.transition = `width ${left}ms linear`;
+    fill.style.width = '0%';
+    fill.addEventListener('transitionend', () => bar.classList.add('dead'), { once: true });
+  }
+}
 function streakLoop() {
   streakRaf = 0;
+  if (streakBarColor !== 'health') return; // các màu cố định đã do CSS transition lo
   const now = Date.now();
   let active = false;
   root.querySelectorAll('.sd-streak').forEach(bar => {
@@ -96,8 +145,7 @@ function streakLoop() {
     const fill = bar.firstElementChild;
     if (fill) {
       fill.style.width = (p * 100).toFixed(1) + '%';
-      // 'health' → màu đổi theo mức (JS); 'tiktok'/'blue' → màu cố định theo CSS theme (xoá inline).
-      fill.style.background = streakBarColor === 'health' ? streakColor(p) : '';
+      fill.style.background = streakColor(p);
     }
     bar.classList.toggle('dead', p <= 0);
     if (p > 0) active = true;
@@ -165,10 +213,32 @@ function render(st) {
   const eggRandom = !!st.eggSkinRandom;
   // Ngẫu nhiên → skin đặt theo TỪNG ô (.sd-sticker), root để 'ivory' cho khỏi đè lên skin ô.
   root.dataset.eggSkin = eggRandom ? 'ivory' : (EGG_SKINS.includes(st.eggSkin) ? st.eggSkin : 'ivory');
+  // Skin ô đặc biệt. 'random' → XOÁ attr ở gốc rồi đặt trên từng ô; nếu để cả 2 cấp thì luật CSS
+  // cùng độ ưu tiên sẽ ăn theo thứ tự file chứ không theo "cấp gần hơn" → skin ô sẽ bị gốc đè.
+  const specialRandom = st.specialSkin === 'random';
+  if (specialRandom) delete root.dataset.specialSkin;
+  else root.dataset.specialSkin = (SPECIAL_SKINS.includes(st.specialSkin) || st.specialSkin === 'none') ? st.specialSkin : 'bubble';
   root.style.setProperty('--scale', (Number(st.overlayScale) || 100) / 100);
-  root.style.setProperty('--sd-bg', `rgba(${hexToRgb(st.bg || '#2b2f3a')}, ${(Number.isFinite(Number(st.bgOpacity)) ? Number(st.bgOpacity) : 55) / 100})`);
-  root.dataset.perfBg = ['none', 'gold', 'pink', 'blue', 'dark'].includes(st.perfBg) ? st.perfBg : 'gold';
-  root.dataset.perfBorder = ['none', 'glow', 'neon', 'rainbow', 'ring'].includes(st.perfBorder) ? st.perfBorder : 'glow';
+  root.style.setProperty('--sd-bg', `rgba(${hexToRgb(st.bg || '#2b2f3a')}, ${(Number.isFinite(Number(st.bgOpacity)) ? Number(st.bgOpacity) : 60) / 100})`);
+  let perfBg = PERF_BGS.includes(st.perfBg) ? st.perfBg : 'random';
+  if (perfBg === 'random') {
+    // Đổi màu khi quà LÊN DIỄN đổi. Không có ai diễn thì giữ màu cũ (khỏi loé lúc chuyển lượt).
+    const perfGiftId = String(((st.cells || []).find(c => c && c.performing) || {}).giftId || '');
+    if (perfGiftId && perfGiftId !== perfBgPickFor) { perfBgPickFor = perfGiftId; perfBgPick = pickPerfBg(); }
+    perfBg = perfBgPick;
+  }
+  root.dataset.perfBg = perfBg;
+  // Nền "Tự chọn màu": lấy đúng mã màu người dùng chấm; CSS phủ thêm 1 lớp sáng dần ra mép
+  // (radial trắng mờ) nên màu nào cũng ra khối "giữa tối · viền sáng" chứ không bị bệt.
+  root.style.setProperty('--sd-perf', /^#[0-9a-f]{6}$/i.test(String(st.perfBgColor || '')) ? st.perfBgColor : '#7a3bff');
+  root.dataset.perfBorder = ['none', 'glow', 'neon', 'rainbow', 'ring', 'comet'].includes(st.perfBorder) ? st.perfBorder : 'glow';
+  // Kiểu ô: 'tiktok' (MẶC ĐỊNH — tên nằm trong nền, số trong pill) | 'classic' (chip tên rời, kiểu cũ).
+  const cellStyle = st.cellStyle === 'classic' ? 'classic' : 'tiktok';
+  root.dataset.cellStyle = cellStyle;
+  // Kiểu 'tiktok' để tên TRONG nền nên chiều cao nền phụ thuộc số dòng tên. Chừa chỗ đúng bằng
+  // ô có NHIỀU DÒNG NHẤT → mọi ô cao bằng nhau (icon thẳng hàng) mà không phí chỗ khi toàn 1 dòng.
+  root.style.setProperty('--label-lines',
+    Math.max(1, ...(st.cells || []).map(c => String((c && c.text) || '').split('\n').length)));
   // Kiểu nhãn tên đang diễn: 'random' (mặc định) bốc ngẫu nhiên mỗi lượt; còn lại là kiểu cố định.
   const perfNameCfg = (st.perfName === 'random' || PERF_NAME_STYLES.includes(st.perfName)) ? st.perfName : 'random';
 
@@ -190,8 +260,8 @@ function render(st) {
   const showMedals = st.showMedals !== false;
   const showLevelUp = st.showLevelUp !== false;
   const streakOn = !!st.streakOn;
-  streakDur = Math.max(1000, Number(st.streakDur) || 10000);
-  streakBarColor = ['tiktok', 'blue', 'health'].includes(st.streakBarColor) ? st.streakBarColor : 'tiktok';
+  streakDur = Math.max(1000, Number(st.streakDur) || 30000);
+  streakBarColor = ['tiktok', 'blue', 'health', 'gold'].includes(st.streakBarColor) ? st.streakBarColor : 'tiktok';
   root.dataset.streakColor = streakBarColor;
   const eggOn = st.eggWhenZero !== false;
   const topGift = String(st.topGiftId || '');
@@ -213,10 +283,21 @@ function render(st) {
       const iconInner = c.icon
         ? `<img class="sd-icon" src="${esc(mediaUrl(c.icon))}" onerror="avRetry(this)" />`
         : '<div class="sd-icon ph">🎁</div>';
-      // Ô quà đặc biệt: bọc icon trong quả bong bóng nước (glass sphere) — 2 vệt sáng specular.
+      // Ô quà đặc biệt: bọc icon trong vòng trang trí (mặc định = bong bóng nước, 2 vệt sáng specular).
+      // Các skin khác VẼ LẠI đúng 3 phần tử này bằng CSS nên markup không đổi.
       const waterball = special
         ? '<span class="sd-waterball"><i class="sd-wb-hi"></i><i class="sd-wb-hi2"></i></span>'
         : '';
+      // Skin ngẫu nhiên theo TỪNG ô đặc biệt: giữ nguyên chừng nào ô còn gắn cùng 1 quà.
+      let cellSpecialSkin = '';
+      if (special && specialRandom) {
+        const prevPick = specialSkinByKey.get(key);
+        if (!prevPick || prevPick.giftId !== String(c.giftId)) {
+          const pool = SPECIAL_SKINS.filter(s => s !== (prevPick && prevPick.skin));
+          specialSkinByKey.set(key, { giftId: String(c.giftId), skin: pool[Math.floor(Math.random() * pool.length)] });
+        }
+        cellSpecialSkin = specialSkinByKey.get(key).skin;
+      }
       const iconHtml = `<div class="sd-iconwrap${anim ? ' anim' : ''}">${iconInner}${waterball}</div>`;
       const ripple = (perf && rippleOn) ? '<span class="sd-ripple"></span><span class="sd-ripple r2"></span>' : '';
       const shine = (perf && shineOn) ? '<span class="sd-shine"><span class="sd-shine-bar"></span></span>' : '';
@@ -251,13 +332,16 @@ function render(st) {
           + [0, 1, 2, 3, 4, 5].map(k => `<i class="sd-bit b${k}"></i>`).join('')
           + '<b class="sd-egg-note">🎵</b></span>'
         : '';
-      const inner = special
-        ? '' // ô đặc biệt: panel trống, chỉ làm badge phát sáng sau icon
+      // KHOANG số/trứng: chiều cao CỐ ĐỊNH (--sd-slot-h) nên ô có số, ô đang là trứng và ô quà
+      // đặc biệt đều cao BẰNG NHAU → icon cả lưới luôn thẳng hàng. Trứng nằm absolute trong khoang:
+      // kéo "Cỡ trứng" to quá thì trứng TRÀN LÊN ĐÈ icon quà, KHÔNG đẩy nền xám cao lên nữa.
+      const slotInner = special
+        ? '' // ô quà đặc biệt: khoang để trống, vẫn giữ chiều cao cho cân với ô thường
         : isEgg
           ? '<span class="sd-egg" aria-hidden="true"><span class="sd-egg-body"></span></span>'
-          : `<span class="sd-count${newlyHatched.has(key) ? ' sd-hatch' : ''}" data-k="${key}" data-gift="${esc(c.giftId)}" data-target="${cnt}" data-lv="${done ? 1 : 0}">${fmt(c.count)}</span>${barSlot}${crack}`;
-      // Ô quà đặc biệt: BỎ hẳn panel nền xám — chỉ còn bong bóng nước ôm icon + tên.
-      const panel = special ? '' : `<div class="sd-panel">${ripple}${shine}${inner}</div>`;
+          : `<span class="sd-count${newlyHatched.has(key) ? ' sd-hatch' : ''}" data-k="${key}" data-gift="${esc(c.giftId)}" data-target="${cnt}" data-lv="${done ? 1 : 0}">${fmt(c.count)}</span>`;
+      // .sd-crack (vỏ trứng vỡ) đặt TRONG khoang để tâm vụ nổ trùng tâm quả trứng.
+      const inner = `<span class="sd-slot">${slotInner}${crack}</span>${barSlot}`;
       // Mỗi lần gõ Enter = 1 HÀNG (.sd-lrow) — luôn giữ nguyên. Hàng nào dài hơn khung sẽ tự
       // CHẠY ngang hoặc cắt "…" tuỳ chế độ; áp cho cả trường hợp nhiều hàng.
       // Kiểu nhãn tên cho ô đang diễn: random giữ ổn định theo key suốt lượt; hết diễn thì bỏ để
@@ -276,8 +360,13 @@ function render(st) {
       const labelInner = c.text ? `<div class="sd-label" title="${esc(tRaw)}">${eqMarkup}${rowsHtml}</div>` : '';
       // Cách C: bọc nhãn trong DẢI cao cố định (.sd-labelband) để icon các ô luôn thẳng hàng —
       // nhãn 1 dòng / 2 dòng không làm xê dịch icon. Giữ cả dải rỗng khi ô không có tên.
-      // Ô "quà đặc biệt" (special) để nhãn nổi tự do (không dải) để không phá bố cục bong bóng nước.
-      const label = special ? labelInner : `<div class="sd-labelband">${labelInner}</div>`;
+      // Ô "quà đặc biệt" giờ cũng dùng DẢI nhãn + nền xám như quà thường (chỉ khác: thêm bong bóng
+      // nước ôm icon + viền pastel xoay) → cả lưới cân đối bằng nhau, dễ nhìn hơn kiểu nổi tự do cũ.
+      const label = `<div class="sd-labelband">${labelInner}</div>`;
+      // Kiểu 'tiktok': nhãn tên nằm LUÔN TRONG nền xám (giống thanh quà TikTok) → ô thấp & gọn.
+      const labelInPanel = cellStyle === 'tiktok';
+      const panel = `<div class="sd-panel">${ripple}${shine}${inner}${labelInPanel ? label : ''}</div>`;
+      const outerLabel = labelInPanel ? '' : label;
       // Huy chương top 3 theo điểm — badge góc. Ẩn huy chương #1 khi ô đã đội vương miện (tránh trùng).
       const medal = (showMedals && c.rank >= 1 && c.rank <= 3 && !(crowned && c.rank === 1)) ? `<div class="sd-medal m${c.rank}">${MEDALS[c.rank - 1]}</div>` : '';
       // Vương miện trên ô nhiều điểm nhất.
@@ -293,8 +382,8 @@ function render(st) {
         : '';
       // Nhãn-ở-dưới (mặc định): icon (trên) · nền xám+số · nhãn (dưới).
       // Nhãn-ở-trên: ĐẢO NGƯỢC — nhãn (trên) · nền xám+số · icon THÒ XUỐNG (dưới), cân đối.
-      const stack = labelTop ? (label + panel + iconHtml) : (iconHtml + panel + label);
-      html += `<div class="sd-cell"${rowMt}><div class="sd-sticker${big ? ' big' : ''}${perf ? ' performing' : ''}${special ? ' special' : ''}${crowned ? ' crowned' : ''}"${cellSkin ? ` data-egg-skin="${cellSkin}"` : ''}${perfNameStyle ? ` data-perfname="${perfNameStyle}"` : ''}>`
+      const stack = labelTop ? (outerLabel + panel + iconHtml) : (iconHtml + panel + outerLabel);
+      html += `<div class="sd-cell"${rowMt}><div class="sd-sticker${big ? ' big' : ''}${perf ? ' performing' : ''}${special ? ' special' : ''}${crowned ? ' crowned' : ''}"${cellSkin ? ` data-egg-skin="${cellSkin}"` : ''}${cellSpecialSkin ? ` data-special-skin="${cellSpecialSkin}"` : ''}${perfNameStyle ? ` data-perfname="${perfNameStyle}"` : ''}>`
         + medal + crown
         + stack
         + bubbles + sparks + notes
@@ -323,7 +412,11 @@ function render(st) {
   // Nếu có ô vừa nở, hẹn vẽ lại sau cửa sổ để gỡ lớp vỏ vỡ (khi không có state mới đến).
   if (newlyHatched.size) hatchCleanup = setTimeout(() => render(lastState), HATCH_MS + 80);
   if (!raf) raf = requestAnimationFrame(tweenLoop);
-  if (streakOn && !streakRaf) streakRaf = requestAnimationFrame(streakLoop);
+  // Thanh chuỗi: gắn lại mốc sau khi DOM vừa dựng lại; chỉ chế độ 'health' mới cần vòng rAF.
+  if (streakOn) {
+    armStreakBars();
+    if (streakBarColor === 'health' && !streakRaf) streakRaf = requestAnimationFrame(streakLoop);
+  }
 }
 
 render({});

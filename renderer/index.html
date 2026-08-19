@@ -2220,6 +2220,12 @@
                     <option value="countdown">Đếm lùi (đang chờ biểu diễn)</option>
                   </select>
                 </label>
+                <label title="Cổ điển: tên quà nằm trong chip nền riêng bên dưới. Gọn TikTok: tên nằm LUÔN trong nền xám, số xu bọc trong pill tối, thanh thời lượng chạy gần trọn bề ngang sát đáy — cụm ô thấp & gọn hơn.">Kiểu ô
+                  <select id="sdCellStyle">
+                    <option value="tiktok">TikTok</option>
+                    <option value="classic">Cổ điển (chip tên rời)</option>
+                  </select>
+                </label>
                 <label>Vị trí chữ
                   <select id="sdLabelPos">
                     <option value="bottom">Dưới icon</option>
@@ -2237,7 +2243,7 @@
                 <label>Cỡ chữ <input type="range" id="sdTextSize" min="8" max="40" value="14" /></label>
                 <label title="Khoảng cách giữa các CỘT (ngang)">↔ Cách cột <input type="range" id="sdColGap" min="0" max="120" value="14" /></label>
                 <label title="Khoảng cách giữa các HÀNG (dọc). Về giữa (0) là khít; kéo trái = hàng đè sát/chồng lên nhau.">↕ Cách hàng <input type="range" id="sdRowGap" min="-120" max="120" value="0" /></label>
-                <label>Cỡ trứng <input type="range" id="sdEggSize" min="40" max="140" value="85" /></label>
+                <label title="Mặc định 40 = trứng nhỏ gọn nằm trong nền xám. Kéo to quá thì trứng sẽ TRÀN LÊN đè icon quà, nhưng nền xám & hàng icon vẫn giữ nguyên vị trí.">Cỡ trứng <input type="range" id="sdEggSize" min="40" max="140" value="40" /></label>
                 <label>Skin trứng
                   <select id="sdEggSkin">
                     <option value="ivory">🥚 Trắng ngà</option>
@@ -2248,8 +2254,29 @@
                   </select>
                 </label>
                 <label class="sd-switch"><input type="checkbox" id="sdEggSkinRandom" /> 🎲 Skin trứng ngẫu nhiên</label>
+                <label title="Vòng trang trí bọc quanh icon của ô đánh dấu 'Quà đặc biệt'. Ngẫu nhiên = mỗi ô một kiểu, giữ nguyên chừng nào ô còn gắn cùng quà đó.">Skin quà đặc biệt
+                  <select id="sdSpecialSkin">
+                    <option value="random">🎲 Ngẫu nhiên (mặc định)</option>
+                    <optgroup label="Bọc quanh icon (nổi bật)">
+                      <option value="bubble">🫧 Bong bóng nước</option>
+                      <option value="halo">💫 Hào quang (đốm sáng chạy)</option>
+                      <option value="flame">🔥 Quầng lửa</option>
+                      <option value="ice">❄️ Tấm băng lục giác</option>
+                      <option value="star">🌟 Tia sáng toả</option>
+                      <option value="galaxy">🌌 Xoáy thiên hà</option>
+                    </optgroup>
+                    <optgroup label="Làm nền 3D (icon nổi rõ lên trên)">
+                      <option value="podium3d">🏛 Bệ tròn 3D</option>
+                      <option value="orb3d">🔮 Cầu pha lê 3D</option>
+                      <option value="ring3d">🪐 Vòng nghiêng 3D</option>
+                      <option value="spotlight">🔦 Đèn sân khấu</option>
+                      <option value="aurora">🌈 Cực quang</option>
+                    </optgroup>
+                    <option value="none">— Không có —</option>
+                  </select>
+                </label>
                 <label>Màu nền <input type="color" id="sdBg" value="#2b2f3a" /></label>
-                <label>Độ mờ nền <input type="range" id="sdBgOpacity" min="0" max="100" value="55" /></label>
+                <label>Độ mờ nền <input type="range" id="sdBgOpacity" min="0" max="100" value="60" /></label>
               </div>
             </div>
             <div class="sd-cfg-group">
@@ -2267,10 +2294,11 @@
               <span class="sd-cfg-h">🔥 Giữ chuỗi (gameplay)</span>
               <div class="sd-cfg-grid">
                 <label class="sd-switch"><input type="checkbox" id="sdStreakEnabled" /> 🔥 Bật GIỮ CHUỖI (ưu tiên quà còn máu lên diễn)</label>
-                <label>Thời lượng chuỗi (giây) <input type="number" id="sdStreakSeconds" min="1" max="120" value="10" /></label>
+                <label>Thời lượng chuỗi (giây) <input type="number" id="sdStreakSeconds" min="1" max="120" value="30" /></label>
                 <label>Màu thanh máu
                   <select id="sdStreakBarColor">
                     <option value="tiktok">Hồng đỏ TikTok</option>
+                    <option value="gold">Vàng TikTok (như thanh quà thật)</option>
                     <option value="blue">Xanh</option>
                     <option value="health">Theo mức (xanh→đỏ)</option>
                   </select>
@@ -2289,17 +2317,27 @@
                     <option value="luxury">Sang trọng ✨</option>
                     <option value="neon">Neon 🌈</option>
                     <option value="music">Sôi động 🎵</option>
-                    <option value="minimal">Tối giản</option>
+                    <option value="tiktok">TikTok 💜</option>
                   </select>
                 </label>
                 <label>Nền
                   <select id="sdPerfBg">
+                    <option value="random">🎲 Ngẫu nhiên (mặc định)</option>
                     <option value="none">Không (giữ nền xám)</option>
                     <option value="gold">Vàng ánh kim</option>
                     <option value="pink">Hồng tím</option>
                     <option value="blue">Xanh dương tím</option>
                     <option value="dark">Kính đen</option>
+                    <option value="violet">Tím</option>
+                    <option value="emerald">Ngọc lục bảo</option>
+                    <option value="crimson">Đỏ ruby</option>
+                    <option value="ocean">Xanh đại dương</option>
+                    <option value="sunset">Hoàng hôn (cam→hồng→tím)</option>
+                    <option value="custom">🎨 Tự chọn màu…</option>
                   </select>
+                </label>
+                <label title="Màu dùng khi Nền = 'Tự chọn màu'. Chấm màu ở đây rồi chọn Nền = Tự chọn màu là áp ngay. App tự phủ thêm lớp sáng dần ra mép nên màu nào cũng ra khối nổi, không bị bệt.">Màu nền tự chọn
+                  <input type="color" id="sdPerfBgColor" value="#7a3bff" />
                 </label>
                 <label>Viền
                   <select id="sdPerfBorder">
@@ -2308,6 +2346,7 @@
                     <option value="neon">Viền neon chạy</option>
                     <option value="rainbow">Viền cầu vồng chạy</option>
                     <option value="ring">Viền sáng đập nhịp</option>
+                    <option value="comet">Đốm sáng chạy vòng quanh</option>
                   </select>
                 </label>
                 <label>Tên đang diễn
@@ -2323,7 +2362,7 @@
                 <label class="sd-switch"><input type="checkbox" id="sdPerfSparkle" /> ✨ Hạt lấp lánh</label>
                 <label class="sd-switch"><input type="checkbox" id="sdPerfRipple" /> 🌊 Vòng sáng lan toả</label>
                 <label class="sd-switch"><input type="checkbox" id="sdPerfShine" /> 💫 Tia sáng quét</label>
-                <label class="sd-switch"><input type="checkbox" id="sdPerfNotes" /> 🎵 Nốt nhạc bay</label>
+                <label class="sd-switch"><input type="checkbox" id="sdPerfNotes" checked /> 🎵 Nốt nhạc bay</label>
               </div>
             </div>
           </div>

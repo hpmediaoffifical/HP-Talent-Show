@@ -11,6 +11,24 @@
   transform: translateZ(0);
   /* Bề rộng chung của nền quà & nhãn tên → hai cái LUÔN bằng nhau (nhãn không thò rộng hơn nền). */
   --panel-w: calc(var(--icon, 66px) * 1.32);
+  /* Bán kính nền quà — 1 nguồn duy nhất để viền chạy (::before/::after) luôn bo khớp panel,
+     kể cả khi kiểu ô "TikTok" đổi bán kính theo cỡ icon. */
+  --sd-r: 14px;
+  /* Chiều cao KHOANG số/trứng — cố định để ô có số, ô có trứng và ô quà đặc biệt cao BẰNG NHAU. */
+  --sd-slot-h: calc(var(--icon, 66px) * .38);
+}
+
+/* Khoang chứa số đếm HOẶC quả trứng HOẶC để trống (ô quà đặc biệt). Chiều cao cố định là mấu chốt
+   giữ icon cả lưới thẳng hàng: trứng nằm ABSOLUTE nên phóng "Cỡ trứng" to cỡ nào cũng chỉ TRÀN ra
+   ngoài (đè lên icon quà phía trên) chứ không đội nền xám cao lên làm lệch hàng. */
+.sd-slot {
+  position: relative;
+  width: 100%;
+  height: var(--sd-slot-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
 }
 
 /* OBS: canh GIỮA cả cụm bảng quà trong khung Browser Source, để cụm luôn nằm chính giữa
@@ -92,7 +110,7 @@ body:not(.overlay-review) {
   margin-top: calc(var(--icon, 66px) * -0.46);
   width: var(--panel-w);
   padding: calc(var(--icon, 66px) * 0.5) 10px 8px;
-  border-radius: 14px;
+  border-radius: var(--sd-r, 14px);
   /* KHÔNG backdrop-filter: OBS Browser Source nền trong suốt → CEF tô backdrop thành ĐEN ĐẶC
      (panel bị đen sì trên OBS dù ở web trong suốt). Bỏ blur, tăng nhẹ độ đục của nền xám để
      panel vẫn "mờ khối" mà không cần blur → an toàn mọi phiên bản CEF của OBS. */
@@ -122,13 +140,13 @@ body:not(.overlay-review) {
 
 /* --- VIỀN: glow (quầng sáng đập nhịp) --- */
 #stickerRoot[data-perf-border="glow"] .sd-sticker.performing .sd-panel::after {
-  content: ""; position: absolute; inset: -6px; border-radius: 20px; z-index: -1; pointer-events: none;
+  content: ""; position: absolute; inset: -6px; border-radius: calc(var(--sd-r, 14px) + 6px); z-index: -1; pointer-events: none;
   background: radial-gradient(closest-side, rgba(255, 205, 80, .85), rgba(255, 205, 80, 0) 72%);
   animation: sd-glowpulse 1.15s ease-in-out infinite;
 }
 /* --- VIỀN: neon chạy (lam→tím) --- */
 #stickerRoot[data-perf-border="neon"] .sd-sticker.performing .sd-panel::before {
-  content: ""; position: absolute; inset: -3px; border-radius: 17px; padding: 3px; z-index: -1; pointer-events: none;
+  content: ""; position: absolute; inset: -3px; border-radius: calc(var(--sd-r, 14px) + 3px); padding: 3px; z-index: -1; pointer-events: none;
   background: conic-gradient(from var(--sd-ang, 0deg), #38e6ff, #6f9bff, #b06bff, #38e6ff);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
@@ -136,7 +154,7 @@ body:not(.overlay-review) {
 }
 /* --- VIỀN: cầu vồng chạy --- */
 #stickerRoot[data-perf-border="rainbow"] .sd-sticker.performing .sd-panel::before {
-  content: ""; position: absolute; inset: -3px; border-radius: 17px; padding: 3px; z-index: -1; pointer-events: none;
+  content: ""; position: absolute; inset: -3px; border-radius: calc(var(--sd-r, 14px) + 3px); padding: 3px; z-index: -1; pointer-events: none;
   background: conic-gradient(from var(--sd-ang, 0deg), #ff5f6d, #ffc371, #47e5bc, #4d9fff, #c56cff, #ff5f6d);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
@@ -171,7 +189,7 @@ body:not(.overlay-review) {
 
 /* --- Vòng sáng lan toả: 2 vòng nở ra từ panel rồi mờ dần (transform scale → an toàn OBS). --- */
 .sd-ripple {
-  position: absolute; inset: 0; border-radius: 14px;
+  position: absolute; inset: 0; border-radius: var(--sd-r, 14px);
   border: 3px solid rgba(255, 255, 255, .7);
   opacity: 0; z-index: 0; pointer-events: none;
   animation: sd-ripple 1.7s ease-out infinite;
@@ -179,7 +197,7 @@ body:not(.overlay-review) {
 .sd-ripple.r2 { animation-delay: .85s; }
 
 /* --- Tia sáng quét: vệt sáng chéo lướt ngang panel (clip gọn trong panel). --- */
-.sd-shine { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; z-index: 0; pointer-events: none; }
+.sd-shine { position: absolute; inset: 0; border-radius: var(--sd-r, 14px); overflow: hidden; z-index: 0; pointer-events: none; }
 .sd-shine-bar {
   position: absolute; top: -30%; left: -60%; width: 45%; height: 160%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
@@ -453,17 +471,12 @@ body:not(.overlay-review) {
 .sd-streak.dead > i { box-shadow: none; }
 
 
-/* ===== Ô quà ĐẶC BIỆT: viền bong bóng (gradient pastel xoay màu) + bong bóng bay + sparkle luôn bật.
-   Dành cho quà KHÔNG có clip/audio nhưng vẫn muốn nổi bật. Dùng lại @property --sd-ang / sd-angle. ===== */
+/* ===== Ô quà ĐẶC BIỆT: dành cho quà KHÔNG có clip/audio nhưng vẫn muốn nổi bật.
+   KHÔNG viền màu quanh nền nữa — quả bong bóng nước ôm icon đã tự có vòng sáng, thêm viền chạy
+   quanh nền là hai vòng chồng nhau rối mắt. Chỉ giữ quầng tím-lam nhạt toả ra để ô "ấm" hơn
+   quà thường mà không phá sự cân đối chung của lưới. ===== */
 .sd-sticker.special .sd-panel {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .28), 0 0 14px rgba(150, 120, 255, .45), inset 0 1px 0 rgba(255, 255, 255, .15);
-}
-.sd-sticker.special .sd-panel::before {
-  content: ""; position: absolute; inset: -3px; border-radius: 17px; padding: 3px; z-index: -1; pointer-events: none;
-  background: conic-gradient(from var(--sd-ang, 0deg), #7ef9ff, #b58cff, #ff9ad5, #7ef9ff);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-  animation: sd-angle 3.2s linear infinite;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .28), 0 0 16px rgba(150, 120, 255, .38), inset 0 1px 0 rgba(255, 255, 255, .15);
 }
 /* Bong bóng nổi lên quanh ô (transform+opacity, background radial → an toàn OBS). */
 .sd-bubbles { position: absolute; inset: -8% -6%; pointer-events: none; z-index: 5; }
@@ -530,12 +543,10 @@ body:not(.overlay-review) {
   50%      { transform: translateY(var(--wb-lift, 0)) scale(.975, 1.03);  }
   75%      { transform: translateY(var(--wb-lift, 0)) scale(1.03,  .975); }
 }
-/* Ô quà đặc biệt: TÊN nằm theo dòng DƯỚI icon, đẩy xuống qua khỏi phần bong bóng nhô ra
-   (bong bóng lồi xuống ~ |--wb-size| so với icon) → tên tách hẳn khỏi vùng bong bóng. */
+/* Ô quà đặc biệt: tên vẫn nổi trên quả bong bóng nếu bong bóng lồi tới (bóng z-index:3). */
 .sd-sticker.special .sd-label {
   position: relative;
-  z-index: 6;                  /* trên quả bong bóng (.sd-waterball z-index:3) nếu có chạm mép */
-  margin-top: calc(var(--icon, 66px) * 0.08);
+  z-index: 6;
 }
 
 /* ===== Vương miện 👑 trên ô nhiều điểm nhất — đặt trên đỉnh icon, đung đưa nhẹ.
@@ -593,11 +604,17 @@ body:not(.overlay-review) {
   --egg-w: calc(var(--icon, 66px) * 0.46 * var(--egg-scale, .85));
   --egg-h: calc(var(--icon, 66px) * 0.58 * var(--egg-scale, .85));
 }
+/* Trứng NEO GIỮA khoang bằng absolute + margin âm (KHÔNG dùng transform để căn giữa — transform
+   đã dành cho animation lắc lư). Nhờ absolute, trứng to hơn khoang sẽ tràn LÊN đè icon quà
+   (z-index 3 > icon 2) thay vì đẩy nền xám cao lên làm lệch hàng icon giữa các ô. */
 .sd-egg {
-  position: relative;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: calc(var(--egg-h) * -0.5) 0 0 calc(var(--egg-w) * -0.5);
   width: var(--egg-w);
   height: var(--egg-h);
-  z-index: 1;
+  z-index: 3;
   transform-origin: 50% 90%;
   animation: sd-egg-wobble 2.6s ease-in-out infinite;
 }
@@ -732,14 +749,10 @@ body:not(.overlay-review) {
   100% { transform: translate(var(--bx, 120%), var(--by, -120%)); opacity: 0; }
 }
 
-/* ===== Ô "QUÀ ĐẶC BIỆT": bỏ số/trứng (JS trả panel rỗng) → panel co lại thành BADGE phát sáng gọn;
-   icon TỤT xuống nằm giữa badge, dùng motion "nổi bồng bềnh" (float + phồng nhẹ) để KHÁC hẳn
-   kiểu "nhảy beat" khi biểu diễn (sd-dance nảy + lắc). Chỉ transform/opacity → an toàn OBS. ===== */
-.sd-sticker.special .sd-panel {
-  width: calc(var(--icon, 66px) * 1.16);
-  min-height: calc(var(--icon, 66px) * 0.7);
-  padding: calc(var(--icon, 66px) * 0.34) 8px calc(var(--icon, 66px) * 0.2);
-}
+/* ===== Ô "QUÀ ĐẶC BIỆT": dùng ĐÚNG nền xám & kích thước như quà thường (khoang số để trống nhưng
+   vẫn giữ chiều cao) → cả lưới cân đối bằng nhau. Chất riêng của ô này nằm ở bong bóng nước ôm icon
+   + viền pastel xoay + motion "nổi bồng bềnh", KHÁC hẳn kiểu "nhảy beat" khi biểu diễn (sd-dance).
+   Chỉ transform/opacity → an toàn OBS. ===== */
 .sd-sticker.special .sd-iconwrap,
 .sd-sticker.special .sd-iconwrap.anim {
   position: relative;            /* mốc cho quả bong bóng nước (.sd-waterball) bám quanh icon */
@@ -753,4 +766,484 @@ body:not(.overlay-review) {
 @keyframes sd-special-float {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-6%); }
+}
+
+
+/* ============================================================================
+   KIỂU Ô "TIKTOK" (data-cell-style="tiktok") — bố cục gọn theo thanh quà TikTok:
+     · icon nhô CAO hơn (≈58% chiều cao icon nằm ngoài nền)
+     · số xu nằm trong 1 PILL tối bo tròn → đọc được trên MỌI màu nền (khỏi phải
+       đổi màu chữ riêng cho từng preset nền như kiểu cũ)
+     · TÊN QUÀ nằm LUÔN TRONG nền xám (JS chuyển .sd-labelband vào .sd-panel),
+       bỏ nền chip riêng → cụm ô thấp & gọn hơn hẳn
+     · thanh "Thời lượng chuỗi" chạy gần TRỌN bề ngang, sát đáy, bo viên thuốc
+   Mọi kích thước tỉ lệ theo --icon nên phóng to/thu nhỏ vẫn giữ đúng dáng.
+   Kiểu cũ ('classic') KHÔNG đổi gì — chỉ khác khi người dùng chọn kiểu này.
+   ============================================================================ */
+#stickerRoot[data-cell-style="tiktok"] {
+  --panel-w: calc(var(--icon, 66px) * 1.28);
+  --sd-r: calc(var(--icon, 66px) * .188);
+  --sd-slot-h: calc(var(--icon, 66px) * .32);
+  /* --sd-tt-sink: phần icon CHÌM vào nền · --sd-tt-pad: khoảng nền chừa trước pill số.
+     Phải giữ pad > sink, nếu không đáy icon đè lên pill (trước đây .58 > .44 nên quà
+     dính cả nền lẫn số bên dưới). Chênh lệch = khe hở giữa đáy icon và pill. */
+  --sd-tt-sink: .40;
+  --sd-tt-pad: .46;
+}
+#stickerRoot[data-cell-style="tiktok"] .sd-panel {
+  flex-direction: column;
+  gap: calc(var(--icon, 66px) * .045);
+  margin-top: calc(var(--icon, 66px) * var(--sd-tt-sink) * -1);
+  padding: calc(var(--icon, 66px) * var(--sd-tt-pad)) calc(var(--icon, 66px) * .07) calc(var(--icon, 66px) * .17);
+}
+/* Ô quà ĐẶC BIỆT: khoang số để trống nên nếu icon nhô cao như ô thường thì phần nền giữa
+   trông hụt. Giữ nguyên tỉ lệ CŨ (chìm .58 / chừa .44) → icon ngồi sâu vào nền cho cân.
+   Đặt biến trên .sd-sticker để .sd-panel bên trong thừa kế, thắng biến ở #stickerRoot. */
+#stickerRoot[data-cell-style="tiktok"] .sd-sticker.special {
+  --sd-tt-sink: .58;
+  --sd-tt-pad: .44;
+}
+/* Nhãn ở TRÊN: đảo thứ tự trong nền (tên trên · số dưới) và kéo icon (đứng sau) lên đè mép dưới. */
+#stickerRoot[data-cell-style="tiktok"][data-label-pos="top"] .sd-panel {
+  flex-direction: column-reverse;
+  margin-top: 0;
+  margin-bottom: calc(var(--icon, 66px) * var(--sd-tt-sink) * -1);
+  padding: calc(var(--icon, 66px) * .17) calc(var(--icon, 66px) * .07) calc(var(--icon, 66px) * var(--sd-tt-pad));
+}
+
+/* Số xu = pill tối. Đặt SAU rule [data-perf-bg="gold"] .sd-count nên thắng khi hoà độ ưu tiên,
+   nhờ vậy nền biểu diễn đổi màu gì thì số vẫn nằm trên nền tối → luôn đọc rõ. */
+#stickerRoot[data-cell-style="tiktok"] .sd-sticker .sd-count,
+#stickerRoot[data-cell-style="tiktok"] .sd-sticker.performing .sd-count {
+  /* nhỏ hơn kiểu cũ (0.34·icon) vì số giờ phải ÔM trong pill và nhường chỗ cho tên ngay bên dưới */
+  font-size: calc(var(--icon, 66px) * .24);
+  /* Pill ÔM SÁT chữ số (cao ≈ 1.12× cỡ chữ — đúng tỉ lệ đo từ thanh quà TikTok) + flex canh giữa.
+     padding-bottom .125em là phần bù ĐO ĐƯỢC: hộp dòng của Inter/Segoe đặt chữ số THẤP hơn tâm
+     ~3px ở cỡ 24px, nên nhích lên bằng lề dưới để số cân MẮT giữa trên-dưới của nền đen. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(var(--icon, 66px) * .27);
+  padding: 0 .62em .125em;
+  line-height: 1;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .5);
+  color: #f4cc4e;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .75);
+}
+
+/* Tên quà nằm TRONG nền: bỏ chip nền/bóng riêng, dải nhãn co sát (không chừa chỗ 2 dòng nữa
+   vì đã nằm trong nền — chiều cao nền tự giãn đều cho cả lưới). Có ID nên thắng mọi rule
+   .sd-label của các kiểu "tên đang diễn" (pill/metal/…) → hiệu ứng CHỮ vẫn còn, chỉ mất nền chip. */
+#stickerRoot[data-cell-style="tiktok"] .sd-panel > .sd-labelband {
+  /* Dải chừa chỗ đúng bằng số dòng NHIỀU NHẤT đang có trên lưới (JS đặt --label-lines).
+     Nhờ vậy ô 1 dòng và ô 2 dòng cao BẰNG NHAU → icon cả hàng vẫn thẳng tắp (đúng tinh thần
+     "Cách C" của kiểu cũ), mà lưới toàn tên 1 dòng thì không bị chừa thừa cả 1 dòng trống. */
+  min-height: calc(var(--text, 14px) * 1.15 * var(--label-lines, 1));
+  margin: 0;
+  width: 100%;
+}
+#stickerRoot[data-cell-style="tiktok"] .sd-panel .sd-label {
+  width: 100%;
+  margin: 0;
+  padding: 0 2px;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  line-height: 1.15;
+}
+
+/* Thanh mục tiêu / giữ-chuỗi: gần trọn bề ngang, sát đáy, viên thuốc. Track để rất mờ
+   (video gốc không có track) — vừa đủ thấy vạch nền khi video phía sau sáng trắng. */
+#stickerRoot[data-cell-style="tiktok"] .sd-prog,
+#stickerRoot[data-cell-style="tiktok"] .sd-streak {
+  left: calc(var(--icon, 66px) * .06);
+  right: calc(var(--icon, 66px) * .06);
+  bottom: calc(var(--icon, 66px) * .045);
+  top: auto;
+  height: calc(var(--icon, 66px) * .085);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .22);
+}
+#stickerRoot[data-cell-style="tiktok"][data-label-pos="top"] .sd-prog,
+#stickerRoot[data-cell-style="tiktok"][data-label-pos="top"] .sd-streak {
+  bottom: auto;
+  top: calc(var(--icon, 66px) * .045);
+}
+#stickerRoot[data-cell-style="tiktok"] .sd-prog > i,
+#stickerRoot[data-cell-style="tiktok"] .sd-streak > i { border-radius: 999px; }
+
+/* ===== NỀN biểu diễn "Tím TikTok" — giữa TỐI, sát viền SÁNG (inset glow) + viền hồng-tử-đinh-hương.
+   Khác hẳn 4 nền cũ (đều là linear-gradient phẳng): khối nổi hơn, chữ trắng/vàng vẫn đọc tốt. ===== */
+#stickerRoot[data-perf-bg="violet"] .sd-sticker.performing .sd-panel {
+  background: #4d0d80;
+  box-shadow:
+    inset 0 0 calc(var(--icon, 66px) * .30) rgba(210, 24, 242, .9),
+    inset 0 0 0 2px rgba(255, 182, 255, .85),
+    0 6px 18px rgba(0, 0, 0, .32),
+    0 0 16px rgba(255, 120, 255, .42);
+}
+#stickerRoot[data-perf-bg="violet"] .sd-sticker.performing .sd-count { color: #ffd76a; }
+
+/* ===== VIỀN "đốm sáng chạy" (comet) — 1 vệt sáng chạy trọn 1 vòng/giây quanh mép nền,
+   thay vì xoay cả dải màu như neon/rainbow (nhìn giống "bánh xe quay"). Dùng lại đúng kỹ thuật
+   conic-gradient + mask đã chạy ổn trên OBS: phần tử ĐỨNG YÊN, chỉ góc màu --sd-ang chạy. ===== */
+#stickerRoot[data-perf-border="comet"] .sd-sticker.performing .sd-panel::after {
+  content: ""; position: absolute; inset: -3px; border-radius: calc(var(--sd-r, 14px) + 3px);
+  padding: 3px; z-index: -1; pointer-events: none;
+  background: rgba(255, 182, 255, .3);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+#stickerRoot[data-perf-border="comet"] .sd-sticker.performing .sd-panel::before {
+  content: ""; position: absolute; inset: -3px; border-radius: calc(var(--sd-r, 14px) + 3px);
+  padding: 3px; z-index: -1; pointer-events: none;
+  background: conic-gradient(from var(--sd-ang, 0deg),
+    rgba(255, 190, 255, 0) 0deg,
+    rgba(255, 190, 255, 0) 286deg,
+    rgba(255, 182, 255, .55) 330deg,
+    #ffffff 351deg,
+    rgba(255, 182, 255, .55) 356deg,
+    rgba(255, 190, 255, 0) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: sd-angle 1s linear infinite;
+}
+
+/* ===== Màu thanh chuỗi "Vàng" — màu đo được từ thanh thời lượng của TikTok (#f1ec77): đặc,
+   không gradient, quầng sáng nhẹ để nổi trên video tối. ===== */
+#stickerRoot[data-streak-color="gold"] .sd-streak > i {
+  background: #f1ec77;
+  box-shadow: 0 0 8px rgba(241, 236, 119, .6);
+}
+
+/* ===== NỀN biểu diễn — bộ màu mở rộng. Tất cả dùng chung công thức "khối 3D": màu đặc ở dưới +
+   1 lớp radial trắng mờ phủ trên (tối ở giữa, sáng dần ra mép) → nhìn nổi khối, chữ vẫn đọc rõ,
+   và KHÔNG cần color-mix() (CEF cũ của OBS không hiểu). 'custom' lấy màu người dùng chấm. ===== */
+#stickerRoot[data-perf-bg="emerald"] .sd-sticker.performing .sd-panel,
+#stickerRoot[data-perf-bg="crimson"] .sd-sticker.performing .sd-panel,
+#stickerRoot[data-perf-bg="ocean"]   .sd-sticker.performing .sd-panel,
+#stickerRoot[data-perf-bg="custom"]  .sd-sticker.performing .sd-panel {
+  background:
+    radial-gradient(125% 125% at 50% 50%, rgba(255, 255, 255, 0) 28%, rgba(255, 255, 255, .34) 100%),
+    var(--sd-perf-base, var(--sd-perf, #7a3bff));
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, .38),
+    0 6px 18px rgba(0, 0, 0, .32),
+    0 0 16px var(--sd-perf-halo, rgba(255, 255, 255, .3));
+}
+#stickerRoot[data-perf-bg="emerald"] { --sd-perf-base: #0c6b4e; --sd-perf-halo: rgba(60, 240, 180, .45); }
+#stickerRoot[data-perf-bg="crimson"] { --sd-perf-base: #8e0f2e; --sd-perf-halo: rgba(255, 90, 130, .45); }
+#stickerRoot[data-perf-bg="ocean"]   { --sd-perf-base: #0b3f78; --sd-perf-halo: rgba(90, 190, 255, .45); }
+#stickerRoot[data-perf-bg="custom"]  { --sd-perf-base: var(--sd-perf, #7a3bff); --sd-perf-halo: rgba(255, 255, 255, .32); }
+/* Hoàng hôn: gradient cam → hồng → tím (kiểu duy nhất giữ dải màu chuyển, không phủ lớp sáng). */
+#stickerRoot[data-perf-bg="sunset"] .sd-sticker.performing .sd-panel {
+  background: linear-gradient(155deg, #ffb03a, #ff5f7e 52%, #b043ff);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .35), 0 6px 18px rgba(0, 0, 0, .32), 0 0 16px rgba(255, 120, 150, .4);
+}
+/* Số trên các nền đậm này để chữ vàng sáng cho tương phản (kiểu ô TikTok đã có pill tối riêng). */
+#stickerRoot[data-perf-bg="emerald"] .sd-sticker.performing .sd-count,
+#stickerRoot[data-perf-bg="crimson"] .sd-sticker.performing .sd-count,
+#stickerRoot[data-perf-bg="ocean"]   .sd-sticker.performing .sd-count,
+#stickerRoot[data-perf-bg="sunset"]  .sd-sticker.performing .sd-count,
+#stickerRoot[data-perf-bg="custom"]  .sd-sticker.performing .sd-count { color: #fff; }
+
+/* Chốt cuối: kiểu ô TikTok LUÔN giữ số vàng trong pill tối, không để bộ màu nền mở rộng ở trên
+   đổi màu chữ (pill đã tự lo tương phản rồi). Đặt cuối file để thắng về thứ tự nguồn. */
+#stickerRoot[data-cell-style="tiktok"] .sd-sticker.performing .sd-count { color: #f4cc4e; }
+
+/* Kiểu ô TikTok bỏ nền chip của nhãn, nên vệt sáng quét của kiểu tên "Kính sáng quét" mất lớp
+   nền phía sau và trông như 1 vạch trắng đặc → hạ độ đậm cho vừa mắt (hiệu ứng vẫn còn). */
+#stickerRoot[data-cell-style="tiktok"] .sd-sticker.performing .sd-label::after { opacity: .45; }
+
+/* ============================================================================
+   SKIN VÙNG "QUÀ ĐẶC BIỆT" — thay quả bong bóng nước bằng các vòng trang trí khác.
+   TÁI DÙNG NGUYÊN 3 phần tử sẵn có (.sd-waterball + 2 lớp .sd-wb-hi/.sd-wb-hi2), mỗi skin chỉ
+   VẼ LẠI chúng → không đụng markup, không thêm DOM, không tốn thêm gì cho OBS.
+   Selector KHÔNG neo #stickerRoot để chạy được ở CẢ 2 cấp (giống [data-egg-skin]):
+   - cố định 1 skin → đặt trên #stickerRoot
+   - "Ngẫu nhiên"   → đặt trên TỪNG .sd-sticker (JS xoá attr ở gốc để khỏi chồng luật)
+   An toàn OBS: chỉ transform/opacity/--sd-ang, KHÔNG filter trên phần tử đang animate.
+   ============================================================================ */
+
+/* --- none: tắt hẳn vòng trang trí, chỉ còn nền xám + quầng tím nhạt của ô đặc biệt. --- */
+[data-special-skin="none"] .sd-waterball { display: none; }
+
+/* --- halo: vòng hào quang mảnh + 1 đốm sáng chạy quanh vành (dùng lại kỹ thuật viền chạy). --- */
+[data-special-skin="halo"] .sd-waterball {
+  --wb-size: -15%;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(255, 255, 255, 0) 60%, rgba(150, 215, 255, .18) 80%, rgba(150, 215, 255, 0) 100%);
+  box-shadow: 0 0 16px rgba(130, 205, 255, .5);
+  animation: sd-halo-breathe 2.8s ease-in-out infinite;
+}
+/* Vành + đốm sáng chạy. Khoét ruột bằng mask (KHÔNG dùng mẹo padding-box/border-box: lớp
+   padding-box phải ĐỤC mới che được ruột, mà ở đây nền phải trong suốt để lộ icon → conic sẽ
+   loang cả vào giữa thành mảng trắng đè lên quà). */
+[data-special-skin="halo"] .sd-wb-hi {
+  inset: 0; width: auto; height: auto; transform: none; opacity: 1;
+  border-radius: 50%; padding: 3px;
+  background: conic-gradient(
+    rgba(185, 230, 255, .34) 0deg 300deg,
+    rgba(210, 242, 255, .8) 340deg,
+    #ffffff 352deg,
+    rgba(185, 230, 255, .34) 359deg 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: sd-spin 1.8s linear infinite;
+}
+[data-special-skin="halo"] .sd-wb-hi2 {
+  inset: 9%; width: auto; height: auto; bottom: auto; right: auto;
+  border-radius: 50%; background: none; opacity: .5;
+  box-shadow: 0 0 0 1px rgba(200, 240, 255, .5);
+}
+@keyframes sd-halo-breathe {
+  0%, 100% { transform: scale(1);    opacity: .85; }
+  50%      { transform: scale(1.05); opacity: 1; }
+}
+
+/* --- flame: quầng lửa bốc từ dưới lên + 2 lưỡi lửa nhấp nhô. --- */
+[data-special-skin="flame"] .sd-waterball {
+  inset: -20% -14% -6%;
+  border-radius: 50% 50% 46% 46% / 62% 62% 40% 40%;
+  background: radial-gradient(circle at 50% 76%,
+    rgba(255, 236, 170, .85) 0%, rgba(255, 158, 45, .55) 36%,
+    rgba(255, 70, 25, .26) 66%, rgba(255, 70, 25, 0) 100%);
+  box-shadow: 0 0 22px rgba(255, 130, 40, .5);
+  animation: sd-flame-breathe 1.5s ease-in-out infinite;
+}
+[data-special-skin="flame"] .sd-wb-hi,
+[data-special-skin="flame"] .sd-wb-hi2 {
+  border-radius: 50% 50% 50% 50% / 74% 74% 26% 26%;
+  background: linear-gradient(#fff6d0, #ffb43c 55%, rgba(255, 90, 25, 0));
+  transform-origin: 50% 100%;
+}
+/* Đặt 2 lưỡi lửa ở HAI MÉP và liếm từ dưới lên — để giữa & phía trên thì bị icon che mất thân,
+   chỉ còn 2 chóp nhọn nhô ra trông như "tai thỏ". */
+[data-special-skin="flame"] .sd-wb-hi  { top: auto; bottom: 8%;  left: 2%;   right: auto; width: 24%; height: 52%; opacity: .85; animation: sd-flame-lick 1.05s ease-in-out infinite; }
+[data-special-skin="flame"] .sd-wb-hi2 { top: auto; bottom: 4%;  left: auto; right: 4%;   width: 19%; height: 42%; opacity: .7;  animation: sd-flame-lick 1.35s ease-in-out .3s infinite; }
+@keyframes sd-flame-breathe {
+  0%, 100% { transform: scale(1, 1);      opacity: .9; }
+  50%      { transform: scale(1.04, 1.1); opacity: 1; }
+}
+@keyframes sd-flame-lick {
+  0%, 100% { transform: scaleY(.8)  translateX(0); }
+  35%      { transform: scaleY(1.2) translateX(-6%); }
+  70%      { transform: scaleY(.95) translateX(5%); }
+}
+
+/* --- ice: tấm băng lục giác + 2 ánh lấp lánh. Quầng sáng để ở lớp con (clip-path cắt mất
+       box-shadow của chính phần tử bị clip). --- */
+[data-special-skin="ice"] .sd-waterball {
+  --wb-size: -16%;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, .5) 0%, rgba(255, 255, 255, 0) 34%),
+    radial-gradient(circle at 50% 50%,
+      rgba(255, 255, 255, 0) 52%, rgba(160, 240, 255, .30) 78%, rgba(80, 175, 255, .16) 100%);
+  box-shadow: none;
+  animation: sd-ice-pulse 3.2s ease-in-out infinite;
+}
+[data-special-skin="ice"] .sd-wb-hi  { top: 12%; left: 16%; width: 22%; height: 11%; opacity: .6; transform: rotate(-32deg); }
+[data-special-skin="ice"] .sd-wb-hi2 { top: auto; left: auto; bottom: 16%; right: 18%; width: 10%; height: 8%; opacity: .5; }
+@keyframes sd-ice-pulse {
+  0%, 100% { transform: scale(1);    opacity: .82; }
+  50%      { transform: scale(1.04); opacity: 1; }
+}
+
+/* --- star: hào quang tia sáng toả ra, xoay chậm (mask khoét giữa để không che icon). --- */
+[data-special-skin="star"] .sd-waterball {
+  --wb-size: -26%;
+  background: repeating-conic-gradient(
+    rgba(255, 228, 150, .6) 0deg 5deg, rgba(255, 228, 150, 0) 5deg 20deg);
+  box-shadow: none;
+  -webkit-mask: radial-gradient(circle, transparent 33%, #000 47%, transparent 76%);
+  mask: radial-gradient(circle, transparent 33%, #000 47%, transparent 76%);
+  animation: sd-spin 9s linear infinite;
+}
+[data-special-skin="star"] .sd-wb-hi {
+  inset: 16%; width: auto; height: auto; transform: none; opacity: .8;
+  background: radial-gradient(circle, rgba(255, 238, 190, .75), rgba(255, 238, 190, 0) 70%);
+  animation: sd-halo-breathe 2.2s ease-in-out infinite;
+}
+[data-special-skin="star"] .sd-wb-hi2 { display: none; }
+
+/* --- galaxy: xoáy thiên hà tím-lam-hồng chạy vòng. --- */
+[data-special-skin="galaxy"] .sd-waterball {
+  --wb-size: -20%;
+  background: conic-gradient(
+    rgba(120, 90, 255, 0), rgba(160, 125, 255, .55) 25%,
+    rgba(255, 145, 225, .6) 50%, rgba(95, 205, 255, .55) 75%, rgba(120, 90, 255, 0));
+  box-shadow: none;
+  -webkit-mask: radial-gradient(circle, transparent 40%, #000 57%, transparent 80%);
+  mask: radial-gradient(circle, transparent 40%, #000 57%, transparent 80%);
+  animation: sd-spin 7s linear infinite;
+}
+[data-special-skin="galaxy"] .sd-wb-hi {
+  inset: 0; width: auto; height: auto; transform: none; opacity: .9;
+  background:
+    radial-gradient(circle at 22% 26%, #fff 0 1.5px, transparent 2px),
+    radial-gradient(circle at 82% 34%, #fff 0 1.2px, transparent 2px),
+    radial-gradient(circle at 68% 84%, #fff 0 1.4px, transparent 2px),
+    radial-gradient(circle at 15% 74%, #fff 0 1px, transparent 2px);
+  animation: sd-halo-breathe 2.6s ease-in-out infinite;
+}
+[data-special-skin="galaxy"] .sd-wb-hi2 { display: none; }
+
+/* Xoay CHÍNH PHẦN TỬ thay vì chạy góc màu --sd-ang. Với vòng TRÒN, xoay phần tử cho ra đúng
+   hiệu ứng "gradient quay" nhưng là phép biến hình GPU — không phải vẽ lại conic-gradient mỗi
+   frame trên CPU. Khác biệt sống-còn khi người dùng phóng overlay (zoom) lên 200%+: diện tích
+   raster tăng theo bình phương, bản chạy --sd-ang tụt về gần 0 FPS, bản xoay vẫn mượt.
+   (Viền neon/rainbow/comet của NỀN QUÀ vẫn phải dùng --sd-ang vì nền là hình CHỮ NHẬT BO GÓC —
+   xoay phần tử sẽ thấy rõ khung nghiêng.) */
+@keyframes sd-spin { to { transform: rotate(360deg); } }
+
+/* ============================================================================
+   NHÓM SKIN "LÀM NỀN" cho ô quà đặc biệt — vòng trang trí nằm SAU icon (z-index:-1) nên icon
+   luôn rõ nét, hiệu ứng chỉ tôn nền chứ không tranh chỗ với quà.
+   z-index:-1 vẫn nằm TRONG .sd-iconwrap (ô đặc biệt luôn có animation sd-special-float → tạo
+   stacking context riêng) nên chỉ chui xuống dưới ảnh icon, KHÔNG chui xuống dưới nền xám.
+   Khối 3D dựng bằng gradient + box-shadow nhiều lớp (không filter/blur → an toàn OBS), chuyển
+   động chỉ bằng transform/opacity.
+   ============================================================================ */
+
+/* --- podium3d: bệ tròn 3D có ánh sáng viền + bóng đổ, icon như ĐỨNG TRÊN bệ. --- */
+[data-special-skin="podium3d"] .sd-waterball {
+  inset: -12% -10% -16%;
+  border-radius: 0;
+  z-index: -1;
+  box-shadow: none;
+  background: linear-gradient(rgba(168, 130, 255, 0) 30%, rgba(168, 130, 255, .12) 74%, rgba(168, 130, 255, .22) 100%);
+  animation: none;
+}
+/* mặt bệ: ellipse dẹt, sáng ở gần mép trên (nguồn sáng phía trước-trên) → đọc ra khối tròn nằm ngang */
+[data-special-skin="podium3d"] .sd-wb-hi {
+  top: auto; left: -2%; right: -2%; bottom: 3%;
+  width: auto; height: 36%;
+  border-radius: 50%;
+  transform: none; opacity: 1;
+  background: radial-gradient(ellipse at 50% 24%,
+    rgba(255, 255, 255, .95) 0%, rgba(214, 190, 255, .72) 24%,
+    rgba(132, 90, 240, .6) 58%, rgba(66, 36, 158, .45) 100%);
+  box-shadow: 0 0 26px rgba(160, 120, 255, .65), inset 0 2px 0 rgba(255, 255, 255, .7);
+  animation: sd-podium-glow 2.8s ease-in-out infinite;
+}
+/* bóng đổ mềm ngay dưới bệ cho có "mặt sàn" */
+[data-special-skin="podium3d"] .sd-wb-hi2 {
+  top: auto; left: 12%; right: 12%; bottom: -1%;
+  width: auto; height: 15%;
+  border-radius: 50%; opacity: .75;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, .55), rgba(0, 0, 0, 0) 72%);
+}
+@keyframes sd-podium-glow {
+  0%, 100% { opacity: .85; }
+  50%      { opacity: 1; }
+}
+
+/* --- ring3d: vòng nghiêng kiểu Sao Thổ — cung SAU chui sau icon, cung TRƯỚC vắt qua chân icon.
+       .sd-waterball bỏ animation + z-index để KHÔNG tạo stacking context, nhờ vậy 2 cung con mới
+       tách được ra hai bên ảnh icon (một cung -1, một cung +1). --- */
+[data-special-skin="ring3d"] .sd-waterball {
+  inset: 2% -34% -6%;
+  border-radius: 0; background: none; box-shadow: none;
+  animation: none; z-index: auto;
+}
+[data-special-skin="ring3d"] .sd-wb-hi,
+[data-special-skin="ring3d"] .sd-wb-hi2 {
+  top: 68%; left: 0; right: 0; bottom: auto;
+  width: auto; height: 62%; margin-top: -31%;
+  border-radius: 50%; background: none; opacity: 1;
+  border: 5px solid rgba(190, 225, 255, .9);
+  box-shadow: 0 0 12px rgba(140, 200, 255, .6);
+}
+[data-special-skin="ring3d"] .sd-wb-hi {   /* nửa XA: mảnh & mờ hơn (phối cảnh) → chui SAU icon */
+  z-index: -1;
+  border-width: 3px;
+  border-color: rgba(150, 200, 255, .55);
+  clip-path: inset(0 0 50% 0);
+  transform: rotate(-14deg) scaleY(.42);
+}
+[data-special-skin="ring3d"] .sd-wb-hi2 {  /* nửa GẦN: dày & sáng hơn → vắt TRƯỚC chân icon */
+  z-index: 1;
+  clip-path: inset(50% 0 0 0);
+  transform: rotate(-14deg) scaleY(.42);
+}
+
+/* --- spotlight: chùm đèn sân khấu rọi từ trên + vũng sáng dưới chân. Thuần NỀN. --- */
+[data-special-skin="spotlight"] .sd-waterball {
+  inset: -40% -30% -8%;
+  border-radius: 0; background: none; box-shadow: none;
+  z-index: -1;
+  animation: sd-spot-flicker 4.2s ease-in-out infinite;
+}
+[data-special-skin="spotlight"] .sd-wb-hi {   /* chùm sáng hình nón */
+  inset: 0; width: auto; height: auto; transform: none; opacity: 1;
+  border-radius: 0;
+  background: linear-gradient(rgba(255, 246, 214, .40), rgba(255, 246, 214, .10) 66%, rgba(255, 246, 214, 0));
+  clip-path: polygon(40% 0, 60% 0, 100% 92%, 0 92%);
+}
+[data-special-skin="spotlight"] .sd-wb-hi2 {  /* vũng sáng dưới chân */
+  top: auto; left: 2%; right: 2%; bottom: 2%;
+  width: auto; height: 20%;
+  border-radius: 50%; opacity: .95;
+  background: radial-gradient(ellipse, rgba(255, 246, 214, .62), rgba(255, 246, 214, 0) 74%);
+}
+@keyframes sd-spot-flicker {
+  0%, 100% { opacity: .82; }
+  45%      { opacity: 1; }
+  60%      { opacity: .9; }
+}
+
+/* --- aurora: dải cực quang mờ trôi chậm phía sau. Thuần NỀN, rất nhẹ mắt. --- */
+[data-special-skin="aurora"] .sd-waterball {
+  inset: -28% -22%;
+  border-radius: 42%; box-shadow: none; z-index: -1;
+  background:
+    radial-gradient(60% 42% at 30% 34%, rgba(80, 255, 195, .46), rgba(80, 255, 195, 0) 70%),
+    radial-gradient(56% 46% at 72% 56%, rgba(145, 120, 255, .46), rgba(145, 120, 255, 0) 70%),
+    radial-gradient(52% 40% at 50% 82%, rgba(255, 120, 205, .34), rgba(255, 120, 205, 0) 70%);
+  animation: sd-aurora-drift 7s ease-in-out infinite;
+}
+[data-special-skin="aurora"] .sd-wb-hi,
+[data-special-skin="aurora"] .sd-wb-hi2 { display: none; }
+@keyframes sd-aurora-drift {
+  0%, 100% { transform: translate(0, 0)     scale(1); }
+  33%      { transform: translate(6%, -4%)  scale(1.06); }
+  66%      { transform: translate(-5%, 3%)  scale(.97); }
+}
+
+/* --- orb3d: quả cầu pha lê 3D — vỏ dày có khúc xạ, ánh sáng viền đáy + bóng đổ, chấm sáng
+       specular TRÔI chậm quanh chỏm cầu (chuyển động = translate → GPU). Tâm để trống nên icon
+       vẫn rõ, chỉ như đang nằm trong quả cầu. --- */
+[data-special-skin="orb3d"] .sd-waterball {
+  --wb-size: -13%;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(255, 255, 255, 0) 44%, rgba(185, 220, 255, .10) 58%,
+    rgba(125, 170, 255, .30) 84%, rgba(80, 120, 255, 0) 100%);
+  box-shadow:
+    inset 0 0 20px rgba(255, 255, 255, .38),
+    inset 15px 19px 28px rgba(120, 185, 255, .48),
+    inset -17px -21px 32px rgba(205, 145, 255, .42),
+    inset 0 -9px 15px rgba(255, 255, 255, .55),
+    0 11px 20px -7px rgba(0, 0, 0, .6),
+    0 0 22px rgba(150, 205, 255, .5);
+  animation: sd-orb-bob 3.6s ease-in-out infinite;
+}
+[data-special-skin="orb3d"] .sd-wb-hi {
+  top: 8%; left: 14%; width: 38%; height: 26%;
+  transform: rotate(-24deg); opacity: .95;
+  animation: sd-orb-spec 6s ease-in-out infinite;
+}
+[data-special-skin="orb3d"] .sd-wb-hi2 {
+  top: auto; left: auto; bottom: 12%; right: 16%;
+  width: 17%; height: 13%; opacity: .8;
+}
+@keyframes sd-orb-bob {
+  0%, 100% { transform: translateY(0)    scale(1); }
+  50%      { transform: translateY(-3%)  scale(1.02); }
+}
+@keyframes sd-orb-spec {
+  0%, 100% { transform: rotate(-24deg) translate(0, 0); }
+  50%      { transform: rotate(-24deg) translate(46%, 14%); }
 }

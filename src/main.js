@@ -3156,7 +3156,7 @@ class StickerEngine {
       labelScrollSpeed: 3,     // tốc độ chạy ngang khi labelLong='scroll' (1..10)
       cells: [],               // [{ row, col, giftId, giftName, icon, diamond, text }]
       bg: '#1f1f1f',
-      bgOpacity: 79,
+      bgOpacity: 60,
       iconSize: 79,
       textSize: 18,
       overlayScale: 100,
@@ -3165,8 +3165,11 @@ class StickerEngine {
       rowGap: -19,             // khoảng cách DỌC (giữa hàng)
       animIcon: false,
       enlargeTop: true,        // phóng to quà nhiều điểm nhất
-      perfBg: 'gold',          // hiệu ứng NỀN ô đang biểu diễn: none|gold|pink|blue|dark
-      perfBorder: 'ring',      // hiệu ứng VIỀN ô đang biểu diễn: none|glow|neon|rainbow|ring
+      cellStyle: 'tiktok',     // kiểu ô: tiktok (tên trong nền, số trong pill — mặc định) | classic (chip tên rời)
+      perfBg: 'random',          // hiệu ứng NỀN ô đang biểu diễn: none|gold|pink|blue|dark|violet|emerald|crimson|ocean|sunset|custom
+      perfBgColor: '#7a3bff',  // màu nền khi perfBg='custom'
+      perfBorder: 'comet',      // hiệu ứng VIỀN ô đang biểu diễn: none|glow|neon|rainbow|ring|comet
+      perfPreset: '',          // chủ đề hiệu ứng đang chọn (chỉ để NHỚ cho dropdown; xoá khi chỉnh tay 1 mục)
       perfName: 'random',      // kiểu NHÃN TÊN người đang diễn: random|pill|metal|rainbow|eq|lights
       perfSparkle: true,       // hạt lấp lánh quanh ô đang biểu diễn
       perfRipple: true,        // vòng sáng lan toả
@@ -3176,13 +3179,15 @@ class StickerEngine {
       showCrown: true,         // vương miện 👑 trên ô nhiều điểm nhất
       showLevelUp: true,       // hiệu ứng "LEVEL UP" khi ô đạt mục tiêu
       eggWhenZero: true,       // count=0 → hiện QUẢ TRỨNG thay số 0; có quà → trứng nở ra ("đập trứng")
-      eggSize: 56,             // cỡ quả trứng (% so với icon), 40–140
+      eggSize: 40,             // cỡ quả trứng (% so với icon), 40–140 — mặc định nhỏ gọn trong nền xám
       eggSkin: 'dino',         // skin vỏ trứng: ivory|gold|pink|blue|dino (khủng long đốm)
       eggSkinRandom: true,     // true → mỗi ô bốc skin ngẫu nhiên, đổi lại mỗi lần trứng tái tạo
+      specialSkin: 'random',   // vòng trang trí ô QUÀ ĐẶC BIỆT — nổi bật: bubble|halo|flame|ice|star|galaxy
+                               // làm nền (icon nổi lên trên): podium3d|orb3d|ring3d|spotlight|aurora; hoặc random|none
       streakEnabled: true,     // GIỮ CHUỖI: quà còn "máu chuỗi" được ưu tiên lên diễn
-      streakSeconds: 10,       // thời lượng thanh máu chuỗi (giây)
+      streakSeconds: 30,       // thời lượng thanh máu chuỗi (giây)
       streakSteal: true,       // CƯỚP CHUỖI: cắt ngang quà đang phát khi quà khác còn máu vượt số lượng
-      streakBarColor: 'tiktok',// màu thanh máu chuỗi: tiktok (hồng đỏ) | blue (xanh) | health (xanh→đỏ theo mức)
+      streakBarColor: 'tiktok',// màu thanh máu chuỗi: tiktok (hồng đỏ) | blue (xanh) | gold (vàng TikTok) | health (xanh→đỏ theo mức)
     };
     this.rt = {}; // giftId -> { received, performed, points }
     // Chỉ MỘT quà biểu diễn tại một thời điểm (là 'current' của hàng đợi nhạc bên renderer).
@@ -3198,7 +3203,9 @@ class StickerEngine {
     this.config.cells = Array.isArray(this.config.cells) ? this.config.cells : [];
     this._emit();
   }
-  reset() { this.rt = {}; this.performingId = ''; this.queuedByGift = {}; this.queuedByGiftName = {}; this._comboRepeats.clear(); this._emit(); }
+  // Xoá SẠCH mọi thứ đang hiện trên ô: số đã nhận, số đang chờ (đếm lùi), quà đang diễn và
+  // máu chuỗi. Trước đây bỏ sót this.streaks nên reset xong thanh chuỗi vẫn chạy tiếp.
+  reset() { this.rt = {}; this.performingId = ''; this.queuedByGift = {}; this.queuedByGiftName = {}; this.streaks = {}; this._comboRepeats.clear(); this._emit(); }
   // Renderer đẩy toàn bộ số lượt còn trong hàng đợi (theo giftId) mỗi khi hàng đợi đổi.
   // Đây là NGUỒN SỰ THẬT cho chế độ "Đếm lùi" → khớp tuyệt đối với "Đang chờ" và tự trừ dần khi phát.
   setQueued(pending, pendingByName) {
@@ -3326,7 +3333,7 @@ class StickerEngine {
       topGiftId: (this.config.enlargeTop !== false && topVal > 0) ? topGiftId : '',
       crownGiftId: (this.config.showCrown !== false && topVal > 0) ? topGiftId : '',
       bg: this.config.bg || '#2b2f3a',
-      bgOpacity: Number.isFinite(Number(this.config.bgOpacity)) ? Number(this.config.bgOpacity) : 55,
+      bgOpacity: Number.isFinite(Number(this.config.bgOpacity)) ? Number(this.config.bgOpacity) : 60,
       iconSize: Number(this.config.iconSize) || 66,
       textSize: Number(this.config.textSize) || 14,
       overlayScale: Number(this.config.overlayScale) || 100,
@@ -3334,22 +3341,25 @@ class StickerEngine {
       colGap: Number.isFinite(Number(this.config.colGap)) ? Number(this.config.colGap) : (Number.isFinite(Number(this.config.gap)) ? Number(this.config.gap) : 14),
       rowGap: Number.isFinite(Number(this.config.rowGap)) ? Number(this.config.rowGap) : (Number.isFinite(Number(this.config.gap)) ? Number(this.config.gap) : 14),
       animIcon: this.config.animIcon !== false,
-      perfBg: ['none', 'gold', 'pink', 'blue', 'dark'].includes(this.config.perfBg) ? this.config.perfBg : 'gold',
-      perfBorder: ['none', 'glow', 'neon', 'rainbow', 'ring'].includes(this.config.perfBorder) ? this.config.perfBorder : 'glow',
+      cellStyle: this.config.cellStyle === 'classic' ? 'classic' : 'tiktok',
+      perfBg: ['none', 'random', 'gold', 'pink', 'blue', 'dark', 'violet', 'emerald', 'crimson', 'ocean', 'sunset', 'custom'].includes(this.config.perfBg) ? this.config.perfBg : 'random',
+      perfBgColor: /^#[0-9a-f]{6}$/i.test(String(this.config.perfBgColor || '')) ? this.config.perfBgColor : '#7a3bff',
+      perfBorder: ['none', 'glow', 'neon', 'rainbow', 'ring', 'comet'].includes(this.config.perfBorder) ? this.config.perfBorder : 'comet',
       perfName: ['random', 'pill', 'metal', 'rainbow', 'eq', 'lights'].includes(this.config.perfName) ? this.config.perfName : 'random',
-      perfSparkle: !!this.config.perfSparkle,
+      perfSparkle: this.config.perfSparkle !== false,   // mặc định BẬT như perfNotes/perfBorder='comet'
       perfRipple: !!this.config.perfRipple,
       perfShine: !!this.config.perfShine,
-      perfNotes: !!this.config.perfNotes,
+      perfNotes: this.config.perfNotes !== false,
       showMedals: this.config.showMedals !== false,
       showLevelUp: this.config.showLevelUp !== false,
       eggWhenZero: this.config.eggWhenZero !== false,
-      eggSize: Math.max(40, Math.min(140, Number(this.config.eggSize) || 85)),
+      eggSize: Math.max(40, Math.min(140, Number(this.config.eggSize) || 40)),
       eggSkin: ['ivory', 'gold', 'pink', 'blue', 'dino'].includes(this.config.eggSkin) ? this.config.eggSkin : 'ivory',
       eggSkinRandom: !!this.config.eggSkinRandom,
+      specialSkin: ['random', 'bubble', 'halo', 'flame', 'ice', 'star', 'galaxy', 'podium3d', 'orb3d', 'ring3d', 'spotlight', 'aurora', 'none'].includes(this.config.specialSkin) ? this.config.specialSkin : 'random',
       streakOn: !!this.config.streakEnabled,
-      streakDur: Math.max(1, Math.min(120, Number(this.config.streakSeconds) || 10)) * 1000,
-      streakBarColor: ['tiktok', 'blue', 'health'].includes(this.config.streakBarColor) ? this.config.streakBarColor : 'tiktok',
+      streakDur: Math.max(1, Math.min(120, Number(this.config.streakSeconds) || 30)) * 1000,
+      streakBarColor: ['tiktok', 'blue', 'health', 'gold'].includes(this.config.streakBarColor) ? this.config.streakBarColor : 'tiktok',
     };
   }
   _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
