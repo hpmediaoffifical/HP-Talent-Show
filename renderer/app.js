@@ -5539,6 +5539,22 @@ async function activateLicenseFrom(inputId) {
 // Ra bản mới thì thêm mục vào đầu mảng và bỏ mục cuối (giữ đúng 3 thẻ).
 const RECENT_CHANGELOG = [
   {
+    ver: '0.1.90',
+    date: '20/08/2026',
+    title: 'ĐẬP TRỨNG: cập nhật xong là ăn ngay bộ cài đặt mặc định mới',
+    groups: [
+      {
+        name: '🥚 Cài đặt Đập Trứng tự về đúng mặc định',
+        items: [
+          'Bản v0.1.89 đổi mặc định nhưng máy đã dùng lâu vẫn thấy y như cũ — vì mỗi HỒ SƠ NHÓM giữ một bản cài đặt Đập Trứng riêng, vào nhóm là bản đó đè lên. Nay cập nhật xong app tự đưa cả cấu hình gốc lẫn TẤT CẢ hồ sơ nhóm về đúng bộ mặc định.',
+          'Bộ mặc định: Kiểu ô TikTok · Vị trí chữ Dưới icon · Cỡ trứng 40 · Độ mờ nền 60 · Thời lượng chuỗi 30 giây · Nền Ngẫu nhiên · Viền Đốm sáng chạy vòng quanh · Bật Nốt nhạc bay · Skin quà đặc biệt Ngẫu nhiên.',
+          'Chỉ chạy MỘT lần: sau đó bạn chỉnh gì thì giữ nguyên đó, các bản cập nhật sau không đụng vào nữa.',
+          'Các thiết lập khác của từng nhóm (số hàng/cột, cỡ icon, cỡ chữ, khoảng cách, danh sách ô quà, skin trứng, màu thanh máu…) được giữ nguyên.',
+        ],
+      },
+    ],
+  },
+  {
     ver: '0.1.89',
     date: '20/08/2026',
     title: 'ĐẬP TRỨNG: ô quà gọn kiểu TikTok, thanh giữ chuỗi mượt hẳn, thêm skin quà đặc biệt',
@@ -5595,28 +5611,6 @@ const RECENT_CHANGELOG = [
         items: [
           'Cắm USB wifi, bật VPN, gắn dock/màn hình rời hay đổi tên máy không còn khiến hệ thống tưởng bạn đổi sang máy khác.',
           'Máy đang chạy nặng (OBS + game) cũng không làm sai nhận diện máy nữa.',
-        ],
-      },
-    ],
-  },
-  {
-    ver: '0.1.85',
-    date: '17/08/2026',
-    title: 'NHẠC DANCE: video chạy được ngoài OBS + link overlay ngay trong popup quà',
-    groups: [
-      {
-        name: '🎬 Sửa lỗi video chớp một cái rồi mất',
-        items: [
-          'Video quà nay chạy hết clip cả khi xem overlay bằng trình duyệt, TikTok Studio hay cửa sổ Review — trước đây chỉ OBS mới chạy, chỗ khác thì hàng đợi tự trôi tuột.',
-          'Nơi nào chặn tiếng tự phát thì video vẫn hiện (tạm câm) và có tiếng lại ngay khi bấm vào trang, thay vì bị bỏ qua.',
-          'Cửa sổ Review phát kèm tiếng bình thường.',
-        ],
-      },
-      {
-        name: '🖥 Link overlay ngay trong popup quà',
-        items: [
-          'Popup cài đặt quà có sẵn ô link OBS của WEBM đang chọn: bấm COPY OBS để dán vào Nguồn Trình duyệt, hoặc bấm Review để xem thử.',
-          'Đổi WEBM 1 / 2 / 3 ở dropdown thì link đổi theo, khỏi quay về trang LINK OVERLAY.',
         ],
       },
     ],

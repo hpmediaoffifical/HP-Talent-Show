@@ -1170,6 +1170,47 @@ function loadMusicList() { return loadJson(MUSIC_LIST_PATH, null); }
 function saveMusicList(cfg) { saveJson(MUSIC_LIST_PATH, cfg); }
 function loadStickerConfig() { return loadJson(STICKER_PATH, null); }
 function saveStickerConfig(cfg) { saveJson(STICKER_PATH, cfg); }
+
+// ---- ÉP MẶC ĐỊNH cho tab 🥚 Đập Trứng — chạy ĐÚNG MỘT LẦN cho mỗi mốc ----
+// Vì sao cần: đổi giá trị mặc định trong code chỉ có tác dụng với mục CHƯA TỪNG được lưu. Máy đã
+// dùng lâu thì cấu hình gốc lẫn TỪNG HỒ SƠ NHÓM (groupProfiles[gid].sticker) đều đã có giá trị cũ
+// nằm sẵn trong file → cập nhật app xong vào nhóm vẫn thấy y như cũ. Migration này ghi ĐÈ thẳng
+// các khoá bên dưới cho cả cấu hình gốc VÀ mọi hồ sơ nhóm.
+// Chỉ chạy 1 lần: dấu mốc lưu ở settings.stickerDefaultsStamp. Ép xong người dùng chỉnh gì thì giữ
+// nguyên đó, các bản cập nhật sau KHÔNG đụng vào nữa — muốn ép lại thì đổi hằng số mốc này.
+const STICKER_DEFAULTS_STAMP = 'v0.1.90';
+const STICKER_FORCED_DEFAULTS = {
+  cellStyle: 'tiktok',    // Kiểu ô: TikTok
+  labelPos: 'bottom',     // Vị trí chữ: Dưới icon
+  eggSize: 40,            // Kích thước Trứng
+  bgOpacity: 60,          // Độ mờ nền
+  streakSeconds: 30,      // Thời lượng chuỗi (giây)
+  perfBg: 'random',       // Nền ô đang biểu diễn: Ngẫu nhiên
+  perfBorder: 'comet',    // Viền: Đốm sáng chạy vòng quanh
+  perfNotes: true,        // Nốt nhạc bay
+  specialSkin: 'random',  // Skin quà đặc biệt: Ngẫu nhiên
+};
+function forceStickerDefaultsOnce() {
+  if (settings.stickerDefaultsStamp === STICKER_DEFAULTS_STAMP) return false;
+  // 1) Cấu hình gốc (TALENT SHOW). Chưa có file thì thôi — engine tự dùng mặc định trong code.
+  const base = loadStickerConfig();
+  if (base && typeof base === 'object') saveStickerConfig({ ...base, ...STICKER_FORCED_DEFAULTS });
+  // 2) Mọi hồ sơ nhóm — đây mới là chỗ ăn thua: vào nhóm là bản này đè lên cấu hình gốc.
+  const profiles = loadGroupProfiles();
+  let hit = 0;
+  for (const gid of Object.keys(profiles)) {
+    const p = profiles[gid];
+    if (!p || typeof p !== 'object' || !p.sticker || typeof p.sticker !== 'object') continue;
+    p.sticker = { ...p.sticker, ...STICKER_FORCED_DEFAULTS };
+    hit++;
+  }
+  if (hit) saveGroupProfiles(profiles);
+  settings.stickerDefaultsStamp = STICKER_DEFAULTS_STAMP;
+  saveSettings();
+  console.log(`[sticker] Ép mặc định ${STICKER_DEFAULTS_STAMP}: cấu hình gốc + ${hit} hồ sơ nhóm.`);
+  return true;
+}
+
 function loadMvpHonorConfig() { return loadJson(MVP_HONOR_PATH, null); }
 function saveMvpHonorConfig(cfg) { saveJson(MVP_HONOR_PATH, cfg); }
 function loadLuckyWheelConfig() { return loadJson(LUCKY_WHEEL_PATH, null); }
@@ -3151,7 +3192,7 @@ class StickerEngine {
       rows: 3,
       cols: 5,
       countMode: 'countdown',  // 'cumulative' (đếm tăng) | 'countdown' (đếm lùi = đang chờ biểu diễn)
-      labelPos: 'top',         // 'top' | 'bottom'
+      labelPos: 'bottom',      // 'top' | 'bottom' — mặc định DƯỚI icon
       labelLong: 'scroll',     // Hàng DÀI: 'scroll' (chạy ngang, mặc định) | 'clip' (cắt …). Enter = xuống dòng luôn được giữ.
       labelScrollSpeed: 3,     // tốc độ chạy ngang khi labelLong='scroll' (1..10)
       cells: [],               // [{ row, col, giftId, giftName, icon, diamond, text }]
@@ -4903,6 +4944,8 @@ function bootstrapEngines() {
     onRankingPoints: rankingLivePoints,
     getCreators: loadCreators,
   });
+  // Ép mặc định Đập Trứng TRƯỚC khi nạp, để engine ăn ngay giá trị mới (chỉ chạy 1 lần/mốc).
+  forceStickerDefaultsOnce();
   const savedSticker = loadStickerConfig();
   if (savedSticker) stickerEngine.setConfig(savedSticker);
   // Áp trạng thái Liên kết THI ĐẤU NHÓM đã lưu vào các engine (nguồn chuẩn = settings.rankingLinks).

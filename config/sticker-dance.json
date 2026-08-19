@@ -125,5 +125,7 @@
   "streakSeconds": 30,
   "streakSteal": true,
   "streakBarColor": "tiktok",
-  "showPerfBanner": true
+  "showPerfBanner": true,
+  "cellStyle": "tiktok",
+  "specialSkin": "random"
 }
