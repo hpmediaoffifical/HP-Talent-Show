@@ -565,22 +565,59 @@ function parseLicenseDate(value) {
 
 // HP KEY (hpvn.media) - thay backend Google Sheet. Cau hinh: hpkey/config.js
 // + hpkey/public-key.js. Giu nguyen shape { ok, license } => gate khong phai sua.
+
+// ---- LƯU KEY BỀN VỮNG -------------------------------------------------------
+// KEY chỉ nằm trong settings.json thì gỡ cài / xoá userData / file hỏng là mất sạch,
+// user phải xin lại KEY. hpkey/store.js ghi song song ra ProgramData + AppData\HP Media
+// + registry HKCU → cập nhật hay cài lại đều tự tìm thấy KEY cũ.
+const licenseStore = require('../hpkey/store');
+licenseStore.setExtraDir(CONFIG_DIR);
+
+function backupLicense(license) {
+  try { licenseStore.saveLicense(license); } catch {}
+}
+
+// Mở app mà settings.json chưa có KEY (bản mới cài / file bị xoá) → lấy lại từ bản sao.
+function restoreLicenseFromBackup() {
+  try {
+    if (settings.license?.key) return false;
+    const rec = licenseStore.readRecord();
+    if (!rec || !rec.key) return false;
+    settings.license = {
+      key: rec.key,
+      vip: rec.vip || '',
+      allowedIds: Array.isArray(rec.allowedIds) ? rec.allowedIds : [],
+      expiresAt: rec.expiresAt || '',
+      status: 'restored',
+      activatedAt: rec.activatedAt || Date.now(),
+      checkedAt: rec.checkedAt || 0,
+      deviceId: getDeviceId(),
+    };
+    saveSettings();
+    return true;
+  } catch { return false; }
+}
+
 async function validateLicenseKey(key) {
   const cleanKey = String(key || '').trim();
   if (!cleanKey) return { ok: false, error: 'Vui lòng nhập KEY bản quyền.' };
   const r = await require('../hpkey/validate').validateLicenseKey(cleanKey, getDeviceId());
   if (!r.ok) {
-    // Mat mang -> ném lỗi để checkStoredLicense xử lý offline grace (theo expiresAt đã lưu)
-    if (r._offline) throw new Error(r.error);
+    // Lỗi KHÔNG chắc chắn (mất mạng, server 5xx/trả HTML, lệch chữ ký token…) → ném lỗi
+    // để checkStoredLicense dùng hạn bản quyền đã lưu. Chỉ lỗi RÕ RÀNG (key bị khoá,
+    // hết hạn, sai key…) mới trả về ok:false để bắt kích hoạt lại.
+    if (r._offline || r._soft) { const err = new Error(r.error); err.soft = true; throw err; }
     return r;
   }
   const license = { ...r.license, activatedAt: settings.license?.activatedAt || Date.now() };
   settings.license = license;
   saveSettings();
+  backupLicense(license);
   return { ok: true, license };
 }
 
 async function checkStoredLicense() {
+  restoreLicenseFromBackup();
   const key = settings.license?.key || '';
   if (!key) return { ok: false, activated: false, error: 'Chưa kích hoạt KEY bản quyền.', license: { ...(settings.license || {}), deviceId: getDeviceId() } };
   try {
@@ -591,7 +628,7 @@ async function checkStoredLicense() {
     return {
       ok: !!offlineOk,
       offline: true,
-      error: offlineOk ? 'Không kiểm tra được sheet, dùng trạng thái bản quyền đã lưu.' : (e.message || String(e)),
+      error: offlineOk ? 'Chưa kiểm tra được hệ thống bản quyền, đang dùng trạng thái đã lưu.' : (e.message || String(e)),
       license: { ...(settings.license || {}), deviceId: getDeviceId() },
     };
   }
@@ -6075,11 +6112,26 @@ function registerIpc() {
 
   // License + updates
   ipcMain.handle('license:get', () => publicLicenseState({ license: { ...(settings.license || {}), deviceId: getDeviceId(), appVersion: app.getVersion() } }).license);
-  ipcMain.handle('license:activate', async (_e, key) => publicLicenseState(await validateLicenseKey(key)));
+  // Lỗi mơ hồ giờ được NÉM ra (để checkStoredLicense ân hạn) → ở đây phải bắt lại,
+  // không thì renderer nhận "Error invoking remote method…" khó hiểu.
+  ipcMain.handle('license:activate', async (_e, key) => {
+    try {
+      return publicLicenseState(await validateLicenseKey(key));
+    } catch (e) {
+      return publicLicenseState({
+        ok: false,
+        error: (e && e.soft ? 'Chưa kết nối được hệ thống bản quyền: ' : '') + (e?.message || String(e)),
+        license: { ...(settings.license || {}), deviceId: getDeviceId() },
+      });
+    }
+  });
   ipcMain.handle('license:check', async () => publicLicenseState(await checkStoredLicense()));
   ipcMain.handle('license:clear', () => {
     settings.license = { key: '', vip: '', expiresAt: '', status: '', activatedAt: 0, checkedAt: 0, deviceId: getDeviceId() };
     saveSettings();
+    // Người dùng CHỦ ĐỘNG xoá KEY → xoá luôn mọi bản sao, nếu không mở lại app
+    // restoreLicenseFromBackup() sẽ lôi KEY cũ về.
+    try { licenseStore.clearRecord(); } catch {}
     return publicLicenseState({ ok: true, license: settings.license });
   });
   ipcMain.handle('app:getVersion', () => app.getVersion());
@@ -6256,15 +6308,40 @@ app.whenReady().then(async () => {
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
-  // HP KEY - check key real-time: cam key tren admin -> dong app trong <= RECHECK_SECONDS
+  // HP KEY - check key real-time qua LỚP BẢO VỆ (hpkey/guard.js).
+  //  • Lỗi mơ hồ (mất mạng, server 5xx / trả HTML, lệch chữ ký token…) → CHỈ cảnh báo,
+  //    tuyệt đối không đóng app đang LIVE. Đây chính là ca "Bản quyền bị thu hồi (revoked)"
+  //    trước đây: server không hề cấm key, chỉ là body rỗng/không phải JSON.
+  //  • Chỉ đóng khi server trả mã rõ ràng (key_blocked/device_revoked/key_expired/
+  //    invalid_key/device_limit_reached) và LẶP LẠI 3 lần liên tiếp.
+  // Máy đã kích hoạt từ bản cũ (KEY chỉ có trong settings.json) → chép ngay ra các bản
+  // sao để lần cập nhật/cài lại sau không phải nhập KEY nữa.
+  try { if (settings.license?.key) backupLicense(settings.license); } catch {}
+
   try {
-    require('../hpkey/core').startWatch({
+    require('../hpkey/guard').startWatch({
       getKey: () => settings.license?.key || '',
-      onRevoked: (reason) => {
+      hardStrikes: 3,
+      onOk: () => {
+        if (settings.license) {
+          settings.license.checkedAt = Date.now();
+          settings.license.status = 'active';
+          backupLicense(settings.license);
+        }
+      },
+      onWarn: (info) => {
+        const msg = info.confirming
+          ? `Hệ thống bản quyền báo: ${info.message} — đang xác minh lại (${info.hardStreak}/3), app vẫn chạy bình thường.`
+          : `Chưa xác minh được bản quyền: ${info.message} — app vẫn chạy bằng hạn đã lưu.`;
+        try { broadcast('license:warn', { message: msg, hard: !!info.confirming }); } catch {}
+        try { broadcast('log', { source: 'hpkey', message: msg }); } catch {}
+      },
+      onRevoked: (code, message) => {
         try {
           dialog.showErrorBox('Bản quyền bị thu hồi',
-            'KEY của bạn đã bị khóa/thu hồi hoặc hết hạn (' + reason + ').\n' +
-            'Ứng dụng sẽ đóng. Liên hệ HP Media để được hỗ trợ.');
+            (message || code) + '\n\n' +
+            'Đã xác minh lại 3 lần với hệ thống bản quyền nên ứng dụng sẽ đóng.\n' +
+            'Liên hệ HP Media để được hỗ trợ. (mã: ' + code + ')');
         } catch (_) {}
         app.quit();
         setTimeout(() => { try { app.exit(0); } catch (_) {} }, 1500);

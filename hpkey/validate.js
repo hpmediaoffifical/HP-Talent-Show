@@ -16,7 +16,12 @@ function fmtDmy(unix) {
 
 async function validateLicenseKey(key, deviceId) {
   const r = await core.activate(key);
-  if (!r.ok) return { ok: false, error: core.errVi(r.error), _offline: !!r._offline };
+  if (!r.ok) {
+    // _soft = loi KHONG chac chan (mat mang, server 5xx/HTML, sai chu ky token...).
+    // main.js dua vao co nay de dung han ban quyen da luu thay vi bat kich hoat lai.
+    const kind = require('./guard').classify(r).kind;
+    return { ok: false, error: core.errVi(r.error), _code: r.error, _offline: !!r._offline, _soft: kind === 'soft' };
+  }
   const p = r.payload;
   return {
     ok: true,

@@ -355,6 +355,7 @@ const api = {
       'tt:recipientLearned',
       'app:confirmQuit',
       'hosts:status',
+      'license:warn',
       'log',
     ]);
     if (!allowed.has(channel)) return () => {};

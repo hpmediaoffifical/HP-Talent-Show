@@ -5504,6 +5504,35 @@ async function activateLicenseFrom(inputId) {
 // Ra bản mới thì thêm mục vào đầu mảng và bỏ mục cuối (giữ đúng 3 thẻ).
 const RECENT_CHANGELOG = [
   {
+    ver: '0.1.88',
+    date: '19/08/2026',
+    title: 'Hết cảnh app tự đóng vì “Bản quyền bị thu hồi” + nhớ KEY khi cài lại',
+    groups: [
+      {
+        name: '🛡️ App không còn tự đóng giữa buổi LIVE',
+        items: [
+          'Trước đây chỉ cần hệ thống bản quyền bận, mạng chập chờn hay wifi bắt đăng nhập là app hiểu nhầm thành “KEY bị thu hồi” và đóng ngay lập tức — nay những trường hợp đó chỉ hiện một dòng nhắc, app chạy tiếp bình thường.',
+          'Chỉ khi hệ thống báo rõ ràng (KEY bị khoá, hết hạn, vượt số máy) và xác minh lại đủ 3 lần thì app mới đóng, kèm lý do cụ thể.',
+          'Mất mạng hoàn toàn vẫn mở và dùng được app bình thường trong thời hạn KEY đã lưu.',
+        ],
+      },
+      {
+        name: '🔑 KEY được nhớ kỹ hơn',
+        items: [
+          'KEY được lưu thêm ở nhiều nơi ngoài thư mục app: cập nhật bản mới, cài lại máy hay lỡ xoá cấu hình đều tự nhận lại KEY, khỏi nhập tay.',
+          'Bấm “Xoá KEY” trong phần Bản quyền vẫn xoá sạch như trước.',
+        ],
+      },
+      {
+        name: '💻 Nhận diện máy ổn định',
+        items: [
+          'Cắm USB wifi, bật VPN, gắn dock/màn hình rời hay đổi tên máy không còn khiến hệ thống tưởng bạn đổi sang máy khác.',
+          'Máy đang chạy nặng (OBS + game) cũng không làm sai nhận diện máy nữa.',
+        ],
+      },
+    ],
+  },
+  {
     ver: '0.1.85',
     date: '17/08/2026',
     title: 'NHẠC DANCE: video chạy được ngoài OBS + link overlay ngay trong popup quà',
@@ -5550,34 +5579,6 @@ const RECENT_CHANGELOG = [
         items: [
           'Màn chọn nhóm: số kim cương rút gọn theo bề rộng khung khi thu nhỏ cửa sổ (đưa chuột vào xem số đầy đủ), chip / avatar co theo 3 mức.',
           'TÍNH ĐIỂM: kết quả không đạt hiện câu động viên ngẫu nhiên kèm emoji thay vì một câu cố định.',
-        ],
-      },
-    ],
-  },
-  {
-    ver: '0.1.83',
-    date: '14/08/2026',
-    title: 'Sửa gõ liệu phải ALT+Tab & tính điểm vào đúng người',
-    groups: [
-      {
-        name: '⌨️ Gõ liệu bình thường trở lại',
-        items: [
-          'Hết cảnh mở app rồi gõ không được, phải ALT+Tab: việc lấy avatar / UID nền không còn cướp bàn phím của cửa sổ chính.',
-          'Rời ô nhập TikTok ID chỉ tải nền; muốn lấy avatar ngay thì bấm nút Tải hoặc Enter.',
-        ],
-      },
-      {
-        name: '🎯 TÍNH ĐIỂM',
-        items: [
-          'Mục tiêu “cần bao nhiêu để vượt hạng” lấy từ dữ liệu BXH thật, không đọc theo thứ tự bảng — đang lọc / đóng băng bảng vẫn tính đúng.',
-          'Hết giờ cộng điểm cho đúng Creator của lượt đó, kể cả khi VOTE bị đổi giữa lượt.',
-        ],
-      },
-      {
-        name: '❤️ NHIỆM VỤ · TÁP TIM',
-        items: [
-          'Overlay cập nhật tại chỗ nên mượt hơn, không nhấp nháy khi có tim mới.',
-          'Popup danh hiệu luôn nằm giữa lưới, đổi 9 ô sang 6 ô không còn đè lệch sang thanh KPI.',
         ],
       },
     ],
@@ -11448,6 +11449,12 @@ function wireOverlaysTab() {
   });
   // Main tự cài hosts lúc khởi động → nhận trạng thái để cập nhật banner mà không cần hỏi lại.
   window.api.on?.('hosts:status', applyHostsStatus);
+
+  // Kiểm tra bản quyền gặp trục trặc → CHỈ báo, app vẫn chạy (không đóng giữa lúc LIVE).
+  window.api.on?.('license:warn', (info) => {
+    toast(info?.message || 'Chưa kiểm tra được hệ thống bản quyền — app vẫn chạy bình thường.',
+      info?.hard ? 'error' : '');
+  });
 
   $$('[data-review-toggle]').forEach(btn => btn.addEventListener('click', async () => {
     const type = btn.dataset.reviewToggle;
