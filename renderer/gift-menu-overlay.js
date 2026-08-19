@@ -153,5 +153,26 @@ function render(cfg) {
   }
 }
 
+// Chỉ vẽ lại khi DỮ LIỆU thật sự đổi: render() dựng lại innerHTML nên mỗi lần gọi là restart hết
+// animation icon/marquee. Poll + SSE cùng bắn state giống nhau → phải chặn ở đây kẻo giật liên tục.
+let lastPayload = '';
+function applyState(state) {
+  const s = JSON.stringify(state || {});
+  if (s === lastPayload) return;
+  lastPayload = s;
+  render(state);
+}
+
 render({});
-connectSSE(`/gift-menu-events?token=${encodeURIComponent(token)}`, 'giftmenu', render);
+// Lấy state ngay bằng HTTP + poll nhẹ (giống Vòng quay / Vinh danh): một số bản OBS CEF mở trang
+// nhưng EventSource nằm im không đẩy event vào JS → nếu chỉ dựa vào SSE thì overlay trống trơn cho
+// tới khi người dùng chỉnh sửa cấu hình. Poll bảo đảm LUÔN nhận và bám realtime.
+function pullState() {
+  fetch(`/gift-menu-state?token=${encodeURIComponent(token)}`, { cache: 'no-store' })
+    .then(res => (res.ok ? res.json() : null))
+    .then(state => { if (state) applyState(state); })
+    .catch(() => {});
+}
+pullState();
+setInterval(pullState, 2500);
+connectSSE(`/gift-menu-events?token=${encodeURIComponent(token)}`, 'giftmenu', applyState);

@@ -181,7 +181,7 @@ class ObsOverlayServer {
   getStickerUrl() { return `http://${this.linkHost}:${this._portFor('sticker')}/sticker?token=${encodeURIComponent(this.token)}`; }
   getMvpHonorUrl() { return `http://${this.linkHost}:${this._portFor('mvp-honor')}/mvp-honor?token=${encodeURIComponent(this.token)}`; }
   getLuckyWheelUrl() { return `http://${this.linkHost}:${this._portFor('lucky-wheel')}/lucky-wheel?token=${encodeURIComponent(this.token)}&v=15`; }
-  getGiftMenuUrl() { return `http://${this.linkHost}:${this._portFor('gift-menu')}/gift-menu?token=${encodeURIComponent(this.token)}&v=2`; }
+  getGiftMenuUrl() { return `http://${this.linkHost}:${this._portFor('gift-menu')}/gift-menu?token=${encodeURIComponent(this.token)}&v=3`; }
   getMissionTrioUrl(mode) { const m = mode === 'horizontal' ? 'horizontal' : 'vertical'; return `http://${this.linkHost}:${this._portFor('mission-trio')}/mission-trio?token=${encodeURIComponent(this.token)}&mode=${m}&v=2`; }
   getLikeWallUrl() { return `http://${this.linkHost}:${this._portFor('like-wall')}/like-wall?token=${encodeURIComponent(this.token)}&v=3`; }
   getCardFlipUrl() { return `http://${this.linkHost}:${this._portFor('card-flip')}/card-flip?token=${encodeURIComponent(this.token)}&v=5`; }

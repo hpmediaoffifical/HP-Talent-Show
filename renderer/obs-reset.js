@@ -78,9 +78,14 @@
     const ws = await connectAny(port);
     try {
       const { inputs } = await request(ws, 'GetInputList', { inputKind: 'browser_source' });
-      // Overlay của app trải trên DẢI cổng overlayPort..overlayPort+7 (mỗi loại 1 cổng riêng để né
-      // trần 6 kết nối/host của CEF) → khớp theo dải cổng, không chỉ mỗi cổng chính.
+      // Overlay của app trải trên DẢI cổng overlayPort..overlayPort+PORT_SPAN-1 (mỗi LOẠI overlay 1
+      // cổng riêng để né trần 6 kết nối/host của CEF — xem obs-overlay-server.portOffsets).
+      // ⚠ Dải này phải RỘNG HƠN portCount của server: trước đây cứng +7 (18282..18289) nên MỌI overlay
+      // thêm sau Vòng quay (Menu Quà 18290, Bộ ba 18291, Thẻ bài 18292-93, Nhạc Dance 18294-96,
+      // Tương tác 18297, Giữ/Đổi 18298, Táp tim 18299, FX PK Nhóm 18300…) KHÔNG hề được reset →
+      // OBS mở trước app (bật máy) thì trang chết hẳn, phải xoá nguồn rồi thêm lại bằng tay.
       const base = Number(overlayPort) || 18282;
+      const PORT_SPAN = 32; // dư chỗ cho các overlay sẽ thêm sau, khỏi phải sửa lại chỗ này
       const targets = [];
       for (const inp of (inputs || [])) {
         const name = inp.inputName;
@@ -88,10 +93,12 @@
         try { inputSettings = (await request(ws, 'GetInputSettings', { inputName: name })).inputSettings || {}; }
         catch { continue; }
         const url = String(inputSettings.url || '');
-        const m = url.match(/^https?:\/\/(?:127\.0\.0\.1|localhost):(\d+)\b/i);
+        // Chấp nhận cả hostname chế độ TikTok Studio (hpstudio.obs → map hosts về 127.0.0.1):
+        // link copy ở chế độ đó KHÔNG chứa 127.0.0.1 nên trước đây cũng bị bỏ qua khi reset.
+        const m = url.match(/^https?:\/\/(?:127\.0\.0\.1|localhost|hpstudio\.obs):(\d+)\b/i);
         if (!m) continue;
         const pnum = Number(m[1]);
-        if (pnum < base || pnum > base + 7) continue;
+        if (pnum < base || pnum >= base + PORT_SPAN) continue;
         targets.push(name);
       }
       // Bấm nút "Refresh cache of current page" của Browser Source → reload sạch trang overlay.
