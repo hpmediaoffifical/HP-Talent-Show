@@ -2360,6 +2360,20 @@ button.tiny { padding: 5px 8px; font-size: 11.5px; font-weight: 500; }
 .rk-links-report-row { padding: 2px 0; border-top: 1px dashed #fecaca; }
 .rk-links-report-row:first-of-type { border-top: 0; }
 
+/* 🗳 Băng cảnh báo "đang VOTE" — mọi quà dồn vào 1 người, phải thấy ngay kể cả khi hàng bị lọc mất */
+.rk-vote-banner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12.5px; line-height: 1.5; padding: 8px 12px; margin: 0 0 6px;
+  border-radius: 10px; border: 1px solid #fcd34d; background: #fffbeb; color: #78350f;
+}
+.rk-vote-banner .rkvb-text { flex: 1; min-width: 220px; }
+.rk-vote-banner i { font-style: normal; opacity: .8; }
+.rk-vote-banner .rkvb-off {
+  padding: 5px 12px; border-radius: 999px; border: 1px solid #b45309;
+  background: #f59e0b; color: #fff; font-weight: 800; font-size: 12px; cursor: pointer;
+}
+.rk-vote-banner .rkvb-off:hover { background: #d97706; }
+
 .gp-search {
   display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--tt-border);
   background: var(--tt-bg-2);

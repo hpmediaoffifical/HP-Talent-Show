@@ -976,6 +976,17 @@ function loadCreators() {
 }
 function saveCreators(list) { saveJson(CREATORS_PATH, list); _creatorUserIdMap = null; _creatorNameIndex = null; _creatorByIdMap = null; }
 
+// 🗳 Dọn cờ VOTE còn kẹt (creators.json lưu voteActive nên nó SỐNG qua lần mở app sau).
+// Còn 1 Creator voteActive là RankingEngine.routeGift dồn TOÀN BỘ quà vào người đó dù quà không
+// khớp quà mặc định — và hàng đó vô hình nếu đang xem nhóm khác. Chỉ tắt cờ, KHÔNG đụng tới điểm.
+function clearStuckVoteFlags() {
+  const list = loadCreators();
+  const stuck = list.filter(c => c.voteActive);
+  if (!stuck.length) return [];
+  saveCreators(list.map(c => (c.voteActive ? { ...c, voteActive: false } : c)));
+  return stuck.map(c => c.nickname || c.tiktokId || c.id);
+}
+
 // Tổng MVP PK Nhóm tách khỏi `streak`: mỗi Creator có một tổng riêng cho từng nhóm để đổi
 // nhóm không làm lẫn thành tích. Không suy diễn từ chuỗi cũ vì chuỗi không phải tổng số MVP.
 const PKG_MVP_DEFAULT_GROUP = '__default__';
@@ -3692,6 +3703,14 @@ class RankingEngine {
       rows = creators.filter(c => !c.hideObs && (!activeGroupId || c.groupId === activeGroupId)).map(c => {
         const sc = this.scores[c.id] || {};
         const g = groups.find(x => x.id === c.groupId);
+        // 🎁 Ô quà của hàng Creator = QUÀ MẶC ĐỊNH đã cài (nguồn sự thật duy nhất). Trước đây ưu tiên
+        // quà nhận GẦN NHẤT (sc.lastGift*) nên chỉ cần một món quà lạ rơi vào hàng (đang VOTE hoặc trò
+        // chơi Liên kết đẩy điểm qua addLivePoints) là icon bị thay — người dùng tưởng quà mặc định bị
+        // ghi đè, mà lastGift* còn nằm trong live-runtime.json nên mở lại app vẫn sai. Chỉ rơi về quà
+        // gần nhất khi Creator CHƯA đặt quà mặc định. Lấy trọn bộ 1 nguồn, không trộn id/icon/tên.
+        const gift = (c.defaultGiftId || c.defaultGiftName)
+          ? { id: c.defaultGiftId || '', icon: c.defaultGiftIcon || '', name: c.defaultGiftName || '' }
+          : { id: sc.lastGiftId || '', icon: sc.lastGiftIcon || '', name: sc.lastGiftName || '' };
         return {
           id: c.id,
           inMatch: !!(fighters && fighters.ids.has(String(c.id))),
@@ -3705,9 +3724,9 @@ class RankingEngine {
           // Keep manually entered points visible while the LIVE round is receiving gifts.
           points: (Number(c.contestPoints) || 0) + (Number(sc.points) || 0),
           round: Number.isFinite(Number(c.voteRound)) ? Number(c.voteRound) : this.round,
-          giftIconId: sc.lastGiftId || c.defaultGiftId || '',
-          giftIcon: sc.lastGiftIcon || c.defaultGiftIcon || '',
-          giftName: sc.lastGiftName || c.defaultGiftName || '',
+          giftIconId: gift.id,
+          giftIcon: gift.icon,
+          giftName: gift.name,
           groupName: g?.name || '',
           groupColor: g?.color || colorFromId(g?.tiktokId || g?.id || ''),
           hideScore: !!c.hideScore,
@@ -4818,6 +4837,9 @@ function bootstrapEngines() {
   });
   if (settings.ranking) rankingEngine.setConfig(settings.ranking);
   rankingEngine.config.activeGroupId = ''; // Luôn khởi động ở chế độ TALENT SHOW (mở tất cả)
+  // Điểm vẫn được khôi phục nguyên vẹn từ live-runtime.json — chỗ này chỉ tắt cờ VOTE kẹt từ phiên trước.
+  const clearedVotes = clearStuckVoteFlags();
+  if (clearedVotes.length) console.warn('[ranking] đã dọn cờ VOTE kẹt từ phiên trước:', clearedVotes.join(', '));
   scoreEngine = new ScoreEngine({
     onState: (st) => {
       overlayServer?.sendScore(st);
@@ -5685,7 +5707,8 @@ function registerIpc() {
     return rankingEngine.config;
   });
   ipcMain.handle('ranking:reset', () => {
-    const list = loadCreators().map(c => ({ ...c, contestPoints: 0 }));
+    // Xoá điểm thì cũng nhả cờ VOTE: giữ lại chỉ tổ để phiên sau mọi quà lại dồn vào một người.
+    const list = loadCreators().map(c => ({ ...c, contestPoints: 0, voteActive: false }));
     saveCreators(list);
     rankingEngine.reset();
     rankingEngine._emit();

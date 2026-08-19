@@ -10523,7 +10523,34 @@ function openPointMenu(input) {
   });
 }
 
+// 🗳 Băng cảnh báo VOTE: khi có Creator đang VOTE thì MỌI quà đều dồn vào người đó (không cần khớp
+// quà mặc định). Quét TOÀN BỘ creators — không dùng visibleCreators() — vì hàng đang VOTE có thể
+// thuộc nhóm khác nhóm đang xem, biến mất khỏi bảng mà vẫn âm thầm hút hết quà.
+function renderVoteBanner(mode) {
+  const el = $('#rkVoteBanner');
+  if (!el) return;
+  // Chế độ NHÓM không xét voteActive (engine chỉ dùng cờ này ở chế độ Creator) → không báo nhầm.
+  const voted = mode === 'creator' ? creators.find(c => !!c.voteActive) : null;
+  if (!voted) { el.hidden = true; el.innerHTML = ''; return; }
+  const grp = groups.find(g => g.id === voted.groupId);
+  const hidden = activeGroupId && voted.groupId !== activeGroupId;
+  el.hidden = false;
+  el.innerHTML = `
+    <span class="rkvb-text">🗳 <b>ĐANG VOTE: ${escapeHtml(voted.nickname || voted.tiktokId)}</b>${grp ? ` <i>(${escapeHtml(grp.name)})</i>` : ''}
+      — mọi quà đang cộng cho người này, kể cả quà KHÔNG khớp quà mặc định.${hidden ? ' <b>Hàng này đang bị ẩn vì bạn xem nhóm khác.</b>' : ''}</span>
+    <button class="rkvb-off" id="rkVoteBannerOff" type="button">Tắt VOTE</button>`;
+  $('#rkVoteBannerOff').addEventListener('click', async () => {
+    if (isLinkedScoreRunning()) { toast('Đang chạy Tính điểm liên kết, VOTE đang bị khóa', 'error'); return; }
+    await window.api.ranking.setActive('');
+    await window.api.creators.upsert({ ...voted, voteActive: false });
+    await refreshCreators();
+    refreshRankingPreview();
+    toast(`Đã tắt VOTE của ${voted.nickname || voted.tiktokId}`, 'success');
+  });
+}
+
 function renderRkPreview(st) {
+  renderVoteBanner(st.mode);
   const el = $('#rkPreview');
   const showCreatorControls = st.mode === 'creator';
   let rows = Array.isArray(st.rows) ? st.rows.slice() : [];
