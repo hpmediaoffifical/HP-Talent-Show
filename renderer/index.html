@@ -227,6 +227,36 @@
     </div>
   </div>
 
+  <!-- Lịch sử ❤️ TÁP TIM — tự chụp trước mỗi lần BẮT ĐẦU/Reset xoá số tim -->
+  <div id="lwallHistModal" class="gp-overlay">
+    <div class="gp-modal hist-modal" role="dialog" aria-labelledby="lwallHistTitle">
+      <header class="gp-head">
+        <h3 id="lwallHistTitle">📜 Lịch sử ❤️ TÁP TIM</h3>
+        <span class="gp-count" id="lwallHistCount"></span>
+        <button id="lwallHistSnap" class="ghost tiny" type="button" title="Lưu ngay số tim đang có">📸 Chụp tay</button>
+        <button id="lwallHistExport" class="primary tiny" type="button" title="Xuất CSV mở bằng Excel">⬇ Xuất CSV</button>
+        <button id="lwallHistClear" class="ghost tiny" type="button">🗑 Xóa hết</button>
+        <button id="lwallHistClose" class="gp-close-btn" type="button" aria-label="Đóng" title="Đóng (Esc)">✕</button>
+      </header>
+      <div class="hist-body" id="lwallHistBody"></div>
+    </div>
+  </div>
+
+  <!-- Lịch sử 🗳 VOTE — tự chụp mỗi vòng (kể cả vòng tự chạy lại) -->
+  <div id="vcHistModal" class="gp-overlay">
+    <div class="gp-modal hist-modal" role="dialog" aria-labelledby="vcHistTitle">
+      <header class="gp-head">
+        <h3 id="vcHistTitle">📜 Lịch sử 🗳 VOTE</h3>
+        <span class="gp-count" id="vcHistCount"></span>
+        <button id="vcHistSnap" class="ghost tiny" type="button" title="Lưu ngay điểm đang có">📸 Chụp tay</button>
+        <button id="vcHistExport" class="primary tiny" type="button" title="Xuất CSV mở bằng Excel">⬇ Xuất CSV</button>
+        <button id="vcHistClear" class="ghost tiny" type="button">🗑 Xóa hết</button>
+        <button id="vcHistClose" class="gp-close-btn" type="button" aria-label="Đóng" title="Đóng (Esc)">✕</button>
+      </header>
+      <div class="hist-body" id="vcHistBody"></div>
+    </div>
+  </div>
+
   <div class="app">
     <aside class="sidebar" aria-label="Điều hướng">
       <div class="brand" title="HP GROUP LIVE">
@@ -1897,6 +1927,7 @@
           <div class="mt-actions">
             <button id="lwallStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="lwallReset" class="ghost" type="button">↺ Reset</button>
+            <button id="lwallHist" class="ghost" type="button" title="Số tim được tự lưu trước khi BẮT ĐẦU/Reset xoá — xem lại, xuất CSV, khôi phục">📜 Lịch sử</button>
             <button id="lwallCopy" class="ghost" type="button" title="Link overlay OBS">📋 COPY OBS</button>
             <span id="lwallRunState" class="mt-runstate">● Đang dừng</span>
             <div class="mt-test">
@@ -2007,6 +2038,7 @@
             <!-- Một nút CHẠY/DỪNG như Tính điểm (điểm nhấn đỏ duy nhất), nút phụ hạ cấp xám. -->
             <button id="vcStart" class="primary" type="button">▶ BẮT ĐẦU</button>
             <button id="vcReset" class="ghost" type="button" title="Dừng phiên và xoá toàn bộ điểm về 0">↺ Reset</button>
+            <button id="vcHist" class="ghost" type="button" title="Điểm mỗi vòng được tự lưu trước khi bị xoá — xem lại, xuất CSV, khôi phục">📜 Lịch sử</button>
             <button id="vcCopy" class="ghost" type="button" title="Link overlay OBS">📋 COPY OBS</button>
             <span id="vcRunState" class="mt-runstate">● Đang dừng</span>
             <span id="vcClock" class="vc-clock-chip">00:00</span>

@@ -278,6 +278,24 @@ const api = {
     export: (heSo) => ipcRenderer.invoke('rankingHistory:export', heSo),
   },
 
+  // ===== Lịch sử ❤️ TÁP TIM / 🗳 VOTE — tự chụp trước khi BẮT ĐẦU/Reset xoá số đếm =====
+  likewallHistory: {
+    list: () => ipcRenderer.invoke('likewallHistory:list'),
+    snapshot: () => ipcRenderer.invoke('likewallHistory:snapshot'),
+    remove: (id) => ipcRenderer.invoke('likewallHistory:remove', id),
+    clear: () => ipcRenderer.invoke('likewallHistory:clear'),
+    restore: (id) => ipcRenderer.invoke('likewallHistory:restore', id),
+    export: () => ipcRenderer.invoke('likewallHistory:export'),
+  },
+  votecmtHistory: {
+    list: () => ipcRenderer.invoke('votecmtHistory:list'),
+    snapshot: () => ipcRenderer.invoke('votecmtHistory:snapshot'),
+    remove: (id) => ipcRenderer.invoke('votecmtHistory:remove', id),
+    clear: () => ipcRenderer.invoke('votecmtHistory:clear'),
+    restore: (id) => ipcRenderer.invoke('votecmtHistory:restore', id),
+    export: () => ipcRenderer.invoke('votecmtHistory:export'),
+  },
+
   review: {
     open: (type) => ipcRenderer.invoke('review:open', type),
     close: (type) => ipcRenderer.invoke('review:close', type),
@@ -363,6 +381,7 @@ const api = {
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
       'pkduo:state', 'pkduo:config', 'kcduo:state', 'kcduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'likewall:state', 'votecmt:state', 'cardflip:state', 'dancevideo:ended',
       'history:changed', 'scoreHistory:changed', 'rankingHistory:changed', 'ranking:links',
+      'likewallHistory:changed', 'votecmtHistory:changed',
       'playlist:update', 'playlist:requestState', 'playlist:command',
       'tt:recipientLearned',
       'app:confirmQuit',

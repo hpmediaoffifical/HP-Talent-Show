@@ -10833,7 +10833,123 @@ async function renderRankHist() {
     await window.api.rankingHistory.remove(b.dataset.rhDel); renderRankHist();
   }));
 }
+// ===== Lịch sử ❤️ TÁP TIM & 🗳 VOTE =====
+// Main tự chụp một bản ghi NGAY TRƯỚC khi BẮT ĐẦU/Reset (và mỗi vòng VOTE) xoá số đếm,
+// nên ở đây chỉ lo hiển thị: xem lại, xuất CSV, và nạp ngược một bản ghi vào overlay.
+const HIST_REASON_LABEL = { start: '▶ Bắt đầu lượt mới', round: '🔄 Vòng mới', reset: '↺ Reset', restore: '⟲ Trước khi khôi phục', snapshot: '📸 Chụp tay' };
+function histReason(r) { return HIST_REASON_LABEL[r] || r || ''; }
+
+async function openLwallHist() { $('#lwallHistModal').classList.add('is-open'); await renderLwallHist(); }
+function closeLwallHist() { $('#lwallHistModal').classList.remove('is-open'); }
+async function renderLwallHist() {
+  const body = $('#lwallHistBody');
+  if (!body) return;
+  const list = await window.api.likewallHistory.list();
+  $('#lwallHistCount').textContent = `${list.length} lượt`;
+  if (!list.length) { body.innerHTML = '<div class="hint">Chưa có lượt nào. Mỗi lần bấm ▶ BẮT ĐẦU hoặc ↺ Reset, số tim đang có sẽ được tự lưu vào đây.</div>'; return; }
+  body.innerHTML = list.map(e => {
+    const rows = (e.rows || []).map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.name || '')}</td><td class="num">${formatNumber(Number(r.count) || 0)}</td></tr>`).join('');
+    return `<details class="rhist-snap">
+      <summary><b>${formatNumber(Number(e.total) || 0)} tim</b> · ${(e.rows || []).length} người · ${histReason(e.reason)} · ${fmtHistTime(e.at)}
+        <button class="ghost tiny" data-lwh-restore="${e.id}" type="button" title="Nạp lại lượt này vào overlay (lượt đang có sẽ được lưu trước)">⟲ Khôi phục</button>
+        <button class="ghost tiny" data-lwh-del="${e.id}" type="button" title="Xóa lượt này">🗑</button></summary>
+      <table class="rhist-table"><thead><tr><th>#</th><th>Người xem</th><th>Số tim</th></tr></thead><tbody>${rows}</tbody></table>
+    </details>`;
+  }).join('');
+  body.querySelectorAll('[data-lwh-del]').forEach(b => b.addEventListener('click', async (ev) => {
+    ev.preventDefault(); ev.stopPropagation();
+    await window.api.likewallHistory.remove(b.dataset.lwhDel); renderLwallHist();
+  }));
+  body.querySelectorAll('[data-lwh-restore]').forEach(b => b.addEventListener('click', async (ev) => {
+    ev.preventDefault(); ev.stopPropagation();
+    if (!await askConfirm('Nạp lượt này vào overlay? Số tim đang có sẽ được lưu lại trước khi bị thay.', 'Khôi phục TÁP TIM')) return;
+    const res = await window.api.likewallHistory.restore(b.dataset.lwhRestore);
+    if (res?.ok) { toast(`⟲ Đã khôi phục ${res.count} người`, 'success'); renderLwallHist(); }
+    else toast('Không khôi phục được', 'error');
+  }));
+}
+
+async function openVcHist() { $('#vcHistModal').classList.add('is-open'); await renderVcHist(); }
+function closeVcHist() { $('#vcHistModal').classList.remove('is-open'); }
+async function renderVcHist() {
+  const body = $('#vcHistBody');
+  if (!body) return;
+  const list = await window.api.votecmtHistory.list();
+  $('#vcHistCount').textContent = `${list.length} vòng`;
+  if (!list.length) { body.innerHTML = '<div class="hint">Chưa có vòng nào. Mỗi vòng vote (kể cả vòng tự chạy lại) sẽ được tự lưu vào đây trước khi điểm bị xoá.</div>'; return; }
+  body.innerHTML = list.map(e => {
+    const top = Math.max(0, ...(e.rows || []).map(r => Number(r.points) || 0));
+    const rows = (e.rows || []).slice().sort((a, b) => (b.points || 0) - (a.points || 0)).map((r, i) => {
+      const win = top > 0 && (Number(r.points) || 0) === top ? ' 🏆' : '';
+      return `<tr><td>${i + 1}</td><td>${escapeHtml(r.keyword || '')}</td><td>${escapeHtml(r.label || '')}${win}</td><td class="num">${formatNumber(r.comments | 0)}</td><td class="num">${formatNumber(r.giftXu | 0)}</td><td class="num">${formatNumber(r.bonus | 0)}</td><td class="num kc">${formatNumber(r.points | 0)}</td></tr>`;
+    }).join('');
+    return `<details class="rhist-snap">
+      <summary><b>Vòng ${e.roundNo | 0}</b> · ${formatNumber(Number(e.totalPoints) || 0)} điểm · ${histReason(e.reason)} · ${fmtHistTime(e.at)}
+        <button class="ghost tiny" data-vch-restore="${e.id}" type="button" title="Nạp lại vòng này vào overlay (vòng đang có sẽ được lưu trước)">⟲ Khôi phục</button>
+        <button class="ghost tiny" data-vch-del="${e.id}" type="button" title="Xóa vòng này">🗑</button></summary>
+      <table class="rhist-table"><thead><tr><th>#</th><th>Từ khoá</th><th>Nội dung</th><th>Bình luận</th><th>Quà (xu)</th><th>Thưởng</th><th>Điểm</th></tr></thead><tbody>${rows}</tbody></table>
+    </details>`;
+  }).join('');
+  body.querySelectorAll('[data-vch-del]').forEach(b => b.addEventListener('click', async (ev) => {
+    ev.preventDefault(); ev.stopPropagation();
+    await window.api.votecmtHistory.remove(b.dataset.vchDel); renderVcHist();
+  }));
+  body.querySelectorAll('[data-vch-restore]').forEach(b => b.addEventListener('click', async (ev) => {
+    ev.preventDefault(); ev.stopPropagation();
+    if (!await askConfirm('Nạp vòng này vào overlay? Điểm đang có sẽ được lưu lại trước khi bị thay.', 'Khôi phục VOTE')) return;
+    const res = await window.api.votecmtHistory.restore(b.dataset.vchRestore);
+    if (!res?.ok) return toast('Không khôi phục được', 'error');
+    // Dòng đã bị xoá/đổi ID trong cấu hình thì không có chỗ để nạp lại — nói rõ thay vì im lặng.
+    if (res.count < res.total) toast(`⟲ Khôi phục ${res.count}/${res.total} dòng — số còn lại không còn trong cấu hình`, 'error');
+    else toast(`⟲ Đã khôi phục ${res.count} dòng`, 'success');
+    renderVcHist();
+  }));
+}
+
 function wireHistoryModals() {
+  // ❤️ TÁP TIM
+  $('#lwallHist')?.addEventListener('click', () => openLwallHist());
+  $('#lwallHistClose')?.addEventListener('click', closeLwallHist);
+  $('#lwallHistModal')?.addEventListener('click', (e) => { if (e.target === $('#lwallHistModal')) closeLwallHist(); });
+  $('#lwallHistSnap')?.addEventListener('click', async () => {
+    const res = await window.api.likewallHistory.snapshot();
+    if (res && res.id) { toast('📸 Đã lưu số tim hiện tại', 'success'); renderLwallHist(); }
+    else toast('Chưa có ai táp tim để lưu', 'error');
+  });
+  $('#lwallHistExport')?.addEventListener('click', async () => {
+    const res = await window.api.likewallHistory.export();
+    if (res?.ok) toast(`Đã xuất ${res.count} lượt ra CSV`, 'success');
+    else if (res?.reason === 'empty') toast('Chưa có lịch sử để xuất', 'error');
+    else if (res?.reason !== 'canceled') toast('Xuất CSV thất bại', 'error');
+  });
+  $('#lwallHistClear')?.addEventListener('click', async () => {
+    if (!await askConfirm('Xóa toàn bộ lịch sử TÁP TIM?', 'Xóa lịch sử')) return;
+    await window.api.likewallHistory.clear(); renderLwallHist();
+  });
+
+  // 🗳 VOTE
+  $('#vcHist')?.addEventListener('click', () => openVcHist());
+  $('#vcHistClose')?.addEventListener('click', closeVcHist);
+  $('#vcHistModal')?.addEventListener('click', (e) => { if (e.target === $('#vcHistModal')) closeVcHist(); });
+  $('#vcHistSnap')?.addEventListener('click', async () => {
+    const res = await window.api.votecmtHistory.snapshot();
+    if (res && res.id) { toast('📸 Đã lưu điểm hiện tại', 'success'); renderVcHist(); }
+    else toast('Chưa có điểm nào để lưu', 'error');
+  });
+  $('#vcHistExport')?.addEventListener('click', async () => {
+    const res = await window.api.votecmtHistory.export();
+    if (res?.ok) toast(`Đã xuất ${res.count} vòng ra CSV`, 'success');
+    else if (res?.reason === 'empty') toast('Chưa có lịch sử để xuất', 'error');
+    else if (res?.reason !== 'canceled') toast('Xuất CSV thất bại', 'error');
+  });
+  $('#vcHistClear')?.addEventListener('click', async () => {
+    if (!await askConfirm('Xóa toàn bộ lịch sử VOTE?', 'Xóa lịch sử')) return;
+    await window.api.votecmtHistory.clear(); renderVcHist();
+  });
+  // Bản ghi mới do main tự chụp → làm tươi bảng nếu đang mở
+  window.api.on('likewallHistory:changed', () => { if ($('#lwallHistModal')?.classList.contains('is-open')) renderLwallHist(); });
+  window.api.on('votecmtHistory:changed', () => { if ($('#vcHistModal')?.classList.contains('is-open')) renderVcHist(); });
+
   $('#scHistoryBtn')?.addEventListener('click', () => openScoreHist());
   $('#scSnapshot')?.addEventListener('click', async () => {
     const info = currentScoreCreatorInfo();
@@ -10882,6 +10998,8 @@ function wireHistoryModals() {
     if (e.key !== 'Escape') return;
     if ($('#scoreHistModal')?.classList.contains('is-open')) closeScoreHist();
     if ($('#rankHistModal')?.classList.contains('is-open')) closeRankHist();
+    if ($('#lwallHistModal')?.classList.contains('is-open')) closeLwallHist();
+    if ($('#vcHistModal')?.classList.contains('is-open')) closeVcHist();
     if ($('#rkSettingsModal')?.classList.contains('is-open')) $('#rkSettingsModal').classList.remove('is-open');
   });
 

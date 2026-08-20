@@ -65,6 +65,7 @@ class ObsOverlayServer {
     this.danceChannels = ['webm1', 'webm2', 'webm3'];
     this.servers = [];
     this._boundPorts = new Set();
+    this._sockets = new Set();   // mọi socket TCP đang mở (để cắt dứt khi thoát app)
     this.pkDuoClients = new Set();
     this.kcDuoClients = new Set();
     this.pkGroupClients = new Set();
@@ -129,6 +130,14 @@ class ObsOverlayServer {
           server.once('error', reject);
           server.listen(p, '127.0.0.1', resolve);
         });
+        // Giữ tham chiếu MỌI socket: server.close() chỉ ngừng nhận kết nối MỚI rồi ĐỢI kết nối cũ
+        // đóng lại. Overlay chạy SSE trên keep-alive nên socket không bao giờ tự đóng ⇒ close()
+        // treo, event loop không rỗng, tiến trình chính KHÔNG thoát và giữ nguyên cổng 18282+.
+        // Hậu quả trước đây: tắt cửa sổ app xong process vẫn sống, mở lại báo EADDRINUSE.
+        server.on('connection', (sock) => {
+          this._sockets.add(sock);
+          sock.on('close', () => this._sockets.delete(sock));
+        });
         this.servers.push(server);
         this._boundPorts.add(p);
       } catch (e) {
@@ -159,6 +168,10 @@ class ObsOverlayServer {
       set.clear();
     }
     for (const server of this.servers) { try { server.close(); } catch {} }
+    // Cắt thẳng socket còn treo (SSE keep-alive), nếu không close() ở trên sẽ đợi mãi.
+    // stop() chỉ được gọi lúc app đang thoát (window-all-closed) nên cắt là an toàn.
+    for (const sock of this._sockets) { try { sock.destroy(); } catch {} }
+    this._sockets.clear();
     this.servers = [];
     this._boundPorts.clear();
   }

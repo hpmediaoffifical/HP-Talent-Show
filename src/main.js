@@ -57,6 +57,8 @@ const GROUP_PROFILES_PATH = path.join(CONFIG_DIR, 'group-profiles.json');
 const MATCH_HISTORY_PATH = path.join(CONFIG_DIR, 'match-history.json');
 const SCORE_HISTORY_PATH = path.join(CONFIG_DIR, 'score-history.json');
 const RANKING_HISTORY_PATH = path.join(CONFIG_DIR, 'ranking-history.json');
+const LIKEWALL_HISTORY_PATH = path.join(CONFIG_DIR, 'likewall-history.json');
+const VOTECMT_HISTORY_PATH = path.join(CONFIG_DIR, 'votecmt-history.json');
 const RANKING_APPLY_LOG_PATH = path.join(CONFIG_DIR, 'ranking-apply-log.json');
 // Trạng thái ĐANG CHẠY (điểm số LIVE của các engine) — ghi liên tục để chống mất khi văng/mất điện.
 const LIVE_RUNTIME_PATH = path.join(CONFIG_DIR, 'live-runtime.json');
@@ -1529,6 +1531,103 @@ function loadScoreHistory() { const l = loadJson(SCORE_HISTORY_PATH, []); return
 function saveScoreHistory(l) { saveJson(SCORE_HISTORY_PATH, (Array.isArray(l) ? l : []).slice(-SCORE_HISTORY_MAX)); }
 function loadRankingHistory() { const l = loadJson(RANKING_HISTORY_PATH, []); return Array.isArray(l) ? l : []; }
 function saveRankingHistory(l) { saveJson(RANKING_HISTORY_PATH, (Array.isArray(l) ? l : []).slice(-RANKING_HISTORY_MAX)); }
+
+// =================================================================
+// Lịch sử ❤️ TÁP TIM + 🗳 VOTE — TỰ chụp lại NGAY TRƯỚC khi số đếm bị xoá.
+// Hai engine này vốn đã sống sót qua app văng (live-runtime.json), nhưng BẮT ĐẦU/Reset thì xoá
+// sạch không lấy lại được — nên archive ở đầu start()/reset() của chính engine (bắt được cả vòng
+// tự chạy lại của VOTE), rồi cho xem lại / xuất CSV / nạp ngược vào overlay.
+// =================================================================
+const LIKEWALL_HISTORY_MAX = 300;
+const VOTECMT_HISTORY_MAX = 300;
+const HISTORY_REASON_TEXT = { start: 'Bắt đầu lượt mới', round: 'Vòng mới', reset: 'Reset', restore: 'Trước khi khôi phục', snapshot: 'Chụp tay' };
+function loadLikeWallHistory() { const l = loadJson(LIKEWALL_HISTORY_PATH, []); return Array.isArray(l) ? l : []; }
+function saveLikeWallHistory(l) { saveJson(LIKEWALL_HISTORY_PATH, (Array.isArray(l) ? l : []).slice(-LIKEWALL_HISTORY_MAX)); }
+function loadVoteCmtHistory() { const l = loadJson(VOTECMT_HISTORY_PATH, []); return Array.isArray(l) ? l : []; }
+function saveVoteCmtHistory(l) { saveJson(VOTECMT_HISTORY_PATH, (Array.isArray(l) ? l : []).slice(-VOTECMT_HISTORY_MAX)); }
+
+// Chụp TÁP TIM. Lấy từ snapshotRuntime (TOÀN BỘ người) chứ không phải getStateForOverlay (đã cắt topN).
+function archiveLikeWall(reason) {
+  if (!likeWallEngine) return null;
+  const s = likeWallEngine.snapshotRuntime();
+  const rows = (s.users || []).filter(u => (Number(u.count) || 0) > 0).sort((a, b) => b.count - a.count)
+    .map(u => ({ uid: u.uid, name: u.nickname || 'Người xem', avatar: u.avatar || '', avatarKey: u.avatarKey || '', count: Number(u.count) || 0, tier: Number.isFinite(+u.tier) ? +u.tier : -1 }));
+  if (!rows.length) return null;   // chưa ai táp thì không lưu bản ghi rỗng
+  const entry = {
+    id: uid('lwh_'), at: Date.now(), reason: reason || 'snapshot',
+    title: likeWallEngine.config.title || '', total: Number(s.total) || 0,
+    target: Number(likeWallEngine.config.target) || 0, rows,
+  };
+  const list = loadLikeWallHistory();
+  list.push(entry);
+  saveLikeWallHistory(list);
+  broadcast('likewallHistory:changed', entry);
+  return entry;
+}
+
+// Chụp VOTE. Đi theo rowsCfg (thứ tự cấu hình) để bảng lịch sử không bị đảo khi bật "sắp theo điểm".
+function archiveVoteComment(reason) {
+  if (!voteCommentEngine) return null;
+  const st = voteCommentEngine.getStateForOverlay();
+  const byId = new Map((st.rows || []).map(r => [r.id, r]));
+  const rows = (st.rowsCfg || []).map((r, i) => {
+    const c = byId.get(r.id) || {};
+    return {
+      id: r.id, keyword: r.keyword || String(i + 1), label: r.label || `Lựa chọn ${i + 1}`,
+      comments: c.comments | 0, giftXu: c.giftXu | 0, bonus: c.bonus | 0, points: c.points | 0,
+    };
+  });
+  if (!rows.some(r => r.points > 0)) return null;
+  const entry = {
+    id: uid('vch_'), at: Date.now(), reason: reason || 'snapshot',
+    title: st.title || '', roundNo: st.roundNo | 0, totalPoints: Number(st.totalPoints) || 0, rows,
+  };
+  const list = loadVoteCmtHistory();
+  list.push(entry);
+  saveVoteCmtHistory(list);
+  broadcast('votecmtHistory:changed', entry);
+  return entry;
+}
+
+function buildLikeWallHistoryCsv(list) {
+  const now = Date.now();
+  const lines = [];
+  lines.push(csvCell('HP GROUP LIVE — Lịch sử ❤️ TÁP TIM'));
+  lines.push([csvCell('Thời gian xuất'), csvCell(`${fmtDate(now)} ${fmtTime(now)}`)].join(','));
+  lines.push([csvCell('Số lượt'), csvCell(list.length)].join(','));
+  lines.push('');
+  lines.push(['Ngày', 'Giờ', 'Lý do lưu', 'Tổng tim', 'Mục tiêu', 'Hạng', 'Người xem', 'ID', 'Số tim'].map(csvCell).join(','));
+  const ordered = list.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+  for (const e of ordered) {
+    (e.rows || []).forEach((r, i) => {
+      lines.push([
+        fmtDate(e.at), fmtTime(e.at), HISTORY_REASON_TEXT[e.reason] || e.reason || '',
+        Number(e.total) || 0, Number(e.target) || 0, i + 1, r.name || '', r.uid || '', Number(r.count) || 0,
+      ].map(csvCell).join(','));
+    });
+  }
+  return '﻿' + lines.join('\r\n');
+}
+
+function buildVoteCmtHistoryCsv(list) {
+  const now = Date.now();
+  const lines = [];
+  lines.push(csvCell('HP GROUP LIVE — Lịch sử 🗳 VOTE BÌNH LUẬN'));
+  lines.push([csvCell('Thời gian xuất'), csvCell(`${fmtDate(now)} ${fmtTime(now)}`)].join(','));
+  lines.push([csvCell('Số vòng'), csvCell(list.length)].join(','));
+  lines.push('');
+  lines.push(['Ngày', 'Giờ', 'Lý do lưu', 'Vòng', 'Từ khoá', 'Nội dung', 'Bình luận', 'Quà (xu)', 'Thưởng tay', 'Điểm', 'Tổng điểm vòng'].map(csvCell).join(','));
+  const ordered = list.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+  for (const e of ordered) {
+    for (const r of e.rows || []) {
+      lines.push([
+        fmtDate(e.at), fmtTime(e.at), HISTORY_REASON_TEXT[e.reason] || e.reason || '', e.roundNo || 0,
+        r.keyword || '', r.label || '', r.comments | 0, r.giftXu | 0, r.bonus | 0, r.points | 0, Number(e.totalPoints) || 0,
+      ].map(csvCell).join(','));
+    }
+  }
+  return '﻿' + lines.join('\r\n');
+}
 
 // CSV Lịch sử Tính điểm — cột chính: Tên idol, TikTok ID, Điểm (+ thống kê phụ)
 function buildScoreHistoryCsv(list) {
@@ -4309,8 +4408,10 @@ const LIKE_WALL_SKIN = {
 };
 const LIKE_WALL_SKIN_MODEL = 2;
 class LikeWallEngine {
-  constructor({ onState }) {
+  // onArchive(reason): gọi NGAY TRƯỚC khi số đếm bị xoá, để nơi khác kịp chụp vào lịch sử.
+  constructor({ onState, onArchive }) {
     this.onState = onState;
+    this.onArchive = onArchive || null;
     this.config = {
       title: 'BỨC TƯỜNG THẢ TIM',
       target: 5000,               // mục tiêu tổng tim (thanh máu dưới cùng)
@@ -4383,8 +4484,9 @@ class LikeWallEngine {
     };
     this._emit();
   }
-  start() { this.state = { running: true, users: new Map(), total: 0, lastTapper: null, toast: null, toastSeq: 0 }; this._emit(); }
-  reset() { this.state = { running: false, users: new Map(), total: 0, lastTapper: null, toast: null, toastSeq: 0 }; this._emit(); }
+  _archive(reason) { try { this.onArchive && this.onArchive(reason); } catch {} }
+  start() { this._archive('start'); this.state = { running: true, users: new Map(), total: 0, lastTapper: null, toast: null, toastSeq: 0 }; this._emit(); }
+  reset() { this._archive('reset'); this.state = { running: false, users: new Map(), total: 0, lastTapper: null, toast: null, toastSeq: 0 }; this._emit(); }
   stop() { this.state.running = false; this._emit(); }
   // Cộng tim cho 1 người (dùng chung cho like thật + test). fromLive=true mới cập nhật ticker "đang táp".
   _add(uid, nickname, avatar, inc, fromLive) {
@@ -4491,8 +4593,10 @@ function voteNormText(value) {
 }
 
 class VoteCommentEngine {
-  constructor({ onState }) {
+  // onArchive(reason): gọi NGAY TRƯỚC khi điểm bị xoá — kể cả vòng TỰ chạy lại trong _runTicker.
+  constructor({ onState, onArchive }) {
     this.onState = onState;
+    this.onArchive = onArchive || null;
     this.config = {
       title: 'VOTE',
       durationSec: 180,
@@ -4589,7 +4693,9 @@ class VoteCommentEngine {
     return counts;
   }
 
+  _archive(reason) { try { this.onArchive && this.onArchive(reason); } catch {} }
   start() {
+    this._archive('round');   // chụp vòng vừa xong TRƯỚC khi xoá điểm (cả bấm tay lẫn tự chạy lại)
     this.state.counts = this._blankCounts();
     this.state.userLastRow = {};
     this.state.active = true;
@@ -4610,6 +4716,7 @@ class VoteCommentEngine {
   }
 
   reset() {
+    this._archive('reset');
     this._clearTicker();
     this.state = { active: false, ended: false, startedAt: 0, remainingMs: 0, holdMs: 0, roundNo: 0, counts: this._blankCounts(), userLastRow: {} };
     this._comboRepeats.clear();
@@ -5328,6 +5435,7 @@ function bootstrapEngines() {
       throttledBroadcast('likewall:state', st);
       scheduleLiveRuntimeSave(); // chống mất số tim tích luỹ khi văng
     },
+    onArchive: (reason) => archiveLikeWall(reason), // chụp vào lịch sử trước khi BẮT ĐẦU/Reset xoá sạch
   });
   // ÉP bộ nền mới lên máy đang chạy bản cũ — đúng MỘT LẦN (marker likeWallSkinModel).
   // Sau lần đó người dùng đổi màu tuỳ ý, mở app lại không bị ghi đè nữa.
@@ -5343,6 +5451,7 @@ function bootstrapEngines() {
       throttledBroadcast('votecmt:state', st);
       scheduleLiveRuntimeSave(); // chống mất phiếu vote khi văng giữa vòng
     },
+    onArchive: (reason) => archiveVoteComment(reason),
   });
   if (settings.voteComment) voteCommentEngine.setConfig(settings.voteComment);
   cardFlipEngine = new CardFlipEngine({
@@ -6122,6 +6231,69 @@ function registerIpc() {
     });
     if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' };
     try { fs.writeFileSync(res.filePath, buildScoreHistoryCsv(list), 'utf8'); return { ok: true, filePath: res.filePath, count: list.length }; }
+    catch (err) { return { ok: false, reason: String(err && err.message || err) }; }
+  });
+
+  // ===== Lịch sử ❤️ TÁP TIM =====
+  ipcMain.handle('likewallHistory:list', () => loadLikeWallHistory().slice().reverse());
+  ipcMain.handle('likewallHistory:snapshot', () => archiveLikeWall('snapshot') || { ok: false, reason: 'empty' });
+  ipcMain.handle('likewallHistory:remove', (_e, id) => { saveLikeWallHistory(loadLikeWallHistory().filter(x => x.id !== id)); return true; });
+  ipcMain.handle('likewallHistory:clear', () => { saveLikeWallHistory([]); return true; });
+  // Khôi phục: chụp lại cái ĐANG có trước đã, để bấm nhầm nút khôi phục cũng không mất phiên hiện tại.
+  ipcMain.handle('likewallHistory:restore', (_e, id) => {
+    const entry = loadLikeWallHistory().find(x => x.id === id);
+    if (!entry) return { ok: false, reason: 'notfound' };
+    archiveLikeWall('restore');
+    likeWallEngine.restoreRuntime({
+      running: false, total: Number(entry.total) || 0, toastSeq: 0,
+      users: (entry.rows || []).map(r => ({ uid: r.uid, nickname: r.name, avatar: r.avatar, avatarKey: r.avatarKey, count: r.count, tier: r.tier })),
+    });
+    scheduleLiveRuntimeSave();
+    return { ok: true, count: (entry.rows || []).length };
+  });
+  ipcMain.handle('likewallHistory:export', async () => {
+    const list = loadLikeWallHistory();
+    if (!list.length) return { ok: false, reason: 'empty' };
+    const stamp = fmtDate(Date.now()).replace(/\//g, '-');
+    const res = await dialog.showSaveDialog(win, {
+      title: 'Xuất lịch sử TÁP TIM',
+      defaultPath: `Lich-su-Tap-Tim-${stamp}.csv`,
+      filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }],
+    });
+    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' };
+    try { fs.writeFileSync(res.filePath, buildLikeWallHistoryCsv(list), 'utf8'); return { ok: true, filePath: res.filePath, count: list.length }; }
+    catch (err) { return { ok: false, reason: String(err && err.message || err) }; }
+  });
+
+  // ===== Lịch sử 🗳 VOTE BÌNH LUẬN =====
+  ipcMain.handle('votecmtHistory:list', () => loadVoteCmtHistory().slice().reverse());
+  ipcMain.handle('votecmtHistory:snapshot', () => archiveVoteComment('snapshot') || { ok: false, reason: 'empty' });
+  ipcMain.handle('votecmtHistory:remove', (_e, id) => { saveVoteCmtHistory(loadVoteCmtHistory().filter(x => x.id !== id)); return true; });
+  ipcMain.handle('votecmtHistory:clear', () => { saveVoteCmtHistory([]); return true; });
+  ipcMain.handle('votecmtHistory:restore', (_e, id) => {
+    const entry = loadVoteCmtHistory().find(x => x.id === id);
+    if (!entry) return { ok: false, reason: 'notfound' };
+    archiveVoteComment('restore');
+    // restoreRuntime chỉ nhận id dòng CÒN trong cấu hình → báo lại số dòng khớp để app nói rõ cho người dùng.
+    const liveIds = new Set((voteCommentEngine.config.rows || []).map(r => r.id));
+    const counts = {};
+    for (const r of entry.rows || []) counts[r.id] = { comments: r.comments | 0, giftXu: r.giftXu | 0, bonus: r.bonus | 0 };
+    voteCommentEngine.restoreRuntime({ counts, roundNo: entry.roundNo | 0, ended: true, active: false, remainingMs: 0, holdMs: 0 }, { resume: false });
+    scheduleLiveRuntimeSave();
+    const rows = entry.rows || [];
+    return { ok: true, count: rows.filter(r => liveIds.has(r.id)).length, total: rows.length };
+  });
+  ipcMain.handle('votecmtHistory:export', async () => {
+    const list = loadVoteCmtHistory();
+    if (!list.length) return { ok: false, reason: 'empty' };
+    const stamp = fmtDate(Date.now()).replace(/\//g, '-');
+    const res = await dialog.showSaveDialog(win, {
+      title: 'Xuất lịch sử VOTE',
+      defaultPath: `Lich-su-Vote-${stamp}.csv`,
+      filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }],
+    });
+    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' };
+    try { fs.writeFileSync(res.filePath, buildVoteCmtHistoryCsv(list), 'utf8'); return { ok: true, filePath: res.filePath, count: list.length }; }
     catch (err) { return { ok: false, reason: String(err && err.message || err) }; }
   });
 
