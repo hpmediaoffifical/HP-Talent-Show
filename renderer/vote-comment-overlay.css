@@ -1,0 +1,167 @@
+/* NHIỆM VỤ · VOTE BÌNH LUẬN — bảng bình chọn ngang (port từ HP NPC LIVE).
+   Mỗi dòng: từ khoá | (icon quà + tên trên nền thanh máu) | (%) điểm.
+   OBS-safe: KHÔNG dùng color-mix()/backdrop-filter (CEF cũ của OBS làm nền đen/trong suốt sai);
+   mọi màu pha alpha đều được JS trộn sẵn ra rgba rồi gán vào biến CSS. */
+
+/* Trên OBS: bảng nằm GIỮA nguồn theo chiều ngang, cách mép trên --vc-top-gap (px thật).
+   Cửa sổ Review được loại trừ vì nó tự ôm sát nội dung (thêm lề = để lại vùng trống ăn chuột).
+   min-height:100vh là BẮT BUỘC: overlay-common.css đặt overflow:hidden cho body, mà body chỉ cao
+   bằng nội dung ⇒ ruy băng .vc-below (absolute, nằm DƯỚI đáy thẻ) bị cắt mất sạch.
+   PHẢI kèm .vc-page: file CSS này còn được link vào renderer/index.html để khung xem trước trong app
+   dùng chung style với OBS — rule đặt THẲNG lên `body` sẽ đè layout của CẢ app (panel hết ôm sát viền,
+   thừa 40px trên đầu). Chỉ trang overlay mới mang class .vc-page. */
+body.vc-page:not(.overlay-review) { display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding-top: var(--vc-top-gap, 40px); }
+
+.vc-root {
+  --vc-title-size: 60px;
+  --vc-time-size: 52px;
+  --vc-item-size: 48px;
+  --vc-icon-size: 60px;
+  --vc-item-height: 82px;
+  --vc-board-px: 760px;
+  --vc-content-fr: 1fr;
+  --vc-content-padding: 12px;
+  --vc-card-padding: 28px;
+  --vc-row-padding: 14px;
+  --vc-bar-color: #4f83ff;
+  --vc-text-color: #fff;
+  --vc-panel-bg: rgba(58, 61, 70, .94);
+  --vc-row-bg: rgba(143, 34, 48, .88);
+  --vc-scale: 1;
+  position: relative;
+  width: max-content;
+  zoom: var(--vc-scale);
+  color: var(--vc-text-color);
+}
+
+.vc-card {
+  width: var(--vc-board-px);
+  padding: var(--vc-card-padding) calc(var(--vc-card-padding) * .72);
+  border-radius: 18px;
+  background: var(--vc-panel-bg);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .34);
+}
+.vc-card.vc-flat { padding: 0; background: transparent; box-shadow: none; }
+
+/* ---- Đầu bảng: tiêu đề + đồng hồ ---- */
+.vc-top { display: grid; justify-items: center; gap: 10px; margin-bottom: 18px; }
+.vc-card.vc-flat .vc-top { margin-bottom: 12px; }
+.vc-title {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: .14em 0 .08em; margin: 0;
+  font-size: var(--vc-title-size); line-height: 1.18; letter-spacing: .6px; font-weight: 950;
+  text-align: center; text-transform: uppercase;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, .42), 0 0 10px rgba(0, 0, 0, .35);
+}
+.vc-clock {
+  font-size: var(--vc-time-size); line-height: 1; font-weight: 950;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, .42), 0 0 10px rgba(0, 0, 0, .35);
+}
+.vc-clock.vc-urgent { color: #ffec65; animation: vc-blink .7s steps(1) infinite; }
+@keyframes vc-blink { 50% { opacity: .25; } }
+
+/* Chip "vòng mới sau …" khi đang giữ kết quả */
+.vc-next {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 7px 14px; border-radius: 999px;
+  background: linear-gradient(100deg, rgba(255, 236, 120, .96), rgba(255, 125, 210, .90), rgba(90, 205, 255, .94));
+  box-shadow: 0 0 22px rgba(255, 213, 79, .42), inset 0 1px 0 rgba(255, 255, 255, .46);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .42);
+}
+.vc-next span { font-size: calc(var(--vc-item-size) * .58); font-weight: 950; text-transform: uppercase; white-space: nowrap; }
+.vc-next b { min-width: 2.8em; font-size: calc(var(--vc-title-size) * .68); line-height: 1; text-align: center; font-weight: 950; font-variant-numeric: tabular-nums; }
+
+/* ---- Danh sách dòng bình chọn ---- */
+.vc-list { display: flex; flex-direction: column; gap: 10px; }
+.vc-row {
+  position: relative; isolation: isolate;
+  min-height: var(--vc-item-height);
+  display: grid;
+  /* Cột từ khoá rộng hơn HP NPC LIVE một chút: font 950 ở đây to bề ngang hơn, để .18fr thì
+     từ khoá 3 chữ số ("222") đã bị cắt thành "2…" ngay ở cỡ chữ mặc định. */
+  grid-template-columns: minmax(44px, .22fr) minmax(0, var(--vc-content-fr)) minmax(160px, .58fr);
+  align-items: center; gap: 9px;
+  padding: calc(var(--vc-row-padding) * .72) 10px;
+  border-radius: 9px;
+  background: var(--vc-row-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 3px 0 rgba(0, 0, 0, .12);
+  overflow: hidden;
+}
+.vc-card.vc-nokey .vc-row { grid-template-columns: minmax(0, var(--vc-content-fr)) minmax(170px, .62fr); }
+.vc-card.vc-nokey .vc-key { display: none; }
+
+/* Dòng dẫn đầu: viền gradient (mask) + vệt sáng quét. Cả 2 vẽ bằng transform/opacity — OBS-safe. */
+.vc-row.vc-leader { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .34), 0 0 0 1px rgba(255, 222, 89, .70), 0 0 18px rgba(255, 213, 79, .42), 0 4px 0 rgba(0, 0, 0, .16); }
+.vc-row.vc-leader::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; padding: 2px;
+  background: linear-gradient(100deg, #fff3a0, #ff7ad9 34%, #7ddcff 68%, #fff3a0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; opacity: .95;
+}
+.vc-row.vc-leader::after {
+  content: ''; position: absolute; z-index: 0; top: -30%; bottom: -30%; left: -45%; width: 34%;
+  background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, .08) 25%, rgba(255, 255, 255, .62) 50%, rgba(255, 245, 170, .30) 64%, transparent 100%);
+  transform: skewX(-18deg); animation: vc-sweep 2.2s ease-in-out infinite; pointer-events: none;
+}
+@keyframes vc-sweep { 0% { transform: translateX(0) skewX(-18deg); } 60%, 100% { transform: translateX(420%) skewX(-18deg); } }
+.vc-row.vc-leader > * { position: relative; z-index: 1; }
+
+.vc-key {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  padding: .08em 0 .16em; text-align: center;
+  font-size: calc(var(--vc-item-size) * .76); line-height: 1.22; font-weight: 950; font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .55), 0 0 4px rgba(0, 0, 0, .35);
+}
+
+.vc-main { position: relative; min-width: 0; min-height: calc(var(--vc-item-height) * .82); display: flex; align-items: center; overflow: hidden; }
+/* Thanh máu nằm SAU chữ (ngang dòng) — giống HP NPC LIVE. */
+.vc-bar {
+  position: absolute; z-index: 1; left: 0; top: 50%; width: 100%;
+  height: calc(var(--vc-item-height) * .52); min-height: 24px;
+  transform: translateY(-50%); border-radius: 9px;
+  background: rgba(0, 0, 0, .18); overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .22);
+}
+.vc-bar.vc-hidden { visibility: hidden; }
+.vc-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--vc-bar-color); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25); transition: width .22s ease; }
+.vc-content { position: relative; z-index: 2; min-width: 0; display: inline-flex; align-items: center; gap: 7px; padding: 0 var(--vc-content-padding); }
+.vc-gift { flex: 0 0 auto; width: var(--vc-icon-size); height: var(--vc-icon-size); object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .45)); }
+.vc-label {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: .08em 0 .18em;
+  font-size: var(--vc-item-size); line-height: 1.24; font-weight: 950;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .55), 0 0 4px rgba(0, 0, 0, .35);
+}
+
+.vc-score {
+  justify-self: end; max-width: 100%;
+  display: inline-flex; align-items: center; justify-content: flex-end; gap: .28em;
+  padding: .08em 0 .16em; white-space: nowrap;
+  font-size: calc(var(--vc-item-size) * .78); line-height: 1.24; font-weight: 950; font-style: normal;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .55), 0 0 4px rgba(0, 0, 0, .35);
+}
+.vc-score small { font-size: .92em; line-height: 1.2; font-weight: 950; text-transform: uppercase; }
+
+/* ---- Lớp NGOÀI thẻ: ruy băng 🏆 + chip "Vòng mới sau" ----------------------------------
+   Đặt absolute ngay dưới đáy thẻ nên hiện/ẩn KHÔNG đổi chiều cao thẻ ⇒ danh sách vote đứng yên.
+   Cửa sổ Review tự ôm sát nội dung nên chừa thêm đáy để không cắt mất ruy băng. */
+.vc-below {
+  position: absolute; top: 100%; left: 0; right: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding-top: 12px; pointer-events: none;
+}
+.vc-below:empty { display: none; }
+body.overlay-review .vc-root.has-below { padding-bottom: calc(var(--vc-item-height) * 1.35); }
+
+/* Ruy băng người dẫn đầu khi hết giờ */
+.vc-winner {
+  width: 100%;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 999px;
+  background: linear-gradient(105deg, rgba(255, 235, 122, .95), rgba(255, 122, 217, .82), rgba(125, 220, 255, .88));
+  box-shadow: 0 0 20px rgba(255, 213, 79, .34), inset 0 1px 0 rgba(255, 255, 255, .45);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .38);
+}
+.vc-winner span, .vc-winner em { font-size: calc(var(--vc-item-size) * .62); font-weight: 950; font-style: normal; white-space: nowrap; }
+.vc-winner b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(var(--vc-item-size) * .78); font-weight: 950; }

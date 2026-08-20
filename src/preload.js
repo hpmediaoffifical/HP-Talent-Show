@@ -170,6 +170,18 @@ const api = {
     getUrl: () => ipcRenderer.invoke('likewall:getUrl'),
   },
 
+  // ===== NHIỆM VỤ · VOTE BÌNH LUẬN =====
+  votecmt: {
+    getState: () => ipcRenderer.invoke('votecmt:getState'),
+    setConfig: (cfg) => ipcRenderer.invoke('votecmt:setConfig', cfg),
+    start: () => ipcRenderer.invoke('votecmt:start'),
+    stop: () => ipcRenderer.invoke('votecmt:stop'),
+    reset: () => ipcRenderer.invoke('votecmt:reset'),
+    adjustBonus: (rowId, delta) => ipcRenderer.invoke('votecmt:adjustBonus', { rowId, delta }),
+    bump: (rowId, amount) => ipcRenderer.invoke('votecmt:bump', { rowId, amount }),
+    getUrl: () => ipcRenderer.invoke('votecmt:getUrl'),
+  },
+
   // ===== THẺ BÀI (táp tim để lật thẻ) =====
   cardflip: {
     getState: () => ipcRenderer.invoke('cardflip:getState'),
@@ -349,7 +361,7 @@ const api = {
     const allowed = new Set([
       'tt:connected', 'tt:disconnected', 'tt:error',
       'tt:chat', 'tt:gift', 'tt:like', 'tt:member', 'tt:follow', 'tt:share', 'tt:roomUser',
-      'pkduo:state', 'pkduo:config', 'kcduo:state', 'kcduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'likewall:state', 'cardflip:state', 'dancevideo:ended',
+      'pkduo:state', 'pkduo:config', 'kcduo:state', 'kcduo:config', 'pkgroup:state', 'ranking:state', 'score:state', 'stickerdance:state', 'mvphonor:state', 'luckywheel:state', 'giftmenu:state', 'interact:state', 'missiontrio:state', 'likewall:state', 'votecmt:state', 'cardflip:state', 'dancevideo:ended',
       'history:changed', 'scoreHistory:changed', 'rankingHistory:changed', 'ranking:links',
       'playlist:update', 'playlist:requestState', 'playlist:command',
       'tt:recipientLearned',

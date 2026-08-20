@@ -60,8 +60,8 @@ class ObsOverlayServer {
     // riêng = mỗi loại có "ngân sách 6 kết nối" riêng, không tranh nhau. (Đã xác minh bằng netstat:
     // obs-browser-page giữ đúng 6 kết nối tới 18282, Vòng quay bị đói.)
     // NHẠC DANCE có 3 overlay độc lập, mỗi cái 1 cổng riêng (né trần 6 kết nối/host của CEF).
-    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8, 'mission-trio': 9, 'card-flip': 10, 'card-flip-fx': 11, 'dance-video-1': 12, 'dance-video-2': 13, 'dance-video-3': 14, 'interact': 15, 'kc-duo': 16, 'like-wall': 17, 'pk-group-fx': 18 };
-    this.portCount = 19;
+    this.portOffsets = { 'pk-duo': 0, 'pk-duo-fx': 1, 'pk-group': 2, 'ranking': 3, 'score': 4, 'sticker': 5, 'mvp-honor': 6, 'lucky-wheel': 7, 'gift-menu': 8, 'mission-trio': 9, 'card-flip': 10, 'card-flip-fx': 11, 'dance-video-1': 12, 'dance-video-2': 13, 'dance-video-3': 14, 'interact': 15, 'kc-duo': 16, 'like-wall': 17, 'pk-group-fx': 18, 'vote-comment': 19 };
+    this.portCount = 20;
     this.danceChannels = ['webm1', 'webm2', 'webm3'];
     this.servers = [];
     this._boundPorts = new Set();
@@ -76,6 +76,7 @@ class ObsOverlayServer {
     this.giftMenuClients = new Set();
     this.missionTrioClients = new Set();
     this.likeWallClients = new Set();
+    this.voteCommentClients = new Set();
     this.cardFlipClients = new Set();
     // Overlay TƯƠNG TÁC + QUÀ: 1 tập client, state = config, + 2 ring buffer sự kiện gần đây
     // (chat / quà) để phát lại cho client MỚI (OBS mở/reload không bị trống).
@@ -96,6 +97,7 @@ class ObsOverlayServer {
     this.giftMenuState = {};
     this.missionTrioState = {};
     this.likeWallState = {};
+    this.voteCommentState = {};
     this.cardFlipState = {};
     this.interactState = {}; // config overlay TƯƠNG TÁC + QUÀ
     this.danceVideoState = { webm1: {}, webm2: {}, webm3: {} };
@@ -152,7 +154,7 @@ class ObsOverlayServer {
     clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
     const danceSets = this.danceChannels.map(ch => this.danceVideoClients[ch]);
-    for (const set of [this.pkDuoClients, this.kcDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients, this.missionTrioClients, this.likeWallClients, this.cardFlipClients, this.interactClients, ...danceSets]) {
+    for (const set of [this.pkDuoClients, this.kcDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients, this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients, this.missionTrioClients, this.likeWallClients, this.voteCommentClients, this.cardFlipClients, this.interactClients, ...danceSets]) {
       for (const res of set) { try { res.end(); } catch {} }
       set.clear();
     }
@@ -185,6 +187,7 @@ class ObsOverlayServer {
   getGiftMenuUrl() { return `http://${this.linkHost}:${this._portFor('gift-menu')}/gift-menu?token=${encodeURIComponent(this.token)}&v=3`; }
   getMissionTrioUrl(mode) { const m = mode === 'horizontal' ? 'horizontal' : 'vertical'; return `http://${this.linkHost}:${this._portFor('mission-trio')}/mission-trio?token=${encodeURIComponent(this.token)}&mode=${m}&v=2`; }
   getLikeWallUrl() { return `http://${this.linkHost}:${this._portFor('like-wall')}/like-wall?token=${encodeURIComponent(this.token)}&v=3`; }
+  getVoteCommentUrl() { return `http://${this.linkHost}:${this._portFor('vote-comment')}/vote-comment?token=${encodeURIComponent(this.token)}&v=1`; }
   getCardFlipUrl() { return `http://${this.linkHost}:${this._portFor('card-flip')}/card-flip?token=${encodeURIComponent(this.token)}&v=5`; }
   // Overlay "lật 3D" toàn màn hình — DÙNG CHUNG stream /card-flip-events (không cần set/route riêng),
   // nhưng ở cổng riêng để né trần 6 kết nối/host của CEF.
@@ -210,6 +213,7 @@ class ObsOverlayServer {
   sendGiftMenu(state) { this.giftMenuState = state || {}; this._broadcast(this.giftMenuClients, 'giftmenu', this.giftMenuState); }
   sendMissionTrio(state) { this.missionTrioState = state || {}; this._broadcast(this.missionTrioClients, 'missiontrio', this.missionTrioState); }
   sendLikeWall(state) { this.likeWallState = state || {}; this._broadcast(this.likeWallClients, 'likewall', this.likeWallState); }
+  sendVoteComment(state) { this.voteCommentState = state || {}; this._broadcast(this.voteCommentClients, 'votecmt', this.voteCommentState); }
   sendCardFlip(state) { this.cardFlipState = state || {}; this._broadcast(this.cardFlipClients, 'cardflip', this.cardFlipState); }
   // Overlay TƯƠNG TÁC + QUÀ: state = config (độ trong suốt, cỡ chữ/avatar, tỉ lệ chia, bật/tắt cột).
   sendInteract(config) { this.interactState = config || {}; this._broadcast(this.interactClients, 'interact', this.interactState); }
@@ -239,7 +243,7 @@ class ObsOverlayServer {
     return [
       this.pkDuoClients, this.kcDuoClients, this.pkGroupClients, this.rankingClients, this.scoreClients,
       this.stickerClients, this.mvpHonorClients, this.luckyWheelClients, this.giftMenuClients,
-      this.missionTrioClients, this.likeWallClients, this.cardFlipClients, this.interactClients,
+      this.missionTrioClients, this.likeWallClients, this.voteCommentClients, this.cardFlipClients, this.interactClients,
       ...this.danceChannels.map(ch => this.danceVideoClients[ch]),
     ];
   }
@@ -271,6 +275,7 @@ class ObsOverlayServer {
       [this.giftMenuClients, 'giftmenu', this.giftMenuState],
       [this.missionTrioClients, 'missiontrio', this.missionTrioState],
       [this.likeWallClients, 'likewall', this.likeWallState],
+      [this.voteCommentClients, 'votecmt', this.voteCommentState],
       [this.cardFlipClients, 'cardflip', this.cardFlipState],
       // Chỉ nhịp lại CONFIG cho overlay TƯƠNG TÁC (giữ kết nối + vẽ lại), KHÔNG phát lại chat/quà
       // theo nhịp (tránh nhân đôi sự kiện — chúng chỉ phát 1 lần lúc xảy ra / lúc client mới kết nối).
@@ -322,6 +327,8 @@ class ObsOverlayServer {
       '/mission-trio-overlay.css': 'renderer/mission-trio-overlay.css',
       '/like-wall-overlay.js': 'renderer/like-wall-overlay.js',
       '/like-wall-overlay.css': 'renderer/like-wall-overlay.css',
+      '/vote-comment-overlay.js': 'renderer/vote-comment-overlay.js',
+      '/vote-comment-overlay.css': 'renderer/vote-comment-overlay.css',
       '/card-flip-overlay.js': 'renderer/card-flip-overlay.js',
       '/card-flip-overlay.css': 'renderer/card-flip-overlay.css',
       '/card-flip-fx-overlay.js': 'renderer/card-flip-fx-overlay.js',
@@ -464,6 +471,9 @@ class ObsOverlayServer {
     if (req.method === 'GET' && reqUrl.pathname === '/mission-trio') {
       return this._serveFile(path.join(this.root, 'renderer', 'mission-trio-overlay.html'), res);
     }
+    if (req.method === 'GET' && reqUrl.pathname === '/vote-comment') {
+      return this._serveFile(path.join(this.root, 'renderer', 'vote-comment-overlay.html'), res);
+    }
     if (req.method === 'GET' && reqUrl.pathname === '/like-wall') {
       return this._serveFile(path.join(this.root, 'renderer', 'like-wall-overlay.html'), res);
     }
@@ -502,7 +512,9 @@ class ObsOverlayServer {
     if (req.method === 'GET' && reqUrl.pathname === '/mission-trio-state') return this._json(res, this.missionTrioState);
     if (req.method === 'GET' && reqUrl.pathname === '/mission-trio-events') return this._sse(req, res, this.missionTrioClients, 'missiontrio', this.missionTrioState);
     // NHIỆM VỤ · TÁP TIM — bức tường thả tim, dùng chung cơ chế SSE + fallback state.
+    if (req.method === 'GET' && reqUrl.pathname === '/vote-comment-state') return this._json(res, this.voteCommentState);
     if (req.method === 'GET' && reqUrl.pathname === '/like-wall-state') return this._json(res, this.likeWallState);
+    if (req.method === 'GET' && reqUrl.pathname === '/vote-comment-events') return this._sse(req, res, this.voteCommentClients, 'votecmt', this.voteCommentState);
     if (req.method === 'GET' && reqUrl.pathname === '/like-wall-events') return this._sse(req, res, this.likeWallClients, 'likewall', this.likeWallState);
     // THẺ BÀI — dùng chung cơ chế SSE + fallback state.
     if (req.method === 'GET' && reqUrl.pathname === '/card-flip-state') return this._json(res, this.cardFlipState);

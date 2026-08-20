@@ -133,6 +133,7 @@ let mvpHonorEngine = null;
 let luckyWheelEngine = null;
 let missionTrioEngine = null;
 let likeWallEngine = null;
+let voteCommentEngine = null;
 let cardFlipEngine = null;
 let danceVideoEngine = null;
 // Menu Quà (thông tin quà) — chỉ hiển thị, không có engine/game state: config CHÍNH là state overlay.
@@ -203,6 +204,7 @@ function collectLiveRuntime() {
   try { if (kcDuoEngine) out.kcduo = kcDuoEngine.snapshotRuntime(); } catch {}
   try { if (pkGroupEngine) out.pkgroup = pkGroupEngine.snapshotRuntime(); } catch {}
   try { if (likeWallEngine) out.likewall = likeWallEngine.snapshotRuntime(); } catch {}
+  try { if (voteCommentEngine) out.votecmt = voteCommentEngine.snapshotRuntime(); } catch {}
   return out;
 }
 function saveLiveRuntimeNow() {
@@ -246,6 +248,7 @@ function loadSettings() {
     autoRecognizeRecipient: true,
     missionTrio: null,
     likeWall: null,
+    voteComment: null,
     cardFlip: null,
     audio: {
       gameSoundEnabled: true,
@@ -775,6 +778,7 @@ const REVIEW_META = {
   giftmenu: { title: 'Review Menu Quà', getUrl: () => overlayServer?.getGiftMenuUrl(), width: 520, height: 760 },
   missiontrio: { title: 'Review NHIỆM VỤ · BỘ BA', getUrl: () => overlayServer?.getMissionTrioUrl(), width: 720, height: 320 },
   likewall: { title: 'Review NHIỆM VỤ · TÁP TIM', getUrl: () => overlayServer?.getLikeWallUrl(), width: 540, height: 900 },
+  votecmt: { title: 'Review NHIỆM VỤ · VOTE', getUrl: () => overlayServer?.getVoteCommentUrl(), width: 860, height: 520 },
   cardflip: { title: 'Review THẺ BÀI', getUrl: () => overlayServer?.getCardFlipUrl(), width: 1040, height: 320 },
   cardflipfx: { title: 'Review THẺ BÀI · Lật 3D', getUrl: () => overlayServer?.getCardFlipFxUrl(), width: 720, height: 405 },
   dancevideo: { title: 'Review NHẠC DANCE · WEBM 1', getUrl: () => overlayServer?.getDanceVideoUrl('webm1'), width: 540, height: 960 },
@@ -4455,6 +4459,316 @@ class LikeWallEngine {
 }
 
 // =================================================================
+// NHIỆM VỤ · VOTE BÌNH LUẬN — khán giả gõ TỪ KHOÁ trong bình luận (hoặc tặng QUÀ đã gán)
+// để bình chọn cho một dòng. Overlay là bảng xếp hạng ngang: từ khoá | icon quà + tên | thanh máu | (%) điểm.
+//  • Nguồn điểm: Bình luận ×hệ số + Quà (xu) ×hệ số (chọn Bình luận / Quà tặng / Cả hai).
+//  • Quà KHÔNG gán cho dòng nào → cộng cho dòng mà người đó vừa vote bằng bình luận (userLastRow).
+//    Bật "Chọn phe bằng quà được gán" thì tặng quà đã gán cũng ĐỔI phe của người đó.
+//  • Hết giờ: giữ kết quả resultHoldSec giây rồi tự bắt đầu vòng mới (nếu bật autoRestart).
+// Điểm/đồng hồ nằm trong ENGINE, overlay chỉ vẽ theo state (giống PK Đôi) — nhịp 250ms.
+const VOTE_ROW_COLORS = ['#ff5fa0', '#7b61ff', '#26b6e8', '#ffa53c', '#3ddc84', '#ff6b6b', '#38bdf8', '#f472b6'];
+
+// Chuẩn hoá chuỗi so khớp từ khoá: gộp khoảng trắng + bỏ dấu câu/khoảng trắng thừa ở 2 đầu,
+// để "111", " 111 ", "111." hay "111!!!" đều tính là một phiếu (khán giả gõ vội hay thừa ký tự).
+function voteNormText(value) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s.,!?;:"'()\[\]-]+|[\s.,!?;:"'()\[\]-]+$/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+class VoteCommentEngine {
+  constructor({ onState }) {
+    this.onState = onState;
+    this.config = {
+      title: 'VOTE',
+      durationSec: 180,
+      countingMode: 'comments',      // 'comments' | 'gifts' | 'both'
+      pointsLabel: 'ĐIỂM',
+      commentWeight: 1,
+      giftWeight: 2,
+      joinByGift: false,             // tặng quà đã gán = đổi phe của người đó
+      lockRowsWhileActive: true,     // khoá sửa dòng khi đang chạy (app dùng)
+      autoRestart: false,
+      resultHoldSec: 10,
+      rows: [
+        { id: 'r1', keyword: '111', label: 'Ôm lấy em vào nơi', color: '#ff5fa0', giftId: '', giftName: '', giftImage: '' },
+        { id: 'r2', keyword: '222', label: 'Không tồn tại', color: '#7b61ff', giftId: '', giftName: '', giftImage: '' },
+        { id: 'r3', keyword: '333', label: 'Sao Anh không thể quên', color: '#26b6e8', giftId: '', giftName: '', giftImage: '' },
+      ],
+      display: {
+        titleSize: 60, timeSize: 64, itemSize: 48, iconSize: 60, itemHeight: 82,
+        showBar: false, showKeyword: true, showPercent: true, sortByPoints: true, highlightLeader: false,
+        topGap: 40,                    // khoảng hở từ mép trên nguồn OBS xuống bảng (px thật, không nhân scale)
+        overlayAlpha: 86, overlayBg: '#000000', itemBg: '#930619', itemBgOpacity: 1,
+        barColor: '#0742ca', textColor: '#ffffff',
+        scale: 200, boardWidth: 120, contentWidth: 150, contentPadding: 5, cardPadding: 20, rowPadding: 10,
+      },
+    };
+    // counts theo id dòng — cấu hình rows là NGUỒN SỰ THẬT về danh tính dòng, runtime chỉ giữ số đếm.
+    this.state = { active: false, ended: false, startedAt: 0, remainingMs: 0, holdMs: 0, roundNo: 0, counts: {}, userLastRow: {} };
+    this._tick = null;
+    this._comboRepeats = new Map();
+  }
+
+  setConfig(patch) {
+    patch = patch || {};
+    const c = this.config;
+    const numOr = (v, dv) => (Number.isFinite(+v) ? +v : dv);
+    const d = { ...c.display, ...(patch.display && typeof patch.display === 'object' ? patch.display : {}) };
+    let rows = c.rows;
+    if (Array.isArray(patch.rows)) {
+      rows = patch.rows.slice(0, 24).map((row, i) => ({
+        id: String(row?.id || `r${i + 1}`).slice(0, 24),
+        keyword: String(row?.keyword ?? '').trim().slice(0, 40),
+        label: String(row?.label ?? '').slice(0, 120),
+        color: /^#[0-9a-f]{6}$/i.test(String(row?.color || '')) ? row.color : VOTE_ROW_COLORS[i % VOTE_ROW_COLORS.length],
+        giftId: String(row?.giftId || '').slice(0, 40),
+        giftName: String(row?.giftName || '').slice(0, 80),
+        giftImage: String(row?.giftImage || '').slice(0, 500),
+      }));
+      if (!rows.length) rows = c.rows;
+    }
+    this.config = {
+      title: patch.title != null ? String(patch.title).slice(0, 120) : c.title,
+      durationSec: Math.max(10, Math.min(7200, Math.round(numOr(patch.durationSec, c.durationSec)))),
+      countingMode: ['comments', 'gifts', 'both'].includes(patch.countingMode) ? patch.countingMode : c.countingMode,
+      pointsLabel: patch.pointsLabel != null ? (String(patch.pointsLabel).trim().slice(0, 20) || c.pointsLabel) : c.pointsLabel,
+      commentWeight: Math.max(0, Math.min(100, numOr(patch.commentWeight, c.commentWeight))),
+      giftWeight: Math.max(0, Math.min(100, numOr(patch.giftWeight, c.giftWeight))),
+      joinByGift: patch.joinByGift != null ? !!patch.joinByGift : c.joinByGift,
+      lockRowsWhileActive: patch.lockRowsWhileActive != null ? !!patch.lockRowsWhileActive : c.lockRowsWhileActive,
+      autoRestart: patch.autoRestart != null ? !!patch.autoRestart : c.autoRestart,
+      resultHoldSec: Math.max(0, Math.min(3600, Math.round(numOr(patch.resultHoldSec, c.resultHoldSec)))),
+      rows,
+      display: {
+        titleSize: Math.max(24, Math.min(140, Math.round(numOr(d.titleSize, 60)))),
+        timeSize: Math.max(20, Math.min(140, Math.round(numOr(d.timeSize, 64)))),
+        itemSize: Math.max(18, Math.min(110, Math.round(numOr(d.itemSize, 48)))),
+        iconSize: Math.max(0, Math.min(180, Math.round(numOr(d.iconSize, 60)))),
+        itemHeight: Math.max(44, Math.min(220, Math.round(numOr(d.itemHeight, 82)))),
+        showBar: d.showBar === true,
+        showKeyword: d.showKeyword !== false,
+        showPercent: d.showPercent !== false,
+        sortByPoints: d.sortByPoints !== false,
+        highlightLeader: d.highlightLeader === true,
+        overlayAlpha: Math.max(0, Math.min(100, Math.round(numOr(d.overlayAlpha, 86)))),
+        overlayBg: /^#[0-9a-f]{6}$/i.test(String(d.overlayBg || '')) ? d.overlayBg : '#000000',
+        itemBg: /^#[0-9a-f]{6}$/i.test(String(d.itemBg || '')) ? d.itemBg : '#930619',
+        itemBgOpacity: Math.max(0, Math.min(1, numOr(d.itemBgOpacity, 1))),
+        barColor: /^#[0-9a-f]{6}$/i.test(String(d.barColor || '')) ? d.barColor : '#0742ca',
+        textColor: /^#[0-9a-f]{6}$/i.test(String(d.textColor || '')) ? d.textColor : '#ffffff',
+        scale: Math.max(40, Math.min(300, Math.round(numOr(d.scale, 200)))),
+        boardWidth: Math.max(60, Math.min(240, Math.round(numOr(d.boardWidth, 120)))),
+        contentWidth: Math.max(70, Math.min(220, Math.round(numOr(d.contentWidth, 150)))),
+        contentPadding: Math.max(0, Math.min(48, Math.round(numOr(d.contentPadding, 5)))),
+        cardPadding: Math.max(0, Math.min(80, Math.round(numOr(d.cardPadding, 20)))),
+        rowPadding: Math.max(0, Math.min(48, Math.round(numOr(d.rowPadding, 10)))),
+        topGap: Math.max(0, Math.min(600, Math.round(numOr(d.topGap, 40)))),
+      },
+    };
+    this._emit();
+  }
+
+  _blankCounts() {
+    const counts = {};
+    for (const row of this.config.rows) counts[row.id] = { comments: 0, giftXu: 0, bonus: 0 };
+    return counts;
+  }
+
+  start() {
+    this.state.counts = this._blankCounts();
+    this.state.userLastRow = {};
+    this.state.active = true;
+    this.state.ended = false;
+    this.state.startedAt = Date.now();
+    this.state.remainingMs = this.config.durationSec * 1000;
+    this.state.holdMs = 0;
+    this.state.roundNo = (this.state.roundNo | 0) + 1;
+    this._comboRepeats.clear();
+    this._runTicker();
+  }
+
+  stop() {
+    this.state.active = false;
+    this.state.holdMs = 0;
+    this._clearTicker();
+    this._emit();
+  }
+
+  reset() {
+    this._clearTicker();
+    this.state = { active: false, ended: false, startedAt: 0, remainingMs: 0, holdMs: 0, roundNo: 0, counts: this._blankCounts(), userLastRow: {} };
+    this._comboRepeats.clear();
+    this._emit();
+  }
+
+  // ± điểm thưởng thủ công cho 1 dòng (nút − / + ở app).
+  adjustBonus(rowId, delta) {
+    const d = Math.round(Number(delta) || 0);
+    if (!d) return false;
+    const row = this.config.rows.find(r => r.id === rowId);
+    if (!row) return false;
+    const c = this.state.counts[row.id] || (this.state.counts[row.id] = { comments: 0, giftXu: 0, bonus: 0 });
+    c.bonus = (c.bonus | 0) + d;
+    this._emit();
+    return true;
+  }
+
+  // CỐ Ý KHÔNG chống trùng theo người/nội dung: một người gõ "111" mười lần = 10 phiếu.
+  // (Khác quà — quà phải dùng comboDelta vì TikTok gửi nhiều nhịp cho CÙNG một lượt tặng.)
+  routeChat(ev) {
+    if (!this.state.active || !ev) return;
+    const text = voteNormText(ev.comment);
+    if (!text) return;
+    const row = this.config.rows.find(r => r.keyword && voteNormText(r.keyword) === text);
+    if (!row) return;
+    const c = this.state.counts[row.id] || (this.state.counts[row.id] = { comments: 0, giftXu: 0, bonus: 0 });
+    c.comments = (c.comments | 0) + 1;
+    const uid = voteNormText(ev.uniqueId || ev.userId);
+    if (uid) this.state.userLastRow[uid] = row.id;
+  }
+
+  routeGift(ev) {
+    if (!this.state.active || !ev) return;
+    const repeat = comboDelta(this._comboRepeats, ev);
+    if (!repeat) return;
+    const xu = Math.max(0, resolveDiamond(ev)) * repeat;
+    if (xu <= 0) return;
+    const uid = voteNormText(ev.uniqueId || ev.userId);
+    let row = null;
+    if (ev.giftId != null && ev.giftId !== '') {
+      row = this.config.rows.find(r => r.giftId && String(r.giftId) === String(ev.giftId)) || null;
+      if (row && this.config.joinByGift && uid) this.state.userLastRow[uid] = row.id;
+    }
+    if (!row && uid) {
+      // Quà không gán → cộng cho dòng người đó vừa vote. Dòng ĐÃ gán quà riêng chỉ nhận quà đó
+      // (trừ khi bật joinByGift) để quà 1 xu không "ăn ké" dòng có quà chỉ định.
+      const fallback = this.config.rows.find(r => r.id === this.state.userLastRow[uid]);
+      if (fallback && (this.config.joinByGift || !fallback.giftId)) row = fallback;
+    }
+    if (!row) return;
+    const c = this.state.counts[row.id] || (this.state.counts[row.id] = { comments: 0, giftXu: 0, bonus: 0 });
+    c.giftXu = (c.giftXu | 0) + xu;
+  }
+
+  // TEST không cần LIVE: đổ điểm giả vào 1 dòng (hoặc ngẫu nhiên).
+  bump(rowId, amount) {
+    const n = Math.max(1, Math.round(Number(amount) || 1));
+    const rows = this.config.rows;
+    if (!rows.length) return;
+    const row = rows.find(r => r.id === rowId) || rows[Math.floor(Math.random() * rows.length)];
+    const c = this.state.counts[row.id] || (this.state.counts[row.id] = { comments: 0, giftXu: 0, bonus: 0 });
+    if (this.config.countingMode === 'gifts') c.giftXu += n; else c.comments += n;
+    this._emit();
+  }
+
+  _rowPoints(rowId) {
+    const c = this.state.counts[rowId] || {};
+    const comments = Math.round((c.comments | 0) * this.config.commentWeight);
+    const gifts = Math.round((c.giftXu | 0) * this.config.giftWeight);
+    const bonus = c.bonus | 0;
+    if (this.config.countingMode === 'comments') return comments + bonus;
+    if (this.config.countingMode === 'gifts') return gifts + bonus;
+    return comments + gifts + bonus;
+  }
+
+  getStateForOverlay() {
+    const rows = this.config.rows.map((row, i) => {
+      const c = this.state.counts[row.id] || {};
+      return {
+        id: row.id,
+        keyword: row.keyword || String(i + 1),
+        label: row.label || `Lựa chọn ${i + 1}`,
+        color: row.color || this.config.display.barColor,
+        giftId: row.giftId || '',
+        giftName: row.giftName || '',
+        giftImage: row.giftImage || '',
+        comments: c.comments | 0,
+        giftXu: c.giftXu | 0,
+        bonus: c.bonus | 0,
+        points: this._rowPoints(row.id),
+      };
+    });
+    const total = rows.reduce((s, r) => s + r.points, 0);
+    const leader = rows.reduce((m, r) => Math.max(m, r.points), 0);
+    for (const r of rows) {
+      r.pct = total > 0 ? Math.round((r.points / total) * 100) : 0;
+      r.leader = this.config.display.highlightLeader && leader > 0 && r.points === leader;
+    }
+    if (this.config.display.sortByPoints) rows.sort((a, b) => b.points - a.points);
+    return {
+      ...this.config,
+      rows,
+      // rowsCfg = dòng theo ĐÚNG thứ tự cấu hình (rows có thể đã sắp lại theo điểm để vẽ overlay).
+      // App đọc rowsCfg để bảng sửa/lưu không bị đảo thứ tự khi bật "Sắp xếp theo điểm".
+      rowsCfg: this.config.rows.map(r => ({ ...r })),
+      totalPoints: total,
+      active: this.state.active,
+      ended: this.state.ended,
+      roundNo: this.state.roundNo | 0,
+      remainingMs: Math.max(0, this.state.remainingMs | 0),
+      holdMs: Math.max(0, this.state.holdMs | 0),
+      winners: (this.state.ended && leader > 0) ? rows.filter(r => r.points === leader).map(r => r.label) : [],
+      winnerPoints: leader,
+    };
+  }
+
+  _runTicker() {
+    this._clearTicker();
+    this._tick = setInterval(() => {
+      if (this.state.active) {
+        this.state.remainingMs = Math.max(0, this.state.remainingMs - 250);
+        if (this.state.remainingMs <= 0) {
+          this.state.active = false;
+          this.state.ended = true;
+          // Giữ kết quả rồi tự bắt đầu vòng mới nếu bật.
+          this.state.holdMs = this.config.autoRestart ? this.config.resultHoldSec * 1000 : 0;
+          if (!this.config.autoRestart) this._clearTicker();
+        }
+      } else if (this.state.holdMs > 0) {
+        this.state.holdMs = Math.max(0, this.state.holdMs - 250);
+        if (this.state.holdMs <= 0) { this.start(); return; }
+      } else {
+        this._clearTicker();
+      }
+      this._emit();
+    }, 250);
+    this._emit();
+  }
+  _clearTicker() { if (this._tick) { clearInterval(this._tick); this._tick = null; } }
+
+  snapshotRuntime() {
+    return {
+      active: this.state.active, ended: this.state.ended, remainingMs: this.state.remainingMs,
+      holdMs: this.state.holdMs, roundNo: this.state.roundNo, counts: this.state.counts, userLastRow: this.state.userLastRow,
+    };
+  }
+  restoreRuntime(s, { resume = false } = {}) {
+    if (!s || typeof s !== 'object') return;
+    const counts = this._blankCounts();
+    if (s.counts && typeof s.counts === 'object') {
+      for (const [id, c] of Object.entries(s.counts)) {
+        if (!counts[id]) continue;
+        counts[id] = { comments: Math.max(0, Number(c?.comments) || 0), giftXu: Math.max(0, Number(c?.giftXu) || 0), bonus: Math.round(Number(c?.bonus) || 0) };
+      }
+    }
+    this.state.counts = counts;
+    this.state.userLastRow = (s.userLastRow && typeof s.userLastRow === 'object') ? { ...s.userLastRow } : {};
+    this.state.roundNo = Math.max(0, Number(s.roundNo) || 0);
+    this.state.ended = !!s.ended;
+    this.state.remainingMs = Math.max(0, Number(s.remainingMs) || 0);
+    this.state.holdMs = Math.max(0, Number(s.holdMs) || 0);
+    // Mở lại app muộn thì chỉ khôi phục ĐIỂM, KHÔNG cho đồng hồ chạy tiếp (tránh tự chốt vòng âm thầm).
+    this.state.active = resume && !!s.active && this.state.remainingMs > 0;
+    if (this.state.active || this.state.holdMs > 0) this._runTicker(); else this._emit();
+  }
+
+  _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
+}
+
+// =================================================================
 // THẺ BÀI — MC táp tim (KPI) để lật thẻ. Overlay tương tác được:
 // bấm thẻ nào (OBS Interact / cửa sổ Review) là lật thẻ đó.
 //  • Mặt úp (back.png)  = thẻ hp vàng/hồng (mặc định).
@@ -5004,6 +5318,14 @@ function bootstrapEngines() {
     },
   });
   if (settings.likeWall) likeWallEngine.setConfig(settings.likeWall);
+  voteCommentEngine = new VoteCommentEngine({
+    onState: (st) => {
+      overlayServer?.sendVoteComment(st);
+      throttledBroadcast('votecmt:state', st);
+      scheduleLiveRuntimeSave(); // chống mất phiếu vote khi văng giữa vòng
+    },
+  });
+  if (settings.voteComment) voteCommentEngine.setConfig(settings.voteComment);
   cardFlipEngine = new CardFlipEngine({
     onState: (st) => {
       overlayServer?.sendCardFlip(st);
@@ -5037,6 +5359,7 @@ function bootstrapEngines() {
       try { kcDuoEngine.restoreRuntime(rt.kcduo, opt); } catch {}
       try { pkGroupEngine.restoreRuntime(rt.pkgroup, opt); } catch {}
       try { likeWallEngine.restoreRuntime(rt.likewall); } catch {}
+      try { voteCommentEngine.restoreRuntime(rt.votecmt, opt); } catch {}
     }
   } catch {}
 
@@ -5051,6 +5374,7 @@ function bootstrapEngines() {
   luckyWheelEngine._emit();
   missionTrioEngine._emit();
   likeWallEngine._emit();
+  voteCommentEngine._emit();
   cardFlipEngine._emit();
   danceVideoEngine.emitAll();
   overlayServer?.sendGiftMenu(giftMenuConfig);
@@ -5111,6 +5435,8 @@ function bootstrapTikTok() {
         level: d.level || '', comment: d.comment || '',
       });
     }
+    // 🗳 VOTE — khán giả gõ TỪ KHOÁ để bình chọn (engine tự bỏ qua khi chưa BẮT ĐẦU).
+    voteCommentEngine?.routeChat(d);
   });
   ttClient.on('gift', (d) => {
     _cacheAvatar(d);   // gift có avatar thì lưu lại
@@ -5148,6 +5474,7 @@ function bootstrapTikTok() {
     rankingEngine?.routeGift(d, anyLinkedGiftSourceActive(), rankVoteStarted(), anyLinkedMatchRunning());
     stickerEngine?.routeGift(d);
     missionTrioEngine?.routeGift(d);
+    voteCommentEngine?.routeGift(d);
   });
   // QUAN TRỌNG (fix treo/đơ giao diện khi LIVE): like/member/follow/share là các
   // sự kiện TẦN SUẤT RẤT CAO (like có thể hàng trăm/giây, member = mỗi lượt vào phòng).
@@ -5169,7 +5496,7 @@ function bootstrapTikTok() {
 const OVERLAY_SCENE_KEYS = [
   'pkduo', 'pkduofx', 'kcduo', 'pkgroup', 'pkgroupfx', 'ranking', 'rankinggrid',
   'score', 'scorebar', 'scorecard', 'scoretimer', 'sticker', 'giftmenu',
-  'mvphonor', 'luckywheel', 'missiontrio', 'likewall', 'cardflip', 'cardflipfx',
+  'mvphonor', 'luckywheel', 'missiontrio', 'likewall', 'votecmt', 'cardflip', 'cardflipfx',
   'dancevideo', 'dancevideo2', 'dancevideo3', 'interact',
 ];
 // Đọc cấu hình ẩn/hiện overlay (chuẩn hoá + mặc định): hiện hết, tự-theo-menu BẬT, ghim sẵn TƯƠNG TÁC + Menu Quà.
@@ -6068,6 +6395,16 @@ function registerIpc() {
   ipcMain.handle('likewall:stop', () => { likeWallEngine.stop(); return true; });
   ipcMain.handle('likewall:reset', () => { likeWallEngine.reset(); return true; });
   ipcMain.handle('likewall:bump', (_e, { amount } = {}) => { likeWallEngine.bump(amount); return true; });
+
+  // 🗳 NHIỆM VỤ · VOTE BÌNH LUẬN
+  ipcMain.handle('votecmt:getState', () => voteCommentEngine.getStateForOverlay());
+  ipcMain.handle('votecmt:setConfig', (_e, cfg) => { voteCommentEngine.setConfig(cfg); settings.voteComment = voteCommentEngine.config; saveSettings(); return voteCommentEngine.config; });
+  ipcMain.handle('votecmt:start', () => { voteCommentEngine.start(); return true; });
+  ipcMain.handle('votecmt:stop', () => { voteCommentEngine.stop(); return true; });
+  ipcMain.handle('votecmt:reset', () => { voteCommentEngine.reset(); return true; });
+  ipcMain.handle('votecmt:adjustBonus', (_e, { rowId, delta } = {}) => voteCommentEngine.adjustBonus(rowId, delta));
+  ipcMain.handle('votecmt:bump', (_e, { rowId, amount } = {}) => { voteCommentEngine.bump(rowId, amount); return true; });
+  ipcMain.handle('votecmt:getUrl', () => overlayServer.getVoteCommentUrl());
   ipcMain.handle('likewall:getUrl', () => overlayServer.getLikeWallUrl());
 
   // ===== THẺ BÀI =====
@@ -6376,7 +6713,7 @@ app.whenReady().then(async () => {
   await bootstrapOverlay();
   // Overlay server sẵn sàng SAU khi engine đã nạp config đã lưu → phát lại state một lần
   // để OBS/Review nhận ĐÚNG cấu hình ngay khi kết nối, không phải chờ lần chỉnh sửa kế tiếp.
-  pkDuoEngine?._emit(); kcDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); cardFlipEngine?._emit(); danceVideoEngine?.emitAll();
+  pkDuoEngine?._emit(); kcDuoEngine?._emit(); pkGroupEngine?._emit(); rankingEngine?._emit(); scoreEngine?._emit(); stickerEngine?._emit(); mvpHonorEngine?._emit(); luckyWheelEngine?._emit(); missionTrioEngine?._emit(); voteCommentEngine?._emit(); cardFlipEngine?._emit(); danceVideoEngine?.emitAll();
   overlayServer?.sendGiftMenu(giftMenuConfig);
   overlayServer?.sendInteract(interactConfig);
   createWindow();

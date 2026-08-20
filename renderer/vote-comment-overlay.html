@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>NHIỆM VỤ — VOTE BÌNH LUẬN</title>
+  <link rel="stylesheet" href="/overlay-common.css" />
+  <link rel="stylesheet" href="/vote-comment-overlay.css?v=1" />
+</head>
+<body class="vc-page">
+  <div class="vc-root" id="vcRoot">
+    <div class="vc-card" id="vcCard"></div>
+    <!-- Ruy băng 🏆 + chip "Vòng mới sau" nằm NGOÀI thẻ (absolute) để khi hiện/ẩn KHÔNG
+         làm thẻ cao lên — danh sách vote luôn đứng yên, không nhấp nhô. -->
+    <div class="vc-below" id="vcBelow"></div>
+  </div>
+  <script src="/overlay-sse.js"></script>
+  <script src="/vote-comment-overlay.js?v=1"></script>
+  <script src="/review-resize.js"></script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+# Tự động build + phát hành HP GROUP LIVE mỗi khi push tag "v*".
+#
+#   git tag -a v0.1.92 -m "v0.1.92 - mô tả thay đổi"
+#   git push origin v0.1.92
+#
+# Workflow chạy trên Windows (bắt buộc — target NSIS), build ra file cài rồi tạo GitHub Release
+# kèm .exe + .blockmap + latest.yml. Máy người dùng mở app sẽ tự thấy bản mới (updater trong
+# src/main.js hỏi GitHub Releases API).
+#
+# ⚠️ CẦN 1 LẦN DUY NHẤT: thêm secret HPKEY_HMAC cho repo
+#     gh secret set HPKEY_HMAC --repo hpmediaoffifical/H-P-T-a-l-e-n-t-S-h-o-w
+#   Giá trị = HMAC_SECRET trong hpkey/secret.local.js (file này .gitignore nên KHÔNG có trên CI;
+#   thiếu nó thì bản build ra sẽ hỏng phần kiểm tra bản quyền HP KEY).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  # Chạy tay khi cần build lại: bấm "Run workflow" rồi CHỌN ĐÚNG TAG (không chọn nhánh).
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Tag phải KHỚP version trong package.json: updater so sánh tag_name với version đang chạy,
+      # lệch nhau là máy người dùng hoặc không thấy bản mới, hoặc cập nhật vòng lặp.
+      - name: Kiểm tra tag khớp package.json
+        shell: bash
+        run: |
+          case "$GITHUB_REF" in
+            refs/tags/*) ;;
+            *) echo "::error::Phải chạy trên TAG (vd v0.1.92), không phải nhánh '$GITHUB_REF_NAME'."; exit 1 ;;
+          esac
+          TAG_VER="${GITHUB_REF_NAME#v}"
+          PKG_VER="$(node -p "require('./package.json').version")"
+          echo "tag=$GITHUB_REF_NAME  package.json=$PKG_VER"
+          if [ "$TAG_VER" != "$PKG_VER" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME không khớp version $PKG_VER trong package.json. Sửa package.json rồi tag lại."
+            exit 1
+          fi
+          echo "VERSION=$PKG_VER" >> "$GITHUB_ENV"
+
+      # hpkey/secret.local.js bị .gitignore (không đẩy secret lên repo public) → dựng lại từ secret repo.
+      - name: Dựng hpkey/secret.local.js từ secret
+        shell: bash
+        env:
+          HPKEY_HMAC: ${{ secrets.HPKEY_HMAC }}
+        run: |
+          if [ -z "$HPKEY_HMAC" ]; then
+            echo "::error::Thiếu secret HPKEY_HMAC. Chạy: gh secret set HPKEY_HMAC --repo $GITHUB_REPOSITORY"
+            exit 1
+          fi
+          printf "'use strict';\n// Sinh tự động bởi GitHub Actions — KHONG commit.\nmodule.exports = { HMAC_SECRET: '%s' };\n" "$HPKEY_HMAC" > hpkey/secret.local.js
+
+      - name: Cài phụ thuộc
+        run: npm ci
+
+      - name: Build file cài (NSIS)
+        run: npm run dist
+
+      - name: Kiểm tra sản phẩm build
+        shell: bash
+        run: |
+          EXE="release/HP-GROUP-LIVE-Setup-${VERSION}.exe"
+          [ -f "$EXE" ] || { echo "::error::Không thấy $EXE"; exit 1; }
+          ls -lh release/ | sed 's/^/   /'
+
+      - name: Tạo GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXE="release/HP-GROUP-LIVE-Setup-${VERSION}.exe"
+          FILES="$EXE"
+          if [ -f "$EXE.blockmap" ]; then FILES="$FILES $EXE.blockmap"; fi
+          if [ -f "release/latest.yml" ]; then FILES="$FILES release/latest.yml"; fi
+
+          # Ghi chú phát hành = nội dung tag chú thích (git tag -a -m "..."); không có thì để GitHub tự sinh.
+          NOTES="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME" 2>/dev/null || true)"
+          TITLE="$(printf '%s\n' "$NOTES" | sed -n '1p')"
+          if [ -z "$TITLE" ]; then TITLE="HP GROUP LIVE $GITHUB_REF_NAME"; fi
+
+          if [ -n "$NOTES" ]; then
+            printf '%s\n' "$NOTES" > release-notes.md
+            gh release create "$GITHUB_REF_NAME" $FILES --title "$TITLE" --notes-file release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" $FILES --title "$TITLE" --generate-notes
+          fi

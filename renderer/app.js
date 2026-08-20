@@ -116,6 +116,7 @@ $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
   if (id === 'luckywheel') { lwRefreshSpinners?.(); renderLwPreview?.(); }
   if (id === 'mtrio') mtOnShow?.();
   if (id === 'taptim') lwallOnShow?.();
+  if (id === 'votecmt') vcOnShow?.();
   if (id === 'cardflip') cfOnShow?.();
   if (id === 'groups') loadKcData?.(); // nạp KIM CƯƠNG TỔNG cho Hồ Sơ Nhóm
   // Ẩn/hiện overlay theo cảnh: mở tab có overlay → tự áp cảnh (nếu bật) + cập nhật nút nổi thanh trên.
@@ -139,6 +140,7 @@ const OV_SCENES = [
   { scene: 'luckywheel',  label: '🎡 Vòng quay',    color: '#ec4899', items: [{ key: 'luckywheel', name: 'Overlay' }] },
   { scene: 'missiontrio', label: '📋 Bộ ba',        color: '#14b8a6', items: [{ key: 'missiontrio', name: 'Overlay' }] },
   { scene: 'likewall',    label: '❤️ Táp tim',      color: '#f43f5e', items: [{ key: 'likewall', name: 'Overlay' }] },
+  { scene: 'votecmt',     label: '🗳 Vote',         color: '#10b981', items: [{ key: 'votecmt', name: 'Overlay' }] },
   { scene: 'cardflip',    label: '🃏 Thẻ bài',      color: '#8b5cf6', items: [{ key: 'cardflip', name: 'Bảng' }, { key: 'cardflipfx', name: 'Lật 3D' }] },
   { scene: 'dancevideo',  label: '🎵 Nhạc Dance',   color: '#0ea5e9', items: [{ key: 'dancevideo', name: 'WEBM 1' }, { key: 'dancevideo2', name: 'WEBM 2' }, { key: 'dancevideo3', name: 'WEBM 3' }] },
   { scene: 'interact',    label: '💬 Tương tác',    color: '#64748b', items: [{ key: 'interact', name: 'Overlay' }] },
@@ -146,7 +148,7 @@ const OV_SCENES = [
 const OV_SCENE_BY = Object.fromEntries(OV_SCENES.map(s => [s.scene, s]));
 const OV_KEYS_OF = (scene) => (OV_SCENE_BY[scene]?.items || []).map(i => i.key);
 // Tab (data-tab) → cảnh overlay tương ứng. Tab không có overlay (creators/groups/set-*) không đổi cảnh.
-const OV_TAB_TO_SCENE = { connect: 'interact', score: 'score', pkduo: 'pkduo', kcduo: 'kcduo', pkgroup: 'pkgroup', ranking: 'ranking', musiclist: 'dancevideo', stickerdance: 'sticker', mvphonor: 'mvphonor', luckywheel: 'luckywheel', mtrio: 'missiontrio', taptim: 'likewall', cardflip: 'cardflip' };
+const OV_TAB_TO_SCENE = { connect: 'interact', score: 'score', pkduo: 'pkduo', kcduo: 'kcduo', pkgroup: 'pkgroup', ranking: 'ranking', musiclist: 'dancevideo', stickerdance: 'sticker', mvphonor: 'mvphonor', luckywheel: 'luckywheel', mtrio: 'missiontrio', taptim: 'likewall', votecmt: 'votecmt', cardflip: 'cardflip' };
 const OV_SCENE_LABEL = Object.fromEntries(OV_SCENES.map(s => [s.scene, s.label]));
 let ovVis = { autoScene: true, pinned: {}, vis: {} };
 // Cảnh (scene) đang "trên sóng" theo menu — CHỈ đổi khi mở một tab có overlay. Tab không overlay
@@ -5098,6 +5100,373 @@ function wireLikeWallTab() {
   });
 }
 
+// ===================== 🗳 NHIỆM VỤ · VOTE BÌNH LUẬN =====================
+// Khán giả comment đúng TỪ KHOÁ (hoặc tặng quà đã gán) để bình chọn. Engine ở main giữ điểm + đồng hồ,
+// app chỉ gửi config và vẽ lại theo state đẩy về (votecmt:state). Khung xem trước dùng CHUNG CSS
+// với overlay OBS (vote-comment-overlay.css) nên WYSIWYG.
+const VC_ROW_COLORS = ['#ff5fa0', '#7b61ff', '#26b6e8', '#ffa53c', '#3ddc84', '#ff6b6b', '#38bdf8', '#f472b6'];
+let vcCfg = null;
+let vcState = { rows: [], active: false, ended: false, remainingMs: 0, holdMs: 0 };
+
+function vcFmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('vi-VN'); }
+function vcClock(ms) {
+  const s = Math.max(0, Math.ceil(Number(ms) || 0) / 1000);
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+}
+function vcRgba(hex, a) {
+  const m = String(hex || '').match(/^#([0-9a-f]{6})$/i);
+  if (!m) return hex || 'transparent';
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+// Đang khoá sửa dòng? (đang chạy + bật "Khoá sửa dòng khi chạy")
+function vcLocked() { return !!(vcCfg?.lockRowsWhileActive && vcState.active); }
+function vcNewRowId() {
+  let i = 1;
+  const used = new Set((vcCfg?.rows || []).map(r => r.id));
+  while (used.has('r' + i)) i++;
+  return 'r' + i;
+}
+
+async function loadVoteCommentConfig() {
+  const st = await window.api.votecmt.getState().catch(() => null);
+  if (st) {
+    const { rows, rowsCfg, totalPoints, active, ended, roundNo, remainingMs, holdMs, winners, winnerPoints, ...cfg } = st;
+    // rowsCfg giữ ĐÚNG thứ tự cấu hình (rows có thể đã sắp theo điểm cho overlay).
+    vcCfg = { ...cfg, rows: (rowsCfg || rows || []).map(r => ({ id: r.id, keyword: r.keyword, label: r.label, color: r.color, giftId: r.giftId || '', giftName: r.giftName || '', giftImage: r.giftImage || '' })) };
+    vcState = st;
+  }
+  vcFillForm(); vcRenderRows(); vcRenderPreview(); vcUpdateRunUI();
+}
+function vcPushLive() { if (vcCfg) window.api.votecmt.setConfig(vcCfg).catch(() => {}); }
+const _vcSaver = makeAutoSaver(() => vcPushLive());
+function vcScheduleSave() { _vcSaver.schedule(() => { vcRenderPreview(); }); }
+
+function vcFillForm() {
+  if (!vcCfg) return;
+  const d = vcCfg.display || {};
+  const set = (id, v) => { const el = $('#' + id); if (el) el.value = v; };
+  const chk = (id, v) => { const el = $('#' + id); if (el) el.checked = !!v; };
+  const rng = (id, v, suffix = '%') => { set(id, v); const lab = $('#' + id + 'Val'); if (lab) lab.textContent = `${v}${suffix}`; };
+  set('vcTitle', vcCfg.title); set('vcPointsLabel', vcCfg.pointsLabel);
+  const dur = Math.max(0, vcCfg.durationSec | 0);
+  set('vcDurH', Math.floor(dur / 3600)); set('vcDurM', Math.floor((dur % 3600) / 60)); set('vcDurS', dur % 60);
+  set('vcHoldSec', vcCfg.resultHoldSec); chk('vcAutoRestart', vcCfg.autoRestart);
+  set('vcCommentW', vcCfg.commentWeight); set('vcGiftW', vcCfg.giftWeight);
+  chk('vcJoinByGift', vcCfg.joinByGift); chk('vcLockRows', vcCfg.lockRowsWhileActive);
+  const mode = $(`input[name="vcMode"][value="${vcCfg.countingMode}"]`); if (mode) mode.checked = true;
+  set('vcTitleSize', d.titleSize); set('vcTimeSize', d.timeSize); set('vcItemSize', d.itemSize);
+  set('vcIconSize', d.iconSize); set('vcItemHeight', d.itemHeight);
+  set('vcOverlayBg', d.overlayBg); set('vcItemBg', d.itemBg); set('vcBarColor', d.barColor); set('vcTextColor', d.textColor);
+  chk('vcShowBar', d.showBar); chk('vcShowKeyword', d.showKeyword); chk('vcShowPercent', d.showPercent);
+  chk('vcSortByPoints', d.sortByPoints); chk('vcHighlightLeader', d.highlightLeader);
+  rng('vcOverlayAlpha', d.overlayAlpha); rng('vcItemOp', Math.round(d.itemBgOpacity * 100));
+  rng('vcBoardWidth', d.boardWidth); rng('vcContentWidth', d.contentWidth); rng('vcScale', d.scale);
+  set('vcCardPad', d.cardPadding); set('vcRowPad', d.rowPadding); set('vcContentPad', d.contentPadding); set('vcTopGap', d.topGap);
+  vcSyncModeFields();
+}
+
+// Ẩn hẳn ô KHÔNG dùng tới theo nguồn điểm đang chọn: chấm bằng "Bình luận" thì hệ số quà /
+// "chọn phe bằng quà" / cột gán quà ở bảng dòng đều vô nghĩa (và ngược lại với "Quà tặng").
+// "Giữ kết quả" chỉ có tác dụng khi bật Tự reset → mờ đi khi tắt cho khỏi hiểu nhầm.
+function vcSyncModeFields() {
+  if (!vcCfg) return;
+  const mode = vcCfg.countingMode;
+  const show = (id, on) => { const el = $('#' + id); if (el) el.hidden = !on; };
+  show('vcCommentWWrap', mode !== 'gifts');
+  show('vcGiftWWrap', mode !== 'comments');
+  show('vcJoinByGiftWrap', mode !== 'comments');
+  show('vcIconSizeWrap', mode !== 'comments');
+  const holdWrap = $('#vcHoldWrap');
+  if (holdWrap) holdWrap.classList.toggle('is-muted', !vcCfg.autoRestart);
+  const rows = $('#vcRows');
+  if (rows) rows.className = 'vc-rows vc-m-' + mode;
+}
+
+// Từ khoá trống / trùng nhau ⇒ dòng đó không bao giờ ăn vote — cảnh báo ngay trên hàng.
+function vcKeywordIssue(row) {
+  const key = String(row.keyword || '').trim().toLowerCase();
+  if (!key) return 'Thiếu từ khoá';
+  const dup = (vcCfg.rows || []).filter(r => String(r.keyword || '').trim().toLowerCase() === key).length > 1;
+  return dup ? 'Từ khoá trùng' : '';
+}
+
+function vcRenderRows() {
+  const box = $('#vcRows');
+  if (!box || !vcCfg) return;
+  const locked = vcLocked();
+  const note = $('#vcLockNote'); if (note) note.hidden = !locked;
+  const live = new Map((vcState.rows || []).map(r => [r.id, r]));
+  const dis = locked ? ' disabled' : '';
+  box.innerHTML = vcCfg.rows.map((row, i) => {
+    const st = live.get(row.id) || { comments: 0, giftXu: 0, pct: 0 };
+    const issue = vcKeywordIssue(row);
+    const gift = row.giftImage
+      ? `<img src="${escapeAttr(row.giftImage)}" alt="" onerror="this.style.visibility='hidden'" />`
+      : '<span class="vc-gift-ph">🎁</span>';
+    return `<div class="vc-erow${issue ? ' has-issue' : ''}" data-id="${escapeAttr(row.id)}">
+      <span class="vc-idx">${i + 1}</span>
+      <input class="vc-f-key" type="text" maxlength="40" value="${escapeAttr(row.keyword)}" placeholder="Từ khoá"${dis} />
+      <input class="vc-f-label" type="text" maxlength="120" value="${escapeAttr(row.label)}" placeholder="Nội dung lựa chọn"${dis} />
+      <input class="vc-f-color" type="color" value="${escapeAttr(row.color)}" title="Màu thanh máu"${dis} />
+      <button class="vc-f-gift" type="button" title="${escapeAttr(row.giftName || 'Gán quà cho dòng này')}"${dis}>${gift}</button>
+      <button class="vc-f-nogift ghost tiny" type="button" title="Bỏ gán quà"${dis}>Bỏ</button>
+      <span class="vc-stat vc-stat-cmt" title="Số bình luận">💬 ${vcFmt(st.comments)}</span>
+      <span class="vc-stat vc-stat-gift" title="Xu quà">🎁 ${vcFmt(st.giftXu)}</span>
+      <span class="vc-stat vc-pctstat">${Number(st.pct) || 0}%</span>
+      <button class="vc-f-minus ghost tiny" type="button" title="Trừ 1 điểm thưởng">−</button>
+      <button class="vc-f-plus ghost tiny" type="button" title="Cộng 1 điểm thưởng">+</button>
+      <button class="vc-f-up ghost tiny" type="button" title="Lên trên"${dis}>▲</button>
+      <button class="vc-f-down ghost tiny" type="button" title="Xuống dưới"${dis}>▼</button>
+      <button class="vc-f-del danger tiny" type="button" title="Xoá dòng"${dis}>✕</button>
+      ${issue ? `<span class="vc-issue">${escapeHtml(issue)}</span>` : ''}
+    </div>`;
+  }).join('') || '<p class="mt-hint">Chưa có dòng nào — bấm ＋ Thêm dòng.</p>';
+  box.className = 'vc-rows vc-m-' + vcCfg.countingMode;
+}
+
+// Khung xem trước: dựng ĐÚNG cấu trúc DOM + biến CSS như overlay OBS.
+function vcRenderPreview() {
+  const box = $('#vcPreview');
+  if (!box || !vcCfg) return;
+  const d = vcCfg.display || {};
+  const rows = (vcState.rows && vcState.rows.length)
+    ? vcState.rows
+    : vcCfg.rows.map(r => ({ ...r, points: 0, pct: 0, leader: false }));
+  const label = vcCfg.pointsLabel || 'ĐIỂM';
+  const alpha = Math.max(0, Math.min(100, Number(d.overlayAlpha ?? 94))) / 100;
+  const showBar = d.showBar !== false;
+  const showGift = vcCfg.countingMode !== 'comments';
+  const showPct = d.showPercent !== false;
+  const list = rows.map(r => {
+    const icon = (showGift && r.giftImage) ? `<img class="vc-gift" src="${escapeAttr(r.giftImage)}" alt="" onerror="this.style.visibility='hidden'" />` : '';
+    return `<div class="vc-row${r.leader ? ' vc-leader' : ''}">
+      <div class="vc-key">${escapeHtml(r.keyword || '')}</div>
+      <div class="vc-main">
+        <div class="vc-bar${showBar ? '' : ' vc-hidden'}"><i style="width:${Number(r.pct) || 0}%;background:${escapeAttr(r.color || d.barColor)}"></i></div>
+        <div class="vc-content">${icon}<div class="vc-label">${escapeHtml(r.label || '')}</div></div>
+      </div>
+      <div class="vc-score">${showPct ? `<span>(${Number(r.pct) || 0}%)</span>` : ''}<span>${vcFmt(r.points)}</span><small>${escapeHtml(label)}</small></div>
+    </div>`;
+  }).join('');
+  // Khung xem trước CỐ Ý bỏ ruy băng 🏆 + chip "Vòng mới sau" (chỉ có trên OBS): khung trong app
+  // hẹp nên hai thứ đó vừa lệch vừa làm nhảy khung mỗi lần hết vòng. Trạng thái đã có ở thanh lệnh
+  // (● Giữ kết quả / ● Đã kết thúc) nên không mất thông tin. Khoảng hở mép trên cũng chỉ dành cho OBS.
+  box.style.paddingTop = '';
+  box.innerHTML = `<div class="vc-root">
+    <div class="vc-card${alpha <= 0 ? ' vc-flat' : ''}${d.showKeyword === false ? ' vc-nokey' : ''}">
+      <div class="vc-top">
+        <h1 class="vc-title">${escapeHtml(vcCfg.title || 'BÌNH CHỌN')}</h1>
+        <div class="vc-clock">${vcClock(vcState.active || vcState.ended ? vcState.remainingMs : vcCfg.durationSec * 1000)}</div>
+      </div>
+      <div class="vc-list">${list}</div>
+    </div>
+  </div>`;
+  // Preview thu nhỏ theo bề rộng khung (không đụng scale dành cho OBS).
+  const rootEl = box.querySelector('.vc-root');
+  const boardPx = Math.round(760 * Math.max(.6, Math.min(2.4, Number(d.boardWidth ?? 100) / 100)));
+  const fit = Math.min(1, (box.clientWidth || 760) / boardPx);
+  rootEl.style.setProperty('--vc-scale', fit.toFixed(3));
+  rootEl.style.setProperty('--vc-title-size', `${d.titleSize}px`);
+  rootEl.style.setProperty('--vc-time-size', `${d.timeSize}px`);
+  rootEl.style.setProperty('--vc-item-size', `${d.itemSize}px`);
+  rootEl.style.setProperty('--vc-icon-size', `${d.iconSize}px`);
+  rootEl.style.setProperty('--vc-item-height', `${d.itemHeight}px`);
+  rootEl.style.setProperty('--vc-board-px', `${boardPx}px`);
+  rootEl.style.setProperty('--vc-content-fr', `${Math.max(.7, Math.min(2.2, Number(d.contentWidth ?? 100) / 100))}fr`);
+  rootEl.style.setProperty('--vc-content-padding', `${d.contentPadding}px`);
+  rootEl.style.setProperty('--vc-card-padding', `${d.cardPadding}px`);
+  rootEl.style.setProperty('--vc-row-padding', `${d.rowPadding}px`);
+  rootEl.style.setProperty('--vc-bar-color', d.barColor);
+  rootEl.style.setProperty('--vc-text-color', d.textColor);
+  rootEl.style.setProperty('--vc-panel-bg', vcRgba(d.overlayBg, alpha.toFixed(2)));
+  rootEl.style.setProperty('--vc-row-bg', vcRgba(d.itemBg, Number(d.itemBgOpacity ?? .88).toFixed(2)));
+}
+
+function vcUpdateRunUI() {
+  const hold = (Number(vcState.holdMs) || 0) > 0;
+  const chip = $('#vcRunState');
+  if (chip) {
+    chip.textContent = vcState.active ? '● Đang chạy' : (hold ? '● Giữ kết quả' : (vcState.ended ? '● Đã kết thúc' : '● Đang dừng'));
+    chip.classList.toggle('on', !!vcState.active);
+  }
+  const clk = $('#vcClock');
+  if (clk) clk.textContent = vcClock(vcState.active || vcState.ended ? vcState.remainingMs : (vcCfg?.durationSec || 0) * 1000);
+  // Cùng kiểu nút CHẠY/DỪNG của Tính điểm: đang chạy thì chính nút đó đổi thành ■ DỪNG (đỏ nhạt).
+  const start = $('#vcStart');
+  if (start) {
+    start.textContent = vcState.active ? '■ DỪNG' : '▶ BẮT ĐẦU';
+    start.classList.toggle('warn', !!vcState.active);
+    start.classList.toggle('primary', !vcState.active);
+  }
+}
+
+function vcOnShow() { vcRenderRows(); vcRenderPreview(); vcUpdateRunUI(); }
+
+function wireVoteCommentTab() {
+  const bindVal = (id, apply) => { const el = $('#' + id); if (el) el.addEventListener('input', () => { apply(el); vcScheduleSave(); }); };
+  const bindNum = (id, lo, hi, apply) => bindVal(id, el => { const v = Number(el.value); if (Number.isFinite(v)) apply(Math.max(lo, Math.min(hi, v))); });
+  const bindChk = (id, apply) => { const el = $('#' + id); if (el) el.addEventListener('change', () => { apply(el.checked); vcScheduleSave(); }); };
+  const bindRange = (id, apply, suffix = '%') => {
+    const el = $('#' + id); if (!el) return;
+    el.addEventListener('input', () => { const v = parseInt(el.value, 10) || 0; apply(v); const lab = $('#' + id + 'Val'); if (lab) lab.textContent = `${v}${suffix}`; vcScheduleSave(); });
+  };
+
+  bindVal('vcTitle', el => vcCfg.title = el.value);
+  const readDur = () => {
+    const h = Math.max(0, parseInt($('#vcDurH')?.value, 10) || 0);
+    const m = Math.max(0, parseInt($('#vcDurM')?.value, 10) || 0);
+    const sec = Math.max(0, parseInt($('#vcDurS')?.value, 10) || 0);
+    vcCfg.durationSec = Math.max(10, Math.min(7200, h * 3600 + m * 60 + sec));
+    vcUpdateRunUI();
+  };
+  ['vcDurH', 'vcDurM', 'vcDurS'].forEach(id => $('#' + id)?.addEventListener('input', () => { readDur(); vcScheduleSave(); }));
+  bindVal('vcPointsLabel', el => vcCfg.pointsLabel = el.value);
+  bindNum('vcHoldSec', 0, 3600, v => vcCfg.resultHoldSec = Math.round(v));
+  bindChk('vcAutoRestart', v => { vcCfg.autoRestart = v; vcSyncModeFields(); });
+  bindNum('vcCommentW', 0, 100, v => vcCfg.commentWeight = v);
+  bindNum('vcGiftW', 0, 100, v => vcCfg.giftWeight = v);
+  bindChk('vcJoinByGift', v => vcCfg.joinByGift = v);
+  bindChk('vcLockRows', v => { vcCfg.lockRowsWhileActive = v; vcRenderRows(); });
+  $$('input[name="vcMode"]').forEach(el => el.addEventListener('change', () => {
+    if (!el.checked) return;
+    vcCfg.countingMode = el.value;
+    vcSyncModeFields();
+    vcScheduleSave();
+  }));
+
+  bindNum('vcTitleSize', 24, 140, v => vcCfg.display.titleSize = Math.round(v));
+  bindNum('vcTimeSize', 20, 140, v => vcCfg.display.timeSize = Math.round(v));
+  bindNum('vcItemSize', 18, 110, v => vcCfg.display.itemSize = Math.round(v));
+  bindNum('vcIconSize', 0, 180, v => vcCfg.display.iconSize = Math.round(v));
+  bindNum('vcItemHeight', 44, 220, v => vcCfg.display.itemHeight = Math.round(v));
+  bindNum('vcCardPad', 0, 80, v => vcCfg.display.cardPadding = Math.round(v));
+  bindNum('vcRowPad', 0, 48, v => vcCfg.display.rowPadding = Math.round(v));
+  bindNum('vcContentPad', 0, 48, v => vcCfg.display.contentPadding = Math.round(v));
+  bindNum('vcTopGap', 0, 600, v => vcCfg.display.topGap = Math.round(v));
+  bindVal('vcOverlayBg', el => vcCfg.display.overlayBg = el.value);
+  bindVal('vcItemBg', el => vcCfg.display.itemBg = el.value);
+  bindVal('vcBarColor', el => vcCfg.display.barColor = el.value);
+  bindVal('vcTextColor', el => vcCfg.display.textColor = el.value);
+  bindChk('vcShowBar', v => vcCfg.display.showBar = v);
+  bindChk('vcShowKeyword', v => vcCfg.display.showKeyword = v);
+  bindChk('vcShowPercent', v => vcCfg.display.showPercent = v);
+  bindChk('vcSortByPoints', v => vcCfg.display.sortByPoints = v);
+  bindChk('vcHighlightLeader', v => vcCfg.display.highlightLeader = v);
+  bindRange('vcOverlayAlpha', v => vcCfg.display.overlayAlpha = v);
+  bindRange('vcItemOp', v => vcCfg.display.itemBgOpacity = v / 100);
+  bindRange('vcBoardWidth', v => vcCfg.display.boardWidth = v);
+  bindRange('vcContentWidth', v => vcCfg.display.contentWidth = v);
+  bindRange('vcScale', v => vcCfg.display.scale = v);
+
+  // ---- Các dòng bình chọn ----
+  $('#vcAddRow')?.addEventListener('click', () => {
+    if (vcLocked()) return toast('Đang chạy — không sửa được dòng', 'error');
+    if (vcCfg.rows.length >= 24) return toast('Tối đa 24 dòng', 'error');
+    const i = vcCfg.rows.length;
+    vcCfg.rows.push({ id: vcNewRowId(), keyword: String(i + 1), label: `Lựa chọn ${i + 1}`, color: VC_ROW_COLORS[i % VC_ROW_COLORS.length], giftId: '', giftName: '', giftImage: '' });
+    vcRenderRows(); vcRenderPreview(); vcPushLive();
+  });
+
+  const rowOf = (el) => {
+    const host = el.closest('.vc-erow');
+    if (!host) return null;
+    const idx = vcCfg.rows.findIndex(r => r.id === host.dataset.id);
+    return idx < 0 ? null : { idx, row: vcCfg.rows[idx] };
+  };
+
+  $('#vcRows')?.addEventListener('input', (e) => {
+    const hit = rowOf(e.target); if (!hit) return;
+    if (e.target.classList.contains('vc-f-key')) hit.row.keyword = e.target.value.slice(0, 40);
+    else if (e.target.classList.contains('vc-f-label')) hit.row.label = e.target.value.slice(0, 120);
+    else if (e.target.classList.contains('vc-f-color')) hit.row.color = e.target.value;
+    else return;
+    vcScheduleSave();
+  });
+  // Cảnh báo từ khoá trống/trùng chỉ vẽ lại khi rời ô (tránh mất focus lúc đang gõ).
+  $('#vcRows')?.addEventListener('change', (e) => {
+    if (e.target.classList.contains('vc-f-key')) vcRenderRows();
+  });
+
+  $('#vcRows')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    const hit = rowOf(btn); if (!hit) return;
+    const { idx, row } = hit;
+    if (btn.classList.contains('vc-f-minus') || btn.classList.contains('vc-f-plus')) {
+      // ± điểm thưởng: chỉnh THẲNG trên engine (không phải config) — không đụng khoá sửa dòng.
+      const step = btn.classList.contains('vc-f-plus') ? 1 : -1;
+      await window.api.votecmt.adjustBonus(row.id, step);
+      return;
+    }
+    if (vcLocked()) return toast('Đang chạy — không sửa được dòng', 'error');
+    if (btn.classList.contains('vc-f-gift')) {
+      const used = {};
+      for (const r of vcCfg.rows) if (r.giftId && r.id !== row.id) used[String(r.giftId)] = r.label || 'Dòng khác';
+      const gift = await GiftPicker.open({ title: `🎁 Gán quà cho: ${row.label || row.keyword}`, selected: row.giftId ? [row.giftId] : [], disabledIds: Object.keys(used), usedBy: used });
+      if (!gift) return;
+      row.giftId = String(gift.id); row.giftName = gift.name || ''; row.giftImage = gift.icon || '';
+    } else if (btn.classList.contains('vc-f-nogift')) {
+      row.giftId = ''; row.giftName = ''; row.giftImage = '';
+    } else if (btn.classList.contains('vc-f-up')) {
+      if (idx === 0) return;
+      vcCfg.rows.splice(idx - 1, 0, vcCfg.rows.splice(idx, 1)[0]);
+    } else if (btn.classList.contains('vc-f-down')) {
+      if (idx >= vcCfg.rows.length - 1) return;
+      vcCfg.rows.splice(idx + 1, 0, vcCfg.rows.splice(idx, 1)[0]);
+    } else if (btn.classList.contains('vc-f-del')) {
+      if (vcCfg.rows.length <= 1) return toast('Phải còn ít nhất 1 dòng', 'error');
+      vcCfg.rows.splice(idx, 1);
+    } else return;
+    vcRenderRows(); vcRenderPreview(); vcPushLive();
+  });
+
+  // ---- Thanh lệnh ----
+  // Một nút CHẠY/DỪNG (giống Tính điểm): đang chạy thì bấm = dừng, đang dừng thì bấm = mở phiên mới.
+  $('#vcStart')?.addEventListener('click', async () => {
+    if (vcState.active) { await window.api.votecmt.stop(); toast('Đã dừng 🗳 VOTE', ''); return; }
+    if (!requireLive('BẮT ĐẦU 🗳 VOTE')) return;
+    const bad = vcCfg.rows.find(r => vcKeywordIssue(r));
+    if (bad) return toast(`Dòng "${bad.label || bad.id}": ${vcKeywordIssue(bad)}`, 'error');
+    _vcSaver.flush?.();
+    await window.api.votecmt.setConfig(vcCfg);
+    await window.api.votecmt.start();
+    toast('🗳 VOTE: bắt đầu phiên mới', 'success');
+  });
+  $('#vcReset')?.addEventListener('click', async () => { await window.api.votecmt.reset(); toast('Đã reset 🗳 VOTE', ''); });
+  $('#vcCopy')?.addEventListener('click', async () => {
+    const url = await window.api.votecmt.getUrl();
+    await window.api.shell.copyText(url);
+    toast('Đã copy link OBS · VOTE', 'success');
+  });
+  $('#vcBump')?.addEventListener('click', async () => {
+    const amt = Math.max(1, parseInt($('#vcTestAmt')?.value, 10) || 1);
+    await window.api.votecmt.bump('', amt);
+  });
+
+  window.api.on('votecmt:state', (st) => {
+    if (!st) return;
+    vcState = st;
+    // Không dựng lại bảng sửa khi user đang gõ — chỉ cập nhật số liệu tại chỗ.
+    vcSyncRowStats();
+    vcRenderPreview(); vcUpdateRunUI();
+  });
+}
+
+// Cập nhật 💬 / 🎁 / % ngay trên bảng sửa mà KHÔNG dựng lại DOM (giữ con trỏ trong ô đang gõ).
+function vcSyncRowStats() {
+  const box = $('#vcRows'); if (!box) return;
+  const locked = vcLocked();
+  const note = $('#vcLockNote'); if (note) note.hidden = !locked;
+  for (const r of (vcState.rows || [])) {
+    const host = box.querySelector(`.vc-erow[data-id="${CSS.escape(r.id)}"]`);
+    if (!host) continue;
+    const cmt = host.querySelector('.vc-stat-cmt'); if (cmt) cmt.textContent = `💬 ${vcFmt(r.comments)}`;
+    const gft = host.querySelector('.vc-stat-gift'); if (gft) gft.textContent = `🎁 ${vcFmt(r.giftXu)}`;
+    const pctEl = host.querySelector('.vc-pctstat'); if (pctEl) pctEl.textContent = `${Number(r.pct) || 0}%`;
+    host.querySelectorAll('input, .vc-f-gift, .vc-f-nogift, .vc-f-up, .vc-f-down, .vc-f-del').forEach(el => { el.disabled = locked; });
+  }
+}
+
 // ===================== THẺ BÀI (táp tim để lật thẻ) =====================
 let cfCfg = null;
 let cfHearts = 0;
@@ -5415,6 +5784,7 @@ async function init() {
   await loadGiftMenuConfig();
   await loadMissionTrioConfig();
   await loadLikeWallConfig();
+  await loadVoteCommentConfig();
   await loadCardFlipConfig();
   setBootStatus('Đang chuẩn bị overlay OBS'); setBootProgress(88);
   await refreshOverlayUrls();
@@ -5441,6 +5811,7 @@ async function init() {
   wireGiftMenuTab();
   wireMissionTrioTab();
   wireLikeWallTab();
+  wireVoteCommentTab();
   wireCardFlipTab();
   wireOverlaysTab();
   wireSettingsTab();
@@ -11480,12 +11851,12 @@ function wireScoreReviewListDrag() {
 // Overlays page
 // ============================================================
 async function refreshOverlayUrls() {
-  const [pk, pkfx, kc, pkg, pkgFx, rk, rkGrid, sc, sticker, lw, mvp, mtrio, taptim, card, cardFx, interact, giftMenu, dance1, dance2, dance3, scBar, scCard, scTimer] = await Promise.all([
-    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.kcduo.getUrl(), window.api.pkgroup.getUrl(), window.api.pkgroup.getFxUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.likewall.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(), window.api.interact.getUrl(),
+  const [pk, pkfx, kc, pkg, pkgFx, rk, rkGrid, sc, sticker, lw, mvp, mtrio, taptim, vote, card, cardFx, interact, giftMenu, dance1, dance2, dance3, scBar, scCard, scTimer] = await Promise.all([
+    window.api.pkduo.getUrl(), window.api.pkduo.getFxUrl(), window.api.kcduo.getUrl(), window.api.pkgroup.getUrl(), window.api.pkgroup.getFxUrl(), window.api.ranking.getUrl(), window.api.ranking.getGridUrl(), window.api.score.getUrl(), window.api.stickerdance.getUrl(), window.api.luckywheel.getUrl(), window.api.mvphonor.getUrl(), window.api.missiontrio.getUrl(), window.api.likewall.getUrl(), window.api.votecmt.getUrl(), window.api.cardflip.getUrl(), window.api.cardflip.getFxUrl(), window.api.interact.getUrl(),
     window.api.giftmenu.getUrl(), window.api.dancevideo.getUrl('webm1'), window.api.dancevideo.getUrl('webm2'), window.api.dancevideo.getUrl('webm3'),
     window.api.score.getBarUrl(), window.api.score.getCardUrl(), window.api.score.getTimerUrl(),
   ]);
-  const urls = { urlPk: pk, urlPkFx: pkfx, urlKc: kc, urlPkg: pkg, urlPkgFx: pkgFx, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlTaptim: taptim, urlCard: card, urlCardFx: cardFx, urlInteract: interact, urlGiftMenu: giftMenu, urlDance1: dance1, urlDance2: dance2, urlDance3: dance3, urlScBar: scBar, urlScCard: scCard, urlScTimer: scTimer };
+  const urls = { urlPk: pk, urlPkFx: pkfx, urlKc: kc, urlPkg: pkg, urlPkgFx: pkgFx, urlRk: rk, urlRkGrid: rkGrid, urlSc: sc, urlSticker: sticker, urlLw: lw, urlMvp: mvp, urlMtrio: mtrio, urlTaptim: taptim, urlVote: vote, urlCard: card, urlCardFx: cardFx, urlInteract: interact, urlGiftMenu: giftMenu, urlDance1: dance1, urlDance2: dance2, urlDance3: dance3, urlScBar: scBar, urlScCard: scCard, urlScTimer: scTimer };
   $$('[data-copy]').forEach(button => { button.dataset.url = urls[button.dataset.copy]; });
   await refreshReviewButtons();
 }
