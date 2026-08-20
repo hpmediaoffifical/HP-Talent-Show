@@ -33,9 +33,11 @@ try {
 } catch { /* chưa có -> đúng như mong đợi */ }
 
 // 3) Cây làm việc phải sạch phần mã nguồn (config/*.json app tự ghi lúc chạy thì bỏ qua).
-const dirty = sh('git status --porcelain')
-  .split('\n').filter(Boolean)
-  .filter((l) => !/^.. config\//.test(l) && !/^.. release\//.test(l));
+// KHÔNG dùng sh() ở đây: sh() .trim() cả output nên cắt mất dấu cách đầu của trạng thái " M"
+// ở DÒNG ĐẦU TIÊN → lọc theo cột lệch 1 ký tự và báo nhầm "còn thay đổi chưa commit".
+const dirty = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf8' })
+  .split('\n').map((l) => l.replace(/\r$/, '')).filter(Boolean)
+  .filter((l) => !/^.{2}\s+(config|release)\//.test(l));
 if (dirty.length) die(`Còn thay đổi chưa commit:\n   ${dirty.join('\n   ')}`);
 
 // 4) Build nếu chưa có file cài của đúng version này.
