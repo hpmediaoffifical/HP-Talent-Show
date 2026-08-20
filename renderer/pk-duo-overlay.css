@@ -221,6 +221,28 @@ body { display:flex; justify-content:center; align-items:center; }
 @keyframes pkRopeYankL { 0%{transform:translateY(-50%)} 30%{transform:translate(-7px,-50%)} 100%{transform:translateY(-50%)} }
 
 /* --- C. PHÁO COMBO: nòng pháo chỉ hướng đẩy (flip svg như classic), quầng sạc theo combo, bắn đạn khi ghi điểm. --- */
+/* --- D. 2 QUẢ BÓNG LỬA: 2 APNG (/fx-assets/ball-a|b.png) húc nhau ngay mốc giữa. ---
+   Ảnh gốc 260x130 đã có sẵn animation đuôi lửa trong file → CSS chỉ lo vị trí + độ đẩy, không
+   keyframes nào chạy trên chính phần tử có background (tránh OBS tô đen [[obs-filter-black-box]]).
+   Bóng nằm ở MỘT ĐẦU ảnh, đuôi lửa chạy hết phần còn lại → scaleX(-1) để bóng quay VÀO giữa còn
+   đuôi hắt ra ngoài; margin DƯƠNG đẩy 2 quả tách nhau, không thì 2 quả cầu chồng thành vệt nhoè.
+   Cao tối đa 38px: thanh máu chỉ cao 42px và có overflow:hidden nên to hơn là bị cắt ngang.
+   --pk-mom (-1..1) là momentum sẵn có: dương = phe A đang lên tay → cả cặp dạt sang phải. */
+.pkduo-bar em.arw-ball { overflow:visible; }
+.arw-ball .pk-ball { position:absolute; top:50%; width:62px; height:31px; background:center/100% 100% no-repeat;
+  transform:translate(calc(var(--pk-mom, 0) * 9px), -50%) scaleX(-1);
+  transition:transform .28s ease, width .28s ease, height .28s ease, opacity .28s ease; }
+.arw-ball .pk-ball.a { right:50%; margin-right:5px; background-image:url("/fx-assets/ball-a.png"); }
+.arw-ball .pk-ball.b { left:50%;  margin-left:5px;  background-image:url("/fx-assets/ball-b.png"); }
+/* Bên đang lên tay: bóng phe đó to & rõ hơn một nhịp → nhìn ra ngay ai đang đẩy. */
+.arw-ball.mom-a .pk-ball.a, .arw-ball.mom-b .pk-ball.b { width:76px; height:38px; }
+.arw-ball.mom-a .pk-ball.b, .arw-ball.mom-b .pk-ball.a { opacity:.58; }
+/* Quầng va chạm ở điểm chạm, đậm dần theo combo (đặt trên ::after tĩnh, không animate ảnh). */
+.arw-ball::after { content:''; position:absolute; left:50%; top:50%; width:34px; height:34px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:0; }
+.arw-ball.charge-c1::after { box-shadow:0 0 15px 3px rgba(255,255,255,.42); }
+.arw-ball.charge-c2::after { box-shadow:0 0 22px 5px rgba(255,236,180,.6); }
+.arw-ball.charge-c3::after { box-shadow:0 0 30px 7px rgba(255,210,120,.8); }
+
 .pkduo-bar em.arw-cannon { overflow:visible; }
 .arw-cannon svg { filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
 .arw-cannon::after { content:''; position:absolute; left:50%; top:50%; width:42px; height:42px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:0; }

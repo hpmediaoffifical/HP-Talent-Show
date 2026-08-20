@@ -249,7 +249,7 @@ function render(state = {}) {
 
   // ===== SKIN MŨI TÊN =====
   // classic (đứng yên chỉ hướng) | core (lõi động lượng) | cannon (pháo combo). Đã bỏ "rope" (kéo co).
-  const arrowStyle = ['classic', 'core', 'cannon'].includes(state.arrowStyle) ? state.arrowStyle : 'classic';
+  const arrowStyle = ['classic', 'core', 'cannon', 'ball'].includes(state.arrowStyle) ? state.arrowStyle : 'classic';
   pushMom(momSig, !hasPrevScore);
   const surgeSide = momSig >= 0 ? 'a' : 'b';           // bên đang lên tay → tô màu lõi/đuôi
   const surgeCol = surgeSide === 'a' ? (a.color || '#FE2C55') : (b.color || '#25F4EE');
@@ -269,6 +269,11 @@ function render(state = {}) {
   } else if (arrowStyle === 'cannon') {
     emInner = `<span class="pk-shot" aria-hidden="true"></span>${CANNON_SVG}`;
     emExtra = comboTier ? ` charge-c${comboTier}` : '';
+  } else if (arrowStyle === 'ball') {
+    // 2 quả bóng lửa (APNG /fx-assets) húc nhau ở mốc giữa: bóng bên đang lên tay lao tới, bên kia bật lùi.
+    // Không dùng .flip của skin khác — hướng do CSS quyết định, còn mom-a/mom-b chỉ đổi bên nào đang đẩy.
+    emInner = `<i class="pk-ball a" aria-hidden="true"></i><i class="pk-ball b" aria-hidden="true"></i>`;
+    emExtra = ` mom-${surgeSide}${comboTier ? ` charge-c${comboTier}` : ''}`;
   } else {
     emInner = CENTER_ARROW_SVG;
   }

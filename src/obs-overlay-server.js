@@ -25,6 +25,7 @@ const MIME = {
   '.js': 'application/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.apng': 'image/apng', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp', // hiệu ứng FX bên thua là webp ĐỘNG; sai MIME thì CEF cũ của OBS bỏ qua ảnh
   '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
 };
 
@@ -335,6 +336,7 @@ class ObsOverlayServer {
       '/overlay-fog.css': 'renderer/overlay-fog.css',
       '/overlay-fog.js': 'renderer/overlay-fog.js',
       '/overlay-sse.js': 'renderer/overlay-sse.js',
+      '/overlay-divider.js': 'renderer/overlay-divider.js',
       '/review-resize.js': 'renderer/review-resize.js',
       '/pk-duo-rocket.svg': 'renderer/pk-duo-rocket.svg',
       '/pk-duo-boost.svg': 'renderer/pk-duo-boost.svg',
@@ -354,6 +356,16 @@ class ObsOverlayServer {
       const name = path.basename(reqUrl.pathname);
       if (/^[\w.-]+\.(png|apng)$/i.test(name)) {
         return this._serveFile(path.join(this.root, 'renderer', 'mvp-frames', name), res);
+      }
+      return this._reject(res, 404, 'not found');
+    }
+
+    // Ảnh hiệu ứng dùng chung cho overlay FX (vạch chia dọc, bóng lửa PK Đôi, lớp phủ song sắt/khói)
+    // từ renderer/fx-assets — không cần token vì OBS Browser Source phải load được ảnh trước khi có state.
+    if (req.method === 'GET' && reqUrl.pathname.startsWith('/fx-assets/')) {
+      const name = path.basename(reqUrl.pathname);
+      if (/^[\w-]+\.(png|apng|webp)$/i.test(name)) {
+        return this._serveFile(path.join(this.root, 'renderer', 'fx-assets', name), res);
       }
       return this._reject(res, 404, 'not found');
     }

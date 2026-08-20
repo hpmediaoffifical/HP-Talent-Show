@@ -1861,19 +1861,24 @@ class PkDuoEngine {
       drawSound: '',
       giftDisplayMode: 'scroll',
       // Overlay FX toàn màn hình (1080x1920): các field này chỉ overlay FX dùng,
-      // banner PK Đôi cũ bỏ qua. fxMode: 'both'|'push'|'affliction'; fxStyle: 'auto'|'freeze'|'fire'|'water'|'dim'.
+      // banner PK Đôi cũ bỏ qua. fxMode: 'both'|'push'|'affliction'.
+      // fxStyle: 'auto' (ngẫu nhiên theo trận, MẶC ĐỊNH) | freeze|fire|water (dựng bằng CSS)
+      //          | prison|smoke|ice1|ice2|ice3|frost|chain (ảnh webp ở renderer/fx-assets).
       // fxThreshold = % chênh điểm bắt đầu bật hiệu ứng; fxMaxGap = % chênh để hiệu ứng đạt tối đa.
       fxEnabled: true,
       fxMode: 'affliction',
-      fxStyle: 'water',
+      fxStyle: 'auto',
       fxThreshold: 8,
       fxMaxGap: 30,        // (cũ, % — không còn dùng cho độ ngập; giữ để tương thích cấu hình cũ)
       fxIntensityCap: 100,
       fxFullPoints: 100,   // ⛴️ ĐIỂM TRẦN: chênh điểm TUYỆT ĐỐI ≥ ngần này → ngập FULL; dưới thì dâng dần từ đáy
       fxTopSafe: 14,       // % chừa MÉP TRÊN (TikTok che điểm) để luôn thấy đợt sóng mặt nước lên xuống
+      // Vạch chia bằng ẢNH (renderer/fx-assets): 'none' giữ vạch CSS cũ, 'auto' đổi theo vòng/trận,
+      // hoặc chọn cứng black|chinese|ink|lava|princess|bolt-cyan|bolt-orange|bolt-purple.
+      fxSeamSkin: 'none',
       championsEnabled: true, // Vinh danh TOP 3 người tặng quà trên overlay banner
       championNames: false, // Hiện tên người tặng TOP1 (MVP) dưới avatar
-      arrowStyle: 'random', // Skin mũi tên: classic | core | cannon | random (random = tự đổi mỗi vòng, đã bỏ "kéo co"). Mặc định Ngẫu nhiên.
+      arrowStyle: 'random', // Skin mũi tên: classic | core | cannon | ball | random (random = tự đổi mỗi vòng, đã bỏ "kéo co"). Mặc định Ngẫu nhiên.
       // Đánh dấu "người vào trận" kiểu chọn nhân vật game (2 phe đối đầu → luôn đánh dấu cả 2).
       // random | arrow | lock | spotlight | versus | off. Mặc định Ngẫu nhiên.
       selectFx: 'random',
@@ -1952,6 +1957,7 @@ class PkDuoEngine {
       fxIntensityCap: this.config.fxIntensityCap,
       fxFullPoints: this.config.fxFullPoints,
       fxTopSafe: this.config.fxTopSafe,
+      fxSeamSkin: this.config.fxSeamSkin || 'none',
       // TOP 3 người tặng quà mỗi bên (vinh danh) — sort giảm dần theo điểm đóng góp.
       // Có thể Bật/tắt qua config.championsEnabled (mặc định bật).
       topA: this.config.championsEnabled !== false ? this._topGifters('A') : [],
@@ -1969,9 +1975,9 @@ class PkDuoEngine {
   }
   // Skin mũi tên hiển thị: 'random' → chốt 1 skin động cho mỗi vòng (start() gọi lại để đổi vòng sau).
   _resolveArrowStyle() {
-    const pool = ['classic', 'core', 'cannon'];
+    const pool = ['classic', 'core', 'cannon', 'ball'];
     if (this.config.arrowStyle === 'random') {
-      const rnd = ['core', 'cannon'];
+      const rnd = ['core', 'cannon', 'ball'];
       if (!rnd.includes(this.state.arrowStyleActive)) this.state.arrowStyleActive = rnd[Math.floor(Math.random() * rnd.length)];
       return this.state.arrowStyleActive;
     }
@@ -2031,7 +2037,7 @@ class PkDuoEngine {
     this.state.startedAt = Date.now();
     this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
     // 'random' → đổi skin mũi tên ngẫu nhiên mỗi vòng (đỡ mất công chọn tay).
-    if (this.config.arrowStyle === 'random') { const rnd = ['core', 'cannon']; this.state.arrowStyleActive = rnd[Math.floor(Math.random() * rnd.length)]; }
+    if (this.config.arrowStyle === 'random') { const rnd = ['core', 'cannon', 'ball']; this.state.arrowStyleActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     if (this.config.selectFx === 'random') { const rnd = ['arrow', 'lock', 'spotlight', 'versus']; this.state.selectFxActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     this.state.historySaved = false;
     this._resetGifters();
@@ -2634,7 +2640,8 @@ class PkGroupEngine {
       // ⚔️ Overlay FX toàn màn hình PK Nhóm (nguồn OBS riêng) — CHỈ áp dụng kiểu "Rời nhau theo TOP 1".
       // Vẽ N-1 gạch ranh giới (đen + màu theo fx) ở khe giữa các Thành viên + phủ hiệu ứng băng/lửa…
       // lên người KÉM TOP 1 (đậm dần theo khoảng cách điểm). Dùng CHUNG stream /pk-group-events; các
-      // field này chỉ overlay FX đọc (banner PK Nhóm bỏ qua). fxStyle: 'auto'|freeze|fire|water|dim|electric|poison|shadow|shatter.
+      // field này chỉ overlay FX đọc (banner PK Nhóm bỏ qua).
+      // fxStyle: 'auto' (mặc định) | freeze|fire|water (CSS) | prison|smoke|ice1|ice2|ice3|frost|chain (ảnh).
       fxEnabled: true,
       fxStyle: 'auto',
       fxThreshold: 8,
@@ -2642,6 +2649,9 @@ class PkGroupEngine {
       fxIntensityCap: 100,
       fxFullPoints: 100,   // ⛴️ ĐIỂM TRẦN: kém TOP 1 TUYỆT ĐỐI ≥ ngần này → ngập FULL; dưới thì dâng dần từ đáy
       fxTopSafe: 14,       // % chừa MÉP TRÊN (TikTok che điểm) để luôn thấy đợt sóng mặt nước lên xuống
+      // Vạch chia bằng ẢNH (renderer/fx-assets): 'none' giữ vạch CSS cũ, 'auto' đổi theo vòng/trận,
+      // hoặc chọn cứng black|chinese|ink|lava|princess|bolt-cyan|bolt-orange|bolt-purple.
+      fxSeamSkin: 'none',
       fxSeam: true,
       // Số người BỊ hiệu ứng bên thua (bottom-K theo điểm). 0 = TẤT CẢ trừ TOP 1; K = chỉ K người điểm
       // thấp nhất. Overlay tự kẹp về [1, N-1] (5 người → tối đa 4, tối thiểu 1).
@@ -2758,6 +2768,7 @@ class PkGroupEngine {
       fxFullPoints: this.config.fxFullPoints,
       fxTopSafe: this.config.fxTopSafe,
       fxSeam: this.config.fxSeam !== false,
+      fxSeamSkin: this.config.fxSeamSkin || 'none',
       fxLoserCount: Number(this.config.fxLoserCount) || 0,
       // 🌫️ Sương mù 10s cuối (overlay tự bật khi status running & còn ≤10s).
       fogHide: !!this.config.fogHide,
@@ -3446,8 +3457,8 @@ class MvpHonorEngine {
       : ((c.byLayout && typeof c.byLayout === 'object' && c.byLayout[lay]) || {});      // fallback bản cũ
     const lget = (k) => (bl[k] != null ? bl[k] : c[k]);
     const pv = lay === 'horizontal'                         // mặc định chuẩn theo bố cục
-      ? { bannerScale: 159, bannerX: 8, bannerY: 0, textX: 7, textY: 0, fontSize: 42, nameSize: 42 }
-      : { bannerScale: 77, bannerX: 0, bannerY: 0, textX: 0, textY: 0, fontSize: 31, nameSize: 21 };
+      ? { bannerScale: 159, bannerX: 8, bannerY: 0, textX: 7, textY: 0, fontSize: 42, nameSize: 42, nameX: 0, nameY: 0, nameGap: 0 }
+      : { bannerScale: 77, bannerX: 0, bannerY: 0, textX: 0, textY: 0, fontSize: 31, nameSize: 21, nameX: 0, nameY: 0, nameGap: 0 };
     return {
       id: c.id,
       mode,
@@ -3456,6 +3467,8 @@ class MvpHonorEngine {
       text: typeof c.text === 'string' ? c.text : '',
       frame: c.frame || '',
       layout: lay,   // 'attached' cũ = vertical
+      // Nền tiêu đề: 'anim' = Na.apng (mặc định, giữ nếp cũ) | 'plate' = bảng tên dọc Nv.png | 'auto' = theo bố cục.
+      plaqueStyle: ['plate', 'auto'].includes(c.plaqueStyle) ? c.plaqueStyle : 'anim',
       avatarSize: _mvpClamp(c.avatarSize, 60, 400, 140),
       frameScale: _mvpClamp(c.frameScale, 80, 300, 172),
       bannerScale: _mvpClamp(lget('bannerScale'), 40, 220, pv.bannerScale),   // cỡ nền tiêu đề (% theo khung)
@@ -3465,6 +3478,14 @@ class MvpHonorEngine {
       textY: _mvpClamp(lget('textY'), -50, 50, pv.textY),                     // lệch chữ trong nền (% dọc)
       nameSize: _mvpClamp(lget('nameSize'), 12, 120, pv.nameSize),
       fontSize: _mvpClamp(lget('fontSize'), 12, 140, pv.fontSize),
+      // Tên Creator: 'plaque' = chung nền tiêu đề (nếp cũ) | 'split' = bảng tên riêng ở mép dưới avatar.
+      namePlace: c.namePlace === 'plaque' ? 'plaque' : 'split',   // mặc định = TÁCH riêng (thẻ cũ chưa có field)
+      nameStyle: c.nameStyle === 'plain' ? 'plain' : 'pill',
+      nameBg: _mvpHex(c.nameBg, '#1b1430'),
+      nameColor: _mvpHex(c.nameColor, '#ffffff'),
+      nameX: _mvpClamp(lget('nameX'), -400, 400, pv.nameX),                   // lệch bảng tên (px)
+      nameY: _mvpClamp(lget('nameY'), -400, 400, pv.nameY),
+      nameGap: _mvpClamp(lget('nameGap'), -200, 400, pv.nameGap),             // đáy khung → nền danh hiệu (px)
       color: _mvpHex(c.color, '#ffffff'),
       entryAnim: ['none', 'popBounce', 'zoomFade', 'slideRight', 'slideUp', 'flip', 'dropBounce', 'spotlight', 'zoomShake'].includes(c.entryAnim) ? c.entryAnim : 'popBounce',
       showName: !!c.showName,

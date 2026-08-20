@@ -51,7 +51,32 @@
   z-index: 2;
   pointer-events: none;
 }
-/* Tên hiển thị dưới avatar (nếu bật) */
+/* ===== Bảng tên RIÊNG (.mvp-nametag) — tách khỏi nền tiêu đề, nằm ở MÉP DƯỚI avatar =====
+   Tâm dọc = mép dưới avatar (--mvp-nanchor = nửa cỡ avatar), đè LÊN khung PNG (z-index 3).
+   Padding/bo góc theo em → phóng to cỡ chữ là viên thuốc tự nở theo. */
+.mvp-nametag {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(calc(-50% + var(--mvp-nx, 0px)), calc(-50% + var(--mvp-nanchor, 0px) + var(--mvp-ny, 0px)));
+  z-index: 3;
+  box-sizing: border-box;
+  padding: .14em .78em;
+  border-radius: 999px;
+  border: .085em solid rgba(255, 255, 255, .55);
+  background: rgba(24, 18, 38, .9);
+  box-shadow: 0 .1em .28em rgba(0, 0, 0, .45);
+  font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+  font-weight: 900;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, .6);
+  pointer-events: none;
+}
+.mvp-nametag.is-plain { background: transparent; border-color: transparent; box-shadow: none; }
+
 /* ===== Nền tiêu đề (.mvp-text) — lớp SAU avatar, đặt tuyệt đối theo bố cục ===== */
 .mvp-text {
   --mvp-bx: 0px; --mvp-by: 0px; --mvp-tuck: 0px; --mvp-banner-w: 320px; --mvp-tx: 0%; --mvp-ty: 0%;
@@ -74,6 +99,12 @@
   position: absolute;
   left: 50%; top: 100%;
   transform: translate(calc(-50% + var(--mvp-bx)), calc(-1 * var(--mvp-tuck) + var(--mvp-by)));
+}
+/* DỌC + TÁCH TÊN: nền neo theo ĐÁY BẢNG TÊN (đo từ TÂM avatar), KHÔNG theo đáy khung PNG —
+   khung cao thấp khác nhau (vòng nguyệt quế…) nên neo đáy khung làm nền rơi xa tên. */
+.mvp-card.is-vertical.is-split .mvp-text {
+  top: 50%;
+  transform: translate(calc(-50% + var(--mvp-bx)), calc(var(--mvp-nbelow, 0px) + var(--mvp-by)));
 }
 /* Khi KHÔNG có ảnh Na.apng (skin ∅) → nền pill tối cho chữ dễ đọc, co theo nội dung. */
 .mvp-text:not(.has-plaque-img) {

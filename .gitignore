@@ -29,3 +29,6 @@ config/avatar-cache/
 
 # File demo scratch (không đóng gói, không commit)
 renderer/_demo*.html
+
+# Anh chup thu khi tu kiem chung overlay (dev, khong commit)
+tmp-shots/

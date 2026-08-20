@@ -36,6 +36,46 @@ body.overlay-review #feedSplit, body.overlay-review #feedSplit * { -webkit-app-r
    mỗi vòng và làm tay kéo nhảy từ rất to xuống rất nhỏ. */
 body.overlay-review #pkGroupRoot { width: calc(1440px * var(--pkg-scale, 1)); max-width: none; }
 
+/* ---- Vạch chia dọc bằng ẢNH (overlay-divider.js) ------------------------------------------
+   Dùng chung cho .pkfx-seam (PK Đôi FX) và .pkgfx-seam (PK Nhóm FX). Khi có ảnh thì GIẤU vạch
+   CSS cũ (seam-core) để không thấy 2 nét chồng nhau, còn chevron/shock vẫn giữ nguyên.
+   Kéo giãn bằng background-size 100% 100% → ảnh 120x2000 phủ đúng chiều cao sân khấu. */
+.has-seam-img > .seam-core, .has-seam-img > .seam-chevrons { opacity: 0 !important; }
+.seam-img { position: absolute; top: 0; bottom: 0; left: 50%; display: none; width: var(--seam-img-w, 64px); transform: translateX(-50%); background: var(--seam-img) center/100% 100% no-repeat; pointer-events: none; }
+.has-seam-img > .seam-img { display: block; }
+
+/* ---- Hiệu ứng "bên thua" dựng bằng ẢNH (/fx-assets/affl-*.webp) --------------------------------
+   Dùng chung PK Đôi FX + PK Nhóm FX. Ảnh webp động tự chạy animation trong file nên KHÔNG cần
+   keyframes — chỉ kéo giãn phủ kín nửa màn hình / cột và đậm dần theo --fx-i. Lớp affl-shade là nền
+   màu ĐẶC để đọc rõ trên video OBS (screen-blend không hoà được với video lớp dưới).
+   Việc HIỆN bộ nào do từng overlay tự khai (.pkfx-half.afflicted.fx-X / .pkgfx-col.afflicted.fx-X). */
+.affl-img { inset: 0; opacity: calc(var(--fx-i) * .95);
+  background-position: center; background-repeat: no-repeat; background-size: 100% 100%; }
+.fx-prison .affl-img { background-image: url("/fx-assets/affl-prison.webp"); }
+.fx-smoke  .affl-img { background-image: url("/fx-assets/affl-smoke.webp"); }
+.fx-ice1   .affl-img { background-image: url("/fx-assets/affl-ice1.webp"); }
+.fx-ice2   .affl-img { background-image: url("/fx-assets/affl-ice2.webp"); }
+.fx-ice3   .affl-img { background-image: url("/fx-assets/affl-ice3.webp"); }
+.fx-chain  .affl-img { background-image: url("/fx-assets/affl-chain.webp"); }
+/* Băng phủ: 3 lớp dày dần nằm sẵn, chỉ lớp khớp cấp mới hiện. Cấp do JS chốt theo mức bị dẫn
+   (frostTier) → càng thua đậm băng càng kín, thay vì chỉ tăng độ mờ của một ảnh. */
+.fx-frost .affl-img { opacity: 0; transition: opacity .5s ease; }
+.fx-frost .affl-img.t1 { background-image: url("/fx-assets/affl-frost1.webp"); }
+.fx-frost .affl-img.t2 { background-image: url("/fx-assets/affl-frost2.webp"); }
+.fx-frost .affl-img.t3 { background-image: url("/fx-assets/affl-frost3.webp"); }
+.frost-t1 .fx-frost .affl-img.t1,
+.frost-t2 .fx-frost .affl-img.t2,
+.frost-t3 .fx-frost .affl-img.t3 { opacity: calc(var(--fx-i) * .95); }
+/* Nền đặc riêng từng kiểu: băng phủ ánh lạnh, xích/song sắt tối trung tính, khói tối sâu. */
+.affl-shade { inset: 0; }
+.fx-prison .affl-shade, .fx-chain .affl-shade { opacity: calc(var(--fx-i) * .58);
+  background: radial-gradient(120% 100% at 50% 48%, rgba(6,8,12,.14) 26%, rgba(2,3,6,.8) 100%); }
+.fx-smoke .affl-shade { opacity: calc(var(--fx-i) * .66);
+  background: radial-gradient(120% 100% at 50% 62%, rgba(10,10,12,.16) 24%, rgba(2,2,3,.86) 100%); }
+.fx-ice1 .affl-shade, .fx-ice2 .affl-shade, .fx-ice3 .affl-shade, .fx-frost .affl-shade {
+  opacity: calc(var(--fx-i) * .5);
+  background: radial-gradient(130% 100% at 50% 44%, rgba(120,190,255,.08) 0%, rgba(28,92,180,.32) 56%, rgba(8,44,110,.62) 100%); }
+
 /* Tay kéo góc dưới-phải: scale TOÀN BỘ overlay CỤC BỘ trong cửa sổ Review (không đụng output OBS).
    no-drag để không kéo di chuyển cửa sổ; luôn nằm trên cùng, bám theo góc dưới-phải của nội dung. */
 .review-grip { position: fixed; z-index: 2147483000; width: 26px; height: 26px; display: none; -webkit-app-region: no-drag !important; touch-action: none; cursor: nwse-resize; }

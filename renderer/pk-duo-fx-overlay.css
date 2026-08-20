@@ -27,8 +27,6 @@ body { display: flex; align-items: center; justify-content: center; }
 /* Nhịp "dính đòn" khi bắt đầu bị afflicted / lúc chốt trận */
 .pkfx-half.afflicted { animation: pkfxHit .45s ease; }
 .pkfx-half.afflicted.finished { animation: pkfxHit .45s ease, pkfxDefeat 2.2s ease-in-out .45s infinite; }
-@keyframes pkfxHit { 0% { transform: translateX(0); } 22% { transform: translateX(calc(var(--fx-i) * 12px)); } 50% { transform: translateX(calc(var(--fx-i) * -9px)); } 74% { transform: translateX(calc(var(--fx-i) * 4px)); } 100% { transform: translateX(0); } }
-@keyframes pkfxDefeat { 0%,100% { filter: brightness(1); } 50% { filter: brightness(.72); } }
 
 /* NGẬP TỪ ĐÁY LÊN: cả bộ hiệu ứng (màu đặc + hạt) bị "mặt nước" cắt theo --fx-fill (0→1) —
    ngập THẤP lúc mới hơn điểm, cao dần, full overlay khi chênh nhiều (thay vì phủ kín tức thì).
@@ -67,24 +65,23 @@ body { display: flex; align-items: center; justify-content: center; }
 .fx-crest .crest-rim { top: 52px; height: 12px; opacity: .8; mix-blend-mode: screen; filter: blur(1px);
   background: linear-gradient(90deg, transparent 18%, rgba(255,255,255,.95) 50%, transparent 82%) no-repeat 0 0 / 55% 100%;
   animation: pkfxCrestShine 3.4s ease-in-out infinite; }
-@keyframes pkfxCrestMask { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 320px 0; mask-position: 320px 0; } }
-@keyframes pkfxCrestFoam { from { background-position: 0 0; } to { background-position: 320px 0; } }
-@keyframes pkfxCrestShine { 0% { background-position: -45% 0; } 55% { background-position: 145% 0; } 100% { background-position: 145% 0; } }
-@keyframes pkfxCrestBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
 /* 💥 Nhá SÓNG khi có quà mới (kể cả lúc delay / ngập kịch trần) → late-gift luôn thấy FX phản hồi. */
 .fx-crest .crest-splash { top: 8px; height: 96px; opacity: 0; mix-blend-mode: screen;
   background: radial-gradient(64% 100% at 50% 100%, rgba(255,255,255,.92), rgba(var(--crest),.5) 46%, transparent 76%); }
 .fx-crest.splash .crest-splash { animation: pkfxCrestSplash .6s ease-out; }
-@keyframes pkfxCrestSplash { 0% { opacity: 0; transform: translateY(24px) scaleY(.4); } 22% { opacity: .95; } 100% { opacity: 0; transform: translateY(-34px) scaleY(1.5); } }
 
 .pkfx-half.afflicted.fx-freeze   .fx-freeze   { display: block; }
 .pkfx-half.afflicted.fx-fire     .fx-fire     { display: block; }
 .pkfx-half.afflicted.fx-water    .fx-water    { display: block; }
-.pkfx-half.afflicted.fx-dim      .fx-dim      { display: block; }
-.pkfx-half.afflicted.fx-electric .fx-electric { display: block; }
-.pkfx-half.afflicted.fx-poison   .fx-poison   { display: block; }
-.pkfx-half.afflicted.fx-shadow   .fx-shadow   { display: block; }
-.pkfx-half.afflicted.fx-shatter  .fx-shatter  { display: block; }
+
+.pkfx-half.afflicted.fx-prison   .fx-prison   { display: block; }
+.pkfx-half.afflicted.fx-smoke    .fx-smoke    { display: block; }
+.pkfx-half.afflicted.fx-ice1     .fx-ice1     { display: block; }
+.pkfx-half.afflicted.fx-ice2     .fx-ice2     { display: block; }
+.pkfx-half.afflicted.fx-ice3     .fx-ice3     { display: block; }
+.pkfx-half.afflicted.fx-chain    .fx-chain    { display: block; }
+.pkfx-half.afflicted.fx-frost    .fx-frost    { display: block; }
 .pkfx-half .fx i, .pkfx-half .fx span { position: absolute; }
 
 /* ===== BASE CAST — nền màu ĐẶC (blend thường) đọc rõ trên video OBS =====
@@ -101,21 +98,6 @@ body { display: flex; align-items: center; justify-content: center; }
 .fx-water .fx-cast { opacity: calc(var(--fx-i) * .82);
   background:
     radial-gradient(130% 100% at 50% 62%, rgba(60,150,230,.16) 0%, rgba(10,72,164,.42) 60%, rgba(3,34,94,.7) 100%); }
-.fx-dim .fx-cast { opacity: calc(var(--fx-i) * .92);
-  background: radial-gradient(120% 100% at 50% 50%, rgba(8,10,16,.18) 30%, rgba(1,2,5,.84) 100%); }
-.fx-electric .fx-cast { opacity: calc(var(--fx-i) * .84);
-  background: radial-gradient(120% 100% at 50% 44%, rgba(40,90,190,.12) 0%, rgba(9,24,70,.5) 58%, rgba(2,9,32,.8) 100%); }
-.fx-poison .fx-cast { opacity: calc(var(--fx-i) * .92);
-  background:
-    radial-gradient(120% 95% at 50% 100%, rgba(74,224,84,.36) 0%, rgba(22,120,40,.32) 48%, transparent 72%),
-    radial-gradient(120% 100% at 50% 40%, transparent 40%, rgba(5,38,13,.72) 100%); }
-.fx-shadow .fx-cast { opacity: calc(var(--fx-i) * .97);
-  background: radial-gradient(115% 100% at 50% 48%, rgba(40,6,64,.18) 22%, rgba(5,0,14,.92) 100%); }
-.fx-shatter .fx-cast { opacity: calc(var(--fx-i) * .82);
-  background:
-    radial-gradient(90% 80% at 50% 45%, rgba(255,255,255,.06) 0%, transparent 40%),
-    radial-gradient(60% 50% at 50% 46%, rgba(255,64,52,.24), transparent 60%),
-    radial-gradient(120% 100% at 50% 50%, transparent 44%, rgba(5,7,13,.72) 100%); }
 
 /* ============================================================
    ❄️ FREEZE — khối băng 3D (bevel + specular), nứt, tinh thể, tuyết rơi
@@ -145,9 +127,6 @@ body { display: flex; align-items: center; justify-content: center; }
 .fx-freeze .flake { left: var(--x); top: -20px; width: calc(8px * var(--s)); height: calc(8px * var(--s)); border-radius: 50%;
   background: radial-gradient(circle, #fff, rgba(220,240,255,.25) 70%, transparent); opacity: calc(var(--fx-i) * .95);
   box-shadow: 0 0 6px rgba(220,242,255,.8); animation: pkfxSnow var(--dur) linear infinite; animation-delay: var(--d); }
-@keyframes pkfxShine { 0% { background-position: 150% 0; } 100% { background-position: -150% 0; } }
-@keyframes pkfxTwinkle { 0%,100% { opacity: calc(var(--fx-i) * .35); transform: scale(.82) rotate(0deg); } 50% { opacity: calc(var(--fx-i) * 1); transform: scale(1.12) rotate(25deg); } }
-@keyframes pkfxSnow { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(var(--sway,0), 1960px, 0); } }
 
 /* ============================================================
    🔥 FIRE — lửa 2 lớp (hậu cảnh mờ + tiền cảnh sắc), khói, tàn lửa, quầng nóng
@@ -168,10 +147,6 @@ body { display: flex; align-items: center; justify-content: center; }
   background: radial-gradient(circle, #fff0bc, #ff7a18 60%, transparent); opacity: 0; box-shadow: 0 0 14px rgba(255,160,50,.95);
   animation: pkfxEmber var(--dur) ease-out infinite; animation-delay: var(--d); }
 .fx-fire .heat { inset: 0; opacity: calc(var(--fx-i) * .5); background: repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0 3px, transparent 3px 7px); animation: pkfxHeat 2.2s ease-in-out infinite; mix-blend-mode: screen; }
-@keyframes pkfxFlame { 0%,100% { transform: scaleY(1) scaleX(1) skewX(0deg); } 30% { transform: scaleY(1.28) scaleX(.86) skewX(7deg); } 60% { transform: scaleY(.88) scaleX(1.12) skewX(-7deg); } }
-@keyframes pkfxSmoke { 0% { transform: translate3d(0,0,0) scale(.5); opacity: 0; } 20% { opacity: calc(var(--fx-i) * .6); } 100% { transform: translate3d(0,-1160px,0) scale(1.7); opacity: 0; } }
-@keyframes pkfxEmber { 0% { transform: translate3d(0,0,0) scale(1); opacity: 0; } 12% { opacity: calc(var(--fx-i) * 1); } 100% { transform: translate3d(var(--drift), -1320px, 0) scale(.2); opacity: 0; } }
-@keyframes pkfxHeat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
 /* ============================================================
    💧 WATER — nước dâng 3D (khối màu + caustic + kính khúc xạ), sóng, bong bóng
@@ -191,92 +166,6 @@ body { display: flex; align-items: center; justify-content: center; }
 .fx-water .bubble { bottom: 2%; left: var(--x); width: calc(16px * var(--s)); height: calc(16px * var(--s)); border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.95), rgba(180,225,255,.3) 60%, transparent); opacity: 0; box-shadow: inset 0 0 7px rgba(255,255,255,.65);
   animation: pkfxBubble var(--dur) ease-in infinite; animation-delay: var(--d); }
-@keyframes pkfxWave { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(320px,0,0); } }
-@keyframes pkfxCaustic { 0%,100% { background-position: 0 0, 40px 20px, 20px 60px; opacity: .38; } 50% { background-position: 60px 40px, 0 0, 80px 20px; opacity: .68; } }
-@keyframes pkfxBubble { 0% { transform: translate3d(0,0,0) scale(.6); opacity: 0; } 15% { opacity: calc(var(--fx-i) * .95); } 100% { transform: translate3d(var(--drift), calc(var(--fx-i) * -1720px - 120px), 0) scale(1); opacity: 0; } }
-
-/* ============================================================
-   🌫️ DIM / GLITCH — phủ tối + khảm mosaic + scanline + RGB split (mờ nhiễu)
-   ============================================================ */
-.fx-dim .dim-scrim { inset: 0; background: #05070c; opacity: calc(var(--fx-i) * .7); }
-.fx-dim .dim-blocks { inset: -4%; opacity: calc(var(--fx-i) * .6);
-  background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 24px, transparent 24px 26px), repeating-linear-gradient(90deg, rgba(0,0,0,.34) 0 24px, transparent 24px 26px);
-  animation: pkfxStatic 3.5s steps(2) infinite, pkfxSlice 2.6s steps(1) infinite; }
-.fx-dim .dim-scan { inset: 0; opacity: calc(var(--fx-i) * .45); background: repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 2px, transparent 2px 5px); animation: pkfxScan 8s linear infinite; }
-.fx-dim .dim-rgb { inset: 0; opacity: calc(var(--fx-i) * .55); mix-blend-mode: screen;
-  background: linear-gradient(90deg, rgba(255,0,60,.7), transparent 18%, transparent 82%, rgba(0,180,255,.7)); animation: pkfxGlitch 2.2s steps(3) infinite; }
-.fx-dim .dim-vignette { inset: 0; opacity: calc(var(--fx-i) * .92); background: radial-gradient(120% 100% at 50% 50%, transparent 42%, rgba(0,0,0,.78) 100%); }
-@keyframes pkfxStatic { 0%,100% { opacity: calc(var(--fx-i) * .6); } 50% { opacity: calc(var(--fx-i) * .34); } }
-@keyframes pkfxScan { 0% { background-position: 0 0; } 100% { background-position: 0 200px; } }
-@keyframes pkfxGlitch { 0%,100% { transform: translateX(0); } 33% { transform: translateX(6px); } 66% { transform: translateX(-6px); } }
-@keyframes pkfxSlice { 0%,72%,100% { transform: translateX(0); } 78% { transform: translateX(14px); } 84% { transform: translateX(-12px); } 90% { transform: translateX(6px); } }
-
-/* ============================================================
-   ⚡ ELECTRIC — điện giật: tia sét, flash, tia lửa nảy
-   ============================================================ */
-.fx-electric .volt-flash { inset: 0; opacity: calc(var(--fx-i) * .18); mix-blend-mode: screen; background: radial-gradient(120% 80% at 50% 40%, rgba(170,235,255,.85), rgba(60,140,255,.4) 45%, transparent 72%); animation: pkfxVoltFlash 1.7s ease-in-out infinite; }
-.fx-electric .bolts { inset: 0; }
-.fx-electric .bolt { top: 0; bottom: 0; left: var(--x); width: calc(74px * var(--s)); margin-left: calc(-37px * var(--s)); opacity: calc(var(--fx-i) * .95); transform-origin: top center;
-  background-repeat: no-repeat; background-position: center; background-size: 100% 100%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 400' preserveAspectRatio='none'%3E%3Cpath d='M32 0 L16 118 L40 130 L12 250 L36 262 L20 400' fill='none' stroke='%23eaffff' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M32 0 L16 118 L40 130 L12 250 L36 262 L20 400' fill='none' stroke='%2380d0ff' stroke-width='15' stroke-opacity='.55' stroke-linejoin='round'/%3E%3C/svg%3E");
-  filter: drop-shadow(0 0 10px rgba(120,215,255,1)) drop-shadow(0 0 26px rgba(70,150,255,.85)); animation: pkfxBolt var(--dur) ease-in-out infinite; animation-delay: var(--d); }
-.fx-electric .spark { left: var(--x); top: var(--y); width: 10px; height: 10px; border-radius: 50%; opacity: 0;
-  background: radial-gradient(circle, #eaffff, #57c8ff 60%, transparent); box-shadow: 0 0 16px rgba(120,215,255,1);
-  animation: pkfxSpark var(--dur) ease-out infinite; animation-delay: var(--d); }
-.fx-electric .volt-vignette { inset: 0; opacity: calc(var(--fx-i) * .78); background: radial-gradient(120% 100% at 50% 50%, transparent 42%, rgba(6,16,40,.78) 100%); }
-@keyframes pkfxVoltFlash { 0%,100% { opacity: calc(var(--fx-i) * .14); } 8% { opacity: calc(var(--fx-i) * .7); } 12% { opacity: calc(var(--fx-i) * .22); } 46% { opacity: calc(var(--fx-i) * .5); } 52% { opacity: calc(var(--fx-i) * .16); } }
-@keyframes pkfxBolt {
-  0%,100% { opacity: calc(var(--fx-i) * .55); transform: scaleX(1) translateX(0); }
-  20% { opacity: calc(var(--fx-i) * 1); transform: scaleX(-1) translateX(6px); }
-  40% { opacity: calc(var(--fx-i) * .3); transform: scaleX(1) translateX(-4px); }
-  60% { opacity: calc(var(--fx-i) * .95); transform: scaleX(-1) translateX(3px); }
-  80% { opacity: calc(var(--fx-i) * .5); transform: scaleX(1) translateX(-2px); }
-}
-@keyframes pkfxSpark { 0% { opacity: 0; transform: translate(0,0) scale(1); } 10% { opacity: var(--fx-i); } 100% { opacity: 0; transform: translate(30px, -40px) scale(.2); } }
-
-/* ============================================================
-   ☠️ POISON — độc: sương xanh lục sôi, bong bóng độc, vệt tối
-   ============================================================ */
-.fx-poison .tox-fog { inset: 0; opacity: calc(var(--fx-i) * .9); mix-blend-mode: screen;
-  background: radial-gradient(60% 45% at 25% 90%, rgba(130,255,130,.6), transparent 60%), radial-gradient(55% 40% at 75% 100%, rgba(100,240,100,.55), transparent 62%), radial-gradient(70% 50% at 50% 100%, rgba(70,215,90,.5), transparent 70%);
-  animation: pkfxTox 5s ease-in-out infinite; }
-.fx-poison .toxbubble { bottom: 3%; left: var(--x); width: calc(24px * var(--s)); height: calc(24px * var(--s)); border-radius: 50%; opacity: 0;
-  background: radial-gradient(circle at 35% 30%, rgba(225,255,205,.95), rgba(96,225,96,.55) 55%, transparent); box-shadow: 0 0 16px rgba(130,255,130,.8);
-  animation: pkfxToxBub var(--dur) ease-in infinite; animation-delay: var(--d); }
-.fx-poison .tox-vignette { inset: 0; opacity: calc(var(--fx-i) * .9); background: radial-gradient(120% 100% at 50% 60%, transparent 40%, rgba(6,32,10,.78) 100%); }
-@keyframes pkfxTox { 0%,100% { opacity: calc(var(--fx-i) * .6); transform: translateY(0) scale(1); } 50% { opacity: calc(var(--fx-i) * .92); transform: translateY(-16px) scale(1.05); } }
-@keyframes pkfxToxBub { 0% { transform: translate3d(0,0,0) scale(.5); opacity: 0; } 15% { opacity: calc(var(--fx-i) * .95); } 85% { opacity: calc(var(--fx-i) * .75); } 100% { transform: translate3d(var(--drift), -1500px, 0) scale(1.1); opacity: 0; } }
-
-/* ============================================================
-   🌑 SHADOW — bóng tối nuốt chửng: xúc tu tối bò từ mép, lõi tím rung, linh khí
-   ============================================================ */
-.fx-shadow .shadow-core { inset: 0; opacity: calc(var(--fx-i) * .9); background: radial-gradient(120% 100% at 50% 50%, rgba(30,0,50,.25) 26%, rgba(5,0,12,.92) 100%); animation: pkfxShadowPulse 3.4s ease-in-out infinite; }
-.fx-shadow .tendril { opacity: calc(var(--fx-i) * .98); mix-blend-mode: multiply; }
-.fx-shadow .tendril.top    { top: 0; left: 0; right: 0; height: 46%; background: linear-gradient(180deg, rgba(6,0,14,.98), transparent); animation: pkfxTendril 4s ease-in-out infinite; }
-.fx-shadow .tendril.bottom { bottom: 0; left: 0; right: 0; height: 46%; background: linear-gradient(0deg, rgba(6,0,14,.98), transparent); animation: pkfxTendril 4.4s ease-in-out infinite reverse; }
-.fx-shadow .tendril.out    { top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, rgba(6,0,14,.94), transparent); animation: pkfxTendrilX 5s ease-in-out infinite; }
-.fx-shadow .tendril.in     { top: 0; bottom: 0; right: 0; width: 40%; background: linear-gradient(270deg, rgba(6,0,14,.94), transparent); animation: pkfxTendrilX 4.6s ease-in-out infinite reverse; }
-.fx-shadow .wisp { left: var(--x); top: var(--y); width: calc(66px * var(--s)); height: calc(66px * var(--s)); border-radius: 50%; opacity: 0;
-  background: radial-gradient(circle, rgba(160,90,235,.6), transparent 65%); box-shadow: 0 0 26px rgba(130,60,215,.6);
-  animation: pkfxWisp var(--dur) ease-in-out infinite; animation-delay: var(--d); }
-.fx-shadow .shadow-vignette { inset: 0; opacity: var(--fx-i); background: radial-gradient(120% 100% at 50% 50%, transparent 32%, rgba(2,0,8,.9) 100%); }
-@keyframes pkfxShadowPulse { 0%,100% { opacity: calc(var(--fx-i) * .68); } 50% { opacity: calc(var(--fx-i) * .95); } }
-@keyframes pkfxTendril { 0%,100% { transform: translateY(-8%) scaleY(.9); } 50% { transform: translateY(0) scaleY(1.12); } }
-@keyframes pkfxTendrilX { 0%,100% { transform: translateX(-8%) scaleX(.9); } 50% { transform: translateX(0) scaleX(1.12); } }
-@keyframes pkfxWisp { 0% { opacity: 0; transform: translate(0,0) scale(.6); } 30% { opacity: calc(var(--fx-i) * .85); } 100% { opacity: 0; transform: translate(20px,-60px) scale(1.3); } }
-
-/* ============================================================
-   💥 SHATTER — nứt kính KO: flash, vết nứt lan tỏa, mảnh vỡ
-   ============================================================ */
-.fx-shatter .shatter-flash { inset: 0; opacity: 0; background: radial-gradient(circle at 50% 45%, rgba(255,255,255,.95), transparent 58%); animation: pkfxKOflash 3.2s ease-out infinite; }
-.fx-shatter .crack-glass { inset: 0; opacity: var(--fx-i); background-position: center; background-repeat: no-repeat; background-size: 100% 100%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 500'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.95' stroke-width='2.4'%3E%3Cpath d='M150 250 L150 0 M150 250 L300 90 M150 250 L300 300 M150 250 L210 500 M150 250 L20 470 M150 250 L0 250 M150 250 L60 40'/%3E%3Cpath d='M110 130 L150 250 L230 200 M96 360 L150 250 L250 380 M40 250 L150 250'/%3E%3Cpath stroke-opacity='.65' d='M150 250 m-70 0 a70 70 0 1 0 140 0 a70 70 0 1 0 -140 0 M150 250 m-130 0 a130 130 0 1 0 260 0 a130 130 0 1 0 -260 0'/%3E%3C/g%3E%3C/svg%3E");
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)) drop-shadow(0 0 2px rgba(255,255,255,.5)); }
-.fx-shatter .shard { left: var(--x); top: var(--y); width: calc(54px * var(--s)); height: calc(54px * var(--s)); opacity: calc(var(--fx-i) * .85); transform: rotate(var(--r));
-  background: linear-gradient(135deg, rgba(255,255,255,.62), rgba(180,210,240,.14) 55%, rgba(120,160,210,.4)); clip-path: polygon(50% 0, 100% 65%, 62% 100%, 8% 78%); box-shadow: inset 0 0 10px rgba(255,255,255,.55);
-  animation: pkfxShardGlint 3s ease-in-out infinite; animation-delay: var(--d); }
-@keyframes pkfxKOflash { 0% { opacity: 0; transform: scale(.6); } 6% { opacity: calc(var(--fx-i) * .95); } 30% { opacity: 0; transform: scale(1.2); } 100% { opacity: 0; } }
-@keyframes pkfxShardGlint { 0%,100% { opacity: calc(var(--fx-i) * .35); } 50% { opacity: calc(var(--fx-i) * .85); } }
 
 /* ===== Vạch giữa (đường gạch đen) — đẩy về phía bên thua ===== */
 .pkfx-seam { position: absolute; top: 0; bottom: 0; left: var(--seam, 50%); width: 16px; transform: translateX(-50%); z-index: 5; transition: left .3s ease; pointer-events: none; }
@@ -289,11 +178,9 @@ body { display: flex; align-items: center; justify-content: center; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 46'%3E%3Cpath d='M6 10 L20 23 L6 36' fill='none' stroke='%23ffffff' stroke-opacity='.6' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   animation: pkfxSeamFlow 1s linear infinite; }
 .pkfx-seam.lead-b .seam-chevrons { animation-name: pkfxSeamFlowB; }
-@keyframes pkfxSeamFlow { from { transform: translateY(-46px); } to { transform: translateY(0); } }
-@keyframes pkfxSeamFlowB { from { transform: scaleX(-1) translateY(-46px); } to { transform: scaleX(-1) translateY(0); } }
+
 .pkfx-seam .seam-shock { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; border-radius: 50%; transform: translate(-50%,-50%) scale(0); opacity: 0; border: 4px solid rgba(255,255,255,.9); }
 .pkfx-seam.shock .seam-shock { animation: pkfxShock .6s ease-out; }
-@keyframes pkfxShock { 0% { transform: translate(-50%,-50%) scale(0); opacity: .9; } 100% { transform: translate(-50%,-50%) scale(14); opacity: 0; } }
 
 /* ===== HUD điểm số trên đỉnh ===== */
 .pkfx-hud { position: absolute; top: 0; left: 0; right: 0; z-index: 8; display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 20px; padding: 28px 40px 0; font-weight: 900; text-shadow: 0 3px 10px rgba(0,0,0,.7); }
@@ -318,7 +205,29 @@ body { display: flex; align-items: center; justify-content: center; }
 .pkfx-result.win  { color: #fff; text-shadow: 0 0 30px rgba(255,231,122,.9), 0 6px 0 rgba(0,0,0,.3); animation: pkfxWin 1.4s ease-in-out infinite; opacity: 1; }
 .pkfx-result.lose { color: #ff4d4d; text-shadow: 0 0 24px rgba(255,60,60,.55), 0 6px 0 rgba(0,0,0,.4); opacity: 1; transform: scale(.92); }
 .pkfx-result.draw { color: #e5e7eb; text-shadow: 0 0 20px rgba(255,255,255,.4); opacity: 1; }
-@keyframes pkfxWin { 0%,100% { transform: scale(1); } 45% { transform: scale(1.12); } }
 
 /* Review window: nền để dễ nhìn khi kéo cửa sổ */
 body.overlay-review { background: var(--review-bg, #101014); }
+
+/* ===== KEYFRAMES dùng chung cho các hiệu ứng còn lại ===== */
+@keyframes pkfxBubble { 0% { transform: translate3d(0,0,0) scale(.6); opacity: 0; } 15% { opacity: calc(var(--fx-i) * .95); } 100% { transform: translate3d(var(--drift), calc(var(--fx-i) * -1720px - 120px), 0) scale(1); opacity: 0; } }
+@keyframes pkfxCaustic { 0%,100% { background-position: 0 0, 40px 20px, 20px 60px; opacity: .38; } 50% { background-position: 60px 40px, 0 0, 80px 20px; opacity: .68; } }
+@keyframes pkfxCrestBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes pkfxCrestFoam { from { background-position: 0 0; } to { background-position: 320px 0; } }
+@keyframes pkfxCrestMask { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 320px 0; mask-position: 320px 0; } }
+@keyframes pkfxCrestShine { 0% { background-position: -45% 0; } 55% { background-position: 145% 0; } 100% { background-position: 145% 0; } }
+@keyframes pkfxCrestSplash { 0% { opacity: 0; transform: translateY(24px) scaleY(.4); } 22% { opacity: .95; } 100% { opacity: 0; transform: translateY(-34px) scaleY(1.5); } }
+@keyframes pkfxDefeat { 0%,100% { filter: brightness(1); } 50% { filter: brightness(.72); } }
+@keyframes pkfxEmber { 0% { transform: translate3d(0,0,0) scale(1); opacity: 0; } 12% { opacity: calc(var(--fx-i) * 1); } 100% { transform: translate3d(var(--drift), -1320px, 0) scale(.2); opacity: 0; } }
+@keyframes pkfxFlame { 0%,100% { transform: scaleY(1) scaleX(1) skewX(0deg); } 30% { transform: scaleY(1.28) scaleX(.86) skewX(7deg); } 60% { transform: scaleY(.88) scaleX(1.12) skewX(-7deg); } }
+@keyframes pkfxHeat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes pkfxHit { 0% { transform: translateX(0); } 22% { transform: translateX(calc(var(--fx-i) * 12px)); } 50% { transform: translateX(calc(var(--fx-i) * -9px)); } 74% { transform: translateX(calc(var(--fx-i) * 4px)); } 100% { transform: translateX(0); } }
+@keyframes pkfxSeamFlow { from { transform: translateY(-46px); } to { transform: translateY(0); } }
+@keyframes pkfxSeamFlowB { from { transform: scaleX(-1) translateY(-46px); } to { transform: scaleX(-1) translateY(0); } }
+@keyframes pkfxShine { 0% { background-position: 150% 0; } 100% { background-position: -150% 0; } }
+@keyframes pkfxShock { 0% { transform: translate(-50%,-50%) scale(0); opacity: .9; } 100% { transform: translate(-50%,-50%) scale(14); opacity: 0; } }
+@keyframes pkfxSmoke { 0% { transform: translate3d(0,0,0) scale(.5); opacity: 0; } 20% { opacity: calc(var(--fx-i) * .6); } 100% { transform: translate3d(0,-1160px,0) scale(1.7); opacity: 0; } }
+@keyframes pkfxSnow { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(var(--sway,0), 1960px, 0); } }
+@keyframes pkfxTwinkle { 0%,100% { opacity: calc(var(--fx-i) * .35); transform: scale(.82) rotate(0deg); } 50% { opacity: calc(var(--fx-i) * 1); transform: scale(1.12) rotate(25deg); } }
+@keyframes pkfxWave { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(320px,0,0); } }
+@keyframes pkfxWin { 0%,100% { transform: scale(1); } 45% { transform: scale(1.12); } }

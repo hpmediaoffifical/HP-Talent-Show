@@ -10,7 +10,7 @@
         "diamond": 1
       }
     ],
-    "creatorAvatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=3f11a9bd&x-expires=1787140800&x-signature=AIu60KZXpRTVjxmH6iafzcJD6IE%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2",
+    "creatorAvatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/03da6d7f3ab841e19c20ac26bf0913c3~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=e4886828&x-expires=1787320800&x-signature=tJtRpjKmGJFCT8%2BlixQo%2BdY2cAk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
     "creatorAvatarKey": "02f7efd6446e956dbb19af20e8a153f8e496e539",
     "fixedGifts": [
       {
@@ -68,7 +68,7 @@
     "groupName": "HP•VITAMIN B",
     "creatorId": "c_mrtg28mrb1ni1",
     "creatorName": "Raiden",
-    "winStreak": 1,
+    "winStreak": 0,
     "nameOverride": false,
     "giftOverride": false
   },
@@ -83,7 +83,7 @@
         "diamond": 1
       }
     ],
-    "creatorAvatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=2b7a1a5a&x-expires=1787140800&x-signature=24Hgf%2FbvG6pZw9ujdnrCPtBx1Nc%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2",
+    "creatorAvatar": "https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/f0bac7d49dfe77e285dce95df840b0b6~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=8c63fbab&x-expires=1787320800&x-signature=AWNDKgTp5VPlWFc%2BYiRD3Nxpp%2B0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
     "creatorAvatarKey": "ff87f0881d6221292bc4976550651de9fe8256d3",
     "fixedGifts": [
       {
@@ -157,7 +157,7 @@
     "nameOverride": false,
     "giftOverride": false
   },
-  "durationSec": 15,
+  "durationSec": 3675,
   "prepSec": 1,
   "delaySec": 7,
   "joinMode": true,
@@ -179,12 +179,13 @@
   "giftDisplayMode": "scroll",
   "fxEnabled": true,
   "fxMode": "affliction",
-  "fxStyle": "water",
+  "fxStyle": "ice3",
   "fxThreshold": 8,
   "fxMaxGap": 30,
   "fxIntensityCap": 100,
   "fxFullPoints": 100,
   "fxTopSafe": 14,
+  "fxSeamSkin": "auto",
   "championsEnabled": true,
   "championNames": false,
   "arrowStyle": "random",

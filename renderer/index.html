@@ -592,6 +592,7 @@
                       <option value="classic">Cổ điển (chỉ hướng)</option>
                       <option value="core">Lõi động lượng</option>
                       <option value="cannon">Pháo combo</option>
+                      <option value="ball">⚽ 2 quả bóng lửa</option>
                       <option value="random">🎲 Ngẫu nhiên mỗi vòng</option>
                     </select>
                     <button type="button" id="pkArrowRandom" title="Đổi skin ngẫu nhiên ngay" style="flex:0 0 auto; padding:6px 10px; cursor:pointer;">🎲</button>
@@ -657,14 +658,34 @@
                 <label>Kiểu hiệu ứng bên thua
                   <select id="pkFxStyle">
                     <option value="auto">🎲 Auto (đổi theo trận)</option>
-                    <option value="freeze">❄️ Đóng băng (băng 3D)</option>
-                    <option value="fire">🔥 Lửa (2 lớp + khói)</option>
-                    <option value="water">💧 Ọc nước (khúc xạ)</option>
-                    <option value="dim">🌫️ Mờ / nhiễu glitch</option>
-                    <option value="electric">⚡ Điện giật</option>
-                    <option value="poison">☠️ Độc xanh</option>
-                    <option value="shadow">🌑 Bóng tối nuốt chửng</option>
-                    <option value="shatter">💥 Nứt kính KO</option>
+                    <optgroup label="Dựng bằng ảnh">
+                      <option value="frost">❄️ Băng phủ (dày dần theo chênh điểm)</option>
+                      <option value="ice1">🧊 Khối băng — trong</option>
+                      <option value="ice2">🧊 Khối băng — vân sâu</option>
+                      <option value="ice3">🧊 Khối băng — vỡ cạnh</option>
+                      <option value="prison">🚧 Song sắt nhà tù</option>
+                      <option value="chain">⛓️ Xích sắt trói</option>
+                      <option value="smoke">💨 Khói đen dâng</option>
+                    </optgroup>
+                    <optgroup label="Dựng bằng CSS (nhẹ)">
+                      <option value="freeze">❄️ Đóng băng (băng 3D)</option>
+                      <option value="fire">🔥 Lửa (2 lớp + khói)</option>
+                      <option value="water">💧 Ọc nước (khúc xạ)</option>
+                    </optgroup>
+                  </select>
+                </label>
+                <label>Vạch chia giữa 2 phe
+                  <select id="pkFxSeamSkin">
+                    <option value="none">Vạch mặc định (CSS)</option>
+                    <option value="auto">🎲 Ngẫu nhiên (đổi theo trận)</option>
+                    <option value="bolt-purple">⚡ Sét tím</option>
+                    <option value="bolt-cyan">⚡ Sét xanh</option>
+                    <option value="bolt-orange">⚡ Sét cam</option>
+                    <option value="lava">🌋 Dung nham</option>
+                    <option value="ink">🖌️ Thuỷ mặc</option>
+                    <option value="chinese">🏮 Cổ phong</option>
+                    <option value="princess">👑 Công chúa</option>
+                    <option value="black">▮ Nét đen mảnh</option>
                   </select>
                 </label>
                 <label class="full">Ngưỡng bật hiệu ứng (chênh %)
@@ -1110,14 +1131,34 @@
                 <label>Kiểu hiệu ứng bên kém TOP 1
                   <select id="pkgFxStyle">
                     <option value="auto">🎲 Auto (đổi theo vòng)</option>
-                    <option value="freeze">❄️ Đóng băng (băng 3D)</option>
-                    <option value="fire">🔥 Lửa (2 lớp + khói)</option>
-                    <option value="water">💧 Ọc nước (khúc xạ)</option>
-                    <option value="dim">🌫️ Mờ / nhiễu glitch</option>
-                    <option value="electric">⚡ Điện giật</option>
-                    <option value="poison">☠️ Độc xanh</option>
-                    <option value="shadow">🌑 Bóng tối nuốt chửng</option>
-                    <option value="shatter">💥 Nứt kính KO</option>
+                    <optgroup label="Dựng bằng ảnh">
+                      <option value="frost">❄️ Băng phủ (dày dần theo mức kém TOP 1)</option>
+                      <option value="ice1">🧊 Khối băng — trong</option>
+                      <option value="ice2">🧊 Khối băng — vân sâu</option>
+                      <option value="ice3">🧊 Khối băng — vỡ cạnh</option>
+                      <option value="prison">🚧 Song sắt nhà tù</option>
+                      <option value="chain">⛓️ Xích sắt trói</option>
+                      <option value="smoke">💨 Khói đen dâng</option>
+                    </optgroup>
+                    <optgroup label="Dựng bằng CSS (nhẹ)">
+                      <option value="freeze">❄️ Đóng băng (băng 3D)</option>
+                      <option value="fire">🔥 Lửa (2 lớp + khói)</option>
+                      <option value="water">💧 Ọc nước (khúc xạ)</option>
+                    </optgroup>
+                  </select>
+                </label>
+                <label>Kiểu gạch ranh giới
+                  <select id="pkgFxSeamSkin">
+                    <option value="none">Gạch mặc định (CSS)</option>
+                    <option value="auto">🎲 Ngẫu nhiên (đổi theo vòng)</option>
+                    <option value="bolt-purple">⚡ Sét tím</option>
+                    <option value="bolt-cyan">⚡ Sét xanh</option>
+                    <option value="bolt-orange">⚡ Sét cam</option>
+                    <option value="lava">🌋 Dung nham</option>
+                    <option value="ink">🖌️ Thuỷ mặc</option>
+                    <option value="chinese">🏮 Cổ phong</option>
+                    <option value="princess">👑 Công chúa</option>
+                    <option value="black">▮ Nét đen mảnh</option>
                   </select>
                 </label>
                 <label>Số người bị hiệu ứng <span class="cfg-adv__hint" style="font-weight:400">chọn K người điểm thấp nhất</span>
@@ -2614,12 +2655,18 @@
                   <div class="mvp-field">
                     <div class="mvp-tgl-row">
                       <label class="mvp-tgl-name">Tên hiển thị</label>
-                      <label class="mvp-toggle" title="Bật/tắt hiển thị tên Creator NGAY TRÊN nền tiêu đề (cùng chỗ với danh hiệu)">
+                      <label class="mvp-toggle" title="Bật/tắt hiển thị tên Creator">
                         <input type="checkbox" id="mhShowName" /><span class="mvp-toggle-track"></span>
-                        <span class="mvp-toggle-lbl">Hiện trên nền</span>
+                        <span class="mvp-toggle-lbl">Hiện tên</span>
                       </label>
                     </div>
                     <input type="text" id="mhName" placeholder="@tên hoặc biệt danh" />
+                    <label id="mhNamePlaceRow" title="Chung nền = tên nằm cùng ô với danh hiệu. Tách riêng = tên thành bảng tên riêng ở mép dưới avatar, nền danh hiệu tụt xuống dưới.">Vị trí tên
+                      <select id="mhNamePlace">
+                        <option value="split">Tách riêng — mép dưới avatar (mặc định)</option>
+                        <option value="plaque">Chung nền tiêu đề (với danh hiệu)</option>
+                      </select>
+                    </label>
                     <div class="mvp-tgl-row">
                       <label class="mvp-tgl-name">Danh hiệu / lời vinh danh</label>
                       <label class="mvp-toggle" title="Bật/tắt cụm danh hiệu (VD: TOP 1) và nền của nó">
@@ -2646,6 +2693,24 @@
                   </div>
                 </div>
 
+                <!-- BẢNG TÊN RIÊNG: chỉ hiện khi "Vị trí tên" = Tách riêng -->
+                <div class="mvp-cfg-group" id="mhNameTagGroup" style="display:none">
+                  <span class="mvp-cfg-h">🏷 Bảng tên riêng</span>
+                  <div class="mvp-cfg-grid">
+                    <label title="Viên thuốc = có nền bo tròn + viền (giống mẫu). Chữ trơn = chỉ chữ, không nền.">Kiểu
+                      <select id="mhNameStyle">
+                        <option value="pill">Viên thuốc</option>
+                        <option value="plain">Chữ trơn</option>
+                      </select>
+                    </label>
+                    <label title="Màu nền viên thuốc (hơi trong để còn thấy nét khung phía sau)">Màu nền <input type="color" id="mhNameBg" value="#1b1430" /></label>
+                    <label title="Màu chữ trong bảng tên (riêng với màu chữ danh hiệu)">Màu chữ <input type="color" id="mhNameColor" value="#ffffff" /></label>
+                    <label title="Đẩy bảng tên sang trái/phải">Tên: lệch ngang <input type="range" id="mhNameX" min="-300" max="300" value="0" /></label>
+                    <label title="Đẩy bảng tên lên/xuống. 0 = tâm bảng tên nằm đúng mép dưới avatar.">Tên: lệch dọc <input type="range" id="mhNameY" min="-300" max="300" value="0" /></label>
+                    <label title="Khoảng cách từ ĐÁY BẢNG TÊN xuống nền danh hiệu — đo theo avatar chứ không theo đáy khung, nên skin cao thấp khác nhau vẫn cách tên như nhau. Kéo âm để nền chồm lên gần tên hơn.">Cách nền tiêu đề <input type="range" id="mhNameGap" min="-200" max="400" value="0" /></label>
+                  </div>
+                </div>
+
                 <!-- POPUP ⚙️: bố cục & kích thước CHUẨN (đặt 1 lần, ít đụng) -->
                 <div id="mhSettingsModal" class="gp-overlay">
                   <div class="gp-modal rk-settings-modal" role="dialog" aria-labelledby="mhSettingsTitle">
@@ -2659,6 +2724,13 @@
                           <select id="mhLayout">
                             <option value="vertical">Dọc</option>
                             <option value="horizontal">Ngang</option>
+                          </select>
+                        </label>
+                        <label>Kiểu nền tiêu đề
+                          <select id="mhPlaqueStyle" title="Khung 42-44 không có bản động → tự dùng bảng dọc">
+                            <option value="anim">Nền động (Na.apng)</option>
+                            <option value="plate">Bảng tên dọc (mảnh)</option>
+                            <option value="auto">Theo bố cục</option>
                           </select>
                         </label>
                         <label>Anim xuất hiện

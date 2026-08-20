@@ -13,12 +13,19 @@ if (new URLSearchParams(location.search).get('review') === '1') {
 const root = document.getElementById('pkfxRoot');
 const audio = document.getElementById('pkfxSound');
 
-const FX_STYLES = ['freeze', 'fire', 'water', 'dim', 'electric', 'poison', 'shadow', 'shatter'];
+// 3 kiểu đầu dựng bằng CSS; 7 kiểu sau vẽ bằng ẢNH (webp động trong /fx-assets) — thứ CSS thuần
+// không dựng nổi. 'frost' đặc biệt: 3 lớp ảnh nhẹ/vừa/nặng, JS chọn cấp theo chênh điểm (frostTier).
+const FX_STYLES = ['freeze', 'fire', 'water',
+  'prison', 'smoke', 'ice1', 'ice2', 'ice3', 'frost', 'chain'];
 // Màu "mặt nước" (ngọn 3D) mỗi kiểu FX — sáng hơn thân để bắt sáng rõ.
 const FX_CREST = {
-  freeze: '200,235,255', fire: '255,168,66', water: '120,205,255', dim: '150,160,182',
-  electric: '150,215,255', poison: '150,255,150', shadow: '176,124,240', shatter: '255,150,138',
+  freeze: '200,235,255', fire: '255,168,66', water: '120,205,255',
+  prison: '196,204,214', smoke: '150,150,156',
+  ice1: '198,236,255', ice2: '176,220,250', ice3: '206,240,255', frost: '190,230,255', chain: '198,200,206',
 };
+// Băng phủ dày dần theo mức bị dẫn: t1 (mỏng) → t2 → t3 (kín). intensity đã gồm sàn 0.62 nên
+// mốc chia lấy trong khoảng 0.62..1 cho trải đều 3 cấp.
+function frostTier(intensity) { return intensity >= 0.90 ? 3 : intensity >= 0.76 ? 2 : 1; }
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('vi-VN'); }
@@ -62,39 +69,18 @@ function halfHtml(side) {
       <i class="water-glass"></i>
       ${particles('bubbles', 20, (i) => `<i class="bubble" style="--x:${(i * 7 + 5) % 100}%;--d:${(i % 6) * 0.5}s;--dur:${3 + (i % 5) * 0.6}s;--s:${0.4 + (i % 4) * 0.5};--drift:${(i % 2 ? 1 : -1) * (14 + i % 16)}px"></i>`)}
     </span>`;
-  const dim = `<span class="fx fx-dim">
-      <i class="fx-cast"></i>
-      <i class="dim-scrim"></i><i class="dim-blocks"></i><i class="dim-scan"></i><i class="dim-rgb"></i><i class="dim-vignette"></i>
-    </span>`;
-  const electric = `<span class="fx fx-electric">
-      <i class="fx-cast"></i>
-      <i class="volt-flash"></i>
-      <span class="bolts">${particles('', 6, (i) => `<i class="bolt" style="--x:${10 + i * 15}%;--d:${(i % 5) * 0.5}s;--dur:${1.6 + (i % 3) * 0.5}s;--s:${0.8 + (i % 3) * 0.3}"></i>`)}</span>
-      ${particles('sparks', 24, (i) => `<i class="spark" style="--x:${(i * 7 + 5) % 100}%;--y:${(i * 17 + 10) % 100}%;--d:${(i % 8) * 0.25}s;--dur:${1.2 + (i % 4) * 0.4}s"></i>`)}
-      <i class="volt-vignette"></i>
-    </span>`;
-  const poison = `<span class="fx fx-poison">
-      <i class="fx-cast"></i>
-      <i class="tox-fog"></i>
-      ${particles('toxb', 20, (i) => `<i class="toxbubble" style="--x:${(i * 7 + 4) % 100}%;--d:${(i % 6) * 0.5}s;--dur:${3 + (i % 5) * 0.7}s;--s:${0.5 + (i % 4) * 0.5};--drift:${(i % 2 ? 1 : -1) * (16 + i % 20)}px"></i>`)}
-      <i class="tox-vignette"></i>
-    </span>`;
-  const shadow = `<span class="fx fx-shadow">
-      <i class="fx-cast"></i>
-      <i class="shadow-core"></i>
-      <i class="tendril top"></i><i class="tendril bottom"></i><i class="tendril in"></i><i class="tendril out"></i>
-      ${particles('wisps', 14, (i) => `<i class="wisp" style="--x:${(i * 11 + 5) % 100}%;--y:${(i * 19 + 10) % 100}%;--d:${(i % 6) * 0.6}s;--dur:${4 + (i % 4)}s;--s:${0.6 + (i % 3) * 0.5}"></i>`)}
-      <i class="shadow-vignette"></i>
-    </span>`;
-  const shatter = `<span class="fx fx-shatter">
-      <i class="fx-cast"></i>
-      <i class="crack-glass"></i>
-      <i class="shatter-flash"></i>
-      ${particles('shards', 16, (i) => `<i class="shard" style="--x:${(i * 11 + 6) % 100}%;--y:${(i * 13 + 8) % 100}%;--r:${(i * 37) % 360}deg;--d:${(i % 6) * 0.2}s;--s:${0.6 + (i % 4) * 0.5}"></i>`)}
-    </span>`;
+  // Nhóm hiệu ứng dựng bằng ẢNH: ảnh webp tự chạy animation trong file → không tốn animation CSS.
+  // fx-cast/affl-shade là nền màu ĐẶC để đọc rõ trên video OBS [[obs-fx-cast-layer]].
+  const img = (id) => `<span class="fx fx-${id}"><i class="fx-cast"></i><i class="affl-img"></i><i class="affl-shade"></i></span>`;
+  const prison = img('prison'), smoke = img('smoke');
+  const ice = img('ice1') + img('ice2') + img('ice3') + img('chain');
+  // Băng phủ: 3 lớp cùng nằm sẵn, CSS chỉ hiện lớp khớp cấp (frost-t1/t2/t3 đặt trên nửa màn hình).
+  const frost = `<span class="fx fx-frost"><i class="fx-cast"></i>
+      <i class="affl-img t1"></i><i class="affl-img t2"></i><i class="affl-img t3"></i>
+      <i class="affl-shade"></i></span>`;
   const crest = `<span class="fx-crest"><i class="crest-glow"></i><i class="crest-fill"></i><i class="crest-foam"></i><i class="crest-rim"></i><i class="crest-splash"></i></span>`;
   return `<div class="pkfx-half ${side}">
-    ${freeze}${fire}${water}${dim}${electric}${poison}${shadow}${shatter}
+    ${freeze}${fire}${water}${prison}${smoke}${ice}${frost}
     ${crest}
     <span class="pkfx-badge"><b class="pkfx-result"></b></span>
   </div>`;
@@ -104,7 +90,7 @@ function buildScaffold() {
   root.innerHTML = `<div class="pkfx-stage">
     ${halfHtml('left')}
     ${halfHtml('right')}
-    <div class="pkfx-seam"><i class="seam-core"></i><i class="seam-chevrons"></i><i class="seam-shock"></i></div>
+    <div class="pkfx-seam"><i class="seam-core"></i><i class="seam-img"></i><i class="seam-chevrons"></i><i class="seam-shock"></i></div>
     <div class="pkfx-hud">
       <div class="pkfx-team a"><span class="pkfx-name na"></span><span class="pkfx-score sa">0</span></div>
       <div class="pkfx-center"><span class="pkfx-vs">VS</span><span class="pkfx-timer"></span></div>
@@ -217,6 +203,7 @@ function render(state = {}) {
   const applyHalf = (half, side, isLoser, isWinner) => {
     half.className = 'pkfx-half ' + (side === 'A' ? 'left' : 'right')
       + (isLoser && intensity > 0.001 ? ' afflicted fx-' + style : '')
+      + (isLoser && style === 'frost' ? ' frost-t' + frostTier(intensity) : '')
       + (isWinner && !neutral ? ' winner' : '')
       + (finished ? ' finished' : '');
     half.style.setProperty('--fx-i', (isLoser ? intensity : 0).toFixed(3));
@@ -240,6 +227,9 @@ function render(state = {}) {
   el.stage.classList.toggle('is-idle', status === 'idle' || status === 'prestart');
   el.stage.classList.toggle('is-fog', fog); // 🌫️ ẩn điểm HUD 10s cuối (CSS)
   el.seam.className = 'pkfx-seam' + (fog || neutral ? ' neutral' : (aLead ? ' lead-a' : ' lead-b'));
+  // Vạch chia bằng ẢNH (sét/dung nham/thuỷ mặc…) đè lên vạch CSS. 'auto' đổi theo trận (roundNo).
+  // className vừa gán ở trên đã xoá has-seam-img → phải apply LẠI sau đó, đúng thứ tự này.
+  OverlayDivider.apply(el.seam, OverlayDivider.resolve(state.fxSeamSkin, state.roundNo), 1);
 
   // Shockwave 1 nhịp khi đổi bên dẫn
   if (leadSide && leadSide !== lastLead && lastLead !== '') {

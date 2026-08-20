@@ -36,13 +36,28 @@
     if (/^https?:\/\/|^data:|^\//.test(s)) return s;
     return '/' + s.replace(/^\/+/, '');
   }
-  // Nền tiêu đề động đi cùng bộ với khung avatar: N.png → Na.apng (chèn 'a' trước, đổi sang .apng).
-  function plaqueUrl(frame) {
+  // Nền tiêu đề đi cùng bộ với khung avatar. Hai bản: N.png → Na.apng (nền ĐỘNG, khổ ngang) và
+  // N.png → Nv.png (bảng tên DỌC, mảnh, bản gốc của bộ khung). Trả về DANH SÁCH ứng viên theo thứ
+  // tự ưu tiên — ảnh đầu lỗi thì tự rơi sang ảnh sau, hết thì về nền pill CSS. Nhờ vậy khung 42-44
+  // (chỉ có Nv.png) vẫn có nền dù đang chọn kiểu "nền động".
+  // style: 'anim' (mặc định, giữ nguyên nếp cũ) | 'plate' | 'auto' (ngang→động, dọc→bảng).
+  function plaqueCandidates(frame, isH, style) {
     const s = String(frame || '');
-    if (!s || !/\.png$/i.test(s)) return '';
-    return frameUrl(s.replace(/\.png$/i, 'a.apng'));
+    if (!s || !/\.png$/i.test(s)) return [];
+    const anim = frameUrl(s.replace(/\.png$/i, 'a.apng'));
+    const plate = frameUrl(s.replace(/\.png$/i, 'v.png'));
+    if (style === 'plate') return [plate, anim];
+    if (style === 'auto') return isH ? [anim, plate] : [plate, anim];
+    return [anim, plate];
   }
   const clampNum = (v, min, max, def) => { const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def; };
+  // Màu nền bảng tên: hex → rgba (hơi trong để không che mất nét khung phía sau).
+  function hexRgba(hex, a) {
+    const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+    if (!m) return `rgba(24,18,38,${a})`;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  }
   function onAvErr(img) {
     const n = (img._err = (img._err || 0) + 1);
     if (n >= 3 || !/\/avatar\?/.test(img.src)) { img.onerror = null; img.src = '/logo.png'; return; }
@@ -81,18 +96,30 @@
         text.style.aspectRatio = plaqueImg.naturalWidth + ' / ' + plaqueImg.naturalHeight;
       }
     };
-    plaqueImg.onerror = () => { text.classList.remove('has-plaque-img'); };
+    // Ảnh lỗi (bộ khung thiếu bản đó) → thử ứng viên kế; hết ứng viên mới quay lại nền pill CSS.
+    plaqueImg.onerror = () => {
+      const node = nodes.get(c.id);
+      const next = node && node.plaqueAlt.shift();
+      text.classList.remove('has-plaque-img');
+      text.style.aspectRatio = '';
+      if (next) plaqueImg.src = next;
+    };
+    // Bảng tên RIÊNG (khi tách khỏi nền tiêu đề): viên thuốc nằm ở mép dưới avatar, đè lên khung.
+    const nameTag = document.createElement('span');
+    nameTag.className = 'mvp-nametag';
+    nameTag.style.display = 'none';
     inner.appendChild(avWrap);
     inner.appendChild(text);
+    inner.appendChild(nameTag);
     root.appendChild(inner);
     stage.appendChild(root);
-    const node = { root, inner, avImg, frame, text, textLabel, plaqueImg, avWrap, sig: '', avSrc: '', frameSrc: '', plaqueSrc: '', contentSig: '' };
+    const node = { root, inner, avImg, frame, text, textLabel, plaqueImg, avWrap, nameTag, sig: '', avSrc: '', frameSrc: '', plaqueSrc: '', plaqueAlt: [], contentSig: '', tagText: null };
     nodes.set(c.id, node);
     return node;
   }
 
   function apply(node, c) {
-    const { root, inner, avImg, frame, text, textLabel, plaqueImg, avWrap } = node;
+    const { root, inner, avImg, frame, text, textLabel, plaqueImg, avWrap, nameTag } = node;
     const avSize = c.avatarSize;
     const frameW = Math.round(avSize * (c.frameScale / 100));
     const hasFrame = !!c.frame;
@@ -119,22 +146,55 @@
     frame.style.display = hasFrame ? 'block' : 'none';
 
     // Nội dung TRÊN nền tiêu đề: tên Creator (dòng trên) + danh hiệu (dòng dưới) — cùng nằm trên nền.
+    // Tên Creator: 'plaque' = nằm CHUNG trên nền tiêu đề (nếp cũ) | 'split' = bảng tên RIÊNG ở mép dưới avatar.
+    const split = c.namePlace !== 'plaque';   // mặc định = TÁCH riêng
     const nameLine = c.showName && c.name ? String(c.name) : '';
+    const plaqueName = split ? '' : nameLine;   // tách rồi thì nền tiêu đề chỉ còn danh hiệu
+    const tagName = split ? nameLine : '';
     const titleLine = c.showText !== false && c.text ? String(c.text) : '';
-    const hasContent = !!(nameLine || titleLine);
+    const hasContent = !!(plaqueName || titleLine);
     const contentSig = nameLine + '' + titleLine + '' + (c.nameSize || 40) + '' + c.fontSize;
     if (node.contentSig !== contentSig) {
       node.contentSig = contentSig;
       textLabel.innerHTML = '';
-      if (nameLine) { const s = document.createElement('span'); s.className = 'mvp-line mvp-nm'; s.textContent = nameLine; s.style.fontSize = (c.nameSize || 40) + 'px'; textLabel.appendChild(s); }
+      if (plaqueName) { const s = document.createElement('span'); s.className = 'mvp-line mvp-nm'; s.textContent = plaqueName; s.style.fontSize = (c.nameSize || 40) + 'px'; textLabel.appendChild(s); }
       if (titleLine) { const s = document.createElement('span'); s.className = 'mvp-line mvp-ti'; s.textContent = titleLine; s.style.fontSize = c.fontSize + 'px'; textLabel.appendChild(s); }
     }
     text.style.display = hasContent ? 'block' : 'none';
     text.style.color = c.color;
+
+    // Bảng tên RIÊNG: tâm dọc đặt đúng MÉP DƯỚI avatar (nửa cỡ avatar tính từ tâm) + lệch tay X/Y.
+    if (tagName) {
+      if (node.tagText !== tagName) { node.tagText = tagName; nameTag.textContent = tagName; }
+      const plain = c.nameStyle === 'plain';
+      nameTag.style.display = '';
+      nameTag.classList.toggle('is-plain', plain);
+      nameTag.style.fontSize = (c.nameSize || 40) + 'px';
+      nameTag.style.color = c.nameColor || c.color;
+      nameTag.style.background = plain ? '' : hexRgba(c.nameBg, .9);
+      nameTag.style.maxWidth = Math.max(120, Math.round(frameW * 1.1)) + 'px';
+      nameTag.style.setProperty('--mvp-nanchor', Math.round(avSize / 2) + 'px');
+      nameTag.style.setProperty('--mvp-nx', Math.round(clampNum(c.nameX, -400, 400, 0)) + 'px');
+      nameTag.style.setProperty('--mvp-ny', Math.round(clampNum(c.nameY, -400, 400, 0)) + 'px');
+    } else {
+      nameTag.style.display = 'none';
+      node.tagText = null;
+    }
+
     // Nền tiêu đề động: cỡ (% theo khung) + lệch nền X/Y (px) + lệch chữ trong nền (%). Thọc mặc định theo bố cục.
+    // TÁCH tên (bố cục dọc): nền đo từ TÂM avatar xuống — nửa avatar + lệch tên + nửa bảng tên + nameGap
+    // (bảng tên cao ≈ nameSize×1.7: line-height 1.25 + padding .28em + viền .17em) → khoảng cách tới TÊN
+    // luôn như nhau dù khung PNG cao thấp khác nhau.
     const bannerScale = clampNum(c.bannerScale, 40, 220, 100);
     const bannerW = Math.round(frameW * bannerScale / 100);
+    const gap = Math.round(clampNum(c.nameGap, -200, 400, 10));
     const tuck = isH ? Math.round(avSize * 0.34) : Math.round(avSize * 0.12);
+    const splitV = !!tagName && !isH;
+    root.classList.toggle('is-split', splitV);
+    if (splitV) {
+      const below = avSize / 2 + clampNum(c.nameY, -400, 400, 0) + (c.nameSize || 40) * 0.85 + gap;
+      text.style.setProperty('--mvp-nbelow', Math.round(below) + 'px');
+    }
     text.style.setProperty('--mvp-banner-w', bannerW + 'px');
     text.style.setProperty('--mvp-tuck', tuck + 'px');
     text.style.setProperty('--mvp-bx', Math.round(clampNum(c.bannerX, -600, 600, 0)) + 'px');
@@ -142,13 +202,17 @@
     text.style.setProperty('--mvp-tx', Math.round(clampNum(c.textX, -50, 50, 0)) + '%');
     text.style.setProperty('--mvp-ty', Math.round(clampNum(c.textY, -50, 50, 0)) + '%');
 
-    // Nền tiêu đề bằng ẢNH (Na.apng): có khung + có nội dung là luôn dùng; lỗi/không có → chữ trên nền pill.
+    // Nền tiêu đề bằng ẢNH: có khung + có nội dung là luôn dùng. Thứ tự ưu tiên theo plaqueStyle
+    // (+ bố cục khi 'auto'); ảnh lỗi thì onerror tự rơi sang bản kia, hết thì về nền pill CSS.
     const usePlaque = hasFrame && hasContent;
-    const plaqueSrc = usePlaque ? plaqueUrl(c.frame) : '';
-    if (plaqueSrc !== node.plaqueSrc) {
-      node.plaqueSrc = plaqueSrc;
+    const cands = usePlaque ? plaqueCandidates(c.frame, isH, c.plaqueStyle) : [];
+    const plaqueSrc = cands[0] || '';
+    const plaqueKey = plaqueSrc + '|' + cands.length;
+    if (plaqueKey !== node.plaqueSrc) {
+      node.plaqueSrc = plaqueKey;
+      node.plaqueAlt = cands.slice(1);
       if (plaqueSrc) {
-        plaqueImg.src = plaqueSrc; // onload gắn has-plaque-img; onerror giữ nền pill
+        plaqueImg.src = plaqueSrc; // onload gắn has-plaque-img; onerror thử ứng viên kế / nền pill
       } else {
         plaqueImg.removeAttribute('src');
         text.classList.remove('has-plaque-img');
