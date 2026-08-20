@@ -4301,6 +4301,13 @@ const LIKE_WALL_TIERS = [
   { at: 5000, name: 'Bạch kim' },
   { at: 10000, name: 'Kim cương' },
 ];
+// Bộ nền chuẩn của TÁP TIM. Vừa là MẶC ĐỊNH cho máy mới, vừa là bộ giá trị được ÉP một lần
+// lên máy đã có cấu hình cũ (xem LIKE_WALL_SKIN_MODEL nơi nạp settings.likeWall).
+const LIKE_WALL_SKIN = {
+  cardBgColor: '#000000', cardBgOpacity: 0.70,   // nền bao ngoài
+  cellBgColor: '#000000', cellBgOpacity: 0.55,   // nền mỗi ô / bục
+};
+const LIKE_WALL_SKIN_MODEL = 2;
 class LikeWallEngine {
   constructor({ onState }) {
     this.onState = onState;
@@ -4308,10 +4315,14 @@ class LikeWallEngine {
       title: 'BỨC TƯỜNG THẢ TIM',
       target: 5000,               // mục tiêu tổng tim (thanh máu dưới cùng)
       topN: 9,                    // số ô hiển thị
+      // 'grid'   = lưới 3 cột (mỗi người 1 ô + thanh máu) — kiểu gốc.
+      // 'podium' = BỤC VINH DANH: TOP 1 giữa (to/cao hơn), TOP 2 trái & TOP 3 phải bằng nhau,
+      //            hạng 4+ xuống dòng gọn (STT | avatar + tên | số tim). Chỉ đổi cách SẮP XẾP,
+      //            mọi logic/tính năng (khung VIP, ticker, popup danh hiệu, thanh tổng) giữ nguyên.
+      layout: 'grid',
       barColor1: '#ff2e4d',       // màu đậm (mép thanh máu đang tiến)
       barColor2: '#ff8a9a',       // màu nhạt (đầu thanh)
-      cardBgColor: '#3a3d46', cardBgOpacity: 0.70,   // nền xám bao ngoài
-      cellBgColor: '#000000', cellBgOpacity: 0.50,   // nền đậm mỗi ô
+      ...LIKE_WALL_SKIN,          // nền đen bao ngoài + nền đen mỗi ô (xem LIKE_WALL_SKIN)
       titleColor: '#ffffff',
       nameMaxChars: 6,            // tên dài hơn ngưỡng ký tự → chạy chữ
       showTicker: true,
@@ -4352,6 +4363,7 @@ class LikeWallEngine {
       title: patch.title != null ? String(patch.title).slice(0, 60) : c.title,
       target: Math.max(1, Math.round(numOr(patch.target, c.target))),
       topN: Math.max(1, Math.min(12, Math.round(numOr(patch.topN, c.topN)))),
+      layout: ['grid', 'podium'].includes(patch.layout) ? patch.layout : c.layout,
       barColor1: patch.barColor1 || c.barColor1,
       barColor2: patch.barColor2 || c.barColor2,
       cardBgColor: patch.cardBgColor || c.cardBgColor,
@@ -5317,6 +5329,13 @@ function bootstrapEngines() {
       scheduleLiveRuntimeSave(); // chống mất số tim tích luỹ khi văng
     },
   });
+  // ÉP bộ nền mới lên máy đang chạy bản cũ — đúng MỘT LẦN (marker likeWallSkinModel).
+  // Sau lần đó người dùng đổi màu tuỳ ý, mở app lại không bị ghi đè nữa.
+  if ((settings.likeWallSkinModel || 0) < LIKE_WALL_SKIN_MODEL) {
+    if (settings.likeWall) Object.assign(settings.likeWall, LIKE_WALL_SKIN);
+    settings.likeWallSkinModel = LIKE_WALL_SKIN_MODEL;
+    saveSettings();
+  }
   if (settings.likeWall) likeWallEngine.setConfig(settings.likeWall);
   voteCommentEngine = new VoteCommentEngine({
     onState: (st) => {

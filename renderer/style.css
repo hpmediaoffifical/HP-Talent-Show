@@ -3520,6 +3520,21 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 .lwallp-bar.big { flex-basis: 150px; height: 11px; }
 .lwallp-bar i { display: block; height: 100%; border-radius: 999px; }
 .lwallp-row b, .lwallp-total b { flex: 0 0 auto; font-size: 12px; font-weight: 900; color: #fff; min-width: 42px; text-align: right; }
+/* Kiểu BỤC VINH DANH: phác thảo 2-1-3 (TOP 1 giữa, cao hơn). DOM giữ 1-2-3, mắt thấy 2-1-3 nhờ `order`. */
+.lwallp-stand { display: flex; align-items: flex-end; justify-content: center; gap: 8px; margin: 2px 0 8px; }
+.lwallp-pod { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 6px; border-radius: 10px; background: rgba(255,255,255,.06); }
+.lwallp-pod1 { order: 2; flex-grow: 1.3; padding-top: 16px; background: rgba(255,216,92,.14); }
+.lwallp-pod2 { order: 1; }
+.lwallp-pod3 { order: 3; }
+.lwallp-podrank { width: 21px; height: 21px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; background: linear-gradient(180deg,#e4ebf5,#b9c4d6); color: #2a3346; }
+.lwallp-pod1 .lwallp-podrank { width: 26px; height: 26px; font-size: 13px; background: linear-gradient(180deg,#ffd85c,#f0b23a); color: #4a2f00; }
+.lwallp-pod3 .lwallp-podrank { background: linear-gradient(180deg,#f0a765,#d07a3a); color: #3a2200; }
+.lwallp-podname { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; font-weight: 800; color: #f1f5fb; }
+.lwallp-pod1 .lwallp-podname { font-size: 14px; }
+.lwallp-pod b { padding: 1px 9px; border-radius: 999px; font-size: 11px; font-weight: 900; color: #fff; }
+.lwallp-pod1 b { padding: 2px 12px; font-size: 13px; }
+/* Dòng hạng 4+ nằm sau bục → huy chương vàng/bạc/đồng theo nth-child không còn đúng, trả về màu thường. */
+.lwallp-stand ~ .lwallp-row .lwallp-rank { background: rgba(255,255,255,.14); color: #fff; }
 .chk-inline { display: flex; align-items: center; gap: 8px; flex-direction: row !important; font-weight: 700; }
 .chk-inline input { width: auto; }
 .lwall-tier-head { display: grid; grid-template-columns: 120px 1fr 34px; gap: 8px; margin-top: 8px; font-size: 11px; font-weight: 800; color: var(--tt-ink-3); }
@@ -3527,11 +3542,8 @@ button.ghost.danger, .ml-del.danger { color:var(--tt-pink); }
 .lwall-tier-row { display: grid; grid-template-columns: 120px 1fr 34px; gap: 8px; align-items: center; }
 .lwall-tier-row input { padding: 7px 9px; border: 1px solid var(--tt-border); border-radius: var(--r-sm); font-size: 13px; }
 .lwall-tier-del { padding: 6px 8px; }
-/* Nút trạng thái khác màu cho dễ nhận biết: BẮT ĐẦU = xanh lá (bắt đầu mới), CHẠY LẠI = cam (đang chạy) */
-#lwallStart { background: linear-gradient(180deg, #22c55e, #16a34a); border-color: #15803d; color: #fff; }
-#lwallStart:hover { background: linear-gradient(180deg, #26d365, #17a950); }
-#lwallStart.lwall-running { background: linear-gradient(180deg, #fb923c, #f97316); border-color: #ea580c; color: #fff; }
-#lwallStart.lwall-running:hover { background: linear-gradient(180deg, #fca04d, #fb8324); }
+/* Nút BẮT ĐẦU/DỪNG dùng CHUNG kiểu .primary ↔ .warn với PK Đôi/Giữ-Đổi/Tính điểm —
+   không tô màu riêng theo #id nữa (specificity của id sẽ đè mất 2 class kia). */
 
 /* ===================== THẺ BÀI (config panel — nền sáng) ===================== */
 .cf-panel-card { display: flex; flex-direction: column; gap: 14px; }

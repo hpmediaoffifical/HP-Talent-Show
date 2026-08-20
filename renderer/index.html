@@ -1890,12 +1890,9 @@
           </div>
         </div>
         <div class="card mt-card">
-          <p class="mt-desc">Bức tường thả tim (点赞墙): BXH người xem <b>táp tim</b> nhiều nhất theo <b>ID từng người</b>. Mỗi ô = avatar + tên + thanh máu (người top = 100%); thanh máu <b>tổng</b> = tổng tim / mục tiêu. Khi ai vượt <b>mốc tim tích luỹ</b> sẽ bung <b>popup danh hiệu</b>. Bấm <b>BẮT ĐẦU</b> để đếm từ 0, <b>COPY OBS</b> để lấy link overlay.</p>
-
           <div class="mt-command">
             <div class="lwall-preview" id="lwallPreview"></div>
           </div>
-          <p class="mt-hint mt-prev-note">Xem trước gọn — chỉ theo dõi số liệu. Giao diện đầy đủ (9 ô, vương miện, popup) hiển thị trên OBS.</p>
 
           <div class="mt-actions">
             <button id="lwallStart" class="primary" type="button">▶ BẮT ĐẦU</button>
@@ -1922,6 +1919,12 @@
                   <div class="form-grid compact">
                     <label class="full">Tiêu đề <input id="lwallTitle" type="text" maxlength="60" value="BỨC TƯỜNG THẢ TIM" /></label>
                     <label>Mục tiêu tổng tim <input id="lwallTarget" type="text" inputmode="numeric" value="5.000" /></label>
+                    <label title="LƯỚI: mỗi người 1 ô + thanh máu · BỤC: TOP 1 giữa to hơn, TOP 2-3 hai bên, hạng 4+ xuống dòng gọn">Kiểu BXH
+                      <select id="lwallLayout">
+                        <option value="grid">LƯỚI 3 CỘT</option>
+                        <option value="podium">BỤC VINH DANH TOP 3</option>
+                      </select>
+                    </label>
                     <label>Số ô hiển thị <input id="lwallTopN" type="number" min="1" max="12" value="9" /></label>
                     <label>Ngưỡng chạy chữ tên (ký tự) <input id="lwallNameChars" type="number" min="3" max="40" value="6" /></label>
                   </div>
@@ -1948,7 +1951,7 @@
                     <label>Khung TOP 3 <input id="lwallFrame3" type="number" min="1" max="60" value="12" /></label>
                     <label>Khung TOP 4 <input id="lwallFrame4" type="number" min="1" max="60" value="19" /></label>
                     <label>Khung TOP 5 <input id="lwallFrame5" type="number" min="1" max="60" value="29" /></label>
-                    <label class="full">Cỡ khung so với avatar
+                    <label class="full" title="Kiểu BỤC: khung luôn lấp trọn bề ngang cột, nên % CÀNG THẤP thì avatar CÀNG TO (trên 162% không to thêm được nữa). Kiểu LƯỚI: % càng cao khung càng to.">Cỡ khung so với avatar
                       <div class="range-inline"><input id="lwallFrameScale" type="range" min="120" max="240" step="4" value="172" /><span id="lwallFrameScaleVal" class="prefix">172%</span></div>
                     </label>
                   </div>
@@ -1961,7 +1964,7 @@
                     <div class="form-grid compact">
                       <label>Màu đậm — đích <input id="lwallColor1" type="color" value="#ff2e4d" /></label>
                       <label>Màu nhạt — đầu <input id="lwallColor2" type="color" value="#ff8a9a" /></label>
-                      <label>Màu nền ngoài <input id="lwallCardBg" type="color" value="#3a3d46" /></label>
+                      <label>Màu nền ngoài <input id="lwallCardBg" type="color" value="#000000" /></label>
                       <label>Màu nền ô <input id="lwallCellBg" type="color" value="#000000" /></label>
                       <label>Màu chữ tiêu đề <input id="lwallTitleColor" type="color" value="#ffffff" /></label>
                       <label class="chk-inline"><input id="lwallShowTicker" type="checkbox" checked /> Hiện người đang táp (ticker)</label>
@@ -1969,7 +1972,7 @@
                         <div class="range-inline"><input id="lwallCardOp" type="range" min="0" max="100" step="5" value="70" /><span id="lwallCardOpVal" class="prefix">70%</span></div>
                       </label>
                       <label class="full">Độ đậm nền ô
-                        <div class="range-inline"><input id="lwallCellOp" type="range" min="0" max="100" step="5" value="50" /><span id="lwallCellOpVal" class="prefix">50%</span></div>
+                        <div class="range-inline"><input id="lwallCellOp" type="range" min="0" max="100" step="5" value="55" /><span id="lwallCellOpVal" class="prefix">55%</span></div>
                       </label>
                       <label class="full">Scale overlay OBS
                         <div class="range-inline"><input id="lwallScale" type="range" min="50" max="300" step="5" value="200" /><span id="lwallScaleVal" class="prefix">200%</span></div>

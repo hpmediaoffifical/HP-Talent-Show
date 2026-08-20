@@ -4900,9 +4900,10 @@ function wireMissionTrioTab() {
 
 // ===================== NHIỆM VỤ · TÁP TIM (bức tường thả tim) =====================
 const LWALL_DEF = {
-  title: 'BỨC TƯỜNG THẢ TIM', target: 5000, topN: 9,
+  title: 'BỨC TƯỜNG THẢ TIM', target: 5000, topN: 9, layout: 'grid',
   barColor1: '#ff2e4d', barColor2: '#ff8a9a',
-  cardBgColor: '#3a3d46', cardBgOpacity: 0.70, cellBgColor: '#000000', cellBgOpacity: 0.50,
+  // Bộ nền chuẩn — phải khớp LIKE_WALL_SKIN trong src/main.js
+  cardBgColor: '#000000', cardBgOpacity: 0.70, cellBgColor: '#000000', cellBgOpacity: 0.55,
   titleColor: '#ffffff', nameMaxChars: 6, showTicker: true, overlayScale: 200,
   framesEnabled: true, frameScale: 172, frames: { 1: '2.png', 2: '7.png', 3: '12.png', 4: '19.png', 5: '29.png' },
   popupEnabled: true, popupMs: 2600,
@@ -4929,6 +4930,7 @@ function lwallNormalize(c) {
     title: c.title != null ? String(c.title).slice(0, 60) : LWALL_DEF.title,
     target: Math.max(1, Math.round(numOr(c.target, LWALL_DEF.target))),
     topN: Math.max(1, Math.min(12, Math.round(numOr(c.topN, LWALL_DEF.topN)))),
+    layout: ['grid', 'podium'].includes(c.layout) ? c.layout : LWALL_DEF.layout,
     barColor1: c.barColor1 || LWALL_DEF.barColor1,
     barColor2: c.barColor2 || LWALL_DEF.barColor2,
     cardBgColor: c.cardBgColor || LWALL_DEF.cardBgColor,
@@ -4965,6 +4967,7 @@ function lwallFillForm() {
   const set = (id, v) => { const el = $('#' + id); if (el) el.value = v; };
   const setChk = (id, v) => { const el = $('#' + id); if (el) el.checked = !!v; };
   set('lwallTitle', lwallCfg.title); set('lwallTarget', lwallFmt(lwallCfg.target)); set('lwallTopN', lwallCfg.topN);
+  set('lwallLayout', lwallCfg.layout);
   set('lwallColor1', lwallCfg.barColor1); set('lwallColor2', lwallCfg.barColor2);
   set('lwallCardBg', lwallCfg.cardBgColor); set('lwallCellBg', lwallCfg.cellBgColor); set('lwallTitleColor', lwallCfg.titleColor);
   set('lwallNameChars', lwallCfg.nameMaxChars);
@@ -4997,21 +5000,41 @@ function lwallRenderPreview() {
   const rows = (lwallState.rows || []).slice(0, lwallCfg.topN);
   const target = Math.max(1, lwallCfg.target);
   const totalPct = Math.max(0, Math.min(100, (lwallState.total / target) * 100));
-  const list = rows.length
-    ? rows.map(r => {
-        const pct = Math.max(0, Math.min(100, Number(r.pct) || 0));
-        return `<div class="lwallp-row"><span class="lwallp-rank">${r.rank}</span><span class="lwallp-name">${escapeHtml(r.name || 'Người xem')}</span>
+  const rowHtml = (r) => {
+    const pct = Math.max(0, Math.min(100, Number(r.pct) || 0));
+    return `<div class="lwallp-row"><span class="lwallp-rank">${r.rank}</span><span class="lwallp-name">${escapeHtml(r.name || 'Người xem')}</span>
         <span class="lwallp-bar"><i style="width:${pct}%;background:${grad}"></i></span><b>${lwallFmt(r.count)}</b></div>`;
-      }).join('')
-    : '<p class="muted" style="margin:6px 0">Chưa có ai táp tim (bấm ＋ Tim để xem thử).</p>';
+  };
+  let list;
+  if (!rows.length) {
+    list = '<p class="muted" style="margin:6px 0">Chưa có ai táp tim (bấm ＋ Tim để xem thử).</p>';
+  } else if (lwallCfg.layout === 'podium') {
+    // Phác thảo bục 2-1-3: TOP 1 ở giữa cao hơn — đủ để canh thứ tự, giao diện thật xem trên OBS.
+    const stand = [1, 2, 3].map(rank => {
+      const r = rows[rank - 1];
+      return `<div class="lwallp-pod lwallp-pod${rank}"><span class="lwallp-podrank">${rank}</span>
+        <span class="lwallp-podname">${r ? escapeHtml(r.name || 'Người xem') : 'Chờ tim…'}</span>
+        <b style="background:${grad}">${r ? lwallFmt(r.count) : '0'}</b></div>`;
+    }).join('');
+    list = `<div class="lwallp-stand">${stand}</div>${rows.slice(3).map(rowHtml).join('')}`;
+  } else {
+    list = rows.map(rowHtml).join('');
+  }
   box.innerHTML = `<div class="lwallp-total"><span>TỔNG</span><span class="lwallp-bar big"><i style="width:${totalPct}%;background:${grad}"></i></span><b>${lwallFmt(lwallState.total)}/${lwallFmt(target)}</b></div>${list}`;
 }
 
 function lwallUpdateRunUI() {
   const el = $('#lwallRunState');
   if (el) { el.textContent = lwallState.running ? '● Đang chạy' : '● Đang dừng'; el.classList.toggle('on', lwallState.running); }
+  // Nút BẮT ĐẦU ↔ DỪNG theo đúng chuẩn PK Đôi/Giữ-Đổi/Tính điểm (primary ↔ warn),
+  // KHÔNG dùng "CHẠY LẠI" nữa: bấm nhầm khi đang chạy sẽ xoá sạch tim đã đếm.
   const btn = $('#lwallStart');
-  if (btn) { btn.textContent = lwallState.running ? '▶ CHẠY LẠI' : '▶ BẮT ĐẦU'; btn.classList.toggle('lwall-running', lwallState.running); }
+  if (btn) {
+    btn.dataset.running = lwallState.running ? 'true' : 'false';
+    btn.textContent = lwallState.running ? '■ DỪNG' : '▶ BẮT ĐẦU';
+    btn.classList.toggle('primary', !lwallState.running);
+    btn.classList.toggle('warn', lwallState.running);
+  }
 }
 
 function lwallOnShow() { lwallRenderPreview(); }
@@ -5028,6 +5051,7 @@ function wireLikeWallTab() {
   bind('lwallPopup', el => lwallCfg.popupEnabled = el.checked);
   bind('lwallTarget', el => lwallCfg.target = Math.max(1, lwallParseInt(el.value) || 1));
   bind('lwallTopN', el => { let v = parseInt(el.value, 10); if (Number.isFinite(v)) lwallCfg.topN = Math.max(1, Math.min(12, v)); });
+  $('#lwallLayout')?.addEventListener('change', () => { lwallCfg.layout = $('#lwallLayout').value === 'podium' ? 'podium' : 'grid'; lwallScheduleSave(); });
   bind('lwallNameChars', el => { let v = parseInt(el.value, 10); if (Number.isFinite(v)) lwallCfg.nameMaxChars = Math.max(3, Math.min(40, v)); });
   bind('lwallPopupMs', el => { let v = parseInt(el.value, 10); if (Number.isFinite(v)) lwallCfg.popupMs = Math.max(1200, Math.min(8000, v)); });
   $('#lwallCardOp')?.addEventListener('input', () => { const p = Math.max(0, Math.min(100, parseInt($('#lwallCardOp').value, 10) || 62)); lwallCfg.cardBgOpacity = p / 100; if ($('#lwallCardOpVal')) $('#lwallCardOpVal').textContent = `${p}%`; lwallScheduleSave(); });
@@ -5071,6 +5095,13 @@ function wireLikeWallTab() {
   });
 
   $('#lwallStart')?.addEventListener('click', async () => {
+    // Đang chạy → DỪNG (giữ nguyên tim đã đếm). Muốn xoá về 0 thì bấm ↺ Reset.
+    if ($('#lwallStart').dataset.running === 'true') {
+      await window.api.likewall.stop();
+      lwallState.running = false; lwallUpdateRunUI();
+      toast('■ Đã dừng NHIỆM VỤ · TÁP TIM', '');
+      return;
+    }
     if (!requireLive('BẮT ĐẦU NHIỆM VỤ · TÁP TIM')) return;
     await window.api.likewall.start();
     lwallState = { rows: [], total: 0, running: true };

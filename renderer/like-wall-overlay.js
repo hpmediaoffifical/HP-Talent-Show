@@ -70,29 +70,59 @@ function crownSvg() {
     + `<circle class="lw-crown-gem" cx="21.4" cy="7.2" r="1.3"/></svg>`;
 }
 
+// "Vân tay" của một ô/bục/dòng: đổi thì dựng lại phần tử, không đổi thì chỉ cập nhật số (giữ animation).
+function identityOf(row, nameMax, frameFile) {
+  return JSON.stringify([!!row, row && row.name, row && row.avatar, row && row.avatarKey, nameMax, frameFile]);
+}
+// Avatar (+ khung VIP nếu có). Khung đè z-trên, tâm trong suốt; avatar tròn căn giữa z-dưới — như MVP Honor.
+function avatarWrapHtml(row, frameFile, deco = '') {
+  const avInner = row ? avatarImg(row.avatar, row.avatarKey) : '<span class="lw-avatar-ph"></span>';
+  if (frameFile) {
+    return `<div class="lw-avatar-wrap has-frame">${deco}<div class="lw-avatar">${avInner}</div><img class="lw-frame" src="/mvp-frames/${esc(frameFile)}" alt="" onerror="this.style.display='none'" /></div>`;
+  }
+  return `<div class="lw-avatar-wrap">${deco}<div class="lw-avatar">${avInner}</div></div>`;
+}
+function nameHtml(row, cls, nameMax) {
+  return row ? marqueeHtml(row.name || 'Người xem', cls, nameMax) : `<div class="${cls} lw-name-empty"><span>Chờ tim…</span></div>`;
+}
+
 // Một ô người xem (hoặc ô trống nếu chưa đủ người). frameFile != '' → lồng khung VIP (thay deco CSS).
 function cellHtml(row, rank, nameMax, frameFile) {
   const filled = !!row;
-  const avInner = filled ? avatarImg(row.avatar, row.avatarKey) : '<span class="lw-avatar-ph"></span>';
-  let avatarWrap;
-  if (frameFile) {
-    // Khung VIP: khung đè (z-trên, tâm trong suốt), avatar tròn căn giữa (z-dưới) — như MVP Honor.
-    avatarWrap = `<div class="lw-avatar-wrap has-frame"><div class="lw-avatar">${avInner}</div><img class="lw-frame" src="/mvp-frames/${esc(frameFile)}" alt="" onerror="this.style.display='none'" /></div>`;
-  } else {
-    const deco = rank <= 3 ? crownSvg() + `<span class="lw-rank-no">${rank}</span>` : (rank <= 5 ? '<span class="lw-ring-badge"></span>' : (rank === 6 ? '<span class="lw-red-dot"></span>' : ''));
-    avatarWrap = `<div class="lw-avatar-wrap">${deco}<div class="lw-avatar">${avInner}</div></div>`;
-  }
-  const name = filled ? marqueeHtml(row.name || 'Người xem', 'lw-name', nameMax) : '<div class="lw-name lw-name-empty"><span>Chờ tim…</span></div>';
+  const deco = frameFile ? '' : (rank <= 3 ? crownSvg() + `<span class="lw-rank-no">${rank}</span>` : (rank <= 5 ? '<span class="lw-ring-badge"></span>' : (rank === 6 ? '<span class="lw-red-dot"></span>' : '')));
   const pct = filled ? Math.max(0, Math.min(100, Number(row.pct) || 0)) : 0;
   const count = filled ? fmt(row.count) : '0';
-  const identity = JSON.stringify([filled, row && row.name, row && row.avatar, row && row.avatarKey, nameMax, frameFile]);
-  return `<div class="lw-cell lw-r${rank} ${filled ? '' : 'lw-empty'}${(rank <= 3 || frameFile) ? ' lw-podium' : ''}${frameFile ? ' lw-framed' : ''}" data-lw-identity="${esc(identity)}">
-    ${avatarWrap}
-    ${name}
+  return `<div class="lw-cell lw-r${rank} ${filled ? '' : 'lw-empty'}${(rank <= 3 || frameFile) ? ' lw-podium' : ''}${frameFile ? ' lw-framed' : ''}" data-lw-identity="${esc(identityOf(row, nameMax, frameFile))}">
+    ${avatarWrapHtml(row, frameFile, deco)}
+    ${nameHtml(row, 'lw-name', nameMax)}
     <div class="lw-bar">
       <div class="lw-fill" style="width:${pct}%"><span class="lw-stripes"></span></div>
       <div class="lw-bar-val">${count}</div>
     </div>
+  </div>`;
+}
+
+// ---- BỤC VINH DANH (layout='podium') ----
+// Huy hiệu hạng hình lục giác (SVG tĩnh — OBS tô đen phần tử vừa animate vừa có filter, cái này đứng yên).
+function hexBadge(rank) {
+  return `<span class="lw-hex"><svg viewBox="0 0 24 26" aria-hidden="true"><polygon points="12,1 22.4,7 22.4,19 12,25 1.6,19 1.6,7"/></svg><i>${rank}</i></span>`;
+}
+// Một trụ của bục. TOP 1 to/cao hơn qua --lw-av-base ở CSS; TOP 2 và 3 bằng nhau.
+function standHtml(row, rank, nameMax, frameFile) {
+  return `<div class="lw-stand-item lw-s${rank} lw-r${rank}${row ? '' : ' lw-empty'}${frameFile ? ' has-frame' : ''}" data-lw-identity="${esc(identityOf(row, nameMax, frameFile))}">
+    <div class="lw-stand-av">${hexBadge(rank)}${avatarWrapHtml(row, frameFile)}</div>
+    ${nameHtml(row, 'lw-name lw-sname', nameMax)}
+    <div class="lw-pill">${row ? fmt(row.count) : '0'}</div>
+  </div>`;
+}
+// Hạng 4+ : dòng ngang gọn — STT | avatar nhỏ + tên | số tim (không lồng khung VIP cho khỏi phá dòng).
+function listRowHtml(row, rank, nameMax) {
+  const avInner = row ? avatarImg(row.avatar, row.avatarKey) : '<span class="lw-avatar-ph"></span>';
+  return `<div class="lw-lrow${row ? '' : ' lw-empty'}" data-lw-identity="${esc(identityOf(row, nameMax, ''))}">
+    <span class="lw-lrank">${rank}</span>
+    <span class="lw-lav">${avInner}</span>
+    ${nameHtml(row, 'lw-name lw-lname', nameMax)}
+    <b class="lw-lval">${row ? fmt(row.count) : '0'}</b>
   </div>`;
 }
 
@@ -108,10 +138,11 @@ function syncToastPosition() {
   _toastPositionQueued = true;
   requestAnimationFrame(() => {
     _toastPositionQueued = false;
-    const grid = card.querySelector('.lw-grid');
-    if (!grid) return;
-    toastLayer.style.top = `${grid.offsetTop + grid.offsetHeight / 2}px`;
-    toastLayer.style.setProperty('--lw-toast-max-height', `${Math.max(78, grid.offsetHeight - 14)}px`);
+    // Kiểu BỤC: bám vào cả bục + danh sách hạng 4+ (mới là "thân" bảng), không riêng cái bục.
+    const body = card.querySelector('.lw-grid') || card.querySelector('.lw-body');
+    if (!body) return;
+    toastLayer.style.top = `${body.offsetTop + body.offsetHeight / 2}px`;
+    toastLayer.style.setProperty('--lw-toast-max-height', `${Math.max(78, body.offsetHeight - 14)}px`);
   });
 }
 
@@ -168,54 +199,103 @@ function render(state = {}) {
   card.style.setProperty('--lw-fs', Math.max(1.2, Math.min(2.4, num(state.frameScale, 172) / 100)));
   card.style.setProperty('--lw-fill', fillGradient(c1, c2));
   card.style.setProperty('--lw-run', c1);
-  card.style.setProperty('--lw-card-bg', rgba(state.cardBgColor || '#3a3d46', num(state.cardBgOpacity, .62)));
-  card.style.setProperty('--lw-cell-bg', rgba(state.cellBgColor || '#000000', num(state.cellBgOpacity, .30)));
+  // Giá trị chống-rỗng phải TRÙNG LIKE_WALL_SKIN ở src/main.js, kẻo nhịp render đầu (state chưa tới)
+  // loé lên một bộ nền khác rồi mới đổi sang bộ thật.
+  card.style.setProperty('--lw-card-bg', rgba(state.cardBgColor || '#000000', num(state.cardBgOpacity, .70)));
+  card.style.setProperty('--lw-cell-bg', rgba(state.cellBgColor || '#000000', num(state.cellBgOpacity, .55)));
   card.style.setProperty('--lw-title-color', state.titleColor || '#ffffff');
 
-  const title = state.title || 'BỨC TƯỜNG THẢ TIM';
-  const isNewLayout = card.dataset.lwTopN !== String(topN);
-  if (isNewLayout) {
-    const cells = [];
-    for (let r = 1; r <= topN; r++) cells.push(cellHtml(rows[r - 1] || null, r, nameMax, frameOf(r)));
-    card.dataset.lwTopN = String(topN);
-    card.dataset.lwTitle = title;
-    card.innerHTML = `
-      ${marqueeHtml(title, 'lw-title', 18)}
-      <div class="lw-grid">${cells.join('')}</div>
-      <div class="lw-total">
+  // Kiểu BỤC: TOP 1-3 lên bục (khung VIP chỉ dành cho 3 trụ này), hạng 4+ xuống dòng gọn.
+  const layout = state.layout === 'podium' ? 'podium' : 'grid';
+  const standN = layout === 'podium' ? Math.min(3, topN) : 0;
+  // Dòng hạng 4+ rộng gấp ~2 lần một ô lưới → nới ngưỡng chạy chữ, tên vừa đủ thì đứng yên cho dễ đọc.
+  const listNameMax = Math.min(40, nameMax + 8);
+  card.classList.toggle('lw-podium-mode', layout === 'podium');
+
+  // Kiểu BỤC bỏ hẳn dải tiêu đề cho khung thật gọn (bục đã tự nói lên nội dung).
+  // Kiểu LƯỚI vẫn có tiêu đề, và để TRỐNG ô Tiêu đề thì cũng ẩn luôn dải (không chừa chỗ trống).
+  const title = state.title == null ? 'BỨC TƯỜNG THẢ TIM' : String(state.title).trim();
+  const showTitle = layout !== 'podium' && !!title;
+  const titleHtml = showTitle ? marqueeHtml(title, 'lw-title', 18) : '';
+  const totalHtml = `<div class="lw-total">
         <div class="lw-total-bar">
           <div class="lw-total-fill" style="width:${totalPct}%"><span class="lw-stripes"></span></div>
           <div class="lw-total-val"><b>${fmt(total)}</b><span>/${fmt(target)}</span></div>
         </div>
+      </div>`;
+  // Có/không có dải tiêu đề đổi cấu trúc DOM → phải nằm trong structKey, kẻo nhánh cập-nhật-tại-chỗ
+  // đi tìm `.lw-title` không còn tồn tại.
+  const structKey = `${layout}|${topN}|${showTitle ? 1 : 0}`;
+  const isNewLayout = card.dataset.lwStruct !== structKey;
+  if (isNewLayout) {
+    card.dataset.lwStruct = structKey;
+    card.dataset.lwTitle = title;
+    if (layout === 'podium') {
+      const stand = [];
+      for (let r = 1; r <= standN; r++) stand.push(standHtml(rows[r - 1] || null, r, nameMax, frameOf(r)));
+      const list = [];
+      for (let r = standN + 1; r <= topN; r++) list.push(listRowHtml(rows[r - 1] || null, r, listNameMax));
+      // Ticker lên TRÊN bục (như bản tham khảo): người vừa táp nằm ngay dưới tiêu đề.
+      card.innerHTML = `
+      ${titleHtml}
+      <div class="lw-ticker-host"></div>
+      <div class="lw-body">
+        <div class="lw-stand">${stand.join('')}</div>
+        ${list.length ? `<div class="lw-list">${list.join('')}</div>` : ''}
       </div>
+      ${totalHtml}`;
+    } else {
+      const cells = [];
+      for (let r = 1; r <= topN; r++) cells.push(cellHtml(rows[r - 1] || null, r, nameMax, frameOf(r)));
+      card.innerHTML = `
+      ${titleHtml}
+      <div class="lw-grid">${cells.join('')}</div>
+      ${totalHtml}
       <div class="lw-ticker-host"></div>`;
+    }
     syncMarquee();
   } else {
+    let remarquee = false;
     if (card.dataset.lwTitle !== title) {
       card.dataset.lwTitle = title;
-      card.querySelector('.lw-title').outerHTML = marqueeHtml(title, 'lw-title', 18);
-      syncMarquee();
+      card.querySelector('.lw-title').outerHTML = titleHtml;
+      remarquee = true;
     }
-    const grid = card.querySelector('.lw-grid');
-    for (let r = 1; r <= topN; r++) {
-      const row = rows[r - 1] || null;
-      const frameFile = frameOf(r);
-      const identity = JSON.stringify([!!row, row && row.name, row && row.avatar, row && row.avatarKey, nameMax, frameFile]);
-      let cell = grid.children[r - 1];
-      if (cell.dataset.lwIdentity !== identity) {
-        cell.outerHTML = cellHtml(row, r, nameMax, frameFile);
-        cell = grid.children[r - 1];
+    // Thay phần tử tại chỗ khi "vân tay" đổi (đổi người/tên/avatar/khung), còn lại chỉ ghi lại số.
+    const refresh = (host, index, identity, html) => {
+      let el = host.children[index];
+      if (el.dataset.lwIdentity !== identity) { el.outerHTML = html; el = host.children[index]; remarquee = true; }
+      return el;
+    };
+    if (layout === 'podium') {
+      const stand = card.querySelector('.lw-stand');
+      for (let r = 1; r <= standN; r++) {
+        const row = rows[r - 1] || null, frameFile = frameOf(r);
+        const el = refresh(stand, r - 1, identityOf(row, nameMax, frameFile), standHtml(row, r, nameMax, frameFile));
+        el.querySelector('.lw-pill').textContent = row ? fmt(row.count) : '0';
       }
-      const pct = row ? Math.max(0, Math.min(100, Number(row.pct) || 0)) : 0;
-      setWidth(cell.querySelector('.lw-fill'), pct);
-      cell.querySelector('.lw-bar-val').textContent = row ? fmt(row.count) : '0';
+      const list = card.querySelector('.lw-list');
+      for (let r = standN + 1; list && r <= topN; r++) {
+        const row = rows[r - 1] || null;
+        const el = refresh(list, r - standN - 1, identityOf(row, listNameMax, ''), listRowHtml(row, r, listNameMax));
+        el.querySelector('.lw-lval').textContent = row ? fmt(row.count) : '0';
+      }
+    } else {
+      const grid = card.querySelector('.lw-grid');
+      for (let r = 1; r <= topN; r++) {
+        const row = rows[r - 1] || null, frameFile = frameOf(r);
+        const cell = refresh(grid, r - 1, identityOf(row, nameMax, frameFile), cellHtml(row, r, nameMax, frameFile));
+        setWidth(cell.querySelector('.lw-fill'), row ? Math.max(0, Math.min(100, Number(row.pct) || 0)) : 0);
+        cell.querySelector('.lw-bar-val').textContent = row ? fmt(row.count) : '0';
+      }
     }
+    if (remarquee) syncMarquee();
     setWidth(card.querySelector('.lw-total-fill'), totalPct);
     const totalValue = card.querySelector('.lw-total-val');
     totalValue.querySelector('b').textContent = fmt(total);
     totalValue.querySelector('span').textContent = `/${fmt(target)}`;
   }
-  const toastLayoutKey = [topN, num(state.frameScale, 172), framesEnabled, ...Array.from({ length: topN }, (_v, i) => frameOf(i + 1))].join('|');
+  const toastLayoutKey = [layout, topN, num(state.frameScale, 172), framesEnabled, ...Array.from({ length: topN }, (_v, i) => frameOf(i + 1))].join('|');
   if (_toastLayoutKey !== toastLayoutKey) {
     _toastLayoutKey = toastLayoutKey;
     syncToastPosition();
