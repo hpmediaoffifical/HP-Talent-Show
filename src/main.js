@@ -3893,6 +3893,13 @@ class RankingEngine {
       (c.defaultGiftName && c.defaultGiftName.toLowerCase() === String(ev.giftName || '').toLowerCase())
     );
     if (matched.length === 0) return;
+    // CHỐNG CỘNG ĐÔI (VOTE + Đập Trứng): nhánh VOTE ở trên vượt qua được `suppressAuto` và cộng
+    // THẲNG vào this.scores — KHÔNG đi qua rankingLivePoints nên trước đây không hề "lấy" token.
+    // Đập Trứng chạy NGAY SAU trong cùng nhịp, khớp ô quà → onRankingPoints thấy token còn trống
+    // → cộng lần hai cho cùng món quà (guard matchRunning không bao gồm Đập Trứng nên lọt lưới).
+    // Lấy token tại đây: BXH chạy TRƯỚC nên nó thắng (đúng ý đồ VOTE — điểm về Creator được vote),
+    // Đập Trứng chỉ mất phần cộng vào BXH, số đếm trên ô vẫn tăng như thường.
+    if (!claimRankToken(ev)) return;
     for (const c of matched) {
       const key = this.config.mode === 'group' ? (c.groupId || '_nogroup') : c.id;
       if (!this.scores[key]) this.scores[key] = { points: 0, lastGiftId: '', lastGiftIcon: '', lastGiftName: '' };
@@ -5230,11 +5237,19 @@ function throttledBroadcast(channel, data, ms = 120) {
 // token → luôn cộng bình thường.
 let _lastRankToken = null;
 let _rankGiftSeq = 0; // bộ đếm token sự kiện quà (gắn ev.__rankToken ở luồng nhận quà)
+// "Xí phần" quyền cộng BXH cho MỘT sự kiện quà. Trả false nếu token đã bị nguồn khác lấy trong
+// nhịp này → người gọi PHẢI bỏ qua lần cộng đó. Điểm THỦ CÔNG/nút Test không mang __rankToken
+// nên luôn trả true (cộng bình thường).
+// Dùng ở CẢ HAI đường vào BXH: rankingLivePoints (trò chơi Liên kết) và RankingEngine.routeGift
+// (quà mặc định / nhánh VOTE) — nếu chỉ chốt ở một đường thì đường kia lọt lưới (xem routeGift).
+function claimRankToken(ev) {
+  if (!ev || ev.__rankToken == null) return true;
+  if (ev.__rankToken === _lastRankToken) return false;
+  _lastRankToken = ev.__rankToken;
+  return true;
+}
 function rankingLivePoints(creatorId, points, ev) {
-  if (ev && ev.__rankToken != null) {
-    if (ev.__rankToken === _lastRankToken) return; // đã có engine khác cộng cho quà này
-    _lastRankToken = ev.__rankToken;
-  }
+  if (!claimRankToken(ev)) return; // đã có engine khác cộng cho quà này
   rankingEngine?.addLivePoints(creatorId, points, ev);
 }
 // Nguồn chuẩn của trạng thái Liên kết: settings.rankingLinks { pkduo, pkgroup, sticker }.
@@ -5608,7 +5623,8 @@ function bootstrapTikTok() {
     // TẤT CẢ engine cộng điểm quà đều đếm theo DELTA từng nhịp combo (xem comboDelta) → gọi trên MỌI
     // nhịp, KHÔNG gate theo shouldProcess. Nhờ vậy điểm lên ngay và KHÔNG mất combo x10/x1000 khi TikTok
     // gửi gói chốt repeatEnd muộn/rớt mạng (lỗi "tặng 2 quà chỉ nhận 1" ở CHỌN PHE PK Đôi/Nhóm).
-    // Token duy nhất/nhịp → rankingLivePoints chỉ cho MỘT nguồn Liên kết cộng vào BXH (chống trùng).
+    // Token duy nhất/nhịp → claimRankToken chỉ cho MỘT nguồn cộng vào BXH (chống trùng), tính cả
+    // hai đường: trò chơi Liên kết (rankingLivePoints) và BXH tự cộng quà mặc định/VOTE (routeGift).
     d.__rankToken = ++_rankGiftSeq;
     scoreEngine?.routeGift(d);
     kcDuoEngine?.routeGift(d);
