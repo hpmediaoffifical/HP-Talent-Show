@@ -3256,33 +3256,38 @@ function resolveDiamond(ev) {
   return g ? Number(g.diamond) || 0 : 0;
 }
 
-// Combo x10/x1000 (giftType 1): TikTok gửi NHIỀU nhịp repeatCount tăng dần rồi 1 gói chốt repeatEnd.
+// Combo x10/x1000 (giftType 1): TikTok gửi NHIỀU nhịp rồi 1 gói chốt repeatEnd.
 // Hàm này trả về SỐ QUÀ MỚI của nhịp hiện tại (delta) để cộng NGAY — KHÔNG chờ gói chốt. Nhờ vậy
 // KHÔNG mất quà khi TikTok gửi gói repeatEnd muộn HOẶC rớt mạng (chính là lỗi "tặng 2 quà chỉ nhận 1":
-// gói chốt của combo thứ 2 bị rớt → cách cũ gate theo shouldProcess bỏ luôn quà đó). Mỗi combo khoá
+// gói chốt của combo thứ 2 bị rớt → cách cũ gate theo shouldProcess bỏ luôn quà đó). Mỗi lượt tặng khoá
 // riêng theo NGƯỜI + QUÀ nên nhiều người combo cùng lúc vẫn đúng (không đúp, không bỏ sót).
-//   • Quà KHÔNG combo (giftType != 1, repeatCount=1, không repeatEnd): trả thẳng repeatCount.
+// Nguồn sự thật là `counted` = TỔNG số quà của lượt tặng này đã được cộng, nhờ đó đúng với CẢ HAI kiểu
+// chuỗi mà TikTok/connector gửi (payload v2 thiếu giftType nên KHÔNG được dựa vào nó để đoán):
+//   • Kiểu TÍCH LUỸ: repeatCount = 1,2,3…N rồi gói chốt lặp lại N   → mỗi nhịp cộng phần chênh.
+//   • Kiểu TỪNG NHỊP: repeatCount luôn = 1 (N nhịp) rồi gói chốt N  → mỗi nhịp cộng 1, gói chốt cộng 0.
+// Đây chính là lỗi "tặng 1 quà 500 xu thành 1000": quà không nhận diện được là combo thì nhịp đầu KHÔNG
+// được ghi vào map → gói chốt phía sau bị coi là quà mới và cộng lần hai.
 //   • Trả 0 = nhịp này đã cộng ở lần trước rồi → engine phải bỏ qua (return).
 // LƯU Ý: engine dùng hàm này PHẢI được gọi trên MỌI nhịp quà (không gate theo shouldProcess nữa).
+const COMBO_TTL_MS = 60000; // im lặng quá lâu → nhịp sau là LƯỢT TẶNG MỚI, không nối vào lượt cũ
 function comboDelta(map, ev) {
   const repeat = Math.max(1, Number(ev.repeatCount) || 1);
   const key = `${ev.uniqueId || ev.nickname || ev.avatar || 'anonymous'}:${ev.giftId || ev.giftName || 'gift'}`;
-  // Một số payload v2 thiếu giftType nhưng vẫn gửi repeatCount tích luỹ + repeatEnd.
-  // Nhận diện theo chính chuỗi đếm để gói chốt không bị cộng lần hai. Quà đơn lẻ
-  // repeatCount=1, không có state trước đó vẫn giữ hành vi độc lập như cũ.
-  const isCombo = Number(ev.giftType) === 1 || !!ev.repeatEnd || repeat > 1 || map.has(key);
-  if (!isCombo) return repeat;
-  const previous = map.get(key);
-  let delta = repeat;
-  if (previous) {
-    if (repeat > previous.count) delta = repeat - previous.count;
-    // Counter của một combo chỉ tăng. Quay về 1 nghĩa là combo MỚI, kể cả khi
-    // repeatEnd của combo trước bị rớt và người dùng tặng tiếp ngay lập tức.
-    else if (repeat < previous.count || (repeat === 1 && !ev.repeatEnd)) delta = repeat;
-    else delta = 0;
-  }
+  const now = Date.now();
+  const prev = map.get(key);
+  // Lượt tặng MỚI: chưa có state, quá TTL, hoặc bộ đếm tụt (combo trước rớt gói chốt rồi tặng tiếp).
+  const fresh = !prev || (now - prev.at) > COMBO_TTL_MS || repeat < prev.last;
+  let delta, counted;
+  if (fresh) { delta = repeat; counted = repeat; }
+  else if (repeat > prev.counted) { delta = repeat - prev.counted; counted = repeat; } // chuỗi tích luỹ
+  else if (ev.repeatEnd) { delta = 0; counted = prev.counted; }                         // gói chốt lặp lại tổng
+  else { delta = repeat; counted = prev.counted + repeat; }                             // chuỗi từng nhịp rời
   if (ev.repeatEnd) map.delete(key);
-  else map.set(key, { count: repeat });
+  else {
+    map.set(key, { last: repeat, counted, at: now });
+    // Chuỗi không có gói chốt sẽ không bao giờ tự xoá → dọn định kỳ cho khỏi phình bộ nhớ.
+    if (map.size > 300) { for (const [k, v] of map) if ((now - v.at) > COMBO_TTL_MS) map.delete(k); }
+  }
   return delta;
 }
 
@@ -5548,6 +5553,11 @@ function _fillAvatar(ev) {
   return ev;
 }
 
+// Bộ đếm combo dùng riêng cho 2 con số gửi kèm sự kiện quà (xem comboDelta): giftDelta (mọi nhịp)
+// và showQty (chỉ nhịp chốt). Tách map để hai cách đếm không đè state của nhau.
+const _giftDeltaRepeats = new Map();
+const _giftShowRepeats = new Map();
+
 function bootstrapTikTok() {
   ttClient = new TikTokClient();
   ttClient.on('connected', (info) => broadcast('tt:connected', info));
@@ -5578,10 +5588,16 @@ function bootstrapTikTok() {
     // Nhận diện Creator NHẬN quà (LIVE nhóm) → gắn recipientCreatorId. Luôn resolve (rẻ, có cache);
     // chỉ engine ở mode 🔴 Creator LIVE mới DÙNG tới. Trống = quà chung/không khớp.
     d.recipientCreatorId = resolveRecipientCreatorId(d);
+    // SỐ LƯỢNG CHUẨN của nhịp này, tính MỘT LẦN ở main rồi gửi kèm sự kiện (renderer khỏi tự đoán):
+    //  • giftDelta = số quà MỚI của nhịp (mọi nhịp) → NHẠC DANCE/Tốc độ theo quà dùng, khớp với engine.
+    //  • showQty   = số quà nên HIỂN THỊ ở nhịp này (chỉ tính trên nhịp "chốt") → log quà, thống kê,
+    //    overlay TƯƠNG TÁC. Gói chốt lặp lại tổng đã hiện → 0, không đẻ thêm dòng/không cộng đôi xu.
+    d.giftDelta = comboDelta(_giftDeltaRepeats, d);
+    d.showQty = d.shouldProcess ? comboDelta(_giftShowRepeats, d) : 0;
     broadcast('tt:gift', d);
-    // Overlay TƯƠNG TÁC + QUÀ (cột quà trên) — mirror renderer: chỉ hiện khi shouldProcess (né spam combo).
-    if (d.shouldProcess) {
-      const repeat = Math.max(1, Number(d.repeatCount) || 1);
+    // Overlay TƯƠNG TÁC + QUÀ (cột quà trên) — mirror renderer: chỉ hiện ở nhịp chốt (né spam combo).
+    if (d.showQty > 0) {
+      const repeat = d.showQty;
       const coinEach = resolveDiamond(d);
       overlayServer?.pushInteractGift({
         avatar: d.avatar || '', nickname: d.nickname || '', uniqueId: d.uniqueId || '',

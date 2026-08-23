@@ -90,6 +90,7 @@ class TikTokClient extends EventEmitter {
     this.roomInfo = null;
     this.connected = false;
     this.connecting = false;
+    this._seenGiftMsgIds = new Set(); // msgId quà đã phát (chống nhận đôi cùng 1 message)
   }
 
   isConnected() { return this.connected; }
@@ -168,6 +169,7 @@ class TikTokClient extends EventEmitter {
   }
 
   async disconnect() {
+    this._seenGiftMsgIds.clear();
     if (this.connection) {
       try { await this.connection.disconnect(); } catch {}
       this.connection = null;
@@ -240,7 +242,20 @@ class TikTokClient extends EventEmitter {
     conn.on('streamEnd', () => this.emit('streamEnd', { username: this.username }));
 
     conn.on('chat', (d) => this.emit('chat', shapeChat(d)));
-    conn.on('gift', (d) => this.emit('gift', shapeGift(d)));
+    // CHỐNG NHẬN ĐÔI: mỗi message TikTok có msgId riêng. Khi kết nối vừa có WebSocket vừa có
+    // HTTP polling (hoặc lib phát lại gói), CÙNG một msgId đến hai lần → quà bị tính x2.
+    // Bỏ qua msgId đã thấy; quà tặng riêng biệt luôn có msgId khác nhau nên không mất quà.
+    conn.on('gift', (d) => {
+      const ev = shapeGift(d);
+      if (ev.msgId) {
+        if (this._seenGiftMsgIds.has(ev.msgId)) return;
+        this._seenGiftMsgIds.add(ev.msgId);
+        if (this._seenGiftMsgIds.size > 500) {
+          this._seenGiftMsgIds.delete(this._seenGiftMsgIds.values().next().value);
+        }
+      }
+      this.emit('gift', ev);
+    });
     conn.on('like', (d) => this.emit('like', shapeLike(d)));
     conn.on('member', (d) => this.emit('member', shapeUser(d)));
     conn.on('follow', (d) => this.emit('follow', shapeUser(d)));
@@ -466,6 +481,8 @@ function shapeGift(d) {
   const recipientMemberName = d?.toMemberNickname || '';
   return {
     ...u,
+    // ID message của TikTok — dùng để chặn cùng một gói quà đến hai lần (xem _seenGiftMsgIds).
+    msgId: String(d?.common?.msgId ?? d?.msgId ?? d?.common?.msg_id ?? ''),
     recipientMemberId,
     recipientMemberName,
     giftId: String(d?.giftId ?? d?.gift_id ?? d?.gift?.id ?? d?.gift?.gift_id ?? d?.giftDetails?.giftId ?? ''),

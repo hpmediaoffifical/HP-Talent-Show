@@ -1547,14 +1547,15 @@ function musicQueuePayload(x, plays) {
   };
 }
 const MusicList = {
-  onGift(d) {
+  // qty = SỐ QUÀ MỚI của nhịp này (main tính sẵn qua giftDelta). Không truyền thì rơi về repeatCount như cũ.
+  onGift(d, qty) {
     if (musicCfg.paused) return; // ⏸ NHẠC DANCE đang ngưng → không phát clip biểu diễn
     if (!musicItems.length) return;
     const gid = String(d.giftId || ''), gname = String(d.giftName || '').toLowerCase();
     const item = musicItems.find(m => String(m.giftId) === gid || (m.giftName && String(m.giftName).toLowerCase() === gname));
     if (!item || !item.audioPath) return;
     if (item.autoEnabled === false) return; // ⏸ TẮT kích hoạt tự động → quà lên vẫn không tự phát (chỉ ▶ DS thủ công)
-    const plays = Math.max(1, Number(d.repeatCount) || 1);
+    const plays = Math.max(1, Number(qty) || Number(d.repeatCount) || 1);
     if (item.bgMode) { playBackgroundItem(item, plays); return; } // "Chạy nền": đè lên trên, KHÔNG vào hàng đợi
     MusicQueue.enqueue(musicQueuePayload(item, plays));
   },
@@ -1629,11 +1630,11 @@ const SpeedControl = (() => {
     updateSpeedActiveUI();
   }
   // Quà lên → nếu khớp 1 rule đang bật thì xếp N đoạn (N = số lần tặng/combo).
-  function onGift(d) {
+  function onGift(d, qty) {
     if (musicCfg.paused) return;
     const gid = String(d.giftId || ''), gname = String(d.giftName || '').toLowerCase();
     const rule = (musicCfg.speedGifts || []).find(r => r.enabled && (String(r.giftId) === gid || (r.giftName && String(r.giftName).toLowerCase() === gname)));
-    if (rule) enqueue(rule, Math.max(1, Number(d.repeatCount) || 1));
+    if (rule) enqueue(rule, Math.max(1, Number(qty) || Number(d.repeatCount) || 1));
   }
   function isActive() { return !!cur || queue.length > 0; }
   function pending() { return queue.length + (cur ? 1 : 0); }
@@ -6373,16 +6374,20 @@ function wireTtEvents() {
 
   window.api.on('tt:gift', (d) => {
     const shouldProcess = d.shouldProcess || d.repeatEnd;
-    if (shouldProcess) { try { MusicList.onGift(d); } catch {} try { SpeedControl.onGift(d); } catch {} }
-    stats.gifts += shouldProcess ? Math.max(1, d.repeatCount) : 0;
+    // Số lượng do main tính sẵn (chống đếm đôi khi TikTok gửi cả nhịp thường lẫn gói chốt cho CÙNG
+    // một lượt tặng — xem comboDelta). Sự kiện cũ/không có field thì giữ nguyên nếp cũ.
+    const plays = Number.isFinite(Number(d.giftDelta)) ? Math.max(0, Number(d.giftDelta)) : (shouldProcess ? Math.max(1, Number(d.repeatCount) || 1) : 0);
+    const showQty = Number.isFinite(Number(d.showQty)) ? Math.max(0, Number(d.showQty)) : (shouldProcess ? Math.max(1, Number(d.repeatCount) || 1) : 0);
+    if (plays > 0) { try { MusicList.onGift(d, plays); } catch {} try { SpeedControl.onGift(d, plays); } catch {} }
+    stats.gifts += showQty;
     const giftDiamond = Number(d.diamondCount) || Number((giftMaster.find(g => String(g.id) === String(d.giftId)) || giftMaster.find(g => String(g.name || '').toLowerCase() === String(d.giftName || '').toLowerCase()))?.diamond) || 0;
-    stats.diamond += shouldProcess ? giftDiamond * Math.max(1, d.repeatCount) : 0;
+    stats.diamond += giftDiamond * showQty;
     if (d.uniqueId) stats.donors.add(d.uniqueId);
-    if (shouldProcess) {
+    if (showQty > 0) {
       const list = $('#giftList');
       const div = document.createElement('div');
       div.className = 'item gift-item';
-      const repeat = Math.max(1, Number(d.repeatCount) || 1);
+      const repeat = showQty;
       const coinEach = giftDiamond;
       const totalCoin = coinEach * repeat;
       const donorKey = d.uniqueId || d.nickname || '';
