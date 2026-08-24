@@ -295,8 +295,22 @@ function render(state = {}) {
   const max = Math.max(1, ...participants.map(p => Number(p.score) || 0));
   const minWidth = 8;
   const ranked = rankParticipants(participants);
-  const leaderId = ranked[0]?.id || '';
   const mvpParticipant = participants.find(p => (Number(p.streak) || 0) >= 1) || null;
+  // 👑 Vương miện = người ĐANG DẪN ĐIỂM. rankParticipants xếp thuần theo điểm, nên khi mọi người còn 0
+  // (vừa Reset / vòng mới chưa ai tặng quà) ranked[0] rơi vào người XẾP ĐẦU DANH SÁCH → người đó bị đội
+  // miện + phóng to avatar/số 0 một cách oan uổng. Đúng luật: chưa ai ghi điểm thì miện GIỮ NGUYÊN ở
+  // người THẮNG VÒNG TRƯỚC, chỉ chuyển khi vòng mới có người điểm cao nhất xuất hiện. Engine chỉ giữ
+  // streak ≥ 1 cho đúng người thắng gần nhất (_finalizeRound đặt streaks = {winnerId}, reset() giữ lại)
+  // nên mvpParticipant chính là "nhà vô địch cũ"; RESET TẤT CẢ xoá streak → không trao miện cho ai.
+  // (Cùng tinh thần với guard best > 0 bên pk-group-fx-overlay.)
+  const scoreLeader = (Number(ranked[0]?.score) || 0) > 0 ? ranked[0] : null;
+  const leaderId = (scoreLeader || mvpParticipant)?.id || '';
+  // Điểm bằng nhau hết thì thứ hạng vô nghĩa — kéo người đội miện lên hạng 1 để costume theo mùa (🎅
+  // gắn qua data-rank) không lệch đi một nơi trong khi 👑 ở một nẻo.
+  if (!scoreLeader && leaderId) {
+    const idx = ranked.findIndex(p => p.id === leaderId);
+    if (idx > 0) ranked.unshift(...ranked.splice(idx, 1));
+  }
   // Đổi ngôi: có leader mới khác leader trước, trong lúc trận đang diễn ra → lóe sáng 1 nhịp.
   const leaderChanged = lastLeaderId && leaderId && leaderId !== lastLeaderId && (status === 'running' || status === 'grace');
   // "Vừa lên quà": điểm ĐANG VẼ tăng so với lần render trước → bắn 1 nhịp gợn sóng (port từ PK Đôi).
