@@ -247,10 +247,16 @@ class TikTokClient extends EventEmitter {
     // Bỏ qua msgId đã thấy; quà tặng riêng biệt luôn có msgId khác nhau nên không mất quà.
     conn.on('gift', (d) => {
       const ev = shapeGift(d);
+      // Sức chứa 3000: LIVE đông có thể qua 500 message chỉ trong ít phút, mà gói phát lại đôi khi
+      // về muộn hơn thế → cắt ở 500 là để lọt. Chuỗi msgId rất nhẹ nên 3000 gần như không tốn gì.
+      // LƯU Ý: msgId RỖNG thì không chặn được ở đây (không có định danh). KHÔNG dựng khoá thay thế
+      // từ uniqueId+giftId+repeatCount — các nhịp combo "từng nhịp" trùng nhau y hệt một cách HỢP LỆ,
+      // chặn theo khoá đó sẽ NUỐT quà thật. Lớp chặn cho trường hợp đó nằm ở comboDelta (bia mộ
+      // `closed` trong src/gift-combo.js), không phải ở đây.
       if (ev.msgId) {
         if (this._seenGiftMsgIds.has(ev.msgId)) return;
         this._seenGiftMsgIds.add(ev.msgId);
-        if (this._seenGiftMsgIds.size > 500) {
+        if (this._seenGiftMsgIds.size > 3000) {
           this._seenGiftMsgIds.delete(this._seenGiftMsgIds.values().next().value);
         }
       }

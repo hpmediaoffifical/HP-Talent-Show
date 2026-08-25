@@ -11,6 +11,8 @@ const crypto = require('crypto');
 const os = require('os');
 const { TikTokClient } = require('./tiktok-client');
 const { ObsOverlayServer } = require('./obs-overlay-server');
+// Bộ đếm combo quà — tách module để chạy được scripts/test-gift-combo.js (replay chuỗi gói tin thật).
+const { comboDelta } = require('./gift-combo');
 const hostsSetup = require('./hosts-setup');
 
 const ROOT = path.join(__dirname, '..');
@@ -3256,40 +3258,8 @@ function resolveDiamond(ev) {
   return g ? Number(g.diamond) || 0 : 0;
 }
 
-// Combo x10/x1000 (giftType 1): TikTok gửi NHIỀU nhịp rồi 1 gói chốt repeatEnd.
-// Hàm này trả về SỐ QUÀ MỚI của nhịp hiện tại (delta) để cộng NGAY — KHÔNG chờ gói chốt. Nhờ vậy
-// KHÔNG mất quà khi TikTok gửi gói repeatEnd muộn HOẶC rớt mạng (chính là lỗi "tặng 2 quà chỉ nhận 1":
-// gói chốt của combo thứ 2 bị rớt → cách cũ gate theo shouldProcess bỏ luôn quà đó). Mỗi lượt tặng khoá
-// riêng theo NGƯỜI + QUÀ nên nhiều người combo cùng lúc vẫn đúng (không đúp, không bỏ sót).
-// Nguồn sự thật là `counted` = TỔNG số quà của lượt tặng này đã được cộng, nhờ đó đúng với CẢ HAI kiểu
-// chuỗi mà TikTok/connector gửi (payload v2 thiếu giftType nên KHÔNG được dựa vào nó để đoán):
-//   • Kiểu TÍCH LUỸ: repeatCount = 1,2,3…N rồi gói chốt lặp lại N   → mỗi nhịp cộng phần chênh.
-//   • Kiểu TỪNG NHỊP: repeatCount luôn = 1 (N nhịp) rồi gói chốt N  → mỗi nhịp cộng 1, gói chốt cộng 0.
-// Đây chính là lỗi "tặng 1 quà 500 xu thành 1000": quà không nhận diện được là combo thì nhịp đầu KHÔNG
-// được ghi vào map → gói chốt phía sau bị coi là quà mới và cộng lần hai.
-//   • Trả 0 = nhịp này đã cộng ở lần trước rồi → engine phải bỏ qua (return).
-// LƯU Ý: engine dùng hàm này PHẢI được gọi trên MỌI nhịp quà (không gate theo shouldProcess nữa).
-const COMBO_TTL_MS = 60000; // im lặng quá lâu → nhịp sau là LƯỢT TẶNG MỚI, không nối vào lượt cũ
-function comboDelta(map, ev) {
-  const repeat = Math.max(1, Number(ev.repeatCount) || 1);
-  const key = `${ev.uniqueId || ev.nickname || ev.avatar || 'anonymous'}:${ev.giftId || ev.giftName || 'gift'}`;
-  const now = Date.now();
-  const prev = map.get(key);
-  // Lượt tặng MỚI: chưa có state, quá TTL, hoặc bộ đếm tụt (combo trước rớt gói chốt rồi tặng tiếp).
-  const fresh = !prev || (now - prev.at) > COMBO_TTL_MS || repeat < prev.last;
-  let delta, counted;
-  if (fresh) { delta = repeat; counted = repeat; }
-  else if (repeat > prev.counted) { delta = repeat - prev.counted; counted = repeat; } // chuỗi tích luỹ
-  else if (ev.repeatEnd) { delta = 0; counted = prev.counted; }                         // gói chốt lặp lại tổng
-  else { delta = repeat; counted = prev.counted + repeat; }                             // chuỗi từng nhịp rời
-  if (ev.repeatEnd) map.delete(key);
-  else {
-    map.set(key, { last: repeat, counted, at: now });
-    // Chuỗi không có gói chốt sẽ không bao giờ tự xoá → dọn định kỳ cho khỏi phình bộ nhớ.
-    if (map.size > 300) { for (const [k, v] of map) if ((now - v.at) > COMBO_TTL_MS) map.delete(k); }
-  }
-  return delta;
-}
+// comboDelta đã chuyển sang src/gift-combo.js (require ở đầu file) để scripts/test-gift-combo.js
+// replay được chuỗi gói tin thật. Đọc chú thích đầy đủ + bẫy "200 hoa hồng thành 400" ở module đó.
 
 // ----------------- STICKER DANCE -----------------
 // Bảng lưới rows×cols, mỗi ô gán 1 quà + nhãn chữ + số đếm. Engine giữ CẤU HÌNH lưới và
@@ -5573,6 +5543,31 @@ function _fillAvatar(ev) {
 const _giftDeltaRepeats = new Map();
 const _giftShowRepeats = new Map();
 
+// 🔍 NHẬT KÝ GÓI TIN QUÀ (gift-debug.log trong thư mục config).
+// Vì sao cần: lỗi "1 quà tính thành 2" đã tái đi tái lại nhiều bản vì KHÔNG ai biết TikTok thực sự
+// gửi chuỗi gói nào — mỗi lần chỉ đoán rồi vá. Nay mỗi nhịp quà ghi đúng MỘT dòng JSON, đủ để
+// replay lại y hệt bằng scripts/test-gift-combo.js. Ghi nối tiếp, tự cắt khi quá 2MB, lỗi thì im
+// lặng bỏ qua (không bao giờ được phép làm hỏng đường tính điểm).
+const GIFT_DEBUG_PATH = path.join(CONFIG_DIR, 'gift-debug.log');
+let _giftDebugBytes = -1;
+function logGiftPacket(d) {
+  try {
+    if (_giftDebugBytes < 0) {
+      try { _giftDebugBytes = fs.statSync(GIFT_DEBUG_PATH).size; } catch { _giftDebugBytes = 0; }
+    }
+    if (_giftDebugBytes > 2 * 1024 * 1024) { try { fs.unlinkSync(GIFT_DEBUG_PATH); } catch {} _giftDebugBytes = 0; }
+    const line = JSON.stringify({
+      t: new Date().toISOString(),
+      msgId: d.msgId || '', user: d.uniqueId || '',
+      giftId: d.giftId || '', giftName: d.giftName || '',
+      rc: d.repeatCount, end: !!d.repeatEnd, type: d.giftType,
+      dia: d.diamondCount, delta: d.giftDelta, show: d.showQty,
+    }) + '\n';
+    fs.appendFileSync(GIFT_DEBUG_PATH, line);
+    _giftDebugBytes += Buffer.byteLength(line);
+  } catch {}
+}
+
 function bootstrapTikTok() {
   ttClient = new TikTokClient();
   ttClient.on('connected', (info) => broadcast('tt:connected', info));
@@ -5609,6 +5604,7 @@ function bootstrapTikTok() {
     //    overlay TƯƠNG TÁC. Gói chốt lặp lại tổng đã hiện → 0, không đẻ thêm dòng/không cộng đôi xu.
     d.giftDelta = comboDelta(_giftDeltaRepeats, d);
     d.showQty = d.shouldProcess ? comboDelta(_giftShowRepeats, d) : 0;
+    logGiftPacket(d); // ghi gói tin thô để đối chiếu khi nghi tính sai (xem logGiftPacket)
     broadcast('tt:gift', d);
     // Overlay TƯƠNG TÁC + QUÀ (cột quà trên) — mirror renderer: chỉ hiện ở nhịp chốt (né spam combo).
     if (d.showQty > 0) {
