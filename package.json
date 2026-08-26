@@ -1,6 +1,6 @@
 {
   "name": "hp-group-live",
-  "version": "0.1.98",
+  "version": "0.1.99",
   "description": "HP GROUP LIVE — phần mềm vận hành LIVE nhóm TikTok: PK đôi/nhóm, BXH, tính điểm, vinh danh, vòng quay, overlay OBS",
   "main": "src/main.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "dev": "electron . --dev",
     "dist": "electron-builder --win nsis --publish never",
     "release": "node scripts/release.mjs",
-    "test": "node scripts/test-gift-combo.js"
+    "test": "node scripts/test-gift-combo.js && node scripts/test-kcduo-lastsec.js"
   },
   "author": "HP Media",
   "license": "ISC",

@@ -35,6 +35,17 @@
 //      SÁT gói chốt (≤ CLOSED_WINDOW_MS = cùng lô hoặc lô kế). Xa hơn = lượt mới, cộng ĐỦ — cùng
 //      hướng đánh đổi đã chọn ở nhánh gói-chốt-phát-lại: thà tính thừa hiếm gặp còn hơn nuốt quà.
 
+// ⚠️ BẪY ĐÃ TRẢ GIÁ #3 — lỗi "Giữ/Đổi: lên combo GIÂY CUỐI là thanh tự động ×2 điểm" (2026-08-26):
+// engine nào cũng từng gọi `this._comboRepeats.clear()` trong start()/stop()/reset(). Combo lên ở giây
+// cuối LUÔN còn nhịp + gói chốt bay tới SAU khi trận đã chốt (TikTok/connector trễ vài giây — xem
+// memory gift-latency-not-app). MC bấm BẮT ĐẦU vòng mới ngay lúc đó → bộ nhớ combo bị xoá sạch → nhịp
+// còn lại của CHÍNH lượt combo cũ rơi vào nhánh "lượt tặng mới" và cộng ĐỦ lần thứ hai ⇒ đúng gấp đôi.
+// (Riêng gói chốt trễ là nặng nhất: `p(50, repeatEnd)` một mình cộng thêm nguyên 50.)
+// ⇒ QUY TẮC: bộ nhớ combo là thuộc tính của LUỒNG GÓI TIN, KHÔNG phải của trận. TUYỆT ĐỐI KHÔNG
+// clear() nó khi bắt đầu/dừng/reset — map tự hết hạn bằng COMBO_TTL_MS + prune(). Giữ lại map chính
+// là thứ hấp thụ đuôi combo cũ (trả 0 / chỉ cộng phần chênh) thay vì đếm lại từ đầu.
+// Kịch bản đối chứng: scripts/test-kcduo-lastsec.js (replay thẳng vào KcDuoEngine thật).
+
 const COMBO_TTL_MS = 60000;    // im lặng quá lâu → nhịp sau là LƯỢT TẶNG MỚI, không nối vào lượt cũ
 // Cửa sổ hấp thụ GÓI CHỐT PHÁT LẠI. Gói phát lại nằm cùng lô hoặc lô kế tiếp → dưới 1 giây; để
 // 1.2s cho rộng tay. CỐ TÌNH ĐỂ NGẮN: nếu người xem tặng LẠI đúng quà đó với ĐÚNG số lượng đó

@@ -2009,7 +2009,7 @@ class PkDuoEngine {
       gifters: { A: new Map(), B: new Map() }, // side -> Map(userKey -> {uniqueId,nickname,avatar,total}) để vinh danh TOP tặng quà
     };
     this._tick = null;
-    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta). KHÔNG clear() ở start/stop/reset — xem BẪY #3 trong src/gift-combo.js
   }
   setConfig(patch) { this.config = { ...this.config, ...patch }; migrateTiktokMode(this.config); this._emit(); }
   // Avatar leader lấy realtime từ hồ sơ creator theo creatorId. Snapshot creatorAvatar trong
@@ -2146,14 +2146,12 @@ class PkDuoEngine {
     if (this.config.selectFx === 'random') { const rnd = ['arrow', 'lock', 'spotlight', 'versus']; this.state.selectFxActive = rnd[Math.floor(Math.random() * rnd.length)]; }
     this.state.historySaved = false;
     this._resetGifters();
-    this._comboRepeats.clear();
     this._runTicker();
   }
   stop() {
     this.state.status = 'finished';
     this.state.remainingMs = 0;
     this.state.userTeams = {};
-    this._comboRepeats.clear();
     this._recordHistory();
     this._clearTicker();
     this._emit();
@@ -2174,7 +2172,6 @@ class PkDuoEngine {
   }
   reset() {
     this._clearTicker();
-    this._comboRepeats.clear();
     this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, arrowStyleActive: '', selectFxActive: '', historySaved: false, gifters: { A: new Map(), B: new Map() } };
     this._emit();
   }
@@ -2411,7 +2408,7 @@ class KcDuoEngine {
     };
     this._tick = null;
     // Theo dõi combo x10/x1000 theo từng người+quà để cộng phần CHÊNH LỆCH mỗi nhịp (không mất, không đúp).
-    this._comboRepeats = new Map();
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta). KHÔNG clear() ở start/stop/reset — xem BẪY #3 trong src/gift-combo.js
   }
   setConfig(patch) {
     this.config = { ...this.config, ...patch };
@@ -2494,14 +2491,12 @@ class KcDuoEngine {
     this.state.roundNo = (Number(this.state.roundNo) || 0) + 1;
     this.state.historySaved = false;
     this.state.winnerSide = '';
-    this._comboRepeats.clear();
     this._runTicker();
   }
   stop() {
     this.state.status = 'finished';
     this.state.remainingMs = 0;
     this.state.userTeams = {};
-    this._comboRepeats.clear();
     this._recordResult();
     this._clearTicker();
     this._emit();
@@ -2517,7 +2512,6 @@ class KcDuoEngine {
   reset() {
     // Reset trận nhưng GIỮ chuỗi trụ vững + tổng vòng + tên người diễn (giống PK giữ winStreak).
     this._clearTicker();
-    this._comboRepeats.clear();
     this.state = { status: 'idle', remainingMs: 0, scoreA: 0, scoreB: 0, startedAt: 0, endsAt: 0, userTeams: {}, graceElapsedMs: 0, roundNo: 0, historySaved: false, winnerSide: '' };
     this._emit();
   }
@@ -2786,7 +2780,7 @@ class PkGroupEngine {
       gifters: {},
     };
     this._tick = null;
-    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta). KHÔNG clear() ở start/stop/reset — xem BẪY #3 trong src/gift-combo.js
   }
   setConfig(patch) {
     this.config = { ...this.config, ...(patch || {}) };
@@ -2921,7 +2915,6 @@ class PkGroupEngine {
     this.state.fogSnap = null;
     this.state.fogRevealAt = 0;
     this._resetGifters();
-    this._comboRepeats.clear();
     this._runTicker();
   }
   stop() {
@@ -2929,7 +2922,6 @@ class PkGroupEngine {
     this.state.status = 'finished';
     this.state.remainingMs = 0;
     this.state.userTeams = {};
-    this._comboRepeats.clear();
     this._recordHistory();
     this._clearTicker();
     this._emit();
@@ -2953,7 +2945,6 @@ class PkGroupEngine {
   }
   reset() {
     this._clearTicker();
-    this._comboRepeats.clear();
     // GIỮ chuỗi WIN qua Reset: Reset chỉ xoá điểm/trạng thái trận, KHÔNG xoá thành tích chuỗi thắng.
     // (Overlay đọc streak từ state.streaks — nếu wipe thì huy hiệu MVP về 0 dù config vẫn còn.)
     // Chuỗi chỉ về 0 khi THUA ở _finalizeRound, giống winStreak của PK Đôi.
@@ -3326,7 +3317,7 @@ class StickerEngine {
     this.queuedByGift = {}; // giftId -> số lượt đang chờ/đang phát trong HÀNG ĐỢI HIỆU ỨNG (nguồn cho đếm lùi)
     this.queuedByGiftName = {}; // tên quà (thường hoá) -> số lượt; dự phòng khi giftId mục nhạc lệch giftId ô lưới
     this.streaks = {}; // giftId -> mốc hết chuỗi (ms, Date.now); renderer đẩy sang để overlay vẽ thanh máu
-    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta). KHÔNG clear() ở start/stop/reset — xem BẪY #3 trong src/gift-combo.js
   }
   setConfig(patch) {
     this.config = { ...this.config, ...(patch || {}) };
@@ -3335,7 +3326,7 @@ class StickerEngine {
   }
   // Xoá SẠCH mọi thứ đang hiện trên ô: số đã nhận, số đang chờ (đếm lùi), quà đang diễn và
   // máu chuỗi. Trước đây bỏ sót this.streaks nên reset xong thanh chuỗi vẫn chạy tiếp.
-  reset() { this.rt = {}; this.performingId = ''; this.queuedByGift = {}; this.queuedByGiftName = {}; this.streaks = {}; this._comboRepeats.clear(); this._emit(); }
+  reset() { this.rt = {}; this.performingId = ''; this.queuedByGift = {}; this.queuedByGiftName = {}; this.streaks = {}; this._emit(); }
   // Renderer đẩy toàn bộ số lượt còn trong hàng đợi (theo giftId) mỗi khi hàng đợi đổi.
   // Đây là NGUỒN SỰ THẬT cho chế độ "Đếm lùi" → khớp tuyệt đối với "Đang chờ" và tự trừ dần khi phát.
   setQueued(pending, pendingByName) {
@@ -3790,7 +3781,7 @@ class RankingEngine {
     this.round = 0;
     this.scores = {}; // key (creatorId hoặc groupId) -> { points, lastGiftId, lastGiftIcon, lastGiftName }
     this.activeId = null;
-    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta). KHÔNG clear() ở start/stop/reset — xem BẪY #3 trong src/gift-combo.js
   }
   setConfig(patch) { this.config = { ...this.config, ...patch }; this._emit(); }
   // Chống mất khi văng: chụp/khôi phục điểm tích luỹ realtime (config lưu riêng, không đụng ở đây).
@@ -3801,7 +3792,7 @@ class RankingEngine {
     if (Number.isFinite(Number(s.round))) this.round = Number(s.round);
     if (s.activeId != null) this.activeId = s.activeId;
   }
-  reset() { this.scores = {}; this.activeId = null; this._comboRepeats.clear(); this._emit(); }
+  reset() { this.scores = {}; this.activeId = null; this._emit(); }
   // NEW ROUND: chỉ +1 ROUND, GIỮ NGUYÊN điểm (tích luỹ qua các vòng). KHÔNG xoá _comboRepeats —
   // vì điểm còn giữ, nếu xoá thì quà đang combo dở sẽ bị tính lại từ đầu → cộng đôi. Muốn về 0 thì dùng RESET ĐIỂM.
   startRound() { this.round++; this._emit(); }
@@ -4103,7 +4094,7 @@ class ScoreEngine {
       resultAt: 0,
     };
     this._tick = null;
-    this._comboRepeats = new Map();
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta). KHÔNG clear() ở start/stop/reset — xem BẪY #3 trong src/gift-combo.js
   }
   setConfig(patch = {}) {
     // Mốc thưởng đã bị loại bỏ; bỏ qua cấu hình cũ còn lưu trên máy người dùng.
@@ -4122,7 +4113,6 @@ class ScoreEngine {
   }
   reset() {
     this._clearTicker();
-    this._comboRepeats.clear();
     this.state = { score: 0, status: 'idle', endAt: 0, runStartedAt: 0, lastAdd: 0, lastAddUser: '', recentGifts: [], topUsers: [], resultAt: 0 };
     this._emit();
   }
@@ -4136,14 +4126,12 @@ class ScoreEngine {
     this.state.lastAddUser = '';
     this.state.recentGifts = [];
     this.state.topUsers = [];
-    this._comboRepeats.clear();
     this.state.endAt = prepMs > 0 ? now + prepMs : now + Math.max(0, Number(this.config.durationMs) || 0);
     this.state.runStartedAt = prepMs > 0 ? 0 : now;
     this._runTicker();
   }
   stop() {
     this._clearTicker();
-    this._comboRepeats.clear();
     this.state.status = (this.state.score >= this.config.target) ? 'success' : 'failed';
     this.state.resultAt = Date.now();
     this._emit();
@@ -4302,7 +4290,7 @@ class MissionTrioEngine {
       horizontal: { ...MISSION_TRIO_GEO_H }, // thông số riêng cho overlay Ngang
     };
     this.state = { running: false, donors: new Set(), likes: 0, points: 0 };
-    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta, không mất quà khi gói chốt rớt)
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta). KHÔNG clear() ở start/stop/reset — xem BẪY #3 trong src/gift-combo.js
   }
   setConfig(patch) {
     patch = patch || {};
@@ -4325,9 +4313,9 @@ class MissionTrioEngine {
     };
     this._emit();
   }
-  start() { this.state = { running: true, donors: new Set(), likes: 0, points: 0 }; this._comboRepeats.clear(); this._emit(); }
-  reset() { this.state = { running: false, donors: new Set(), likes: 0, points: 0 }; this._comboRepeats.clear(); this._emit(); }
-  stop() { this.state.running = false; this._comboRepeats.clear(); this._emit(); }
+  start() { this.state = { running: true, donors: new Set(), likes: 0, points: 0 }; this._emit(); }
+  reset() { this.state = { running: false, donors: new Set(), likes: 0, points: 0 }; this._emit(); }
+  stop() { this.state.running = false; this._emit(); }
   routeGift(ev) {
     if (!this.state.running) return;
     // Người tặng: mỗi user tính ĐÚNG 1 lần dù tặng 1 coin hay 10.000 coin, dù nhiều quà (Set uniqueId).
@@ -4607,7 +4595,7 @@ class VoteCommentEngine {
     // counts theo id dòng — cấu hình rows là NGUỒN SỰ THẬT về danh tính dòng, runtime chỉ giữ số đếm.
     this.state = { active: false, ended: false, startedAt: 0, remainingMs: 0, holdMs: 0, roundNo: 0, counts: {}, userLastRow: {} };
     this._tick = null;
-    this._comboRepeats = new Map();
+    this._comboRepeats = new Map(); // khoá combo theo người+quà (đếm delta). KHÔNG clear() ở start/stop/reset — xem BẪY #3 trong src/gift-combo.js
   }
 
   setConfig(patch) {
@@ -4686,7 +4674,6 @@ class VoteCommentEngine {
     this.state.remainingMs = this.config.durationSec * 1000;
     this.state.holdMs = 0;
     this.state.roundNo = (this.state.roundNo | 0) + 1;
-    this._comboRepeats.clear();
     this._runTicker();
   }
 
@@ -4701,7 +4688,6 @@ class VoteCommentEngine {
     this._archive('reset');
     this._clearTicker();
     this.state = { active: false, ended: false, startedAt: 0, remainingMs: 0, holdMs: 0, roundNo: 0, counts: this._blankCounts(), userLastRow: {} };
-    this._comboRepeats.clear();
     this._emit();
   }
 
