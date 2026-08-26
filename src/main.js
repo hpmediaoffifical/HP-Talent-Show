@@ -5560,7 +5560,7 @@ function logGiftPacket(d) {
       t: new Date().toISOString(),
       msgId: d.msgId || '', user: d.uniqueId || '',
       giftId: d.giftId || '', giftName: d.giftName || '',
-      rc: d.repeatCount, end: !!d.repeatEnd, type: d.giftType,
+      rc: d.repeatCount, end: !!d.repeatEnd, type: d.giftType, grp: d.comboGroupId || '',
       dia: d.diamondCount, delta: d.giftDelta, show: d.showQty,
     }) + '\n';
     fs.appendFileSync(GIFT_DEBUG_PATH, line);

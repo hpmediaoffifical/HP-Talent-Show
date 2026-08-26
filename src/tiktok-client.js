@@ -479,6 +479,11 @@ function shapeGift(d) {
     ?? 1
   ) || 1;
   const repeatEnd = !!(d?.repeatEnd ?? d?.repeat_end ?? d?.gift?.repeat_end ?? d?.gift?.repeatEnd);
+  // MÃ LƯỢT COMBO của TikTok (WebcastGiftMessage.groupId): mỗi LƯỢT tặng combo có một mã riêng,
+  // mọi nhịp của cùng lượt mang cùng mã. Đây là cách CHẮC CHẮN nhất để biết "lượt tặng mới" hay
+  // "chuỗi cũ chạy tiếp" — không phải đoán theo repeatCount (xem bẫy ở src/gift-combo.js).
+  const groupRaw = d?.groupId ?? d?.group_id ?? '';
+  const comboGroupId = groupRaw && String(groupRaw) !== '0' ? String(groupRaw) : '';
   // NGƯỜI NHẬN quà trong LIVE nhóm = co-host được tặng, nằm ở toMemberId (ID số) + toMemberNickname (tên).
   // CẢNH BÁO: toUserId / giftExtra.anchorId là ID HOST phòng (KHÔNG đổi theo người nhận) → KHÔNG dùng.
   // toMemberId rỗng/"0" = quà chung cho host (không nhắm co-host cụ thể).
@@ -496,6 +501,7 @@ function shapeGift(d) {
     giftIcon: giftImage,
     repeatCount,
     repeatEnd,
+    comboGroupId,
     giftType,
     shouldProcess: giftType !== 1 || repeatEnd,
     diamondCount: Number(diamond) || 0,

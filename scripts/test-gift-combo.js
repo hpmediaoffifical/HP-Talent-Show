@@ -81,6 +81,31 @@ const CASES = [
     packets: [p(3, true), p(3, true, { gap: 61000 })], expect: 6,
   },
 
+  // ↓↓↓ Kịch bản gây lỗi "8 quà lẻ rồi combo x100 chỉ được 100" (điểm lúc đầu tự biến mất) ↓↓↓
+  {
+    // Đúng kịch bản user báo: lượt 1 là combo 8 quà TikTok (chốt ở 8), 3s sau combo x100 vào
+    // THEO LÔ 10 → gói đầu rc=10 > counted=8 nên bản trước chỉ cộng 2, nuốt đúng 8 quà lượt trước.
+    name: '★ combo 8 CHỐT rồi lượt MỚI x100 theo lô (3s sau) → phải là 108',
+    packets: [...accumulate(8), ...batched(10, 10).map((x, i) => (i === 0 ? { ...x, gap: 3000 } : x))],
+    expect: 108,
+  },
+  {
+    name: '★ combo 8 CHỐT rồi one-shot 100 (3s sau) → phải là 108',
+    packets: [...accumulate(8), p(100, true, { gap: 3000 })], expect: 108,
+  },
+  {
+    // Có mã lượt combo (groupId) thì KHỎI phụ thuộc thời gian: mã đổi = lượt mới, cộng đủ ngay
+    // cả khi gói tới sát nút (250ms) và repeatCount lớn hơn tổng lượt cũ.
+    name: '★ groupId ĐỔI → lượt mới, cộng đủ dù sát nút',
+    packets: [...accumulate(8).map(x => ({ ...x, grp: 'A' })), p(100, true, { gap: 250, grp: 'B' })],
+    expect: 108,
+  },
+  {
+    // Mặt trái: cùng groupId thì gói chốt phát lại vẫn phải bị nuốt (không tái diễn "200 → 400").
+    name: 'groupId GIỐNG → gói chốt phát lại vẫn bị nuốt (không nhân đôi)',
+    packets: [p(200, true, { grp: 'A' }), p(200, true, { gap: 300, grp: 'A' })], expect: 200,
+  },
+
   // ↓↓↓ Không được lẫn giữa người / giữa quà ↓↓↓
   {
     name: 'hai người combo cùng lúc, xen kẽ',
@@ -108,7 +133,7 @@ function run(fn, c) {
   let now = 1_000_000;
   for (const pk of c.packets) {
     now += pk.gap != null ? pk.gap : 40; // nhịp combo cách nhau ~40ms
-    const ev = { uniqueId: pk.user || 'u', giftId: pk.gift || 'g', repeatCount: pk.repeatCount, repeatEnd: pk.repeatEnd };
+    const ev = { uniqueId: pk.user || 'u', giftId: pk.gift || 'g', repeatCount: pk.repeatCount, repeatEnd: pk.repeatEnd, comboGroupId: pk.grp || '' };
     const k = `${ev.uniqueId}:${ev.giftId}`;
     totals[k] = (totals[k] || 0) + fn(map, ev, now);
   }
