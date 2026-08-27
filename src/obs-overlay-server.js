@@ -106,6 +106,8 @@ class ObsOverlayServer {
     // App điều khiển; overlay tự làm TRONG SUỐT (opacity:0) khi khoá của nó = false. KHÔNG đụng engine
     // (video/animation vẫn chạy, sự kiện vẫn bắn) — chỉ đổi hiển thị trên OBS/TikTok Studio.
     this.visState = {};
+    // Chữ trắng phản nền sáng: khi bật, overlay đổi toàn bộ chữ đen thành trắng + shadow
+    this.whiteText = false;
     this.heartbeatTimer = null;
     // Cache avatar theo "danh tính ảnh" = PATH của URL (bỏ query chữ ký/expires): URL avatar TikTok
     // đã chứa hash ảnh trong path nên đổi ảnh = đổi path. Nhờ vậy URL ký lại (đổi x-signature/x-expires)
@@ -143,7 +145,8 @@ class ObsOverlayServer {
       } catch (e) {
         try { server.close(); } catch {}
         if (i === 0) throw e; // không có cổng chính thì overlay vô dụng → ném lỗi như cũ
-        this.onLog(`OBS overlay: cổng phụ ${p} bận, bỏ qua (một loại overlay sẽ dùng lại cổng chính)`);
+        const kind = Object.keys(this.portOffsets).find(k => this.port + this.portOffsets[k] === p) || `offset-${i}`;
+        this.onLog(`OBS overlay: cổng phụ ${p} (${kind}) bận — overlay "${kind}" sẽ fallback về cổng chính ${this.port} (có thể chạm trần 6 kết nối/CEF)`);
       }
     }
     // Keep OBS's embedded browser connected while the OBS window is backgrounded.
@@ -153,9 +156,12 @@ class ObsOverlayServer {
   }
 
   // Cổng riêng cho từng loại overlay (né trần 6 kết nối/host của CEF). Nếu cổng phụ không bind được
-  // thì lùi về cổng chính để URL vẫn hoạt động.
+  // thì lùi về cổng chính để URL vẫn hoạt động (đã log cảnh báo ở start()).
   _portFor(kind) {
     const p = this.port + (this.portOffsets[kind] || 0);
+    if (!this._boundPorts.has(p) && this._boundPorts.size) {
+      // Fallback im lặng ở runtime — cảnh báo đã phát lúc start(). Không spam log mỗi request.
+    }
     return this._boundPorts.has(p) ? p : this.port;
   }
 
@@ -266,10 +272,15 @@ class ObsOverlayServer {
   }
   // Dòng SSE ẩn/hiện overlay (gửi kèm khi client mới kết nối + mỗi nhịp heartbeat để tự chữa lành nếu rớt gói).
   _visPayload() { return `event: __vis\ndata: ${JSON.stringify(this.visState || {})}\n\n`; }
+  _whitePayload() { return `event: __white\ndata: ${this.whiteText ? '1' : '0'}\n\n`; }
   // App gọi để đặt bản đồ ẩn/hiện overlay theo cảnh. Phát ngay tới MỌI overlay đang mở.
   setVisibility(map) {
     this.visState = (map && typeof map === 'object') ? map : {};
     this._broadcastAll('__vis', this.visState);
+  }
+  setWhiteText(on) {
+    this.whiteText = !!on;
+    this._broadcastAll('__white', this.whiteText ? '1' : '0');
   }
 
   _heartbeat() {
@@ -295,7 +306,7 @@ class ObsOverlayServer {
       [this.interactClients, 'interact', this.interactState],
       ...this.danceChannels.map(ch => [this.danceVideoClients[ch], 'dancevideo', this.danceVideoState[ch]]),
     ];
-    const ver = `event: __ver\ndata: ${this.assetVersion}\n\n` + this._visPayload();
+    const ver = `event: __ver\ndata: ${this.assetVersion}\n\n` + this._visPayload() + this._whitePayload();
     for (const [set, event, data] of beats) {
       const body = ver + `event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`;
       for (const res of set) {
@@ -559,7 +570,7 @@ class ObsOverlayServer {
     res.flushHeaders?.();
     // Tell EventSource to recover quickly if OBS/CEF does close the connection.
     // Kèm event __ver (phiên bản app): overlay ghi nhớ lúc mở, tự reload khi thấy version ĐỔI (sau cập nhật).
-    res.write(`retry: 1500\n:event stream connected\n\nevent: __ver\ndata: ${this.assetVersion}\n\n` + this._visPayload() + `event: ${evName}\ndata: ${JSON.stringify(initialState || {})}\n\n`);
+    res.write(`retry: 1500\n:event stream connected\n\nevent: __ver\ndata: ${this.assetVersion}\n\n` + this._visPayload() + this._whitePayload() + `event: ${evName}\ndata: ${JSON.stringify(initialState || {})}\n\n`);
     set.add(res);
     req.on('close', () => set.delete(res));
   }
@@ -575,7 +586,7 @@ class ObsOverlayServer {
     });
     res.socket?.setNoDelay(true);
     res.flushHeaders?.();
-    let body = `retry: 1500\n:event stream connected\n\nevent: __ver\ndata: ${this.assetVersion}\n\n` + this._visPayload() + `event: interact\ndata: ${JSON.stringify(this.interactState || {})}\n\n`;
+    let body = `retry: 1500\n:event stream connected\n\nevent: __ver\ndata: ${this.assetVersion}\n\n` + this._visPayload() + this._whitePayload() + `event: interact\ndata: ${JSON.stringify(this.interactState || {})}\n\n`;
     const replay = [
       ...this.interactChatBuf.map(e => ['ichat', e]),
       ...this.interactGiftBuf.map(e => ['igift', e]),

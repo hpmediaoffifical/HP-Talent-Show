@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>HP GROUP LIVE</title>
   <link rel="icon" type="image/png" href="../logo/hp-logo.png" />
-  <!-- Font Be Vietnam Pro để khung xem trước Vinh danh KHỚP overlay OBS (WYSIWYG). -->
+  <!-- Font Be Vietnam Pro — bundle local để offline vẫn KHỚP overlay OBS (WYSIWYG). CDN giữ làm fallback khi local thiếu. -->
+  <link rel="stylesheet" href="./fonts/be-vietnam-pro.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@700;800;900&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@700;800;900&display=swap" onerror="this.remove()" />
   <link rel="stylesheet" href="style.css" />
   <!-- CSS overlay VOTE: khung xem trước trong app dùng CHUNG file với OBS (WYSIWYG). -->
   <link rel="stylesheet" href="vote-comment-overlay.css" />
@@ -1555,6 +1556,11 @@
               </div>
             </div>
           </div>
+          <div class="sc-content-bar-outside" title="Tiêu đề hiển thị trên đỉnh thẻ KÊU GỌI. Để TRỐNG = tự lấy tên thành viên (idol).">
+            <label class="sc-content-field">Nội dung Tên
+              <input id="scContent" type="text" placeholder="Để trống = tên idol · VD: CUỘC ĐỜI NÀY, TÔI LÀ AI..." value="" />
+            </label>
+          </div>
 
           <!-- ⚙️ Popup Cài đặt 🎯 Tính điểm (mở bằng nút ⚙️ ở tiêu đề) -->
           <div id="scSettingsModal" class="gp-overlay">
@@ -1618,9 +1624,6 @@
                   <label class="sc-kpix2">✖️ KPI nhân bù <select id="scKpiX2" aria-label="Bật hoặc tắt KPI nhân bù"><option value="false">Tắt</option><option value="true">Bật</option></select></label>
                   <label class="sc-kpix2-mult">Hệ số: <select id="scKpiMult"><option value="2">×2</option><option value="3">×3</option><option value="5">×5</option></select></label>
                 </div>
-                <label class="sc-content-field" title="Tiêu đề hiển thị trên đỉnh thẻ KÊU GỌI. Để TRỐNG = tự lấy tên thành viên (idol). Điền vào đây để đặt tên chính tùy ý, VD: KÊU GỌI ĐIỂM">📛 Tên chính trên thẻ (để trống = tên idol)
-                  <input id="scContent" type="text" placeholder="Để trống = tên idol · VD: KÊU GỌI ĐIỂM" value="" />
-                </label>
               </div>
             </fieldset>
 
@@ -3454,6 +3457,12 @@
             <button id="btnSaveObs" class="ghost" type="button">💾 Lưu cấu hình</button>
           </div>
           <div class="hint">💡 Cổng mặc định của OBS là <b>4455</b>. Có thể bấm <b>Ctrl + R</b> bất cứ lúc nào để reset nhanh overlay OBS.</div>
+        </div>
+
+        <div class="card">
+          <h3>🎨 Hiển thị</h3>
+          <label class="full check"><input id="whiteTextToggle" type="checkbox" /> Chữ trắng phản nền sáng — toàn bộ chữ đen (Amy/Harley, điểm 0) thành trắng có bóng, dễ đọc trên nền vàng/xanh nhạt. Mặc định <b>tắt</b>.</label>
+          <div class="hint">Bật để overlay PK Nhóm / Tính điểm… chữ đen → trắng. Đặt ở cài đặt chung cho gọn, áp cho mọi overlay qua WebSocket.</div>
         </div>
 
         <div class="card" id="obsSceneBridgeCard">

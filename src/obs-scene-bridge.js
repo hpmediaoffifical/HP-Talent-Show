@@ -105,11 +105,10 @@ class ObsSceneBridge {
     if (!this.isConnected()) throw new Error('Chưa kết nối OBS');
     const data = await this._request('GetSceneList', {});
     const scenes = Array.isArray(data.scenes) ? data.scenes : [];
-    const cur = data.currentProgramSceneName || data.currentProgramSceneName === '' ? data.currentProgramSceneName : (data.currentProgramSceneName || '');
-    // some OBS versions use currentProgramSceneName, older use currentProgramSceneName
+    // OBS v5: currentProgramSceneName (chuẩn). Giữ fallback currentSceneName / currentPreviewSceneName cho bản cũ.
+    const cur = String(data.currentProgramSceneName ?? data.currentSceneName ?? data.currentPreviewSceneName ?? '').trim();
     this.scenes = scenes.map(s => ({ sceneName: s.sceneName, sceneUuid: s.sceneUuid || '', sceneIndex: s.sceneIndex ?? 0 }));
-    if (cur) this.currentScene = String(cur);
-    else if (data.currentProgramSceneName) this.currentScene = String(data.currentProgramSceneName);
+    if (cur) this.currentScene = cur;
     this.onScenesRefreshed(this.scenes, this.currentScene);
     this._emitStatus(this.isConnected() ? 'connected' : 'idle');
     return { scenes: this.scenes, currentScene: this.currentScene };

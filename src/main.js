@@ -211,6 +211,8 @@ function collectLiveRuntime() {
   try { if (pkGroupEngine) out.pkgroup = pkGroupEngine.snapshotRuntime(); } catch {}
   try { if (likeWallEngine) out.likewall = likeWallEngine.snapshotRuntime(); } catch {}
   try { if (voteCommentEngine) out.votecmt = voteCommentEngine.snapshotRuntime(); } catch {}
+  try { if (missionTrioEngine) out.missiontrio = missionTrioEngine.snapshotRuntime(); } catch {}
+  try { if (cardFlipEngine) out.cardflip = cardFlipEngine.snapshotRuntime(); } catch {}
   return out;
 }
 function saveLiveRuntimeNow() {
@@ -282,6 +284,7 @@ function loadSettings() {
     // map: { "Scene Tên": ["pkduo","ranking",...overlayKey] }
     obsSceneMap: {},
     obsSceneBridgeEnabled: false,
+    ui: { whiteText: false },
     license: {
       key: '',
       vip: '',
@@ -294,18 +297,35 @@ function loadSettings() {
   };
   const raw = loadJson(SETTINGS_PATH, null);
   if (!raw) { saveJson(SETTINGS_PATH, def); return def; }
-  return ensureDefaultSounds({ ...def, ...raw });
+  const merged = ensureDefaultSounds({ ...def, ...raw });
+  // Ép tắt chữ trắng mặc định (kể cả cập nhật) — đến khi user tự bật
+  if (!raw.ui || !('whiteTextMigrated' in raw.ui)) {
+    merged.ui = merged.ui || {};
+    merged.ui.whiteText = false;
+    merged.ui.whiteTextMigrated = true;
+    try { saveJson(SETTINGS_PATH, merged); } catch {}
+  }
+  return merged;
 }
-// Đảm bảo âm "trước hiệu ứng" mặc định (ping) luôn có trên mọi máy:
+// Đảm bảo âm "trước hiệu ứng" luôn phát được:
 //  - Chưa chọn gì → dùng ping đóng gói + bật sẵn.
+//  - Đang trỏ tới file CUSTOM (user chọn) nhưng file không còn (xoá/di chuyển ổ) → fallback ping đóng gói + báo log.
 //  - Đang trỏ tới ping cũ nhưng file không còn (app di chuyển/cài lại) → trỏ lại ping hiện tại.
 function ensureDefaultSounds(s) {
   try {
     const a = s.audio = s.audio || {};
-    const cur = String(a.preEffectSound || '').replace(/^file:\/\/\//i, '');
+    const raw = String(a.preEffectSound || '').trim();
+    const cur = raw.replace(/^file:\/\/\//i, '').split('?')[0].split('#')[0];
+    try { if (cur) cur.replace(/%20/g, ' '); } catch {}
+    const decoded = (() => { try { return decodeURIComponent(cur); } catch { return cur; } })();
     if (!cur) { a.preEffectSound = DEFAULT_PRE_EFFECT_SOUND; if (a.preEffectEnabled == null) a.preEffectEnabled = true; }
-    else if (/ping-nhacho\.mp3$/i.test(cur) && !fs.existsSync(cur) && fs.existsSync(DEFAULT_PRE_EFFECT_SOUND)) {
-      a.preEffectSound = DEFAULT_PRE_EFFECT_SOUND;
+    else if (!fs.existsSync(decoded) && !fs.existsSync(cur)) {
+      // File custom đã mất (xoá/tháo ổ/migrate máy) → fallback ping mặc định để không im lặng.
+      if (fs.existsSync(DEFAULT_PRE_EFFECT_SOUND)) {
+        console.warn('[audio] preEffectSound missing, fallback to default:', decoded || cur);
+        a.preEffectSound = DEFAULT_PRE_EFFECT_SOUND;
+        if (a.preEffectEnabled == null) a.preEffectEnabled = true;
+      }
     }
   } catch {}
   return s;
@@ -4357,6 +4377,18 @@ class MissionTrioEngine {
       values: { donors: this.state.donors.size, likes: this.state.likes, points: this.state.points },
     };
   }
+  // Snapshot cho live-runtime.json — Set donors phải chuyển mảng để JSON.
+  snapshotRuntime() {
+    return { running: !!this.state.running, likes: this.state.likes || 0, points: this.state.points || 0, donors: [...(this.state.donors || [])] };
+  }
+  restoreRuntime(s) {
+    if (!s || typeof s !== 'object') return;
+    this.state.running = !!s.running;
+    this.state.likes = Math.max(0, Number(s.likes) || 0);
+    this.state.points = Math.max(0, Number(s.points) || 0);
+    this.state.donors = new Set(Array.isArray(s.donors) ? s.donors.map(x => String(x)) : []);
+    this._emit();
+  }
   _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
 }
 
@@ -4997,6 +5029,13 @@ class CardFlipEngine {
   selectCard(id, value) { const c = this._find(id); if (!c) return; c.selected = value == null ? !c.selected : !!value; this._emit(); }
   // serverNow → client tự tính lệch đồng hồ, canh đúng mốc lộ thẻ (flipAt + spinMs) dù kết nối trễ.
   getStateForOverlay() { return { ...this.config, running: this.state.running, hearts: this.state.hearts, serverNow: Date.now() }; }
+  snapshotRuntime() { return { running: !!this.state.running, hearts: Math.max(0, Number(this.state.hearts) || 0) }; }
+  restoreRuntime(s) {
+    if (!s || typeof s !== 'object') return;
+    this.state.running = !!s.running;
+    this.state.hearts = Math.max(0, Number(s.hearts) || 0);
+    this._emit();
+  }
   _emit() { try { this.onState(this.getStateForOverlay()); } catch {} }
 }
 
@@ -5408,6 +5447,7 @@ function bootstrapEngines() {
     onState: (st) => {
       overlayServer?.sendMissionTrio(st);
       throttledBroadcast('missiontrio:state', st);
+      scheduleLiveRuntimeSave();
     },
   });
   if (settings.missionTrio) missionTrioEngine.setConfig(settings.missionTrio);
@@ -5440,6 +5480,7 @@ function bootstrapEngines() {
     onState: (st) => {
       overlayServer?.sendCardFlip(st);
       throttledBroadcast('cardflip:state', st);
+      scheduleLiveRuntimeSave();
     },
   });
   if (settings.cardFlip) cardFlipEngine.setConfig(settings.cardFlip);
@@ -5470,6 +5511,8 @@ function bootstrapEngines() {
       try { pkGroupEngine.restoreRuntime(rt.pkgroup, opt); } catch {}
       try { likeWallEngine.restoreRuntime(rt.likewall); } catch {}
       try { voteCommentEngine.restoreRuntime(rt.votecmt, opt); } catch {}
+      try { missionTrioEngine.restoreRuntime(rt.missiontrio); } catch {}
+      try { cardFlipEngine.restoreRuntime(rt.cardflip); } catch {}
     }
   } catch {}
 
@@ -5534,6 +5577,16 @@ function _fillAvatar(ev) {
 // và showQty (chỉ nhịp chốt). Tách map để hai cách đếm không đè state của nhau.
 const _giftDeltaRepeats = new Map();
 const _giftShowRepeats = new Map();
+// Buffer broadcast quà sang renderer — gom bão combo (vd x100 hoa) để không dội IPC làm đơ ô nhập.
+// Engine tính điểm VẪN chạy ngay (routeGift), chỉ UI log được gom nhịp 40ms.
+let _giftBroadcastBuf = [];
+let _giftBroadcastTimer = null;
+function flushGiftBroadcast() {
+  const batch = _giftBroadcastBuf;
+  _giftBroadcastBuf = [];
+  _giftBroadcastTimer = null;
+  for (const g of batch) { try { broadcast('tt:gift', g); } catch {} }
+}
 
 // 🔍 NHẬT KÝ GÓI TIN QUÀ (gift-debug.log trong thư mục config).
 // Vì sao cần: lỗi "1 quà tính thành 2" đã tái đi tái lại nhiều bản vì KHÔNG ai biết TikTok thực sự
@@ -5597,7 +5650,9 @@ function bootstrapTikTok() {
     d.giftDelta = comboDelta(_giftDeltaRepeats, d);
     d.showQty = d.shouldProcess ? comboDelta(_giftShowRepeats, d) : 0;
     logGiftPacket(d); // ghi gói tin thô để đối chiếu khi nghi tính sai (xem logGiftPacket)
-    broadcast('tt:gift', d);
+    // Gom broadcast quà 40ms để bão combo không dội IPC làm đơ ô nhập (engine vẫn tính ngay bên dưới).
+    _giftBroadcastBuf.push(d);
+    if (!_giftBroadcastTimer) _giftBroadcastTimer = setTimeout(flushGiftBroadcast, 40);
     // Overlay TƯƠNG TÁC + QUÀ (cột quà trên) — mirror renderer: chỉ hiện ở nhịp chốt (né spam combo).
     if (d.showQty > 0) {
       const repeat = d.showQty;
@@ -5768,6 +5823,8 @@ async function bootstrapOverlay() {
       ? Object.fromEntries(OVERLAY_SCENE_KEYS.map(k => [k, false]))
       : ov.vis);
   }
+  // Chữ trắng phản nền sáng (mặc định TẮT)
+  try { overlayServer.setWhiteText(!!settings.ui?.whiteText); } catch {}
   // Khởi cầu nối OBS Scene → Overlay (nếu đã bật)
   try { ensureObsBridge(); } catch {}
   // Đang bật chế độ TikTok mà máy chưa có dòng hosts → tự cài (UAC 1 lần). Chạy nền, không chặn khởi động.
@@ -6825,6 +6882,10 @@ function registerIpc() {
         if (typeof o.autoReset === 'boolean') settings.obs.autoReset = o.autoReset;
       }
       saveSettings();
+      if (patch.ui && 'whiteText' in patch.ui) {
+        try { overlayServer?.setWhiteText(!!settings.ui.whiteText); } catch {}
+        try { broadcast('ui:whiteText', !!settings.ui.whiteText); } catch {}
+      }
       // Đồng bộ cầu nối OBS Scene khi đổi port/pass
       try {
         if (patch && patch.obs && obsBridge) {
@@ -7084,9 +7145,10 @@ app.whenReady().then(async () => {
 });
 
 // Thoát theo chương trình (app.quit ở bất kỳ đâu) → đánh dấu để cửa sổ chính không hỏi lại.
-app.on('before-quit', () => { isQuitting = true; try { flushLiveRuntime(); } catch {} });
+app.on('before-quit', () => { isQuitting = true; try { flushGiftBroadcast(); } catch {} try { flushLiveRuntime(); } catch {} });
 
 app.on('window-all-closed', () => {
+  try { flushGiftBroadcast(); } catch {}
   try { flushLiveRuntime(); } catch {}
   try { ttClient?.disconnect(); } catch {}
   try { overlayServer?.stop(); } catch {}
