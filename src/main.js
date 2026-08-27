@@ -2287,7 +2287,7 @@ class PkDuoEngine {
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
     // Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn (xem comboDelta).
-    const repeat = comboDelta(this._comboRepeats, ev);
+    const repeat = Number.isFinite(ev.giftDelta) ? ev.giftDelta : comboDelta(this._comboRepeats, ev);
     if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * repeat
@@ -2649,7 +2649,7 @@ class KcDuoEngine {
   }
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
-    const repeat = comboDelta(this._comboRepeats, ev);
+    const repeat = Number.isFinite(ev.giftDelta) ? ev.giftDelta : comboDelta(this._comboRepeats, ev);
     if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * repeat
@@ -3103,7 +3103,7 @@ class PkGroupEngine {
     const participants = this.config.participants || [];
     if (!participants.length) return;
     // Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn (xem comboDelta).
-    const repeat = comboDelta(this._comboRepeats, ev);
+    const repeat = Number.isFinite(ev.giftDelta) ? ev.giftDelta : comboDelta(this._comboRepeats, ev);
     if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * repeat
@@ -3395,8 +3395,8 @@ class StickerEngine {
     return this.rt[k];
   }
   routeGift(ev) {
-    // Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn (xem comboDelta).
-    const rep = comboDelta(this._comboRepeats, ev);
+    // Centralize delta: ưu tiên ev.giftDelta đã tính ở main (1 nguồn duy nhất cho mọi engine).
+    const rep = Number.isFinite(ev.giftDelta) ? ev.giftDelta : comboDelta(this._comboRepeats, ev);
     if (!rep) return;
     const dia = Math.max(0, resolveDiamond(ev));
     let matched = false;
@@ -3881,7 +3881,7 @@ class RankingEngine {
     // vì khi có Creator đang VOTE mọi điểm được điều khiển có chủ đích, không phải auto theo quà.
     if (this.config.showGift === false && !voted) return;
     // Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn (xem comboDelta).
-    const repeat = comboDelta(this._comboRepeats, ev);
+    const repeat = Number.isFinite(ev.giftDelta) ? ev.giftDelta : comboDelta(this._comboRepeats, ev);
     if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * repeat
@@ -4201,7 +4201,7 @@ class ScoreEngine {
   }
   routeGift(ev) {
     if (this.state.status !== 'running' && this.state.status !== 'grace') return;
-    const repeat = comboDelta(this._comboRepeats, ev);
+    const repeat = Number.isFinite(ev.giftDelta) ? ev.giftDelta : comboDelta(this._comboRepeats, ev);
     if (!repeat) return;
     const pts = this.config.pointsBy === 'diamond'
       ? Math.max(1, resolveDiamond(ev)) * repeat
@@ -4361,7 +4361,7 @@ class MissionTrioEngine {
     if (uid) this.state.donors.add(String(uid));
     // Điểm: 1 KIM CƯƠNG = 1 ĐIỂM. Đếm theo delta để KHÔNG mất combo khi gói chốt repeatEnd rớt/muộn
     // (xem comboDelta). Cộng ĐÚNG tổng kim cương (diamond × số quà mới), quà 0 kim cương cộng 0.
-    const repeat = comboDelta(this._comboRepeats, ev);
+    const repeat = Number.isFinite(ev.giftDelta) ? ev.giftDelta : comboDelta(this._comboRepeats, ev);
     if (repeat) this.state.points += Math.max(0, resolveDiamond(ev)) * repeat;
     this._emit();
   }
@@ -4769,7 +4769,7 @@ class VoteCommentEngine {
 
   routeGift(ev) {
     if (!this.state.active || !ev) return;
-    const repeat = comboDelta(this._comboRepeats, ev);
+    const repeat = Number.isFinite(ev.giftDelta) ? ev.giftDelta : comboDelta(this._comboRepeats, ev);
     if (!repeat) return;
     const xu = Math.max(0, resolveDiamond(ev)) * repeat;
     if (xu <= 0) return;
