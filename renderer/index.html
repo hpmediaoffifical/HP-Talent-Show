@@ -300,6 +300,7 @@
             <button class="nav-btn nav-child" data-tab="set-update" title="CẬP NHẬT"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg></span><span class="nav-txt">CẬP NHẬT</span></button>
             <button class="nav-btn nav-child" data-tab="set-overlay" title="LINK OVERLAY"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span class="nav-txt">LINK OVERLAY</span></button>
             <button class="nav-btn nav-child" data-tab="set-backup" title="SAO LƯU"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></span><span class="nav-txt">SAO LƯU</span></button>
+            <button class="nav-btn nav-child" data-tab="set-sceneobs" title="SCENE OBS"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2.5"/><circle cx="12" cy="10.5" r="3.2"/><path d="M8 19h8"/><path d="M12 14v5"/></svg></span><span class="nav-txt">SCENE OBS</span></button>
             <button class="nav-btn nav-child" data-tab="set-license" title="BẢN QUYỀN"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="nav-txt">BẢN QUYỀN</span></button>
             <button class="nav-btn nav-child" data-tab="set-audio" title="ÂM THANH"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span><span class="nav-txt">ÂM THANH</span></button>
           </div>
@@ -3416,7 +3417,7 @@
       <!-- ============ CÀI ĐẶT · SAO LƯU ============ -->
       <section class="panel" data-panel="set-backup">
         <h1>💾 Sao lưu &amp; WebSocket</h1>
-        <p class="sub">Sao lưu / khôi phục dữ liệu và làm mới overlay OBS qua WebSocket.</p>
+        <p class="sub">Sao lưu / khôi phục dữ liệu.</p>
 
         <div class="card">
           <h3>💾 Sao lưu / Khôi phục dữ liệu</h3>
@@ -3427,6 +3428,12 @@
           </div>
           <div class="hint" id="dataBackupHint">📦 Hiện có: đang tải…</div>
         </div>
+      </section>
+
+      <!-- ============ CÀI ĐẶT · SCENE OBS ============ -->
+      <section class="panel" data-panel="set-sceneobs">
+        <h1><span style="display:inline-flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><rect x="2" y="4" width="20" height="13" rx="2.5"/><circle cx="12" cy="10.5" r="3.2"/><path d="M8 19h8"/><path d="M12 14v5"/></svg> SCENE OBS</span></h1>
+        <p class="sub">Quản lý kết nối WebSocket và tự động ẩn/hiện overlay theo Scene OBS.</p>
 
         <div class="card">
           <h3>🔄 Reset overlay OBS (WebSocket)</h3>
@@ -3447,6 +3454,20 @@
             <button id="btnSaveObs" class="ghost" type="button">💾 Lưu cấu hình</button>
           </div>
           <div class="hint">💡 Cổng mặc định của OBS là <b>4455</b>. Có thể bấm <b>Ctrl + R</b> bất cứ lúc nào để reset nhanh overlay OBS.</div>
+        </div>
+
+        <div class="card" id="obsSceneBridgeCard">
+          <h3><span style="display:inline-flex;align-items:center;gap:7px"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2.5"/><circle cx="12" cy="10.5" r="3.2"/><path d="M8 19h8"/><path d="M12 14v5"/></svg> SCENE OBS → Overlay (tự ẩn/hiện)</span></h3>
+          <p class="sub">Bấm Scene nào đã gán cho overlay thì <b>chỉ overlay đó hiện</b>, các overlay còn lại tự tắt. Cần OBS đang mở và bật <b>WebSocket Server</b>.</p>
+          <label class="full check" style="margin:8px 0 10px">
+            <input id="obsBridgeEnabled" type="checkbox" /> Bật tự động ẩn/hiện theo Scene OBS
+          </label>
+          <div class="form-actions" style="margin-bottom:8px">
+            <button id="btnObsBridgeRefresh" class="ghost" type="button">🔃 Tải danh sách Scene từ OBS</button>
+            <span id="obsBridgeStatus" class="hint" style="margin-left:8px">—</span>
+          </div>
+          <div id="obsBridgeSceneList" class="hint" style="text-align:left;max-height:520px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:8px;background:#fafafa"></div>
+          <div class="hint" style="margin-top:8px">💡 Trong OBS tạo mỗi góc cam 1 Scene. Ở dưới, tick chọn overlay thuộc Scene đó. Khi đổi Scene (bấm trong OBS hoặc bấm nút Scene ở đây), overlay của Scene cũ tự tắt, Scene mới tự bật.</div>
         </div>
       </section>
 

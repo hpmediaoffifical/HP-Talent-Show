@@ -186,12 +186,17 @@ function ovEffectiveVis() {
   }
   return vis;
 }
-function ovPushEffective() { try { api.overlay.applyVisibility(ovEffectiveVis()); } catch {} }
+function isBridgeActive() { try { return !!(typeof obsBridgeCfg !== 'undefined' && obsBridgeCfg && obsBridgeCfg.enabled); } catch { return false; } }
+function ovPushEffective() {
+  if (isBridgeActive()) return; // SCENE OBS đang nắm quyền → không đẩy theo công tắc tay/menu
+  try { api.overlay.applyVisibility(ovEffectiveVis()); } catch {}
+}
 // Gọi khi đổi tab: ghi nhớ cảnh đang mở (nếu tab có overlay) rồi phát lại bản đồ hiệu lực. Luôn cập nhật nút nổi.
 function ovOnTab(tabId) {
+  ovUpdateTopToggle(tabId);
+  if (isBridgeActive()) return; // menu trái không gây ảnh hưởng OBS khi SCENE OBS bật
   const sc = OV_TAB_TO_SCENE[tabId];
   if (sc) { ovActiveScene = sc; if (ovVis.autoScene) ovPushEffective(); }
-  ovUpdateTopToggle(tabId);
 }
 // Nút nổi ở thanh trên: phản ánh + bật/tắt nhanh overlay của tab đang xem.
 function ovUpdateTopToggle(tabId) {
@@ -12332,6 +12337,7 @@ function wireDataBackup() {
 function wireSettingsTab() {
   wireDataBackup();
   wireObsReset();
+  wireObsBridge();
   $('#audioOutput').addEventListener('mousedown', () => loadAudioOutputs($('#audioOutput').value));
   $('#btnPickWaitingSound').addEventListener('click', async () => {
     const file = await window.api.shell.pickAudio();
@@ -12370,6 +12376,212 @@ function wireSettingsTab() {
       },
     });
     toast('💾 Đã lưu cài đặt âm thanh', 'success');
+  });
+}
+
+// ===== OBS Scene → Overlay Bridge (bấm Scene nào thì chỉ overlay đó hiện) =====
+let obsBridgeCfg = { enabled: false, map: {}, scenes: [], currentScene: '', connected: false };
+let obsBridgeExpanded = new Set(); // Scene nào đang mở danh sách nhóm (gọn/mở)
+const OVERLAY_KEY_LABEL = (() => {
+  const m = {};
+  try { for (const s of OV_SCENES) for (const it of s.items) m[it.key] = s.label + (s.items.length > 1 ? ' · ' + it.name : ''); } catch {}
+  return m;
+})();
+function obsBridgeRender() {
+  const box = document.getElementById('obsBridgeSceneList');
+  const st = document.getElementById('obsBridgeStatus');
+  const cb = document.getElementById('obsBridgeEnabled');
+  if (cb) cb.checked = !!obsBridgeCfg.enabled;
+  if (st) {
+    if (!obsBridgeCfg.enabled) st.textContent = '⏸ Đã tắt — bật để tự ẩn/hiện theo Scene';
+    else if (obsBridgeCfg.connected) st.textContent = `🟢 Đã kết nối OBS — Scene hiện tại: ${obsBridgeCfg.currentScene || '(chưa rõ)'} · ${obsBridgeCfg.scenes.length} Scene`;
+    else st.textContent = '🟡 Đang chờ OBS (mở OBS và bật WebSocket Server ở 127.0.0.1:' + (obsResetCfg.wsPort || 4455) + ')';
+  }
+  if (!box) return;
+  const map = obsBridgeCfg.map || {};
+  const scenes = obsBridgeCfg.scenes || [];
+  if (!obsBridgeCfg.enabled) {
+    box.innerHTML = '<div style="color:#6b7280">Bật công tắc trên để gán overlay cho từng Scene OBS. Khi đổi Scene (trong OBS hoặc bấm nút Scene ở đây), overlay của Scene cũ tự tắt, Scene mới tự bật — giải quyết dính overlay trên TikTok Studio.</div>';
+    return;
+  }
+  if (!scenes.length) {
+    box.innerHTML = '<div style="color:#6b7280">Chưa có danh sách Scene. Bấm <b>🔃 Tải danh sách Scene từ OBS</b> khi OBS đang mở.<br/>Hoặc gõ tên Scene thủ công ở ô dưới.</div>'
+      + obsBridgeManualAddRow();
+    box.querySelectorAll('[data-scene-toggle]').forEach(b => b.addEventListener('click', () => obsBridgeToggle(b.dataset.sceneToggle)));
+    box.querySelectorAll('[data-scene-switch]').forEach(b => b.addEventListener('click', () => obsBridgeSwitch(b.dataset.sceneSwitch)));
+    box.querySelectorAll('.obMapCb').forEach(cb2 => cb2.addEventListener('change', () => obsBridgeOnCheck(cb2)));
+    document.getElementById('obsBridgeAddBtn')?.addEventListener('click', obsBridgeManualAdd);
+    return;
+  }
+  let html = '';
+  for (const sc of scenes) {
+    const name = sc.sceneName;
+    const assigned = new Set(map[name] || []);
+    const isCurrent = obsBridgeCfg.currentScene === name;
+    // summary tags for quick recognition (groups with any checked)
+    const summaryTags = OV_SCENES.filter(g => g.items.some(it => assigned.has(it.key)))
+      .map(g => { const cnt = g.items.filter(it => assigned.has(it.key)).length; return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;background:${g.color}15;border:1px solid ${g.color}35;color:${g.color};font-size:11px;font-weight:800">${escapeHtml(g.label)}${g.items.length>1?` (${cnt}/${g.items.length})`:''}</span>`; }).join(' ') || '<span style="font-size:12px;color:#9ca3af">chưa gán</span>';
+    const isExpanded = obsBridgeExpanded.has(name) || (isCurrent && assigned.size>0);
+    html += `<div style="border:1px solid ${isCurrent ? '#f43f5e' : '#e5e7eb'};border-radius:10px;padding:8px 10px;margin-bottom:10px;background:${isCurrent ? '#fff1f2' : '#fff'}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button data-scene-switch="${escapeAttr(name)}" title="Chuyển OBS sang Scene này" style="flex:0 0 auto;padding:6px 10px;border-radius:999px;border:1px solid ${isCurrent ? '#f43f5e' : '#d1d5db'};background:${isCurrent ? '#f43f5e' : '#fff'};color:${isCurrent ? '#fff' : '#111827'};font-weight:800;cursor:pointer">${isCurrent ? '● ' : '○ '}${escapeHtml(name)}</button>
+        <span style="flex:1 1 auto;display:flex;flex-wrap:wrap;gap:5px;align-items:center">${summaryTags}</span>
+        <button class="obSceneToggle" data-scene="${escapeAttr(name)}" title="Gọn/mở danh sách overlay" style="padding:4px 10px;border-radius:999px;border:1px solid #d1d5db;background:#fff;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">${isExpanded?'▲ Ẩn':'▼ Hiện'}</button>
+        <span style="font-size:12px;color:#9ca3af">${isCurrent ? '← đang LIVE' : ''}</span>
+      </div>
+      <div class="obSceneGroups" data-groups-for="${escapeAttr(name)}" style="${isExpanded?'':'display:none;'}margin-top:6px">`;
+    // group-level checkboxes with hide/show
+    for (const grp of OV_SCENES) {
+      const keys = grp.items.map(it => it.key);
+      const checkedCnt = keys.filter(k => assigned.has(k)).length;
+      const all = checkedCnt === keys.length && keys.length>0;
+      const some = checkedCnt>0 && !all;
+      const grpId = `grp_${name}_${grp.scene}`.replace(/[^a-zA-Z0-9]/g,'_');
+      html += `<details style="margin-top:6px;border:1px solid ${checkedCnt? grp.color+'30' : '#f0f0f0'};border-radius:8px;background:${checkedCnt? grp.color+'08' : '#fafafa'}" ${checkedCnt? 'open':''}>
+        <summary style="display:flex;align-items:center;gap:7px;padding:6px 8px;cursor:pointer;list-style:none;user-select:none">
+          <input class="obGroupCb" type="checkbox" data-scene="${escapeAttr(name)}" data-group="${escapeAttr(grp.scene)}" ${all?'checked':''} style="accent-color:${grp.color}" />
+          <span style="width:8px;height:8px;border-radius:50%;background:${grp.color};flex:0 0 auto"></span>
+          <span style="font-weight:800;font-size:12.5px;color:#111827">${escapeHtml(grp.label)}</span>
+          <span style="font-size:11px;color:#6b7280">${checkedCnt}/${keys.length}</span>
+          ${some?'<span style="font-size:11px;color:'+grp.color+';font-weight:800">◐</span>':''}
+          <span style="margin-left:auto;font-size:11px;color:#9ca3af">${grp.items.length>1? (all?'ẩn':'hiện') : ''} ▾</span>
+        </summary>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px 8px;border-top:1px dashed ${grp.color}20">`;
+      for (const it of grp.items) {
+        const on = assigned.has(it.key);
+        const lbl = grp.items.length>1 ? `${grp.label} · ${it.name}` : grp.label;
+        html += `<label style="display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;border:1px solid ${on ? '#10b981' : '#e5e7eb'};background:${on ? '#ecfdf5' : '#fff'};font-size:12px;font-weight:700;cursor:pointer"><input class="obMapCb" type="checkbox" data-scene="${escapeAttr(name)}" data-key="${escapeAttr(it.key)}" ${on ? 'checked' : ''} /> ${escapeHtml(lbl)}</label>`;
+      }
+      html += `</div></details>`;
+    }
+    html += `</div></div>`;
+  }
+  html += obsBridgeManualAddRow();
+  box.innerHTML = html;
+  box.querySelectorAll('.obMapCb').forEach(cb2 => cb2.addEventListener('change', () => obsBridgeOnCheck(cb2)));
+  box.querySelectorAll('.obGroupCb').forEach(cbg => cbg.addEventListener('change', () => obsBridgeOnGroupCheck(cbg)));
+  box.querySelectorAll('.obSceneToggle').forEach(btn => btn.addEventListener('click', () => obsBridgeToggleScene(btn.dataset.scene)));
+  box.querySelectorAll('[data-scene-switch]').forEach(b => b.addEventListener('click', () => obsBridgeSwitch(b.dataset.sceneSwitch)));
+  document.getElementById('obsBridgeAddBtn')?.addEventListener('click', obsBridgeManualAdd);
+}
+function obsBridgeManualAddRow() {
+  return `<div style="display:flex;gap:8px;margin-top:6px;align-items:center"><input id="obsBridgeManualInput" placeholder="Tên Scene thủ công (nếu chưa tải danh sách)" style="flex:1;min-width:0;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px" /><button id="obsBridgeAddBtn" class="ghost" type="button">＋ Thêm Scene</button></div>`;
+}
+async function obsBridgeManualAdd() {
+  const inp = document.getElementById('obsBridgeManualInput');
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return toast('Nhập tên Scene', 'error');
+  if (!obsBridgeCfg.scenes.find(s => s.sceneName === name)) obsBridgeCfg.scenes.push({ sceneName: name });
+  if (!obsBridgeCfg.map[name]) obsBridgeCfg.map[name] = [];
+  if (inp) inp.value = '';
+  await obsBridgeSave();
+  obsBridgeRender();
+}
+function obsBridgeOnCheck(cb2) {
+  const scene = cb2.dataset.scene;
+  const key = cb2.dataset.key;
+  const on = cb2.checked;
+  const set = new Set(obsBridgeCfg.map[scene] || []);
+  if (on) set.add(key); else set.delete(key);
+  obsBridgeCfg.map[scene] = [...set];
+  obsBridgeSave();
+  obsBridgeRender();
+  if (obsBridgeCfg.currentScene === scene && obsBridgeCfg.enabled) {
+    window.api.obsBridge.applyScene(scene).catch(() => {});
+  }
+}
+function obsBridgeOnGroupCheck(cbg) {
+  const scene = cbg.dataset.scene;
+  const grpScene = cbg.dataset.group;
+  const grp = OV_SCENES.find(g => g.scene === grpScene);
+  if (!grp) return;
+  const on = cbg.checked;
+  const set = new Set(obsBridgeCfg.map[scene] || []);
+  for (const it of grp.items) { if (on) set.add(it.key); else set.delete(it.key); }
+  obsBridgeCfg.map[scene] = [...set];
+  obsBridgeSave();
+  obsBridgeRender();
+  if (obsBridgeCfg.currentScene === scene && obsBridgeCfg.enabled) {
+    window.api.obsBridge.applyScene(scene).catch(() => {});
+  }
+}
+function obsBridgeOnMasterCheck(cbm) {
+  const scene = cbm.dataset.scene;
+  const on = cbm.checked;
+  if (on) {
+    const allKeys = []; for (const g of OV_SCENES) for (const it of g.items) allKeys.push(it.key);
+    obsBridgeCfg.map[scene] = [...new Set(allKeys)];
+  } else {
+    obsBridgeCfg.map[scene] = [];
+  }
+  obsBridgeSave();
+  obsBridgeRender();
+  if (obsBridgeCfg.currentScene === scene && obsBridgeCfg.enabled) {
+    window.api.obsBridge.applyScene(scene).catch(() => {});
+  }
+}
+function obsBridgeToggleScene(scene) {
+  if (obsBridgeExpanded.has(scene)) obsBridgeExpanded.delete(scene);
+  else obsBridgeExpanded.add(scene);
+  obsBridgeRender();
+}
+async function obsBridgeSave() {
+  try {
+    const res = await window.api.obsBridge.setConfig({ enabled: obsBridgeCfg.enabled, map: obsBridgeCfg.map });
+    obsBridgeCfg.map = res.map || obsBridgeCfg.map;
+    obsBridgeCfg.enabled = !!res.enabled;
+  } catch {}
+}
+async function obsBridgeSwitch(name) {
+  try {
+    const r = await window.api.obsBridge.switchScene(name);
+    if (r.ok) { toast('Đã chuyển OBS sang Scene: ' + name, 'success'); obsBridgeCfg.currentScene = name; obsBridgeRender(); }
+    else toast('Không chuyển được Scene: ' + (r.error || ''), 'error');
+  } catch (e) { toast('Lỗi: ' + (e.message || e), 'error'); }
+}
+function obsBridgeToggle(name) { obsBridgeSwitch(name); }
+async function obsBridgeRefresh() {
+  const btn = document.getElementById('btnObsBridgeRefresh');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await window.api.obsBridge.getScenes();
+    if (r.ok) { obsBridgeCfg.scenes = r.scenes || []; obsBridgeCfg.currentScene = r.currentScene || ''; obsBridgeCfg.connected = true; }
+    else { obsBridgeCfg.connected = false; toast(r.error || 'Chưa kết nối OBS', 'error'); }
+  } catch (e) { toast('Lỗi tải Scene: ' + (e.message || e), 'error'); }
+  if (btn) btn.disabled = false;
+  obsBridgeRender();
+}
+function wireObsBridge() {
+  // load initial
+  window.api.obsBridge.getConfig().then(cfg => {
+    obsBridgeCfg.enabled = !!cfg.enabled;
+    obsBridgeCfg.map = cfg.map || {};
+    obsBridgeCfg.scenes = cfg.scenes || [];
+    obsBridgeCfg.currentScene = cfg.currentScene || '';
+    obsBridgeCfg.connected = !!cfg.connected;
+    obsBridgeRender();
+  }).catch(() => obsBridgeRender());
+  document.getElementById('obsBridgeEnabled')?.addEventListener('change', async (e) => {
+    obsBridgeCfg.enabled = !!e.target.checked;
+    await obsBridgeSave();
+    if (obsBridgeCfg.enabled) await obsBridgeRefresh();
+    obsBridgeRender();
+    toast(obsBridgeCfg.enabled ? 'Đã bật liên kết Scene → Overlay' : 'Đã tắt liên kết Scene', obsBridgeCfg.enabled ? 'success' : '');
+  });
+  document.getElementById('btnObsBridgeRefresh')?.addEventListener('click', obsBridgeRefresh);
+  // realtime
+  window.api.on('obs:bridgeStatus', (info) => {
+    if (!info) return;
+    if ('connected' in info) obsBridgeCfg.connected = !!info.connected;
+    if (info.currentScene) obsBridgeCfg.currentScene = info.currentScene;
+    if (Array.isArray(info.scenes)) obsBridgeCfg.scenes = info.scenes;
+    obsBridgeRender();
+  });
+  window.api.on('obs:sceneChanged', (data) => {
+    if (data && data.sceneName) { obsBridgeCfg.currentScene = data.sceneName; obsBridgeRender(); }
+  });
+  window.api.on('obs:sceneList', (data) => {
+    if (data && Array.isArray(data.scenes)) { obsBridgeCfg.scenes = data.scenes; obsBridgeCfg.currentScene = data.currentScene || obsBridgeCfg.currentScene; obsBridgeRender(); }
   });
 }
 

@@ -14,6 +14,7 @@ const { ObsOverlayServer } = require('./obs-overlay-server');
 // Bộ đếm combo quà — tách module để chạy được scripts/test-gift-combo.js (replay chuỗi gói tin thật).
 const { comboDelta } = require('./gift-combo');
 const hostsSetup = require('./hosts-setup');
+const { ObsSceneBridge } = require('./obs-scene-bridge');
 
 const ROOT = path.join(__dirname, '..');
 // Đổi tên hiển thị app → "HP GROUP LIVE" NHƯNG giữ nguyên thư mục dữ liệu cũ.
@@ -103,6 +104,7 @@ let win = null;
 let isQuitting = false; // true khi app đang thoát theo chương trình → bỏ qua hộp thoại xác nhận đóng
 let quitPromptOpen = false; // true khi popup xác nhận thoát (renderer) đang mở → tránh gửi trùng
 let ttClient = null;
+let obsBridge = null;
 
 // Dialog gốc — chỉ dùng khi renderer không hiển thị được popup đẹp (treo/đang tải/crash).
 function nativeQuitConfirm() {
@@ -276,6 +278,10 @@ function loadSettings() {
       wsPassword: '',
       autoReset: true,
     },
+    // Liên kết Scene OBS → Overlay: khi đổi Scene OBS thì tự bật overlay thuộc Scene đó và tắt bên còn lại.
+    // map: { "Scene Tên": ["pkduo","ranking",...overlayKey] }
+    obsSceneMap: {},
+    obsSceneBridgeEnabled: false,
     license: {
       key: '',
       vip: '',
@@ -5641,6 +5647,57 @@ const OVERLAY_SCENE_KEYS = [
   'mvphonor', 'luckywheel', 'missiontrio', 'likewall', 'votecmt', 'cardflip', 'cardflipfx',
   'dancevideo', 'dancevideo2', 'dancevideo3', 'interact',
 ];
+// ===== OBS Scene → Overlay mapping =====
+function getObsSceneMap() {
+  const raw = settings.obsSceneMap;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [scene, keys] of Object.entries(raw)) {
+    const k = String(scene || '').trim();
+    if (!k) continue;
+    const arr = Array.isArray(keys) ? keys.map(x => String(x).trim()).filter(Boolean) : [];
+    out[k] = [...new Set(arr.filter(c => OVERLAY_SCENE_KEYS.includes(c)))];
+  }
+  return out;
+}
+function applyObsSceneToOverlays(sceneName) {
+  const name = String(sceneName || '').trim();
+  if (!settings.obsSceneBridgeEnabled) return false;
+  const map = getObsSceneMap();
+  // Không có map cho scene này → giữ nguyên vis tay (không đụng)
+  if (!name || !(name in map)) return false;
+  const keys = map[name] || [];
+  // Bật overlay thuộc Scene này, tắt toàn bộ còn lại (đúng yêu cầu: bấm Scene nào thì chỉ Scene đó hiện)
+  const nextVis = {};
+  for (const k of OVERLAY_SCENE_KEYS) nextVis[k] = keys.includes(k);
+  overlayServer?.setVisibility(nextVis);
+  // phát thêm event cho renderer cập nhật badge
+  broadcast('obs:sceneChanged', { sceneName: name, vis: nextVis, mapKeys: keys });
+  return true;
+}
+function ensureObsBridge() {
+  if (obsBridge) return obsBridge;
+  obsBridge = new ObsSceneBridge({
+    onSceneChanged: (sceneName) => {
+      try { applyObsSceneToOverlays(sceneName); } catch {}
+    },
+    onStatus: (info) => {
+      try { broadcast('obs:bridgeStatus', info); } catch {}
+    },
+    onScenesRefreshed: (scenes, current) => {
+      try { broadcast('obs:sceneList', { scenes, currentScene: current }); } catch {}
+    },
+  });
+  // initial configure
+  obsBridge.configure({
+    wsPort: settings.obs?.wsPort || 4455,
+    wsPassword: settings.obs?.wsPassword || '',
+    enabled: !!settings.obsSceneBridgeEnabled,
+    map: getObsSceneMap(),
+  });
+  return obsBridge;
+}
+
 // Đọc cấu hình ẩn/hiện overlay (chuẩn hoá + mặc định): hiện hết, tự-theo-menu BẬT, ghim sẵn TƯƠNG TÁC + Menu Quà.
 // visModel = phiên bản mô hình lưu. Bản CŨ (<2) từng ghi auto-ẩn theo menu ĐÈ vào 'vis' (lựa chọn tay),
 // để lại các 'false' rác khiến overlay bị "ẩn dính". Nâng cấp lên model 2: XÓA hết false rác về mặc định HIỆN,
@@ -5711,6 +5768,8 @@ async function bootstrapOverlay() {
       ? Object.fromEntries(OVERLAY_SCENE_KEYS.map(k => [k, false]))
       : ov.vis);
   }
+  // Khởi cầu nối OBS Scene → Overlay (nếu đã bật)
+  try { ensureObsBridge(); } catch {}
   // Đang bật chế độ TikTok mà máy chưa có dòng hosts → tự cài (UAC 1 lần). Chạy nền, không chặn khởi động.
   if (overlayServer.isTikTokLinkMode() && !hostsSetup.hasOverlayHostEntry()) ensureOverlayHostsAndNotify(true);
   // Lưu sẵn avatar các creator/nhóm ra đĩa (không chặn khởi động).
@@ -6064,6 +6123,58 @@ function registerIpc() {
   ipcMain.handle('hosts:fix', async () => {
     const present = await ensureOverlayHostsAndNotify(true);
     return { present, hostname: hostsSetup.OVERLAY_HOSTNAME };
+  });
+
+  // ===== OBS Scene → Overlay Bridge =====
+  ipcMain.handle('obsBridge:getConfig', () => {
+    const map = getObsSceneMap();
+    const bridge = ensureObsBridge();
+    const st = bridge.getConfig();
+    return { enabled: !!settings.obsSceneBridgeEnabled, map, currentScene: st.currentScene || '', connected: st.connected, scenes: st.scenes || [] };
+  });
+  ipcMain.handle('obsBridge:setConfig', (_e, patch = {}) => {
+    if ('enabled' in patch) settings.obsSceneBridgeEnabled = !!patch.enabled;
+    if (patch.map && typeof patch.map === 'object' && !Array.isArray(patch.map)) {
+      const clean = {};
+      for (const [scene, keys] of Object.entries(patch.map)) {
+        const k = String(scene || '').trim();
+        if (!k) continue;
+        const arr = Array.isArray(keys) ? keys.map(x => String(x).trim()).filter(Boolean) : [];
+        clean[k] = [...new Set(arr.filter(c => OVERLAY_SCENE_KEYS.includes(c)))];
+        if (clean[k].length === 0) delete clean[k];
+      }
+      settings.obsSceneMap = clean;
+    }
+    saveSettings();
+    const bridge = ensureObsBridge();
+    bridge.configure({ wsPort: settings.obs?.wsPort || 4455, wsPassword: settings.obs?.wsPassword || '', enabled: !!settings.obsSceneBridgeEnabled, map: getObsSceneMap() });
+    // nếu vừa bật và đã có currentScene → áp ngay
+    if (settings.obsSceneBridgeEnabled && bridge.getCurrentScene()) applyObsSceneToOverlays(bridge.getCurrentScene());
+    return { enabled: !!settings.obsSceneBridgeEnabled, map: getObsSceneMap(), currentScene: bridge.getCurrentScene() || '', connected: bridge.isConnected(), scenes: bridge.getScenes() };
+  });
+  ipcMain.handle('obsBridge:getScenes', async () => {
+    const bridge = ensureObsBridge();
+    if (!bridge.isConnected()) {
+      // thử kết nối nếu đang enabled nhưng chưa connected
+      if (settings.obsSceneBridgeEnabled) bridge.start();
+      // đợi 1 nhịp rồi thử fetch
+      await new Promise(r => setTimeout(r, 900));
+    }
+    try {
+      const res = await bridge.refreshSceneList();
+      return { ok: true, scenes: res.scenes, currentScene: res.currentScene };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e), scenes: bridge.getScenes(), currentScene: bridge.getCurrentScene() };
+    }
+  });
+  ipcMain.handle('obsBridge:switchScene', async (_e, sceneName) => {
+    const bridge = ensureObsBridge();
+    try { await bridge.switchScene(sceneName); return { ok: true, sceneName: String(sceneName) }; }
+    catch (e) { return { ok: false, error: e.message || String(e) }; }
+  });
+  ipcMain.handle('obsBridge:applyScene', (_e, sceneName) => {
+    const ok = applyObsSceneToOverlays(sceneName);
+    return { ok, sceneName: String(sceneName || '') };
   });
 
   // GIỮ / ĐỔI (Keep/Change)
@@ -6714,6 +6825,12 @@ function registerIpc() {
         if (typeof o.autoReset === 'boolean') settings.obs.autoReset = o.autoReset;
       }
       saveSettings();
+      // Đồng bộ cầu nối OBS Scene khi đổi port/pass
+      try {
+        if (patch && patch.obs && obsBridge) {
+          obsBridge.configure({ wsPort: settings.obs?.wsPort || 4455, wsPassword: settings.obs?.wsPassword || '', enabled: !!settings.obsSceneBridgeEnabled, map: getObsSceneMap() });
+        }
+      } catch {}
     }
     return true;
   });

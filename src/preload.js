@@ -373,6 +373,14 @@ const api = {
     // Trả chuỗi xác thực OBS WebSocket v5 (mật khẩu nằm ở main, renderer không thấy).
     authString: (salt, challenge) => ipcRenderer.invoke('obs:authString', { salt, challenge }),
   },
+  // ===== OBS Scene → Overlay Bridge =====
+  obsBridge: {
+    getConfig: () => ipcRenderer.invoke('obsBridge:getConfig'),
+    setConfig: (patch) => ipcRenderer.invoke('obsBridge:setConfig', patch),
+    getScenes: () => ipcRenderer.invoke('obsBridge:getScenes'),
+    switchScene: (name) => ipcRenderer.invoke('obsBridge:switchScene', name),
+    applyScene: (name) => ipcRenderer.invoke('obsBridge:applyScene', name),
+  },
 
   // ===== Events from main =====
   on: (channel, handler) => {
@@ -386,6 +394,7 @@ const api = {
       'tt:recipientLearned',
       'app:confirmQuit',
       'hosts:status',
+      'obs:bridgeStatus', 'obs:sceneChanged', 'obs:sceneList',
       'license:warn',
       'log',
     ]);
