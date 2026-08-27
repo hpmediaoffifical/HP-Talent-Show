@@ -3117,7 +3117,6 @@
             <input id="ovlAutoScene" type="checkbox" /><span></span>
             <b>Hiện / Ẩn tất cả overlay</b>
           </label>
-          <p class="sub" style="margin:6px 0 10px"><b>BẬT</b>: tất cả overlay lên sóng cùng lúc (vẫn có thể bấm tay <b>Hiện/Ẩn</b> từng cái bên dưới hoặc nút nổi 🟢 ở thanh trên). <b>TẮT</b>: ẩn <b>TẤT CẢ</b> overlay — trong suốt trên OBS/TikTok, <b>không</b> tắt engine, <b>không</b> dừng nhạc/video.</p>
           <div class="ovl-vis-list" id="ovlVisList"></div>
         </div>
 
@@ -3367,7 +3366,6 @@
         <!-- 💬 TƯƠNG TÁC + 🎁 QUÀ · Tuỳ chỉnh overlay gộp -->
         <details class="card if-card" open>
           <summary class="dv-summary"><span class="dv-summary__ico">💬</span> TƯƠNG TÁC + QUÀ · Tuỳ chỉnh overlay</summary>
-          <p class="sub">Cột dọc 1080×1920: 🎁 <b>QUÀ TẶNG</b> ở trên, 💬 <b>TƯƠNG TÁC</b> ở dưới. Kéo vạch chia trên cửa sổ Review (hoặc OBS ▸ <b>Interact</b>) để đổi tỉ lệ — vị trí được ghi nhớ.</p>
           <div class="if-sub">Cột hiển thị</div>
           <div class="if-grid">
             <label class="if-check"><input type="checkbox" id="ifShowGift" checked /> 🎁 Hiện QUÀ TẶNG</label>
@@ -3424,7 +3422,6 @@
 
         <div class="card">
           <h3>💾 Sao lưu / Khôi phục dữ liệu</h3>
-          <p class="sub">Xuất toàn bộ <b>Creator + Nhóm</b> ra 1 file để chuyển sang máy khác hoặc sao lưu. Bản cài đặt mới <b>không</b> kèm sẵn danh sách Creator/nhóm — hãy Xuất ở máy cũ và Nhập ở máy mới.</p>
           <div class="form-actions">
             <button id="btnExportData" class="primary" type="button">⬆ Xuất dữ liệu (Creator + Nhóm)</button>
             <button id="btnImportData" class="ghost" type="button">⬇ Nhập dữ liệu từ file</button>
@@ -3436,11 +3433,9 @@
       <!-- ============ CÀI ĐẶT · SCENE OBS ============ -->
       <section class="panel" data-panel="set-sceneobs">
         <h1><span style="display:inline-flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><rect x="2" y="4" width="20" height="13" rx="2.5"/><circle cx="12" cy="10.5" r="3.2"/><path d="M8 19h8"/><path d="M12 14v5"/></svg> SCENE OBS</span></h1>
-        <p class="sub">Quản lý kết nối WebSocket và tự động ẩn/hiện overlay theo Scene OBS.</p>
 
         <div class="card">
           <h3>🔄 Reset overlay OBS (WebSocket)</h3>
-          <p class="sub">Tự làm mới (refresh cache) các <b>Browser Source</b> đang trỏ tới link overlay localhost của app — <b>không</b> đụng dữ liệu app hay thông số OBS khác. Cần bật <b>Tools → WebSocket Server Settings</b> trong OBS.</p>
           <div class="form-grid">
             <label>Cổng OBS WebSocket
               <input id="obsWsPort" type="number" min="1" max="65535" value="4455" />
@@ -3456,18 +3451,15 @@
             <button id="btnObsResetNow" class="primary" type="button">🔄 Reset overlay OBS ngay</button>
             <button id="btnSaveObs" class="ghost" type="button">💾 Lưu cấu hình</button>
           </div>
-          <div class="hint">💡 Cổng mặc định của OBS là <b>4455</b>. Có thể bấm <b>Ctrl + R</b> bất cứ lúc nào để reset nhanh overlay OBS.</div>
         </div>
 
         <div class="card">
           <h3>🎨 Hiển thị</h3>
-          <label class="full check"><input id="whiteTextToggle" type="checkbox" /> Chữ trắng phản nền sáng — toàn bộ chữ đen (Amy/Harley, điểm 0) thành trắng có bóng, dễ đọc trên nền vàng/xanh nhạt. Mặc định <b>tắt</b>.</label>
-          <div class="hint">Bật để overlay PK Nhóm / Tính điểm… chữ đen → trắng. Đặt ở cài đặt chung cho gọn, áp cho mọi overlay qua WebSocket.</div>
+          <label class="full check"><input id="whiteTextToggle" type="checkbox" /> Chữ trắng phản nền sáng</label>
         </div>
 
         <div class="card" id="obsSceneBridgeCard">
-          <h3><span style="display:inline-flex;align-items:center;gap:7px"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2.5"/><circle cx="12" cy="10.5" r="3.2"/><path d="M8 19h8"/><path d="M12 14v5"/></svg> SCENE OBS → Overlay (tự ẩn/hiện)</span></h3>
-          <p class="sub">Bấm Scene nào đã gán cho overlay thì <b>chỉ overlay đó hiện</b>, các overlay còn lại tự tắt. Cần OBS đang mở và bật <b>WebSocket Server</b>.</p>
+          <h3><span style="display:inline-flex;align-items:center;gap:7px"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2.5"/><circle cx="12" cy="10.5" r="3.2"/><path d="M8 19h8"/><path d="M12 14v5"/></svg> SCENE OBS → Overlay</span></h3>
           <label class="full check" style="margin:8px 0 10px">
             <input id="obsBridgeEnabled" type="checkbox" /> Bật tự động ẩn/hiện theo Scene OBS
           </label>
@@ -3476,7 +3468,6 @@
             <span id="obsBridgeStatus" class="hint" style="margin-left:8px">—</span>
           </div>
           <div id="obsBridgeSceneList" class="hint" style="text-align:left;max-height:520px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:8px;background:#fafafa"></div>
-          <div class="hint" style="margin-top:8px">💡 Trong OBS tạo mỗi góc cam 1 Scene. Ở dưới, tick chọn overlay thuộc Scene đó. Khi đổi Scene (bấm trong OBS hoặc bấm nút Scene ở đây), overlay của Scene cũ tự tắt, Scene mới tự bật.</div>
         </div>
       </section>
 

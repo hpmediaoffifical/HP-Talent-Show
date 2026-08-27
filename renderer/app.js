@@ -12583,6 +12583,24 @@ function wireObsBridge() {
   window.api.on('obs:sceneList', (data) => {
     if (data && Array.isArray(data.scenes)) { obsBridgeCfg.scenes = data.scenes; obsBridgeCfg.currentScene = data.currentScene || obsBridgeCfg.currentScene; obsBridgeRender(); }
   });
+  // Chữ trắng phản nền sáng
+  window.api.settings.get().then(s => {
+    const on = !!(s.ui && s.ui.whiteText);
+    const cb = document.getElementById('whiteTextToggle');
+    if (cb) cb.checked = on;
+    document.documentElement.classList.toggle('white-text', on);
+  }).catch(()=>{});
+  document.getElementById('whiteTextToggle')?.addEventListener('change', async (e) => {
+    const on = !!e.target.checked;
+    document.documentElement.classList.toggle('white-text', on);
+    try { await window.api.settings.set({ui:{whiteText:on}}); } catch {}
+    toast(on ? 'Đã bật chữ trắng phản nền sáng' : 'Đã tắt chữ trắng', on ? 'success' : '');
+  });
+  window.api.on('ui:whiteText', (on) => {
+    const cb = document.getElementById('whiteTextToggle');
+    if (cb) cb.checked = !!on;
+    document.documentElement.classList.toggle('white-text', !!on);
+  });
 }
 
 // Cấu hình + nút reset overlay OBS qua WebSocket.

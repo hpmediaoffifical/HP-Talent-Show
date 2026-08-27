@@ -11,7 +11,7 @@
   "showCount": false,
   "edgeStops": true,
   "autoRemove": true,
-  "spinCount": 7,
+  "spinCount": 8,
   "selectedSpinner": null,
   "segments": [
     {
@@ -47,6 +47,23 @@
       "contestCreatorId": "c_mrtg2crd6d27p",
       "contestOrder": 10,
       "contestSpinId": "sp_msdltvdf_2"
+    },
+    {
+      "id": "lw_5s0gthv",
+      "text": "Số 1",
+      "note": "",
+      "type": "info",
+      "color": "#ff3d71",
+      "weight": 10,
+      "jackpot": false,
+      "won": true,
+      "drawn": false,
+      "wonBy": "",
+      "wonAvatar": "",
+      "wonCreatorId": "",
+      "contestCreatorId": "",
+      "contestOrder": 0,
+      "contestSpinId": ""
     },
     {
       "id": "lw_zciibcr",
@@ -88,23 +105,6 @@
       "note": "",
       "type": "info",
       "color": "#ffd23f",
-      "weight": 10,
-      "jackpot": false,
-      "won": false,
-      "drawn": false,
-      "wonBy": "",
-      "wonAvatar": "",
-      "wonCreatorId": "",
-      "contestCreatorId": "",
-      "contestOrder": 0,
-      "contestSpinId": ""
-    },
-    {
-      "id": "lw_5s0gthv",
-      "text": "Số 1",
-      "note": "",
-      "type": "info",
-      "color": "#ff3d71",
       "weight": 10,
       "jackpot": false,
       "won": false,
@@ -186,6 +186,15 @@
     }
   ],
   "history": [
+    {
+      "id": "sp_mtbwbzve_1",
+      "time": "2026-08-27T19:08:53.210Z",
+      "member": "",
+      "segId": "lw_5s0gthv",
+      "text": "Số 1",
+      "note": "",
+      "type": "info"
+    },
     {
       "id": "sp_msdltvdf_2",
       "time": "2026-08-03T19:10:41.427Z",

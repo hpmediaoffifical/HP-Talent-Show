@@ -395,6 +395,7 @@ const api = {
       'app:confirmQuit',
       'hosts:status',
       'obs:bridgeStatus', 'obs:sceneChanged', 'obs:sceneList',
+      'ui:whiteText',
       'license:warn',
       'log',
     ]);

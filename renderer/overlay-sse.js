@@ -43,6 +43,7 @@
         if (v !== loadedVer) { loadedVer = v; try { location.reload(); } catch (_) {} }
       });
       es.addEventListener('__vis', function (e) { bump(); window.applyOverlayVisibility(VIS_KEY, e.data); });
+      es.addEventListener('__white', function (e) { bump(); try { document.documentElement.classList.toggle('white-text', String(e.data).trim() === '1' || String(e.data).trim() === 'true'); } catch {} });
       es.addEventListener(eventName, function (e) {
         bump();
         const payload = e.data || '{}';

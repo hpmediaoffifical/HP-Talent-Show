@@ -85,3 +85,17 @@ body.overlay-review .review-grip { display: block; }
 .review-grip:hover svg, .review-grip.dragging svg { opacity: 1; stroke: #4dd0ff; }
 .review-grip-badge { position: absolute; right: 100%; bottom: 100%; margin: 0 5px 5px 0; padding: 2px 8px; border-radius: 6px; background: rgba(12, 16, 22, .94); color: #4dd0ff; font: 700 12px/1 'Inter', 'Segoe UI', sans-serif; white-space: nowrap; opacity: 0; transform: translateY(4px); transition: opacity .12s, transform .12s; pointer-events: none; }
 .review-grip.dragging .review-grip-badge { opacity: 1; transform: none; }
+
+/* Chữ trắng phản nền sáng — bật qua CÀI ĐẶT → SCENE OBS → Hiển thị */
+html.white-text .pkg-joined-names b,
+html.white-text .pkg-segment b,
+html.white-text .pkg-name-chip b,
+html.white-text .pkg-card-bar b,
+html.white-text .pkg-board .pkg-title b,
+html.white-text .score-creator,
+html.white-text .score-points,
+html.white-text .pkg-joined-bar b,
+html.white-text .pkg-mvp-total,
+html.white-text .pkg-donor b,
+html.white-text .score-points b { color:#fff !important; --tc:#fff !important; text-shadow:0 2px 6px rgba(0,0,0,.85), 0 1px 2px rgba(0,0,0,.9) !important; }
+html.white-text .pkg-joined-names > div::after { border-color: rgba(255,255,255,.45) !important; }

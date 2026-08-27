@@ -199,6 +199,7 @@ function connect() {
       if (v !== loadedVer) { loadedVer = v; try { location.reload(); } catch {} }
     });
     es.addEventListener('__vis', (e) => { bump(); try { window.applyOverlayVisibility && window.applyOverlayVisibility('interact', e.data); } catch {} });
+    es.addEventListener('__white', (e) => { bump(); try { document.documentElement.classList.toggle('white-text', String(e.data).trim() === '1'); } catch {} });
     es.addEventListener('interact', (e) => { bump(); try { applyConfig(JSON.parse(e.data || '{}')); } catch {} });
     es.addEventListener('ichat', (e) => { bump(); try { handleEvent(JSON.parse(e.data || '{}'), 'chat'); } catch {} });
     es.addEventListener('igift', (e) => { bump(); try { handleEvent(JSON.parse(e.data || '{}'), 'gift'); } catch {} });

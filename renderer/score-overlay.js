@@ -340,10 +340,37 @@ function buildStructure(state, v) {
   els.scoreNum = els.scoreChipVal || els.pointsCur;
   // DOM vừa dựng lại → huỷ roll đang chạy (element cũ đã tháo) để lượt sau set thẳng số vào element mới.
   if (badgeRollRaf) { cancelAnimationFrame(badgeRollRaf); badgeRollRaf = 0; }
+  // reset marquee state khi dựng lại khung
+  if (els.tabText) { els.tabText.classList.remove('is-marquee'); els.tabText.style.removeProperty('--sc-marquee-dur'); }
   // .st-top5 vừa dựng lại là element RỖNG → ép nạp lại danh sách (khỏi bị trống khi chạy→kết thúc do sig không đổi).
   lastTop5Sig = '';
   // Sóng chảy đồng bộ theo đồng hồ toàn cục — chỉ đặt khi dựng lại (element mới) để không giật giữa chừng.
   root.style.setProperty('--score-flow-delay', `${(-(Date.now() % 1000) / 1000).toFixed(3)}s`);
+}
+
+function applyTabMarquee(raw) {
+  const el = els.tabText;
+  const tab = document.querySelector('.sc-tab');
+  if (!el || !tab) return;
+  const text = String(raw || '').trim();
+  // reset
+  el.classList.remove('is-marquee');
+  el.style.removeProperty('--sc-marquee-dur');
+  el.textContent = text;
+  if (!text) return;
+  // chỉ áp cho layout KÊU GỌI khi tab hiển thị
+  if (!tab.offsetParent && getComputedStyle(tab).display === 'none') return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const tabW = tab.clientWidth;
+      const txtW = el.scrollWidth;
+      if (txtW <= tabW - 4) return; // vừa khung → không cần chạy
+      const dur = Math.max(5, Math.min(14, text.length * 0.32));
+      el.style.setProperty('--sc-marquee-dur', dur + 's');
+      el.classList.add('is-marquee');
+      el.innerHTML = `<span class="sc-tab-marquee"><span>${esc(text)}</span><span aria-hidden="true">${esc(text)}</span></span>`;
+    });
+  });
 }
 
 function render(state = {}) {
@@ -504,8 +531,16 @@ function render(state = {}) {
 
   // Cập nhật tại chỗ (không dựng lại DOM → animation chạy liền mạch)
   if (els.timeText) els.timeText.textContent = statusText;
-  // Tiêu đề thẻ = tên idol (mặc định); nếu điền "Nội dung" thì Nội dung ghi đè làm tên chính
-  if (els.tabText) els.tabText.textContent = content.trim() ? content : creator;
+  // Tiêu đề thẻ = tên idol (mặc định); nếu điền "Nội dung Tên" thì Nội dung ghi đè — dài quá thì chạy marquee vô hạn
+  if (els.tabText) {
+    const tabRaw = content.trim() ? content.trim() : creator;
+    // nếu đang marquee và text không đổi thì giữ nguyên để không giật
+    const curRaw = els.tabText.dataset.raw || '';
+    if (tabRaw !== curRaw) {
+      els.tabText.dataset.raw = tabRaw;
+      applyTabMarquee(tabRaw);
+    }
+  }
   if (els.scoreChipVal) els.scoreChipVal.textContent = fmt(score);
   if (els.targetLabel) els.targetLabel.textContent = fmt(target);
   if (els.pointsCur) els.pointsCur.textContent = fmt(score);

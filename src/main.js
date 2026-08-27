@@ -342,13 +342,55 @@ function avatarCacheKey(value) {
   }
 }
 
+function isAvatarUrlExpired(url) {
+  try {
+    const u = new URL(String(url || ''));
+    const exp = u.searchParams.get('x-expires');
+    if (!exp) return false;
+    const expMs = Number(exp) * 1000;
+    if (!Number.isFinite(expMs)) return false;
+    return Date.now() > expMs - 3600 * 1000;
+  } catch { return false; }
+}
+
 // Lúc mở app: tải & lưu ĐĨA avatar của MỌI creator/nhóm đang có URL (thường còn hạn ~2 ngày).
 // Sau đó OBS luôn phục vụ avatar từ đĩa → không phụ thuộc TikTok (hết hạn/chặn) → hết avatar trắng.
 // Chạy tuần tự có nghỉ để không "dội" TikTok CDN. Bỏ qua ảnh đã có trên đĩa (primeAvatar tự kiểm).
+// Nếu URL đã hết hạn (x-expires) thì tự động lấy lại avatar mới qua browser để luôn có ảnh chính xác.
 let _primedAvatars = false;
 async function primeStoredAvatars() {
   if (_primedAvatars || !overlayServer) return;
   _primedAvatars = true;
+  // Ưu tiên làm mới những avatar đã hết hạn trước khi prime đĩa
+  try {
+    const creators = loadCreators();
+    let changed = false;
+    for (const c of creators) {
+      if (!c.tiktokId) continue;
+      const needRefresh = !c.avatar || /hp-logo\.(png|ico)/i.test(c.avatar) || isAvatarUrlExpired(c.avatar);
+      if (!needRefresh) continue;
+      // Tránh spam: nếu vừa thử và thất bại trong 1h thì bỏ qua
+      if (c.avatarFetchFailedAt && Date.now() - Number(c.avatarFetchFailedAt) < 3600 * 1000) continue;
+      let fresh = null;
+      try { fresh = await fetchTikTokProfileWithBrowser(c.tiktokId, { sessionId: settings.sessionId || '' }, 15000); } catch {}
+      if (fresh && fresh.avatar && fresh.avatar !== c.avatar) {
+        c.avatar = fresh.avatar;
+        c.avatarCacheKey = avatarCacheKey(fresh.avatar);
+        c.avatarFetchedAt = Date.now();
+        c.avatarSource = 'auto-refresh';
+        c.avatarFetchFailedAt = 0;
+        if (fresh.nickname && !c.nickname) c.nickname = fresh.nickname;
+        if (fresh.userId && !c.userId) c.userId = fresh.userId;
+        changed = true;
+        try { await overlayServer.primeAvatar(c.avatar); } catch {}
+      } else {
+        c.avatarFetchFailedAt = Date.now();
+        changed = true;
+      }
+      await new Promise(r => setTimeout(r, 900));
+    }
+    if (changed) { saveCreators(creators); syncBattleAvatarReferences(creators); try { broadcast('creators:updated'); } catch {} }
+  } catch {}
   const urls = [];
   try { for (const c of loadCreators()) if (c.avatar) urls.push(c.avatar); } catch {}
   try { for (const g of loadGroups()) if (g.avatar) urls.push(g.avatar); } catch {}
@@ -357,7 +399,7 @@ async function primeStoredAvatars() {
     if (seen.has(u)) continue;
     seen.add(u);
     try { await overlayServer.primeAvatar(u); } catch {}
-    await new Promise(r => setTimeout(r, 120)); // nghỉ nhẹ giữa các lần tải
+    await new Promise(r => setTimeout(r, 120));
   }
 }
 
