@@ -1141,6 +1141,10 @@ function learnCreatorUserId(creatorId, userId) {
   } catch {}
 }
 // Trả creatorId của người nhận quà: ưu tiên ID số (toMemberId), fallback khớp TÊN co-host (tự học ID).
+// Fuzzy cũ `n.includes(k)||k.includes(n)` quá lỏng (vd "an" khớp "anita" → cộng nhầm phe). Nay siết:
+//  - Tên <3 ký tự: chỉ khớp CHÍNH XÁC (tránh "An" nuốt "Annie").
+//  - Tên ≥3: cho phép prefix (amy ↔ amyvo) — vì TikTok hay cắt họ/lót.
+//  - Tên ≥4: mới cho phép contains giữa chuỗi (linh ↔ hoanglinh).
 function resolveRecipientCreatorId(ev) {
   const mid = ev.recipientMemberId;
   const mname = ev.recipientMemberName;
@@ -1151,7 +1155,15 @@ function resolveRecipientCreatorId(ev) {
     const n = normRecipientName(mname);
     if (n.length >= 2) {
       for (const c of _creatorNameIndex) {
-        if (c.keys.some(k => n === k || n.includes(k) || k.includes(n))) {
+        const hit = c.keys.some(k => {
+          if (!k) return false;
+          if (n === k) return true;
+          if (n.length < 3 || k.length < 3) return false;
+          if (k.startsWith(n) || n.startsWith(k)) return true;
+          if (n.length >= 4 && k.length >= 4 && (n.includes(k) || k.includes(n))) return true;
+          return false;
+        });
+        if (hit) {
           if (mid && c.userId !== String(mid)) learnCreatorUserId(c.id, String(mid)); // tự học
           return c.id;
         }
